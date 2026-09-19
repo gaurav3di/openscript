@@ -133,7 +133,23 @@ jobs:
       # repository, this workflow filename, and the `release` environment this
       # job declares. "Allow npm publish" must be enabled there, or only
       # `npm stage publish` is permitted and the direct publish below is refused.
+      # The dist tag is derived from the version rather than passed in, so the
+      # two cannot disagree. A prerelease published without a tag would either be
+      # refused by the registry or, worse on a package that already has a latest,
+      # quietly become the version an ordinary install resolves to. Deriving it
+      # means a prerelease can never become `latest` by omission, and a stable
+      # release never needs anybody to remember a flag.
       - name: publish with provenance
         # npm test above already ran the complete gate, including the build.
         # Publish that checked build rather than rebuilding inside the publish.
-        run: npm publish --provenance --access public --ignore-scripts
+        run: |
+          VERSION="$(node -p 'require("./package.json").version')"
+          if [ "${VERSION#*-}" != "$VERSION" ]; then
+            PRERELEASE="${VERSION#*-}"
+            TAG="${PRERELEASE%%.*}"
+            echo "Prerelease $VERSION publishes under the $TAG tag, never latest."
+            npm publish --provenance --access public --ignore-scripts --tag "$TAG"
+          else
+            echo "Stable $VERSION publishes under latest."
+            npm publish --provenance --access public --ignore-scripts
+          fi
