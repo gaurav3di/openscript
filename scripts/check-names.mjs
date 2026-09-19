@@ -56,7 +56,7 @@ const groups = [
 // as a substring would fail the build.
 const patterns = groups.flatMap((g) =>
   g.terms.map((t) => ({
-    re: new RegExp(`\\b${t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&').replace(/ /g, '[\\s-]+')}\\b`, 'i'),
+    re: new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/ /g, '[\\s-]+')}\\b`, 'i'),
     why: g.why,
   })),
 );
