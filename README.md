@@ -112,24 +112,29 @@ broker connection, and sometimes all three. So the pieces are separate packages
 and the dependencies only ever point one way.
 
 ```
-   openscript              openalgo-charts
-   (knows nobody)          (knows nobody)
-        |    \             /
-        |     \           /
-        |    openscript-charts        <- knows both. The only place that does
+   openalgo-script            a chart library
+   (knows nobody)             (knows nobody)
+        |      \              /
+        |       \            /
+        |   .../adapters/charts       <- knows both. The only place that does
         |
-   openscript/editor
+   .../editor
         |
-   openscript-codemirror              <- knows the editor component. Nothing else does
+   .../adapters/codemirror            <- knows the editor component. Nothing else does
 ```
 
-| Package | Is | Depends on |
+The language ships as one package with an entry point per tier, so a consumer who
+wants only the compiler never pays for an adapter. A tier is declared only once it
+exists: an entry point that resolves to nothing fails at a consumer's run time
+rather than honestly at install.
+
+| Entry point | Is | Depends on |
 |---|---|---|
-| `openscript` | Compiler and engine | Nothing |
-| `openscript/editor` | Highlight, complete, diagnose, hover, signature, format. No DOM | The compiler |
-| `openscript-charts` | Turns a compiled study into a chart's indicator descriptor | The compiler and a chart |
-| `openscript-codemirror` | A drop-in editor language package | The editor half and an editor component |
-| `openscript-py` | The same compiled program, run on a server | Nothing |
+| `openalgo-script` | Compiler and engine | Nothing |
+| `openalgo-script/editor` | Highlight, complete, diagnose, hover, signature, format. No DOM | The compiler |
+| `openalgo-script/adapters/charts` | Turns a compiled study into a chart's indicator descriptor | The compiler and a chart |
+| `openalgo-script/adapters/codemirror` | A drop-in editor language package | The editor half and an editor component |
+| The Python engine, on its own index | The same compiled program, run on a server | Nothing |
 
 An adapter is the only thing allowed to know two worlds at once, which is what
 makes it the piece a platform replaces rather than the piece they patch. A
@@ -147,9 +152,9 @@ Each row is usable on its own. Nobody has to take the next one.
 
 | You want | You add | Roughly |
 |---|---|---|
-| Scripts that produce numbers | `openscript`, and the six-item host interface | An afternoon |
-| Those studies on your chart | `openscript-charts`, plus a chart | Days. Free if the chart is the one this adapter already targets |
-| Traders authoring in your app | `openscript/editor`, and your own text component or the drop-in one | Days |
+| Scripts that produce numbers | `openalgo-script`, and the six-item host interface | An afternoon |
+| Those studies on your chart | the charts adapter, plus a chart | Days. Free if the chart is the one this adapter already targets |
+| Traders authoring in your app | `openalgo-script/editor`, and your own text component or the drop-in one | Days |
 | Traders trading from it | Wire the order half of the host interface to your order API | About a week |
 | To run it on your own stack | Implement the compiled program format in your language, then pass the conformance suite | Weeks |
 
@@ -232,6 +237,7 @@ an entry without a test.
 - [docs/](./docs) - guides, once there is something to guide
 - [spec/](./spec) - the language specification and the compiled program schema
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - how to work on this
+- [RELEASING.md](./RELEASING.md) - how a release is published, and the one manual step that cannot be automated
 
 ## Licence
 
