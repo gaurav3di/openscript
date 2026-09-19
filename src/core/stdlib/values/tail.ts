@@ -15,7 +15,14 @@
  * implementation rather than two that are meant to match. A second batch
  * implementation, however carefully written, is a second accumulation order
  * waiting to drift.
+ *
+ * The state lives in a region (`region.ts`) rather than in the closure's own
+ * variables, so the same step an engine advances over a live chart is the step
+ * this folds over a series. `tailOf` is the whole of the tail form: a region
+ * nobody else can reach, and the step applied to it.
  */
+import type { StateRecord } from './region.js';
+import { newState } from './region.js';
 
 /**
  * One bar in, one bar out, with everything the function remembers held inside.
@@ -33,4 +40,19 @@ export function fold<In, Out>(tail: Tail<In, Out>, inputs: readonly In[]): Out[]
   const out: Out[] = [];
   for (const input of inputs) out.push(tail.next(input));
   return out;
+}
+
+/**
+ * A tail from a step: a private region, advanced one bar per call.
+ *
+ * The region is the same shape an engine hands a stateful call, so the function
+ * underneath does not know which of the two is driving it.
+ */
+export function tailOf<In, Out>(step: (state: StateRecord, input: In) => Out): Tail<In, Out> {
+  const state = newState();
+  return {
+    next(input: In): Out {
+      return step(state, input);
+    },
+  };
 }

@@ -1,4 +1,5 @@
 export {
+  extremeStep,
   highest,
   highestBars,
   highestBarsTail,
@@ -9,43 +10,60 @@ export {
   lowestTail,
 } from './extremes.js';
 
-export type { Pair } from './changes.js';
+export type { Direction, Pair } from './changes.js';
 export {
   change,
+  changeStep,
   changeTail,
   cross,
   crossDown,
   crossDownTail,
   crossEitherTail,
+  crossStep,
   crossUp,
   crossUpTail,
   falling,
   fallingTail,
   history,
+  historyStep,
   historyTail,
   rising,
   risingTail,
+  runStep,
 } from './changes.js';
 
 export {
   avgSkip,
+  avgSkipStep,
   avgSkipTail,
   count,
   countPresent,
+  countPresentStep,
   countPresentTail,
+  countStep,
   countTail,
   cum,
+  cumStep,
   cumTail,
   sum,
   sumSkip,
+  sumSkipStep,
   sumSkipTail,
+  sumStep,
   sumTail,
 } from './totals.js';
 
 export type { Occasion } from './conditions.js';
-export { barsSince, barsSinceTail, valueWhen, valueWhenTail } from './conditions.js';
+export {
+  barsSince,
+  barsSinceStep,
+  barsSinceTail,
+  valueWhen,
+  valueWhenStep,
+  valueWhenTail,
+} from './conditions.js';
 
-export { pivotHigh, pivotHighTail, pivotLow, pivotLowTail } from './pivots.js';
+export { pivotHigh, pivotHighTail, pivotLow, pivotLowTail, pivotStep } from './pivots.js';
 
 export {
   correlation,
@@ -57,5 +75,6 @@ export {
   percentRank,
   percentRankTail,
   percentile,
+  percentileStep,
   percentileTail,
 } from './statistics.js';

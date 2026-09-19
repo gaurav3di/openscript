@@ -16,6 +16,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { COMPILED_FORMAT_VERSION } from '../../src/core/index.js';
 import { load } from '../../src/core/engine/index.js';
 import { compile, mutable, refusalOf } from './support.js';
 
@@ -196,6 +197,49 @@ test('a compiled format this engine does not implement is OS6016', () => {
   }));
   assert.equal(refusal.code, 'OS6016');
   assert.equal(refusal.values['found'], '9.0');
+});
+
+/** This engine's format major, with a minor no engine has been built for yet. */
+function laterMinor(): string {
+  const [major, minor] = COMPILED_FORMAT_VERSION.split('.');
+  return `${String(major)}.${Number(minor ?? '0') + 1}`;
+}
+
+test('a later minor of this engine\'s own format major loads', () => {
+  // 9.4 step 3, and the single line the compatibility promise rests on. A minor
+  // bump is additive by 9.2, and anything that is not additive is announced by a
+  // tag in `requires` that step 4 checks, so continuing here is safe rather than
+  // optimistic. The wrong implementation this catches is an equality test
+  // against the engine's own format string: with one, the day the format reaches
+  // 1.1 every engine in the field refuses every program, including all the ones
+  // it could have run perfectly.
+  const loaded = load(broken((program) => {
+    const version = program['openscript'] as { language: number };
+    program['openscript'] = { format: laterMinor(), language: version.language };
+  }));
+  assert.equal(loaded.ok, true);
+});
+
+test('a format that is not a version at all is OS6018 naming the field', () => {
+  const refusal = refusalOf(broken((program) => {
+    program['openscript'] = { format: 'latest', language: 1 };
+  }));
+  assert.equal(refusal.code, 'OS6018');
+  assert.equal(refusal.values['location'], 'openscript.format');
+});
+
+test('a missing capability and a missing language version reports the capability', () => {
+  // 9.4 is an ordered list that stops at the first failure: the capability is
+  // step 4 and the language version is step 5. It is also the more useful of the
+  // two messages, because it names the feature that was refused rather than a
+  // number. The wrong implementation this catches is the order the checks happen
+  // to be written in.
+  const refusal = refusalOf(broken((program) => {
+    program['requires'] = [...(program['requires'] as string[]), 'req.timeframe'];
+    program['openscript'] = { format: COMPILED_FORMAT_VERSION, language: 7 };
+  }));
+  assert.equal(refusal.code, 'OS6006');
+  assert.equal(refusal.values['tag'], 'req.timeframe');
 });
 
 test('a language version this engine does not implement is OS6017', () => {

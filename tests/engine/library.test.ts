@@ -2,18 +2,18 @@
  * The engine's library, gated against the numeric library and the checker's
  * surface.
  *
- * Two things are written twice in this repository and both are written twice
- * for a stated reason, so both need a check rather than an intention.
+ * **The bindings.** There is one implementation of every calculation, under
+ * `src/core/stdlib`, and the engine's manifest is a table of call sites
+ * pointing at it. So what can still be wrong is the pointing: an argument read
+ * from the wrong position, a length passed where a multiplier belongs, a
+ * default that differs from the declared one, or two steps of one study handed
+ * the same key and so sharing a lookback that should be two. None of those
+ * would fail a type check and every one of them would draw a wrong line.
  *
- * **The stateful calculations.** Every function under `src/core/stdlib` is a
- * closure holding its own variables, and `compiled-program.md` 2.11 requires a
- * state region to be snapshottable by a mechanical copy, which a closure is
- * not. So the engine holds the same arithmetic against an explicit record. This
- * file folds the engine's version over a series and asserts it equals the
- * numeric library's, bar by bar and bit for bit. That is what makes the second
- * implementation safe; without it the two would drift and the first anyone
- * would know is a study that disagrees with itself between a chart and a
- * backtest.
+ * This file drives each manifest entry through the engine's own call path, one
+ * bar at a time, and asserts the result equals the library function of the same
+ * name folded over the same series, bar by bar and bit for bit. Every entry
+ * that holds state is covered, because a binding is wrong one entry at a time.
  *
  * **The named colours.** `stdlib.md` 11.1 fixes their channel values in a
  * library manifest that does not exist, so the compiler carries a table for the
@@ -150,7 +150,8 @@ function trios(name: string, rows: readonly (readonly Value[])[], bars?: readonl
  *
  * The holes matter more than the shape: a lookback that is filled but not
  * complete, a recurrence frozen by an absent bar and a crossing test with a
- * missing side are where two implementations of the same function part company.
+ * missing side are where a binding that shares a key with its neighbour stops
+ * agreeing with the function it is supposed to be calling.
  */
 const SERIES: readonly Numeric[] = [
   12, 13.5, 11.25, 14, 15.5, null, 16.25, 15, 14.75, 18, 19.5, 17, null, 16, 20.25, 21, 19.75,
@@ -258,6 +259,63 @@ test('the multi value studies match the numeric library', () => {
     numeric.supertrend(BARS, 3, 5),
     'supertrend',
   );
+  // Catches the element order, which is the one thing about a multi-value study
+  // a type check cannot see and a reader of a chart reads as the study's answer.
+  // `stdlib.md` 6 gives this one as upper, basis, lower, and the two orders are
+  // both plausible, which is exactly why it is asserted rather than assumed.
+  assert.deepEqual(
+    trios('donchian', BARS.map(() => [4]), BARS),
+    numeric.donchian(BARS, 4),
+    'donchian',
+  );
+});
+
+test('the two band readings match the numeric library', () => {
+  assert.deepEqual(
+    fold('bbWidth', SERIES.map((one) => [one, 5, 2])),
+    numeric.bbWidth(SERIES, 5, 2),
+    'bbWidth',
+  );
+  assert.deepEqual(
+    fold('bbPercent', SERIES.map((one) => [one, 5, 2])),
+    numeric.bbPercent(SERIES, 5, 2),
+    'bbPercent',
+  );
+});
+
+test('valueWhen matches the numeric library at both occurrences', () => {
+  for (const occurrence of [0, 1]) {
+    const rows = SERIES.map((one, index) => [FLAGS[index] ?? null, one, occurrence]);
+    assert.deepEqual(
+      fold('valueWhen', rows),
+      numeric.valueWhen(FLAGS, SERIES, occurrence),
+      `valueWhen at occurrence ${occurrence}`,
+    );
+  }
+});
+
+/**
+ * Every stateful entry is compared above, and this is what keeps it so.
+ *
+ * A binding is wrong one entry at a time, so an entry nobody drove through the
+ * call path is an entry whose keys and argument positions are asserted by
+ * nothing. The list below is the entries this file folds; a new stateful call
+ * fails here until it is added to one of the comparisons.
+ */
+const COMPARED: readonly string[] = [
+  'avgSkip', 'atr', 'barsSince', 'bbPercent', 'bbWidth', 'bollinger', 'change',
+  'count', 'countPresent', 'cross', 'crossDown', 'crossUp', 'cum', 'donchian',
+  'ema', 'falling', 'highest', 'highestBars', 'history', 'hma', 'lowest',
+  'lowestBars', 'macd', 'median', 'mom', 'natr', 'percentile', 'pivotHigh',
+  'pivotLow', 'rising', 'rma', 'roc', 'rsi', 'sma', 'stdev', 'sum', 'sumSkip',
+  'supertrend', 'valueWhen', 'variance', 'wma',
+];
+
+test('every stateful entry the engine implements is one this file compares', () => {
+  const missing = manifestEntries()
+    .filter((one) => one.state && !COMPARED.includes(one.name))
+    .map((one) => `${one.name}/${one.arity}`);
+  assert.deepEqual(missing, [], 'stateful entries compared against nothing');
 });
 
 /**

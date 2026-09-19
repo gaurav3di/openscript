@@ -7,31 +7,32 @@
  * until it is reached. An array that grew as warmup completed would make an
  * index an out-of-range error at the left edge of a chart and nowhere else.
  */
-import type { Bar, Series, Tail, Value } from '../values/index.js';
-import { NONE, at, fold, isPresent, result } from '../values/index.js';
+import type { Bar, Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, at, fold, isPresent, result, tailOf } from '../values/index.js';
 import type { MaType } from '../averages/index.js';
-import { maTail, smaTail } from '../averages/index.js';
-import { highestTail, lowestTail } from '../series/index.js';
+import { maTail, smaStep } from '../averages/index.js';
+import { extremeStep } from '../series/index.js';
 
-import { stdevTail } from './deviation.js';
+import { stdevStep } from './deviation.js';
 import { atrTail } from './range.js';
 
 /** `bollinger(src, len, mult)`: `[basis, upper, lower]`, all from bar `len - 1`. */
+export function bollingerStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  mult: number | null,
+): Value[] {
+  const middle = smaStep(state, `${key}q`, value, len);
+  const deviation = stdevStep(state, `${key}d`, value, len, false);
+  if (!isPresent(middle) || !isPresent(deviation) || mult === null) return [middle, NONE, NONE];
+  return [middle, result(middle + mult * deviation), result(middle - mult * deviation)];
+}
+
+/** `bollinger(src, len, mult)` as a tail. */
 export function bollingerTail(len = 20, mult = 2): Tail<Value, Value[]> {
-  const basis = smaTail(len);
-  const spread = stdevTail(len);
-  return {
-    next(value: Value): Value[] {
-      const middle = basis.next(value);
-      const deviation = spread.next(value);
-      if (!isPresent(middle) || !isPresent(deviation)) return [middle, NONE, NONE];
-      return [
-        middle,
-        result(middle + mult * deviation),
-        result(middle - mult * deviation),
-      ];
-    },
-  };
+  return tailOf((state, value: Value) => bollingerStep(state, '', value, len, mult));
 }
 
 /** `bollinger(src, len, mult)` over a whole series. */
@@ -40,19 +41,25 @@ export function bollinger(src: Series, len = 20, mult = 2): Value[][] {
 }
 
 /** `bbWidth(src, len, mult)`: band width over the basis, from bar `len - 1`. */
+export function bbWidthStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  mult: number | null,
+): Value {
+  const trio = bollingerStep(state, key, value, len, mult);
+  const basis = at(trio, 0);
+  const upper = at(trio, 1);
+  const lower = at(trio, 2);
+  if (!isPresent(basis) || !isPresent(upper) || !isPresent(lower)) return NONE;
+  if (basis === 0) return NONE;
+  return result((upper - lower) / basis);
+}
+
+/** `bbWidth(src, len, mult)` as a tail. */
 export function bbWidthTail(len = 20, mult = 2): Tail<Value, Value> {
-  const bands = bollingerTail(len, mult);
-  return {
-    next(value: Value): Value {
-      const trio = bands.next(value);
-      const basis = at(trio, 0);
-      const upper = at(trio, 1);
-      const lower = at(trio, 2);
-      if (!isPresent(basis) || !isPresent(upper) || !isPresent(lower)) return NONE;
-      if (basis === 0) return NONE;
-      return result((upper - lower) / basis);
-    },
-  };
+  return tailOf((state, value: Value) => bbWidthStep(state, '', value, len, mult));
 }
 
 /** `bbWidth(src, len, mult)` over a whole series. */
@@ -61,19 +68,25 @@ export function bbWidth(src: Series, len = 20, mult = 2): Value[] {
 }
 
 /** `bbPercent(src, len, mult)`: where price sits between the bands, from bar `len - 1`. */
+export function bbPercentStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  mult: number | null,
+): Value {
+  const trio = bollingerStep(state, key, value, len, mult);
+  const upper = at(trio, 1);
+  const lower = at(trio, 2);
+  if (!isPresent(value) || !isPresent(upper) || !isPresent(lower)) return NONE;
+  const span = upper - lower;
+  if (span === 0) return NONE;
+  return result((value - lower) / span);
+}
+
+/** `bbPercent(src, len, mult)` as a tail. */
 export function bbPercentTail(len = 20, mult = 2): Tail<Value, Value> {
-  const bands = bollingerTail(len, mult);
-  return {
-    next(value: Value): Value {
-      const trio = bands.next(value);
-      const upper = at(trio, 1);
-      const lower = at(trio, 2);
-      if (!isPresent(value) || !isPresent(upper) || !isPresent(lower)) return NONE;
-      const span = upper - lower;
-      if (span === 0) return NONE;
-      return result((value - lower) / span);
-    },
-  };
+  return tailOf((state, value: Value) => bbPercentStep(state, '', value, len, mult));
 }
 
 /** `bbPercent(src, len, mult)` over a whole series. */
@@ -119,17 +132,22 @@ export function keltner(
 }
 
 /** `donchian(len)`: `[upper, basis, lower]`, all from bar `len - 1`. */
+export function donchianStep(
+  state: StateRecord,
+  key: string,
+  high: Value,
+  low: Value,
+  len: number | null,
+): Value[] {
+  const upper = extremeStep(state, `${key}h`, high, len, true, false);
+  const lower = extremeStep(state, `${key}l`, low, len, false, false);
+  if (!isPresent(upper) || !isPresent(lower)) return [upper, NONE, lower];
+  return [upper, result((upper + lower) / 2), lower];
+}
+
+/** `donchian(len)` as a tail. */
 export function donchianTail(len = 20): Tail<Bar, Value[]> {
-  const top = highestTail(len);
-  const bottom = lowestTail(len);
-  return {
-    next(bar: Bar): Value[] {
-      const upper = top.next(bar.high);
-      const lower = bottom.next(bar.low);
-      if (!isPresent(upper) || !isPresent(lower)) return [upper, NONE, lower];
-      return [upper, result((upper + lower) / 2), lower];
-    },
-  };
+  return tailOf((state, bar: Bar) => donchianStep(state, '', bar.high, bar.low, len));
 }
 
 /** `donchian(len)` over a run of bars. */

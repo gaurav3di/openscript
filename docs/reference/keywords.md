@@ -125,9 +125,11 @@ a bare name such as `aqua`, or hex as `#ff8800` or `#ff880080`.
 fn zoneTint(hot: bool): color => hot ? red : silver
 ```
 
-See the known conflicts: the standard library writes `color` as a named argument on
-`plot`, `fill`, `level` and the `draw` calls, and a reserved word is not an
-identifier.
+The standard library writes `color` as a named argument on `plot`, `fill`,
+`level` and the `draw` calls, and that is correct code. A named argument label is
+not a name: it is matched against the callee's parameter list and never looked up
+in a scope, so a reserved word is legal there. The rule stops at the label, and
+`color` is still not legal as a variable or as a parameter of a user function.
 
 ## continue
 
@@ -427,8 +429,10 @@ Walking a list downwards with `step -1` is the standard shape for removing eleme
 while iterating, because removing an element shifts everything after it and an
 ascending walk would skip the next one. Making a descending loop say `step -1`
 costs one word and removes the only shape of `for` loop that can spin forever by
-accident. See the known conflicts: the library also documents `step` as a named
-argument on a number input.
+accident. The library also documents `step` as a named argument on a number
+input, and that is correct code for the same reason `color = aqua` is: a named
+argument label is matched against the callee's parameter list rather than looked
+up as a name, so a reserved word is legal there.
 
 ## string
 
@@ -593,11 +597,18 @@ A reserved word may not be:
 | A variable name | `var` and `series` are tempting names for a holding variable. Rename to `state` or `values` |
 | A function name | `fn max(a, b)` fails twice: `max` is a built-in as well |
 | A parameter name | A parameter named `step` or `color` is a syntax error before the shadowing rule is even reached |
-| A named argument at a call site | The grammar requires an identifier before `=` in an argument |
 | A field or member name | `x.type` is not available in version 1 |
 
 The specification states the prohibition and does not name a specific error code
 for it. Expect a syntax error in the OS1xxx range, reported at the word.
+
+**A named argument label is the one place a reserved word is legal**, and it is
+not an exception to the table above: the label in `f(label = value)` is matched
+against the callee's parameter list and is never looked up in any scope, so it is
+not a name at all and the table does not reach it. `plot(x, "X", color = aqua)`
+and `psar(start = 0.02, step = 0.02)` are both ordinary correct code. The rule
+stops at the label. A parameter of a user function is an ordinary identifier,
+because the body refers to it, so `fn f(color = red)` is OS1019.
 
 Note that this is a **different** error from assigning to a built-in. `close`,
 `ema`, `plot` and `aqua` are not reserved words: they are ordinary names in the
@@ -645,22 +656,27 @@ function that shadowing rules would cover. Avoid both as names until it does.
 
 ## Known conflicts in the specification
 
-Four reserved words are also spelled as something a script is documented as
+Two reserved words are also spelled as something a script is documented as
 writing, and the grammar as published does not allow both. These are recorded here
 because a dictionary that quietly picks a side is worse than one that names the
 disagreement.
 
 | Word | Reserved as | Also documented as | The problem |
 |---|---|---|---|
-| `color` | A type name | The named argument of `plot`, `fill`, `level` and the `draw` calls | An argument requires an identifier before `=`, and a reserved word is not one |
-| `step` | The third clause of `for` | The named argument that sets a number input's increment | The same |
 | `number` | A type name | The conversion function `number(s)` | A call requires an identifier, and a reserved word is not one |
 | `bool` | A type name | The conversion function `bool(x)` | The same |
 
-The resolution is a specification change, not a script workaround: either these
-words leave the reserved list, none of them being needed as a keyword outside its
-own statement, or the arguments and functions are renamed. Until one of those
-happens, treat any code that depends on the overlap as unsettled.
+The resolution is a specification change, not a script workaround: either these two
+words leave the reserved list, neither being needed as a keyword outside a type
+annotation, or the functions are renamed. Until one of those happens, treat any
+code that depends on the overlap as unsettled.
+
+**Two words that used to be on this list are not conflicts and never needed to
+be.** `color` and `step` appear in the library only as named argument labels, and
+a label is settled: `language.md` 3.4 says it is matched against the callee's
+parameter list and never looked up in a scope, so a reserved word is legal as one
+and the compiler accepts it. Nothing about `color = aqua` or `step = 0.02` is
+unsettled, and code using either is code you can write today.
 
 ---
 

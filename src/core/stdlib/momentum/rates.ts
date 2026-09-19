@@ -5,10 +5,10 @@
  * Each one's warmup carries the extra bar a change costs, and `stdlib.md`
  * section 5 states it in the entry rather than leaving it to be derived.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, result, tailOf } from '../values/index.js';
 import { emaTail, smaTail } from '../averages/index.js';
-import { changeTail, historyTail, sumTail } from '../series/index.js';
+import { changeStep, changeTail, historyStep, historyTail, sumTail } from '../series/index.js';
 
 /** `mom(src, len)`: `src - src[len]`, from bar `len`. */
 export function momTail(len = 10): Tail<Value, Value> {
@@ -21,17 +21,21 @@ export function mom(src: Series, len = 10): Value[] {
 }
 
 /** `roc(src, len)`: the same change as a percentage of the older value, from bar `len`. */
+export function rocStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const then = historyStep(state, `${key}h`, value, len);
+  const delta = changeStep(state, `${key}c`, value, len);
+  if (!isPresent(then) || !isPresent(delta) || then === 0) return NONE;
+  return result((100 * delta) / then);
+}
+
+/** `roc(src, len)` as a tail. */
 export function rocTail(len = 9): Tail<Value, Value> {
-  const back = historyTail(len);
-  const step = changeTail(len);
-  return {
-    next(value: Value): Value {
-      const then = back.next(value);
-      const delta = step.next(value);
-      if (!isPresent(then) || !isPresent(delta) || then === 0) return NONE;
-      return result((100 * delta) / then);
-    },
-  };
+  return tailOf((state, value: Value) => rocStep(state, '', value, len));
 }
 
 /** `roc(src, len)` over a whole series. */

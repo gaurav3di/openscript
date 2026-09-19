@@ -24,6 +24,7 @@ import type { CheckedCall, InputKind, RequestMode } from './checked.js';
 import { calleeNameOf, isCompileTimeConstant, isSourceName } from './constant.js';
 import { checkExpression } from './expressions.js';
 import { ensureChecked } from './functions.js';
+import { allowHandle, refuseHandle } from './handles.js';
 import { isLibraryName, isOrderName, isRequestName } from './surface.js';
 import { closestName } from './suggest.js';
 import type { Type } from './types.js';
@@ -93,8 +94,19 @@ function record(checker: Checker, call: Call, checked: CheckedCall): Type {
   return checked.returns;
 }
 
+/**
+ * Every argument, checked as an expression.
+ *
+ * An argument is one of the three places a declaration handle may be written
+ * (`language.md` 5.4), because `fill(upper, lower)` is how a band is declared.
+ * Whether this particular parameter takes one is the signature's answer and not
+ * this pass's: `validateArguments` gives it, with OS3020, OS3019 or OS3011.
+ */
 function checkArgumentExpressions(checker: Checker, call: Call, placement: Placement): void {
-  for (const argument of call.args) checkExpression(checker, argument.value, placement);
+  for (const argument of call.args) {
+    allowHandle(checker, argument.value);
+    checkExpression(checker, argument.value, placement);
+  }
 }
 
 /** OS7003 and OS3006: what a request expression may not contain. */
@@ -121,6 +133,7 @@ function checkRequest(
 ): CheckedCall {
   const expression = expressionArgument(call, name);
   for (const argument of call.args) {
+    allowHandle(checker, argument.value);
     if (argument === expression) {
       checker.requestDepth += 1;
       try {
@@ -333,6 +346,12 @@ function checkUserCall(
         expected: typeText(parameter.type),
         found: typeText(given),
       });
+    } else if (given.kind === 'handle') {
+      // A parameter with nothing written about it takes whatever the caller
+      // passes, and `accepts` therefore lets a handle through. No user function
+      // takes one: a body runs per bar and a handle has no value on a bar
+      // (`language.md` 5.4).
+      refuseHandle(checker, argument.value, given);
     }
     if (parameter.readsHistory) series.push(i);
   }

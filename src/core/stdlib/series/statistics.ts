@@ -13,8 +13,8 @@
  * are large and their spread is small, which is exactly what a price series is.
  * `stdlib.md` fixes neither arrangement, so this one is chosen and stated.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, makeLookback, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, makeLookback, result, ring, tailOf } from '../values/index.js';
 
 import type { Pair } from './changes.js';
 
@@ -29,23 +29,30 @@ function ordered(read: (back: number) => Value, len: number): number[] {
  * `percentile(src, len, p)`: the value at percentile `p` of the lookback,
  * linearly interpolated, from bar `len - 1`.
  */
+export function percentileStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  p: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null || p === null || !lookback.complete()) return NONE;
+  if (!(p >= 0 && p <= 100)) return NONE;
+  const sorted = ordered((back) => lookback.at(back), len).sort((a, b) => a - b);
+  const rank = (p / 100) * (len - 1);
+  const below = Math.floor(rank);
+  const above = below + 1;
+  const low = sorted[below] as number;
+  if (above >= len) return result(low);
+  const high = sorted[above] as number;
+  return result(low + (rank - below) * (high - low));
+}
+
+/** `percentile(src, len, p)` as a tail. */
 export function percentileTail(len: number, p: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete()) return NONE;
-      if (!(p >= 0 && p <= 100)) return NONE;
-      const sorted = ordered((back) => lookback.at(back), len).sort((a, b) => a - b);
-      const rank = (p / 100) * (len - 1);
-      const below = Math.floor(rank);
-      const above = below + 1;
-      const low = sorted[below] as number;
-      if (above >= len) return result(low);
-      const high = sorted[above] as number;
-      return result(low + (rank - below) * (high - low));
-    },
-  };
+  return tailOf((state, value: Value) => percentileStep(state, 'q', value, len, p));
 }
 
 /** `percentile(src, len, p)` over a whole series. */

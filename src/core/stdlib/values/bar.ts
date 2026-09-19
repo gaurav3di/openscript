@@ -23,8 +23,13 @@ export interface Bar {
   readonly volume: Value;
 }
 
-/** `(high + low) / 2`, the bar's midpoint. */
-export function hl2(bar: Bar): Value {
+/**
+ * `(high + low) / 2`, the bar's midpoint.
+ *
+ * It takes the two extremes rather than the whole bar, because the studies
+ * built on a range hold those two and the close before them rather than a bar.
+ */
+export function hl2(bar: { readonly high: Value; readonly low: Value }): Value {
   if (!isPresent(bar.high) || !isPresent(bar.low)) return NONE;
   return result((bar.high + bar.low) / 2);
 }

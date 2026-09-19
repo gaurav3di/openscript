@@ -96,6 +96,15 @@ export class Checker {
 
   readonly types = new Map<Expression, Type>();
   readonly warmups = new Map<Expression, Warmup>();
+  /**
+   * The expressions a declaration handle is allowed to stand in, 5.4.
+   *
+   * `handles.ts` holds the rule and fills this. It is a set of permissions
+   * rather than a flag on the pass, because the permission belongs to one
+   * written expression: `fill(upper, lower)` may name a handle, and an
+   * expression inside one of those arguments may not.
+   */
+  readonly handleSites = new Set<Expression>();
   readonly references = new Map<NameReference, Binding>();
   readonly targets = new Map<Name, Binding>();
   readonly callSites = new Map<Call, CheckedCall>();

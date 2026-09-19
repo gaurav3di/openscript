@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Six checks enforce these. `npm test` runs all of them, and so does every pull
+Seven checks enforce these. `npm test` runs all of them, and so does every pull
 request.
 
 1. **No `eval`, no `Function` constructor, no dynamic code construction.** The

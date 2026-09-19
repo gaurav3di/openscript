@@ -1,15 +1,20 @@
 /**
- * The rolling lookback every length-taking function is built on.
+ * The rolling lookback and the seeded recurrence: the two pieces every length
+ * taking function in this library is built from.
  *
  * "Lookback" rather than the other word for the same thing: that one names a
  * browser global, and the layering check refuses it anywhere in the text of a
  * file under `src/core`, which is what keeps this tier runnable in a worker and
  * on a server rather than only in a page.
  *
+ * Both are held in a state region (`region.ts`) rather than in local variables,
+ * so one implementation serves a library call folded over a series and an
+ * engine advancing a chart a bar at a time.
+ *
  * **The accumulation order is part of the contract.** Binary64 addition is not
  * associative, so a sum has a value and an order, and two engines that add the
- * same lookback two ways disagree in the last bits. This library fixes one order
- * and uses it everywhere:
+ * same lookback two ways disagree in the last bits. This library fixes one
+ * order and uses it everywhere:
  *
  *   **oldest bar first, newest bar last, in index order.**
  *
@@ -25,6 +30,8 @@
  * the length the script asked for rather than by how much history is loaded,
  * and that is the property a live chart actually needs.
  */
+import type { StateField, StateRecord } from './region.js';
+import { newState } from './region.js';
 import type { Value } from './value.js';
 import { NONE, isLength, isPresent, result } from './value.js';
 
@@ -49,48 +56,62 @@ export interface Lookback {
 }
 
 /**
- * A lookback of `len` bars.
+ * A lookback of `len` bars, held in a region under `key`.
  *
  * A length outside its contract yields a lookback that never fills, so every
  * function built on it returns absence rather than a number computed from a
  * nonsense length. See `isLength` for why that is absence and not a diagnostic.
  */
-export function makeLookback(len: number): Lookback {
-  const size = isLength(len) ? len : 0;
-  const ring: Value[] = new Array<Value>(size).fill(NONE);
-  let next = 0;
-  let seen = 0;
+export function ring(record: StateRecord, key: string, len: number | null): Lookback {
+  const size = len !== null && isLength(len) ? len : 0;
+  const bars = `${key}:q`;
+  const nextKey = `${key}:n`;
+  const seenKey = `${key}:s`;
+  const held = record[bars];
+  let items: StateField[];
+  if (Array.isArray(held) && held.length === size) {
+    items = held;
+  } else {
+    items = new Array<StateField>(size).fill(NONE);
+    record[bars] = items;
+    record[nextKey] = 0;
+    record[seenKey] = 0;
+  }
 
+  const count = (name: string): number => {
+    const value = record[name];
+    return typeof value === 'number' ? value : 0;
+  };
   const index = (back: number): number => {
-    const from = next - 1 - back;
+    const from = count(nextKey) - 1 - back;
     return ((from % size) + size) % size;
   };
 
   const lookback: Lookback = {
     push(value: Value): void {
       if (size === 0) return;
-      ring[next] = value;
-      next = next + 1 === size ? 0 : next + 1;
-      if (seen < size) seen += 1;
+      items[count(nextKey)] = value;
+      const next = count(nextKey) + 1;
+      record[nextKey] = next === size ? 0 : next;
+      if (count(seenKey) < size) record[seenKey] = count(seenKey) + 1;
     },
 
     filled(): boolean {
-      return size > 0 && seen === size;
+      return size > 0 && count(seenKey) === size;
     },
 
     at(back: number): Value {
       if (size === 0 || back < 0 || back >= size) return NONE;
-      const value = ring[index(back)];
-      return value === undefined ? NONE : value;
+      const value = items[index(back)];
+      return typeof value === 'number' ? value : NONE;
     },
 
     presentCount(): number {
-      if (size === 0) return 0;
-      let count = 0;
+      let counted = 0;
       for (let back = size - 1; back >= 0; back -= 1) {
-        if (isPresent(lookback.at(back))) count += 1;
+        if (isPresent(lookback.at(back))) counted += 1;
       }
-      return count;
+      return counted;
     },
 
     complete(): boolean {
@@ -124,4 +145,54 @@ export function makeLookback(len: number): Lookback {
   };
 
   return lookback;
+}
+
+/** A lookback of `len` bars in a region of its own, for a caller that has none. */
+export function makeLookback(len: number): Lookback {
+  return ring(newState(), 'q', len);
+}
+
+/** One step of a recurrence, from the previous running value and this bar's. */
+export type Recurrence = (previous: number, value: number) => number;
+
+/**
+ * Seeded smoothing: the mean of the first complete lookback, then one step per
+ * bar.
+ *
+ * The seed lookback is complete only when it holds `len` present values, so an
+ * average taken over another study's output starts counting at that study's
+ * first value rather than at bar 0. That is what makes the warmups of
+ * `stdlib.md` compose, and it is why `ema(sma(close, 10), 10)` is absent until
+ * bar 18 rather than bar 9.
+ *
+ * A hole in the input freezes the recurrence: an absent bar after seeding
+ * produces an absent bar out and leaves the running value untouched, so the
+ * next present bar continues from where the last one left off. The alternatives
+ * are worse: consuming absence as zero would drag the average toward nothing,
+ * and re-seeding would let one missing bar restart a two hundred bar average.
+ */
+export function smoothed(
+  record: StateRecord,
+  key: string,
+  len: number | null,
+  value: Value,
+  step: Recurrence,
+): Value {
+  const seed = ring(record, `${key}~`, len);
+  const runningKey = `${key}:r`;
+  const startedKey = `${key}:o`;
+  if (record[startedKey] !== true) {
+    seed.push(value);
+    const mean = seed.mean();
+    if (!isPresent(mean)) return NONE;
+    record[startedKey] = true;
+    record[runningKey] = mean;
+    return result(mean);
+  }
+  if (!isPresent(value)) return NONE;
+  const previous = record[runningKey];
+  if (typeof previous !== 'number') return NONE;
+  const next = step(previous, value);
+  record[runningKey] = next;
+  return result(next);
 }

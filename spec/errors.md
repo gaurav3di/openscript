@@ -1163,12 +1163,12 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 
 **Message.** `{leftType} and {rightType} do not mix here.`
 
-- `{leftType}` is the type of the left operand or of the name's first assignment.
+- `{leftType}` is the type of the left operand or of the name's first assignment, or the words a per-bar value where the position takes a value of any type and a declaration handle was written.
 - `{rightType}` is the type of the right operand or of the value being assigned.
 
 **Cause.** There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. A first assignment of none fixes no type, because none is a member of every type; the type comes from the first assignment that gives a definite one, and this code names the second definite type rather than the first. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money. A declaration handle arrives here as well: plot(), plotCandles(), fill() and level() return the compile-time half of a declaration (language.md 5.4), so a handle in a position that requires a value has nothing to give, and the message names its type as plot, fill or level.
 
-**Fix.** Convert explicitly: text(x) for a string, number(s) for a number, bool(x) for a bool, or use a separate name for the second value. A plot, fill or level handle converts to nothing: leave it named at the top level, pass it to fill(), and use draw.line() or draw.box() where the script needs something it can keep.
+**Fix.** Convert explicitly: text(x) for a string, or text(x, decimals) to fix the decimals. Where no conversion applies, write the value in the type the line needs, or give the second value a name of its own. A plot, fill or level handle converts to nothing: leave it named at the top level, pass it to fill(), and use draw.line() or draw.box() where the script needs something it can keep.
 
 Before:
 

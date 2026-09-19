@@ -7,8 +7,8 @@
  * bar: the lookback's high was set most recently at that bar, and reporting the
  * older one would make the answer jump backwards as an equal high rolls in.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, makeLookback, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, result, ring, tailOf } from '../values/index.js';
 
 /** Where the extreme sits in a complete lookback, as bars back from this one. */
 function extremeBack(
@@ -31,16 +31,24 @@ function extremeBack(
   return bestBack;
 }
 
+/** `highest`, `lowest` and the two that report where the extreme was set. */
+export function extremeStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  wantHigh: boolean,
+  asBars: boolean,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null || !lookback.complete()) return NONE;
+  const back = extremeBack((k) => lookback.at(k), len, wantHigh);
+  return asBars ? back : result(lookback.at(back) as number);
+}
+
 function extremeTail(len: number, wantHigh: boolean, asBars: boolean): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete()) return NONE;
-      const back = extremeBack((k) => lookback.at(k), len, wantHigh);
-      return asBars ? back : result(lookback.at(back) as number);
-    },
-  };
+  return tailOf((state, value: Value) => extremeStep(state, 'q', value, len, wantHigh, asBars));
 }
 
 /** `highest(src, len)`: the largest value in the last `len` bars, from bar `len - 1`. */

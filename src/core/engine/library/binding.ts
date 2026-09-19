@@ -17,7 +17,7 @@
 import type { Span } from '../../span/index.js';
 import type { ColourValue, Heap, Reference, Value } from '../values/index.js';
 import { isColour, isNumber, isRef, isString } from '../values/index.js';
-import type { StateRecord } from './state.js';
+import type { StateRecord } from '../../stdlib/index.js';
 
 /** What a call does to the world outside the machine, 5.4. */
 export type Effect = 'none' | 'signal' | 'order' | 'draw' | 'log';

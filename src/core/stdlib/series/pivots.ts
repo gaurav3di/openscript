@@ -11,27 +11,35 @@
  * pivot there. A run of equal highs has no single highest bar, and picking one
  * of them would make the answer depend on which end the scan started from.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, result, ring, tailOf } from '../values/index.js';
+
+/** `pivotHigh` and `pivotLow`, answered on the bar the pivot becomes knowable. */
+export function pivotStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  left: number | null,
+  right: number | null,
+  wantHigh: boolean,
+): Value {
+  const span = left === null || right === null ? null : left + right + 1;
+  const lookback = ring(state, key, span);
+  lookback.push(value);
+  if (span === null || right === null || !lookback.filled()) return NONE;
+  const candidate = lookback.at(right);
+  if (!isPresent(candidate)) return NONE;
+  for (let back = span - 1; back >= 0; back -= 1) {
+    if (back === right) continue;
+    const other = lookback.at(back);
+    if (!isPresent(other)) return NONE;
+    if (wantHigh ? other >= candidate : other <= candidate) return NONE;
+  }
+  return result(candidate);
+}
 
 function pivotTail(left: number, right: number, wantHigh: boolean): Tail<Value, Value> {
-  const span = left + right + 1;
-  const lookback = makeLookback(span);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.filled()) return NONE;
-      const candidate = lookback.at(right);
-      if (!isPresent(candidate)) return NONE;
-      for (let back = span - 1; back >= 0; back -= 1) {
-        if (back === right) continue;
-        const other = lookback.at(back);
-        if (!isPresent(other)) return NONE;
-        if (wantHigh ? other >= candidate : other <= candidate) return NONE;
-      }
-      return result(candidate);
-    },
-  };
+  return tailOf((state, value: Value) => pivotStep(state, 'q', value, left, right, wantHigh));
 }
 
 /** `pivotHigh(src, left, right)`: the value of a local high, from bar `left + right`. */

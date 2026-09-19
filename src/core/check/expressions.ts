@@ -16,6 +16,7 @@ import { withoutGrouping } from '../ast/index.js';
 import { resolveCall } from './call-sites.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
+import { allowHandle, handleAllowed, refuseHandle } from './handles.js';
 import { literalNumber } from './literals.js';
 import { isNamespace, libraryEntries, membersOf } from './surface.js';
 import { closestName } from './suggest.js';
@@ -44,11 +45,26 @@ const ARITHMETIC = new Set(['+', '-', '*', '/', '%']);
 const COMPARISON = new Set(['<', '<=', '>', '>=']);
 const EQUALITY = new Set(['==', '!=']);
 
+/**
+ * An expression, and the answer to whether it may stand where it was written.
+ *
+ * A declaration handle is the one type that is not a value (`language.md` 5.4),
+ * so the type the pass works out is checked against the closed list of places
+ * one may be written before it is handed to the rule above. Refusing here
+ * rather than at each consumer is what makes the refusal hold for a position
+ * nobody enumerated; `handles.ts` says why that matters.
+ */
 export function checkExpression(
   checker: Checker,
   expression: Expression,
   placement: Placement,
 ): Type {
+  const type = checkNode(checker, expression, placement);
+  if (type.kind !== 'handle' || handleAllowed(checker, expression)) return type;
+  return refuseHandle(checker, expression, type);
+}
+
+function checkNode(checker: Checker, expression: Expression, placement: Placement): Type {
   switch (expression.kind) {
     case 'numberLiteral':
       return checker.record(expression, NUMBER, BAR_ZERO);
@@ -127,9 +143,13 @@ function checkArrayLiteral(
   expression: Extract<Expression, { kind: 'arrayLiteral' }>,
   placement: Placement,
 ): Type {
-  const types = expression.elements.map((element) =>
-    elementOf(checkExpression(checker, element, placement)),
-  );
+  // A handle may be named here so that the answer is OS2019, which says an
+  // array cannot hold one and where to put the declaration instead
+  // (`language.md` 5.4 and 14.1).
+  const types = expression.elements.map((element) => {
+    allowHandle(checker, element);
+    return elementOf(checkExpression(checker, element, placement));
+  });
   const warmup = allOf(expression.elements.map((element) => checker.warmupOf(element)));
 
   // An empty literal takes its element type from an annotation or from the
@@ -365,8 +385,17 @@ function isNoneLiteral(expression: Expression): boolean {
  * there is no run-time dispatch. What has history at all is 5.2's list of four,
  * and `hasHistory` below is that list; anything else is OS2004, whose fix is to
  * give the value a name at the top level of the file.
+ *
+ * Neither kind of thing in 5.4 has history, and a name holding one of them sits
+ * at the top level, which is why the two are refused by name here rather than
+ * left to `hasHistory`: a handle has no per-bar value to retain, and an object
+ * is one reference that the script mutates rather than a value per bar.
  */
 function checkIndex(checker: Checker, expression: Index, placement: Placement): Type {
+  // A handle is allowed to be named here so that this reads it and says the
+  // thing a reader needs, which is that it has no history; refusing it as a
+  // value first would answer a question nobody asked.
+  allowHandle(checker, expression.target);
   const target = checkExpression(checker, expression.target, placement);
   checkExpression(checker, expression.index, placement);
   const targetWarmup = checker.warmupOf(expression.target);
@@ -379,7 +408,8 @@ function checkIndex(checker: Checker, expression: Index, placement: Placement): 
     return checker.record(expression, element, targetWarmup);
   }
 
-  if (!hasHistory(checker, expression.target, target)) {
+  const held = elementOf(target).kind;
+  if (held === 'handle' || held === 'object' || !hasHistory(checker, expression.target, target)) {
     checker.report('OS2004', expression.span, {
       expr: checker.textOf(expression.target.span),
     });

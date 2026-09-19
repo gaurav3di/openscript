@@ -75,7 +75,7 @@ done and nobody needs to log in again.
 ## Every release after that
 
 1. Update the version in `package.json` and the changelog.
-2. `npm test`, which runs the six checks, the real build and the unit tests.
+2. `npm test`, which runs the seven checks, the real build and the unit tests.
 3. Commit, tag, push the tag.
 4. Dispatch the Release workflow manually with that tag.
 

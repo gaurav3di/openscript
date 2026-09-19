@@ -14,28 +14,36 @@
  * variance that then has to be floored at zero. A study whose implementation
  * needs a floor to stay real is a study computing the wrong quantity.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, makeLookback, result, ring, tailOf } from '../values/index.js';
 
 /** `variance(src, len, sample)`: the squared deviation over the lookback, from bar `len - 1`. */
-export function varianceTail(len: number, sample = false): Tail<Value, Value> {
-  const lookback = makeLookback(len);
+export function varianceStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  sample: boolean,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null) return NONE;
   const divisor = sample ? len - 1 : len;
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete() || divisor <= 0) return NONE;
-      const mean = lookback.mean();
-      if (!isPresent(mean)) return NONE;
-      let squares = 0;
-      // Oldest bar first, the order of `lookback.ts`.
-      for (let back = len - 1; back >= 0; back -= 1) {
-        const deviation = (lookback.at(back) as number) - mean;
-        squares += deviation * deviation;
-      }
-      return result(squares / divisor);
-    },
-  };
+  if (!lookback.complete() || divisor <= 0) return NONE;
+  const mean = lookback.mean();
+  if (!isPresent(mean)) return NONE;
+  let squares = 0;
+  // Oldest bar first, the order of `lookback.ts`.
+  for (let back = len - 1; back >= 0; back -= 1) {
+    const deviation = (lookback.at(back) as number) - mean;
+    squares += deviation * deviation;
+  }
+  return result(squares / divisor);
+}
+
+/** `variance(src, len, sample)` as a tail. */
+export function varianceTail(len: number, sample = false): Tail<Value, Value> {
+  return tailOf((state, value: Value) => varianceStep(state, 'q', value, len, sample));
 }
 
 /** `variance(src, len, sample)` over a whole series. */
@@ -44,15 +52,21 @@ export function variance(src: Series, len: number, sample = false): Value[] {
 }
 
 /** `stdev(src, len, sample)`: the square root of the same, from bar `len - 1`. */
+export function stdevStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  sample: boolean,
+): Value {
+  const squared = varianceStep(state, key, value, len, sample);
+  if (!isPresent(squared) || squared < 0) return NONE;
+  return result(Math.sqrt(squared));
+}
+
+/** `stdev(src, len, sample)` as a tail. */
 export function stdevTail(len: number, sample = false): Tail<Value, Value> {
-  const spread = varianceTail(len, sample);
-  return {
-    next(value: Value): Value {
-      const squared = spread.next(value);
-      if (!isPresent(squared) || squared < 0) return NONE;
-      return result(Math.sqrt(squared));
-    },
-  };
+  return tailOf((state, value: Value) => stdevStep(state, 'q', value, len, sample));
 }
 
 /** `stdev(src, len, sample)` over a whole series. */

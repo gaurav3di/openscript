@@ -1,6 +1,6 @@
-export { rsi, rsiTail } from './rsi.js';
+export { rsi, rsiStep, rsiTail } from './rsi.js';
 
-export { macd, macdTail, ppo, ppoTail } from './convergence.js';
+export { macd, macdStep, macdTail, ppo, ppoTail } from './convergence.js';
 
 export {
   stoch,
@@ -19,6 +19,7 @@ export {
   mom,
   momTail,
   roc,
+  rocStep,
   rocTail,
   trix,
   trixTail,

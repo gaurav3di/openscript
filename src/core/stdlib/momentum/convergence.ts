@@ -11,29 +11,33 @@
  * seeds on the first `signal` values the difference produced. That is where the
  * declared warmup of bar `slow + signal - 2` comes from.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, result } from '../values/index.js';
-import { emaTail } from '../averages/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, result, tailOf } from '../values/index.js';
+import { emaStep, emaTail } from '../averages/index.js';
 
 /**
  * `macd(src, fast, slow, signal)`: `[macd, signal, histogram]`, element 0 from
  * bar `slow - 1` and the other two from bar `slow + signal - 2`.
  */
+export function macdStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  fast: number | null,
+  slow: number | null,
+  signal: number | null,
+): Value[] {
+  const near = emaStep(state, `${key}e`, value, fast);
+  const far = emaStep(state, `${key}g`, value, slow);
+  const line = isPresent(near) && isPresent(far) ? result(near - far) : NONE;
+  const trigger = emaStep(state, `${key}i`, line, signal);
+  const histogram = isPresent(line) && isPresent(trigger) ? result(line - trigger) : NONE;
+  return [line, trigger, histogram];
+}
+
+/** `macd(src, fast, slow, signal)` as a tail. */
 export function macdTail(fast = 12, slow = 26, signal = 9): Tail<Value, Value[]> {
-  const quick = emaTail(fast);
-  const patient = emaTail(slow);
-  const smooth = emaTail(signal);
-  return {
-    next(value: Value): Value[] {
-      const near = quick.next(value);
-      const far = patient.next(value);
-      const line = isPresent(near) && isPresent(far) ? result(near - far) : NONE;
-      const trigger = smooth.next(line);
-      const histogram =
-        isPresent(line) && isPresent(trigger) ? result(line - trigger) : NONE;
-      return [line, trigger, histogram];
-    },
-  };
+  return tailOf((state, value: Value) => macdStep(state, '', value, fast, slow, signal));
 }
 
 /** `macd(src, fast, slow, signal)` over a whole series. */

@@ -26,18 +26,38 @@ import {
 
 const EMITTED = emittedTargets();
 
-test('a target script compiles with nothing reported, or is refused with a gap', () => {
+/**
+ * A target script is good OpenScript, so nothing reported about one is its
+ * author's fault, and there are only two honest outcomes.
+ *
+ * It compiles and nothing is said, or the compiler cannot carry it and says so
+ * with a code. The third outcome, no program and no diagnostic, is the one a
+ * reader cannot act on at all: they wrote a legal script, got nothing back, and
+ * have no sentence to search for or quote in a question. A gap is a note
+ * between the parts of this project and never reaches them.
+ */
+test('a target script compiles with nothing reported, or is refused and says so', () => {
   for (const name of scriptNames()) {
     const one = compileTarget(name);
     const errors = one.diagnostics.filter((d) => d.severity === 'error');
-    assert.deepEqual(
-      errors.map((d) => `${d.code} at ${d.span.line}:${d.span.column}`),
-      [],
-      `${name} reported an error`,
-    );
     // Either there is a program, or there is a gap saying why there is not.
     const blocked = one.gaps.some((gap) => gap.blocking);
     assert.equal(one.program === undefined, blocked, `${name}: a missing program with no gap`);
+
+    if (!blocked) {
+      assert.deepEqual(
+        errors.map((d) => `${d.code} at ${d.span.line}:${d.span.column}`),
+        [],
+        `${name} reported an error`,
+      );
+      continue;
+    }
+    // Refused, so the refusal itself is reported and nothing else is.
+    assert.deepEqual(
+      [...new Set(errors.map((d) => d.code))],
+      ['OS6018'],
+      `${name}: refused without saying so to whoever asked for the program`,
+    );
   }
 });
 

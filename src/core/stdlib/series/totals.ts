@@ -7,18 +7,24 @@
  * a function that quietly ignored a gap would report a total over a lookback it
  * never had.
  */
-import type { Flag, Flags, Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
+import type { Flag, Flags, Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, result, ring, slot, tailOf } from '../values/index.js';
 
 /** `sum(src, len)`: the total over the lookback, from bar `len - 1`. */
+export function sumStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  return lookback.sum();
+}
+
+/** `sum(src, len)` as a tail. */
 export function sumTail(len: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      return lookback.sum();
-    },
-  };
+  return tailOf((state, value: Value) => sumStep(state, 'q', value, len));
 }
 
 /** `sum(src, len)` over a whole series. */
@@ -34,15 +40,16 @@ export function sum(src: Series, len: number): Value[] {
  * total over bars that had no value, and propagating it into the total would
  * end the series permanently at the first gap.
  */
+export function cumStep(state: StateRecord, key: string, value: Value): Value {
+  if (!isPresent(value)) return NONE;
+  const total = slot(state, key, 0) + value;
+  state[key] = total;
+  return result(total);
+}
+
+/** `cum(src)` as a tail. */
 export function cumTail(): Tail<Value, Value> {
-  let total = 0;
-  return {
-    next(value: Value): Value {
-      if (!isPresent(value)) return NONE;
-      total += value;
-      return result(total);
-    },
-  };
+  return tailOf((state, value: Value) => cumStep(state, 't', value));
 }
 
 /** `cum(src)` over a whole series. */
@@ -59,14 +66,20 @@ export function cum(src: Series): Value[] {
  * instead would make a count over a condition built from an average absent for
  * a second warmup on top of the average's own.
  */
+export function countStep(
+  state: StateRecord,
+  key: string,
+  cond: Flag,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(cond === true ? 1 : 0);
+  return lookback.sum();
+}
+
+/** `count(cond, len)` as a tail. */
 export function countTail(len: number): Tail<Flag, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(flag: Flag): Value {
-      lookback.push(flag === true ? 1 : 0);
-      return lookback.sum();
-    },
-  };
+  return tailOf((state, cond: Flag) => countStep(state, 'q', cond, len));
 }
 
 /** `count(cond, len)` over a whole series. */
@@ -75,14 +88,20 @@ export function count(cond: Flags, len: number): Value[] {
 }
 
 /** `sumSkip(src, len)`: the total over the lookback, ignoring absent bars. */
+export function sumSkipStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  return lookback.sumPresent();
+}
+
+/** `sumSkip(src, len)` as a tail. */
 export function sumSkipTail(len: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      return lookback.sumPresent();
-    },
-  };
+  return tailOf((state, value: Value) => sumSkipStep(state, 'q', value, len));
 }
 
 /** `sumSkip(src, len)` over a whole series. */
@@ -91,14 +110,20 @@ export function sumSkip(src: Series, len: number): Value[] {
 }
 
 /** `countPresent(src, len)`: how many bars of the lookback had a value. */
+export function countPresentStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  return lookback.filled() ? lookback.presentCount() : NONE;
+}
+
+/** `countPresent(src, len)` as a tail. */
 export function countPresentTail(len: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      return lookback.filled() ? lookback.presentCount() : NONE;
-    },
-  };
+  return tailOf((state, value: Value) => countPresentStep(state, 'q', value, len));
 }
 
 /** `countPresent(src, len)` over a whole series. */
@@ -113,18 +138,24 @@ export function countPresent(src: Series, len: number): Value[] {
  * no values, and a division by zero is absence by the rule of `stdlib.md`
  * section 2.4.
  */
+export function avgSkipStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (!lookback.filled()) return NONE;
+  const counted = lookback.presentCount();
+  const total = lookback.sumPresent();
+  if (counted === 0 || !isPresent(total)) return NONE;
+  return result(total / counted);
+}
+
+/** `avgSkip(src, len)` as a tail. */
 export function avgSkipTail(len: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.filled()) return NONE;
-      const present = lookback.presentCount();
-      const total = lookback.sumPresent();
-      if (present === 0 || !isPresent(total)) return NONE;
-      return result(total / present);
-    },
-  };
+  return tailOf((state, value: Value) => avgSkipStep(state, 'q', value, len));
 }
 
 /** `avgSkip(src, len)` over a whole series. */

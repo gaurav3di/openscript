@@ -23,6 +23,7 @@ import { CATALOGUE_LANGUAGE_VERSION } from '../catalogue/index.js';
 import type { CheckedScript } from '../check/index.js';
 import type { DiagnosticSink } from '../diagnostics/index.js';
 import type { SourceFile } from '../source/index.js';
+import type { Span } from '../span/index.js';
 import { COMPILED_FORMAT_VERSION, VERSION } from '../version/index.js';
 import { sourceHash } from './canonical.js';
 import { orderChannels, renumberCode, renumberOutputs } from './channels.js';
@@ -80,7 +81,7 @@ export function emit(
     ...one,
     code: renumberCode(one.code, order.moved),
   }));
-  checkDepths(e, code);
+  checkDepths(e, top, code);
   checkLimits(e, code, states.length);
 
   const program: CompiledProgram = {
@@ -122,7 +123,39 @@ export function emit(
     },
   };
 
-  return { program: e.gaps.blocked ? undefined : program, gaps: e.gaps.gaps };
+  if (!e.gaps.blocked) return { program, gaps: e.gaps.gaps };
+  reportRefusal(e);
+  return { program: undefined, gaps: e.gaps.gaps };
+}
+
+/**
+ * Why there is no program, said to the person who asked for one.
+ *
+ * A gap is a note between the parts of this project and nobody outside it ever
+ * reads one, so an emitter that returned nothing and logged a gap left a trader
+ * with a compile that produced no program, no message and nothing to ask a
+ * question about. That is the worst failure this compiler has available: the
+ * script may be perfectly good, and silence gives its author no way to find out
+ * whether it is.
+ *
+ * So every gap that stopped a program becomes a diagnostic. It carries the line
+ * that provoked it, what could not be done, and the section that asks for it,
+ * and it says where to take it. The sentence is careful about whose fault it
+ * is, because this runs whether or not an earlier stage refused the file: a
+ * checked tree the emitter cannot emit is a defect in the compiler only when
+ * nothing else was reported about it.
+ */
+function reportRefusal(e: Emitter): void {
+  for (const gap of e.gaps.gaps) {
+    if (!gap.blocking) continue;
+    e.sink.report('OS6018', gap.span ?? e.checked.script.span, {
+      location: gap.specification,
+      reason:
+        `${gap.what}; this compiler produced no program rather than a wrong one, and if ` +
+        'nothing else was reported about this script that is a defect in the compiler ' +
+        'rather than in the script: please report it, with the script that produced it',
+    });
+  }
 }
 
 function languageOf(checked: CheckedScript): number {
@@ -189,22 +222,36 @@ function assignRegions(
 }
 
 /** Section 3.5 check 5, run here so a defect is found where it was written. */
-function checkDepths(e: Emitter, code: readonly Instruction[]): void {
+function checkDepths(e: Emitter, top: Frame, code: readonly Instruction[]): void {
   const argcOf = (site: number): number => e.sites[site]?.argc ?? 0;
   const lists: readonly (readonly Instruction[])[] = [code, ...e.functions.map((one) => one.code)];
 
-  for (const list of lists) {
+  lists.forEach((list, index) => {
     const walk = walkDepths(list, argcOf);
     const at = walk.conflict ?? walk.underflow;
-    if (at === undefined) continue;
+    if (at === undefined) return;
     e.gap(
       `the stack depth this compiler emitted does not survive its own walk at instruction ${at}, ` +
         'so an engine would refuse the program at load',
       'compiled-program.md 3.5 check 5',
-      undefined,
+      // The bar's own list is the one whose positions are to hand, and it is
+      // where all but one of these can happen. A line beats no line: whoever
+      // reads this next starts at the statement rather than at the file.
+      index === 0 ? lineOfInstruction(e, top, at) : undefined,
       true,
     );
+  });
+}
+
+/** Where the instruction at this index came from, from the debug positions. */
+function lineOfInstruction(e: Emitter, top: Frame, index: number): Span | undefined {
+  let found: readonly [number, number, number] | undefined;
+  for (const position of top.builder.pos) {
+    if (position[0] > index) break;
+    found = position;
   }
+  if (found === undefined) return undefined;
+  return e.file.spanAt(e.file.offsetAt({ line: found[1], column: found[2] }), 1);
 }
 
 /**

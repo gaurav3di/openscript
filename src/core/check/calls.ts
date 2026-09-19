@@ -19,6 +19,7 @@ import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
 import type { CheckedCall } from './checked.js';
 import { isCompileTimeConstant } from './constant.js';
+import { refuseHandle } from './handles.js';
 import type { LibraryEntry } from './library.js';
 import { literalNumber, literalString } from './literals.js';
 import { recordOutput, reportCallWarnings } from './outputs.js';
@@ -91,7 +92,12 @@ function bindVariables(
     const parameter = entry.parameters[i];
     const argument = filled[i];
     if (parameter === undefined || argument === undefined) continue;
-    const given = checker.typeOf(argument.value);
+    // A stand-in binds to the type it was given, and a declaration handle is
+    // the one type it must not carry: a signature that returned one would hand
+    // a name a handle the emitter has no declaration for (`language.md` 5.4).
+    // `validateArguments` reports it; this keeps the result out of the tree.
+    const supplied = checker.typeOf(argument.value);
+    const given = supplied.kind === 'handle' ? UNKNOWN : supplied;
     const wanted = parameter.type;
     if (wanted.kind === 'variable') remember(wanted.name, given);
     else if (wanted.kind === 'array' && wanted.element.kind === 'variable') {
@@ -101,6 +107,27 @@ function bindVariables(
   }
 
   return bound;
+}
+
+/**
+ * Whether a parameter is written to take whatever it is given.
+ *
+ * A stand-in (`orElse(x: T, fallback: T)`) and `any` (`text(x: any)`) both name
+ * no type, so a handle in one of them has no declared type to be named against
+ * and OS3011 would have nothing to put in its sentence. What is true of both is
+ * that they take a value, which is the answer OS2003 gives.
+ */
+function takesAnyValue(type: Type): boolean {
+  switch (type.kind) {
+    case 'variable':
+    case 'unknown':
+      return true;
+    case 'array':
+    case 'series':
+      return takesAnyValue(type.element);
+    default:
+      return false;
+  }
 }
 
 function substitute(type: Type, bound: ReadonlyMap<string, Type>): Type {
@@ -193,14 +220,23 @@ export function validateArguments(
         rightType: typeText(NOTHING),
       });
     } else if (entry.name === 'fill' && (i === 0 || i === 1)) {
-      if (!isHandle(given) || given.kind !== 'handle' || given.handle !== 'plot') {
+      // `unknown` is what an expression already reported about carries, and it
+      // satisfies everything, so a band drawn to a name whose own line was
+      // refused does not collect a second diagnostic about the same mistake.
+      if (given.kind !== 'unknown' && (given.kind !== 'handle' || given.handle !== 'plot')) {
         checker.report('OS3020', span, {
           argument: parameter.name,
           found: typeText(given),
         });
       }
-    } else if (isHandle(given) && !isHandle(expected)) {
-      if (expected.kind === 'object') {
+    } else if (isHandle(given) && parameter.type.kind !== 'handle') {
+      // `fill` is the one signature in version 1 that declares a handle
+      // parameter, and it is answered above. Every other parameter takes a
+      // value, including a stand-in, which binds to whatever it is given and
+      // would otherwise carry a handle into a call that has no way to hold one.
+      if (takesAnyValue(parameter.type)) {
+        refuseHandle(checker, argument.value, given);
+      } else if (expected.kind === 'object') {
         checker.report('OS3019', span, {
           name: entry.name,
           argument: parameter.name,

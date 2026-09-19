@@ -19,10 +19,14 @@
  *   ways disagree in the last bits. Lookbacks are summed fresh, oldest bar first,
  *   and where a formula could be arranged two ways the file that implements it
  *   says which way and why.
- * - **Every function is written as a tail** (`values/tail.ts`): a small piece of
- *   state and a step that takes one bar. The whole-series form is that step
- *   folded over the series, so the live path and the history path cannot
- *   disagree, because there is only one of them.
+ * - **Every function is written once, as a step over a state region**
+ *   (`values/region.ts`): a flat record and a step that takes one bar. The tail
+ *   form is that step over a region of its own and the whole-series form is the
+ *   tail folded, so the live path and the history path cannot disagree, because
+ *   there is only one of them. The record rather than a closure is what lets an
+ *   engine drive the same step: `compiled-program.md` 2.11 requires a region to
+ *   be copyable by something that does not know what is in it, and that is the
+ *   reason there is no second copy of any of this arithmetic in the engine.
  *
  * **What this library does not do: raise.** A length outside its contract is
  * OS3004 at compile time or OS4003 at run time, raised before a call reaches
@@ -35,10 +39,24 @@
  * supplies them.
  */
 
-export type { Bar, Flag, Flags, Lookback, Series, Tail, Value } from './values/index.js';
+export type {
+  Bar,
+  Flag,
+  Flags,
+  Lookback,
+  Recurrence,
+  Series,
+  StateField,
+  StateRecord,
+  StateSlot,
+  Tail,
+  Value,
+} from './values/index.js';
 export {
   NONE,
   at,
+  copyState,
+  flag,
   fold,
   hl2,
   hlc3,
@@ -46,8 +64,14 @@ export {
   isLength,
   isPresent,
   makeLookback,
+  newState,
   ohlc4,
+  queue,
   result,
+  ring,
+  slot,
+  smoothed,
+  tailOf,
 } from './values/index.js';
 
 export {
@@ -93,42 +117,56 @@ export {
   alma,
   almaTail,
   dema,
+  demaStep,
   demaTail,
   ema,
+  emaStep,
   emaTail,
   hma,
+  hmaStep,
   hmaTail,
   linreg,
   linregTail,
   ma,
   maTail,
   rma,
+  rmaStep,
   rmaTail,
   sma,
+  smaStep,
   smaTail,
   swma,
+  swmaStep,
   swmaTail,
   tema,
+  temaStep,
   temaTail,
   vwma,
+  vwmaStep,
   vwmaTail,
   wma,
+  wmaStep,
   wmaTail,
 } from './averages/index.js';
 
-export type { Occasion, Pair } from './series/index.js';
+export type { Direction, Occasion, Pair } from './series/index.js';
 export {
   avgSkip,
+  avgSkipStep,
   avgSkipTail,
   barsSince,
+  barsSinceStep,
   barsSinceTail,
   change,
+  changeStep,
   changeTail,
   correlation,
   correlationTail,
   count,
   countPresent,
+  countPresentStep,
   countPresentTail,
+  countStep,
   countTail,
   covariance,
   covarianceTail,
@@ -136,10 +174,13 @@ export {
   crossDown,
   crossDownTail,
   crossEitherTail,
+  crossStep,
   crossUp,
   crossUpTail,
   cum,
+  cumStep,
   cumTail,
+  extremeStep,
   falling,
   fallingTail,
   highest,
@@ -147,6 +188,7 @@ export {
   highestBarsTail,
   highestTail,
   history,
+  historyStep,
   historyTail,
   lowest,
   lowestBars,
@@ -157,34 +199,47 @@ export {
   percentRank,
   percentRankTail,
   percentile,
+  percentileStep,
   percentileTail,
   pivotHigh,
   pivotHighTail,
   pivotLow,
   pivotLowTail,
+  pivotStep,
   rising,
   risingTail,
+  runStep,
   sum,
   sumSkip,
+  sumSkipStep,
   sumSkipTail,
+  sumStep,
   sumTail,
   valueWhen,
+  valueWhenStep,
   valueWhenTail,
 } from './series/index.js';
 
+export type { Gap } from './volatility/index.js';
 export {
   atr,
+  atrStep,
   atrTail,
   bbPercent,
+  bbPercentStep,
   bbPercentTail,
   bbWidth,
+  bbWidthStep,
   bbWidthTail,
   bollinger,
+  bollingerStep,
   bollingerTail,
   chop,
   chopTail,
   donchian,
+  donchianStep,
   donchianTail,
+  gapOf,
   gapTrueRange,
   gapTrueRangeTail,
   hv,
@@ -194,12 +249,16 @@ export {
   meanDeviation,
   meanDeviationTail,
   natr,
+  natrStep,
   natrTail,
   stdev,
+  stdevStep,
   stdevTail,
   trueRange,
+  trueRangeOf,
   trueRangeTail,
   variance,
+  varianceStep,
   varianceTail,
 } from './volatility/index.js';
 
@@ -213,14 +272,17 @@ export {
   dpo,
   dpoTail,
   macd,
+  macdStep,
   macdTail,
   mom,
   momTail,
   ppo,
   ppoTail,
   roc,
+  rocStep,
   rocTail,
   rsi,
+  rsiStep,
   rsiTail,
   stoch,
   stochRsi,
@@ -246,6 +308,7 @@ export {
   psar,
   psarTail,
   supertrend,
+  supertrendStep,
   supertrendTail,
 } from './trend/index.js';
 

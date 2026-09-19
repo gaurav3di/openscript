@@ -38,7 +38,7 @@ export interface EngineLimits {
   readonly steps: number | null;
   /** Milliseconds one bar may take, or null for no clock at all. */
   readonly ms: number | null;
-  /** Elements one array may hold, OS5002. */
+  /** Elements one array may hold, `language.md` 14.1, OS5002. */
   readonly arrayElements: number;
   /** Code points one string may hold, OS5008. */
   readonly stringLength: number;
@@ -62,11 +62,18 @@ export interface EngineLimits {
  * The ceilings that have a catalogue code are set; the clock is off, because a
  * default wall clock would make the same script pass on a fast machine and fail
  * on a slow one with nobody having asked for that trade.
+ *
+ * **`arrayElements` is the one number here the language fixes.** `language.md`
+ * 14.1 states it, so it is not a host's choice and a host lowering it refuses a
+ * script that a conforming engine runs. `scripts/check-limits.mjs` compares it
+ * against that sentence on every build, which is the only reason this file may
+ * write the number at all. Every other ceiling below is the host's, because the
+ * specification leaves it open.
  */
 export const DEFAULT_LIMITS: EngineLimits = {
   steps: null,
   ms: null,
-  arrayElements: 100_000,
+  arrayElements: 1_000_000,
   stringLength: 100_000,
   frames: 64,
   loops: null,

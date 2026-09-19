@@ -5,7 +5,9 @@
  * and then refers `rma` to: the average is seeded on bar `len - 1` with the
  * simple average of those `len` values, and is absent before it. Seeding from
  * bar 0 instead, which is common and cheaper, draws a line where there should
- * be a gap and stays materially wrong until the seed decays away.
+ * be a gap and stays materially wrong until the seed decays away. The seeding
+ * itself is `smoothed` in `lookback.ts`, which every seeded average here and in
+ * the studies built on them goes through.
  *
  * **Two arrangements, deliberately.** `ema` steps as `value * k + prev * (1 - k)`
  * and `rma` steps as `(prev * (len - 1) + value) / len`. Those are the same
@@ -14,53 +16,26 @@
  * `1 / len` in `ema`'s shape would disagree in the last bits with every
  * implementation of the classic oscillators, which is precisely what this
  * project treats as a release blocker.
- *
- * **A hole in the input freezes the recurrence.** An absent bar after seeding
- * produces an absent bar out and leaves the running value untouched, so the
- * next present bar continues from where the last one left off. The alternatives
- * are worse: consuming absence as zero would drag the average toward nothing,
- * and re-seeding would let one missing bar restart a two hundred bar average.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
-
-/** One step of a recurrence, from the previous running value and this bar's. */
-type Step = (previous: number, value: number) => number;
-
-/**
- * Seeded smoothing: the mean of the first complete lookback, then `step` per bar.
- *
- * The seed lookback is complete only when it holds `len` present values, so an
- * average taken over another study's output starts counting at that study's
- * first value rather than at bar 0. That is what makes the warmups of
- * `stdlib.md` compose.
- */
-function seeded(len: number, step: Step): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  let running = 0;
-  let started = false;
-  return {
-    next(value: Value): Value {
-      if (!started) {
-        lookback.push(value);
-        const mean = lookback.mean();
-        if (!isPresent(mean)) return NONE;
-        started = true;
-        running = mean;
-        return result(running);
-      }
-      if (!isPresent(value)) return NONE;
-      running = step(running, value);
-      return result(running);
-    },
-  };
-}
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, result, smoothed, tailOf } from '../values/index.js';
 
 /** `ema(src, len)`: exponential mean, weight `2 / (len + 1)`, from bar `len - 1`. */
-export function emaTail(len: number): Tail<Value, Value> {
+export function emaStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  if (len === null) return NONE;
   const weight = 2 / (len + 1);
   const rest = 1 - weight;
-  return seeded(len, (previous, value) => value * weight + previous * rest);
+  return smoothed(state, key, len, value, (previous, next) => next * weight + previous * rest);
+}
+
+/** `ema(src, len)` as a tail. */
+export function emaTail(len: number): Tail<Value, Value> {
+  return tailOf((state, value: Value) => emaStep(state, 'e', value, len));
 }
 
 /** `ema(src, len)` over a whole series. */
@@ -69,8 +44,19 @@ export function ema(src: Series, len: number): Value[] {
 }
 
 /** `rma(src, len)`: the smoothing the classic oscillators use, from bar `len - 1`. */
+export function rmaStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  if (len === null) return NONE;
+  return smoothed(state, key, len, value, (previous, next) => (previous * (len - 1) + next) / len);
+}
+
+/** `rma(src, len)` as a tail. */
 export function rmaTail(len: number): Tail<Value, Value> {
-  return seeded(len, (previous, value) => (previous * (len - 1) + value) / len);
+  return tailOf((state, value: Value) => rmaStep(state, 'r', value, len));
 }
 
 /** `rma(src, len)` over a whole series. */
@@ -85,17 +71,21 @@ export function rma(src: Series, len: number): Value[] {
  * seeds on the first `len` values the first average produced. That is where the
  * declared warmup comes from rather than being asserted alongside it.
  */
+export function demaStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const once = emaStep(state, `${key}a`, value, len);
+  const twice = emaStep(state, `${key}b`, once, len);
+  if (!isPresent(once) || !isPresent(twice)) return NONE;
+  return result(2 * once - twice);
+}
+
+/** `dema(src, len)` as a tail. */
 export function demaTail(len: number): Tail<Value, Value> {
-  const first = emaTail(len);
-  const second = emaTail(len);
-  return {
-    next(value: Value): Value {
-      const once = first.next(value);
-      const twice = second.next(once);
-      if (!isPresent(once) || !isPresent(twice)) return NONE;
-      return result(2 * once - twice);
-    },
-  };
+  return tailOf((state, value: Value) => demaStep(state, 'e', value, len));
 }
 
 /** `dema(src, len)` over a whole series. */
@@ -104,20 +94,23 @@ export function dema(src: Series, len: number): Value[] {
 }
 
 /** `tema(src, len)`: `3 * e1 - 3 * e2 + e3`, from bar `3 * len - 3`. */
+export function temaStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const once = emaStep(state, `${key}a`, value, len);
+  const twice = emaStep(state, `${key}b`, once, len);
+  const thrice = emaStep(state, `${key}c`, twice, len);
+  if (!isPresent(once) || !isPresent(twice) || !isPresent(thrice)) return NONE;
+  // Left to right, as written: 3 * e1, less 3 * e2, plus e3.
+  return result(3 * once - 3 * twice + thrice);
+}
+
+/** `tema(src, len)` as a tail. */
 export function temaTail(len: number): Tail<Value, Value> {
-  const first = emaTail(len);
-  const second = emaTail(len);
-  const third = emaTail(len);
-  return {
-    next(value: Value): Value {
-      const once = first.next(value);
-      const twice = second.next(once);
-      const thrice = third.next(twice);
-      if (!isPresent(once) || !isPresent(twice) || !isPresent(thrice)) return NONE;
-      // Left to right, as written: 3 * e1, less 3 * e2, plus e3.
-      return result(3 * once - 3 * twice + thrice);
-    },
-  };
+  return tailOf((state, value: Value) => temaStep(state, 'e', value, len));
 }
 
 /** `tema(src, len)` over a whole series. */

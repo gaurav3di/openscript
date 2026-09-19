@@ -4,11 +4,19 @@
  * Each one is a weighted lookback like `wma`, and each accumulates oldest bar
  * first, in index order, for the reason `lookback.ts` gives.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isLength, isPresent, makeLookback, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import {
+  NONE,
+  fold,
+  isLength,
+  isPresent,
+  makeLookback,
+  result,
+  tailOf,
+} from '../values/index.js';
 import { roundHalfAway } from '../maths/index.js';
 
-import { wmaTail } from './simple.js';
+import { wmaStep } from './simple.js';
 
 /**
  * `hma(src, len)`: from bar `len + round(sqrt(len)) - 2`.
@@ -23,20 +31,24 @@ import { wmaTail } from './simple.js';
  * for any inner length at or below `len`, so nothing in the warmup column
  * settles it. This is recorded as a gap rather than presented as a reading.
  */
-export function hmaTail(len: number): Tail<Value, Value> {
+export function hmaStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  if (len === null) return NONE;
   const half = Math.max(1, Math.floor(len / 2));
   const outer = Math.max(1, roundHalfAway(Math.sqrt(len)));
-  const fast = wmaTail(half);
-  const slow = wmaTail(len);
-  const smooth = wmaTail(outer);
-  return {
-    next(value: Value): Value {
-      const near = fast.next(value);
-      const far = slow.next(value);
-      const raw = isPresent(near) && isPresent(far) ? result(2 * near - far) : NONE;
-      return smooth.next(raw);
-    },
-  };
+  const near = wmaStep(state, `${key}f`, value, half);
+  const far = wmaStep(state, `${key}s`, value, len);
+  const raw = isPresent(near) && isPresent(far) ? result(2 * near - far) : NONE;
+  return wmaStep(state, `${key}o`, raw, outer);
+}
+
+/** `hma(src, len)` as a tail. */
+export function hmaTail(len: number): Tail<Value, Value> {
+  return tailOf((state, value: Value) => hmaStep(state, '', value, len));
 }
 
 /** `hma(src, len)` over a whole series. */

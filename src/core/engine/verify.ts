@@ -18,6 +18,12 @@
  * and the value it allows, and none of them silently caps anything: a program
  * that quietly gets a smaller budget than it asked for produces a wrong number
  * instead of a message.
+ *
+ * **The order of those refusals is the specification's, 9.4, and not an
+ * accident of where the code grew.** It is an ordered list that stops at the
+ * first failure, so a program that is wrong in two ways reports the one the
+ * list reaches first, and two engines hand the same program the same message.
+ * Each step below says which number it is.
  */
 import { COMPILED_FORMAT_VERSION } from '../version/index.js';
 import type { Diagnostic } from '../diagnostics/index.js';
@@ -32,6 +38,36 @@ import { checkTables } from './verify-tables.js';
 
 /** The language versions whose library semantics this engine implements. */
 export const LANGUAGE_VERSIONS: readonly number[] = [1];
+
+/**
+ * The format major this engine loads, and the only part of the format version a
+ * refusal turns on.
+ *
+ * `COMPILED_FORMAT_VERSION` is the highest minor of that major this engine was
+ * built against, which is what 9.1 asks an engine to declare: the majors it can
+ * load, and the highest minor of each. 9.4 step 3 then says a higher minor
+ * continues, and that line is the whole compatibility promise in one decision.
+ *
+ * A minor bump is additive by 9.2: it may add a field an engine that ignores it
+ * still computes the same numbers from, and anything whose absence would change
+ * a number must be announced by a tag in `requires`, which step 4 checks
+ * immediately afterwards. So the tag is the real mechanism and the version is
+ * the coarse one. An engine that refused a higher minor would refuse every
+ * program in the world the day the format reached 1.1, including every program
+ * it can run perfectly, and a minor bump would be a major one wearing a smaller
+ * number. An older minor loads for the same reason from the other side: it
+ * carries a subset of the fields this engine already reads.
+ *
+ * A major is a different format that happens to share a name (9.3), so a major
+ * that is not this one, in either direction, is OS6016 and never a best effort.
+ */
+const ENGINE_FORMAT_MAJOR = majorOf(COMPILED_FORMAT_VERSION);
+
+/** The leading number of a dotted version, or nothing when it is not one. */
+function majorOf(version: string): number | undefined {
+  if (!/^\d+(\.\d+)*$/.test(version)) return undefined;
+  return Number(version.split('.')[0]);
+}
 
 /**
  * What this engine can do, as the tags of 2.2.
@@ -88,7 +124,14 @@ export function verify(raw: unknown, options: VerifyOptions): VerifyResult {
   if (!shape.object(version, 'openscript')) return broken();
   if (!shape.string(version['format'], 'openscript.format')) return broken();
   if (!shape.whole(version['language'], 'openscript.language')) return broken();
-  if (version['format'] !== COMPILED_FORMAT_VERSION) {
+
+  // Steps 2 and 3: the major decides, and a higher minor loads.
+  const major = majorOf(version['format']);
+  if (major === undefined) {
+    shape.fail('openscript.format', 'a version of the form major.minor was required');
+    return broken();
+  }
+  if (major !== ENGINE_FORMAT_MAJOR) {
     return refused(
       failure('OS6016', NO_POSITION, {
         found: version['format'],
@@ -96,25 +139,40 @@ export function verify(raw: unknown, options: VerifyOptions): VerifyResult {
       }),
     );
   }
-  if (!LANGUAGE_VERSIONS.includes(version['language'])) {
-    return refused(
-      failure('OS6017', NO_POSITION, {
-        found: version['language'],
-        versions: LANGUAGE_VERSIONS.join(', '),
-      }),
-    );
-  }
 
+  // Step 1's other half: the tables every later step indexes into.
   if (!checkTables(shape, raw)) return broken();
   const program = raw as unknown as CompiledProgram;
 
-  // Check 8, the program's half: a tag it declared that this engine lacks.
+  // Step 4, and it comes before the language version on purpose: a program that
+  // is both compiled from a language this engine lacks and dependent on a
+  // capability it lacks reports the capability, which names the feature that was
+  // refused rather than a number the reader has to look up.
   for (const tag of program.requires) {
     if (!options.capabilities.includes(tag)) {
       return refused(failure('OS6006', NO_POSITION, { tag }));
     }
   }
 
+  // Step 5.
+  if (!LANGUAGE_VERSIONS.includes(program.openscript.language)) {
+    return refused(
+      failure('OS6017', NO_POSITION, {
+        found: program.openscript.language,
+        versions: LANGUAGE_VERSIONS.join(', '),
+      }),
+    );
+  }
+
+  // Step 6.
+  const library = checkLibrary(program);
+  if (library !== undefined) return refused(library);
+
+  // Step 7.
+  const budget = checkBudgets(program, options.limits);
+  if (budget !== undefined) return refused(budget);
+
+  // Step 8, which is 3.5 itself.
   const sizes = tableSizes(program);
   if (!checkList(shape, 'code', program.code, sizes, 'HALT')) return broken();
   for (let f = 0; f < program.functions.length; f += 1) {
@@ -125,6 +183,7 @@ export function verify(raw: unknown, options: VerifyOptions): VerifyResult {
   }
   if (!checkOnce(shape, program.code, program.channels.map((one) => one.once))) return broken();
 
+  // Check 8, the program's half: an instruction whose tag it never declared.
   const missing = missingTag(program);
   if (missing !== undefined) {
     return refused(
@@ -134,12 +193,6 @@ export function verify(raw: unknown, options: VerifyOptions): VerifyResult {
       }),
     );
   }
-
-  const library = checkLibrary(program);
-  if (library !== undefined) return refused(library);
-
-  const budget = checkBudgets(program, options.limits);
-  if (budget !== undefined) return refused(budget);
 
   return { ok: true, program };
 }
@@ -222,6 +275,20 @@ function checkBudgets(program: CompiledProgram, limits: EngineLimits): Diagnosti
 }
 
 /**
+ * The opcode of one element of an instruction list, or nothing when it is not
+ * an instruction at all.
+ *
+ * The budget refusals are step 7 of 9.4 and verification is step 8, so the two
+ * walks below read lists that nothing has yet proved are instruction lists.
+ * Reading them defensively is what keeps the specification's order from turning
+ * a malformed program into a thrown error rather than the OS6018 step 8 is
+ * about to report, naming the instruction.
+ */
+function opcodeOf(instruction: Instruction): string | undefined {
+  return Array.isArray(instruction) ? instruction[0] : undefined;
+}
+
+/**
  * The two functions whose nesting produced the most call paths.
  *
  * OS5004's message names them because the number of paths grows
@@ -239,7 +306,7 @@ function busiestPair(program: CompiledProgram): readonly [string, string] {
   ];
   for (const [caller, code] of lists) {
     for (const instruction of code) {
-      if (instruction[0] !== 'CALL_FN') continue;
+      if (opcodeOf(instruction) !== 'CALL_FN') continue;
       const site = program.callSites[instruction[1] as number];
       const callee = site === undefined ? undefined : program.functions[site.fn]?.name;
       if (callee === undefined) continue;
@@ -271,7 +338,9 @@ function busiestPair(program: CompiledProgram): readonly [string, string] {
 function callDepth(program: CompiledProgram): number {
   const bodies = program.functions.map((one) => one.code);
   const sitesIn = (code: readonly Instruction[]): number[] =>
-    code.flatMap((one) => (one[0] === 'CALL_FN' && typeof one[1] === 'number' ? [one[1]] : []));
+    code.flatMap((one) =>
+      opcodeOf(one) === 'CALL_FN' && typeof one[1] === 'number' ? [one[1]] : [],
+    );
 
   const known = new Map<number, number>();
   const walking = new Set<number>();

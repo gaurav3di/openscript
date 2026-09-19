@@ -28,6 +28,7 @@ import { isObjectTypeName, isValueTypeName, typeAnnotationText, withoutGrouping 
 import { literalNumber } from './literals.js';
 import type { Checker, Placement } from './checker.js';
 import { checkCondition, checkExpression } from './expressions.js';
+import { allowHandle } from './handles.js';
 import { isLibraryName } from './surface.js';
 import type { Type } from './types.js';
 import {
@@ -86,6 +87,11 @@ export function checkStatement(
       // The header is read before anything else runs; see declaration.ts.
       return;
     case 'expressionStatement':
+      // A declaration written for its effect, `plot(close, "C")`, is a call
+      // whose result is a handle nobody named (`language.md` 5.4).
+      if (withoutGrouping(statement.expression).kind === 'call') {
+        allowHandle(checker, statement.expression);
+      }
       checkExpression(checker, statement.expression, placement);
       return;
     case 'assignment':
@@ -133,6 +139,13 @@ function inside(placement: Placement, construct: string, loop = false): Placemen
 
 function checkAssignment(checker: Checker, statement: Assignment, placement: Placement): void {
   const target = statement.target;
+  // `upper = plot(...)` names a declaration, which is the one assignment a
+  // handle may stand in (`language.md` 5.4). A second name for a handle that
+  // already has one is not a declaration and has nothing to store, so only the
+  // call itself is allowed here.
+  if (statement.operator === '=' && withoutGrouping(statement.value).kind === 'call') {
+    allowHandle(checker, statement.value);
+  }
   const type = checkExpression(checker, statement.value, placement);
   const warmup = checker.warmupOf(statement.value);
 

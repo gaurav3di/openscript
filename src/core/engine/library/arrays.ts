@@ -22,7 +22,7 @@ import type { Value } from '../values/index.js';
 import { isNumber, reference, valuesEqual } from '../values/index.js';
 import { entry, refAt, stringAt, valueAt, wholeAt } from './binding.js';
 import type { CallContext, ManifestEntry } from './binding.js';
-import { safe } from './state.js';
+import { result } from '../../stdlib/index.js';
 
 /** The array a handle names, or nothing when the handle is absent or stale. */
 function held(ctx: CallContext, args: readonly Value[], index: number): ArrayObject | undefined {
@@ -108,7 +108,7 @@ function sumOf(array: ArrayObject): number | null {
   if (values === null) return null;
   let total = 0;
   for (const value of values) total += value as number;
-  return safe(total);
+  return result(total);
 }
 
 function extremeOf(array: ArrayObject, wantHigh: boolean): number | null {
@@ -119,14 +119,14 @@ function extremeOf(array: ArrayObject, wantHigh: boolean): number | null {
     const one = value as number;
     if (wantHigh ? one > best : one < best) best = one;
   }
-  return safe(best);
+  return result(best);
 }
 
 function meanOf(array: ArrayObject): number | null {
   const values = reduce(array);
   if (values === null || values.length === 0) return null;
   const total = sumOf(array);
-  return total === null ? null : safe(total / values.length);
+  return total === null ? null : result(total / values.length);
 }
 
 function spreadOf(array: ArrayObject): number | null {
@@ -138,8 +138,8 @@ function spreadOf(array: ArrayObject): number | null {
     const deviation = (value as number) - mean;
     squares += deviation * deviation;
   }
-  const variance = safe(squares / values.length);
-  return variance === null || variance < 0 ? null : safe(Math.sqrt(variance));
+  const variance = result(squares / values.length);
+  return variance === null || variance < 0 ? null : result(Math.sqrt(variance));
 }
 
 function newArray(ctx: CallContext, items: Value[]): Value {

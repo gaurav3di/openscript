@@ -19,69 +19,79 @@
  * protecting against, and it is a number rather than a bool so that
  * `direction != direction[1]` reads as the flip test.
  */
-import type { Bar, Tail, Value } from '../values/index.js';
-import { NONE, fold, hl2, isPresent, result } from '../values/index.js';
-import { atrTail } from '../volatility/index.js';
+import type { Bar, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, flag, fold, hl2, isPresent, result, slot, tailOf } from '../values/index.js';
+import type { Gap } from '../volatility/index.js';
+import { atrStep, gapOf } from '../volatility/index.js';
 
 /** `supertrend(factor, atrLen)`. */
+export function supertrendStep(
+  state: StateRecord,
+  key: string,
+  gap: Gap,
+  close: Value,
+  factor: number | null,
+  atrLen: number | null,
+): Value[] {
+  const width = atrStep(state, key, gap, atrLen);
+  const midpoint = hl2(gap);
+  if (!isPresent(width) || !isPresent(midpoint) || !isPresent(close) || factor === null) {
+    return [NONE, NONE];
+  }
+
+  const rawUpper = midpoint + factor * width;
+  const rawLower = midpoint - factor * width;
+  const seeded = flag(state, `${key}k`);
+  const previousUpper = slot(state, `${key}pu`, 0);
+  const previousLower = slot(state, `${key}pl`, 0);
+  const previousClose = slot(state, `${key}pc`, 0);
+  let followingUpper = state[`${key}fu`] !== false;
+
+  // The band holds where it is unless price broke it or it moved inward.
+  const upper = !seeded
+    ? rawUpper
+    : rawUpper < previousUpper || previousClose > previousUpper
+      ? rawUpper
+      : previousUpper;
+  const lower = !seeded
+    ? rawLower
+    : rawLower > previousLower || previousClose < previousLower
+      ? rawLower
+      : previousLower;
+
+  let line: number;
+  if (!seeded || followingUpper) {
+    if (close <= upper) {
+      line = upper;
+      followingUpper = true;
+    } else {
+      line = lower;
+      followingUpper = false;
+    }
+  } else if (close >= lower) {
+    line = lower;
+    followingUpper = false;
+  } else {
+    line = upper;
+    followingUpper = true;
+  }
+
+  const first = !seeded;
+  state[`${key}k`] = true;
+  state[`${key}pu`] = upper;
+  state[`${key}pl`] = lower;
+  state[`${key}pc`] = close;
+  state[`${key}fu`] = followingUpper;
+
+  if (first) return [NONE, NONE];
+  return [result(line), followingUpper ? 1 : -1];
+}
+
+/** `supertrend(factor, atrLen)` as a tail. */
 export function supertrendTail(factor = 3, atrLen = 10): Tail<Bar, Value[]> {
-  const range = atrTail(atrLen);
-  let seeded = false;
-  let previousUpper = 0;
-  let previousLower = 0;
-  let previousClose = 0;
-  let followingUpper = true;
-
-  return {
-    next(bar: Bar): Value[] {
-      const width = range.next(bar);
-      const midpoint = hl2(bar);
-      if (!isPresent(width) || !isPresent(midpoint) || !isPresent(bar.close)) {
-        return [NONE, NONE];
-      }
-
-      const rawUpper = midpoint + factor * width;
-      const rawLower = midpoint - factor * width;
-
-      // The band holds where it is unless price broke it or it moved inward.
-      const upper = !seeded
-        ? rawUpper
-        : rawUpper < previousUpper || previousClose > previousUpper
-          ? rawUpper
-          : previousUpper;
-      const lower = !seeded
-        ? rawLower
-        : rawLower > previousLower || previousClose < previousLower
-          ? rawLower
-          : previousLower;
-
-      let line: number;
-      if (!seeded || followingUpper) {
-        if (bar.close <= upper) {
-          line = upper;
-          followingUpper = true;
-        } else {
-          line = lower;
-          followingUpper = false;
-        }
-      } else if (bar.close >= lower) {
-        line = lower;
-        followingUpper = false;
-      } else {
-        line = upper;
-        followingUpper = true;
-      }
-
-      const first = !seeded;
-      seeded = true;
-      previousUpper = upper;
-      previousLower = lower;
-      previousClose = bar.close;
-
-      if (first) return [NONE, NONE];
-      return [result(line), followingUpper ? 1 : -1];
-    },
-  };
+  return tailOf((state, bar: Bar) =>
+    supertrendStep(state, '', gapOf(state, 'g', bar), bar.close, factor, atrLen),
+  );
 }
 
 /** `supertrend(factor, atrLen)` over a run of bars. */
