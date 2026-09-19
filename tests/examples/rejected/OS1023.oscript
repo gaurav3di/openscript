@@ -1,0 +1,10 @@
+// OS1023: A function declared under a block header instead of at the top level.
+// expect OS1023 at 9:5, length 11
+
+version 1
+
+study("Rejection case")
+
+if close > open
+    fn smoothed(src) => src
+    plot(smoothed(close), "Smooth")

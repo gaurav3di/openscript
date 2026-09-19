@@ -1,5 +1,5 @@
 {
-  "name": "openscript-lang",
+  "name": "openalgo-script",
   "version": "0.0.0",
   "description": "An open trading language. Write a study or a strategy once, plot it, backtest it, trade it.",
   "type": "module",
@@ -10,18 +10,6 @@
     ".": {
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
-    },
-    "./editor": {
-      "types": "./dist/editor/index.d.ts",
-      "import": "./dist/editor/index.js"
-    },
-    "./adapters/charts": {
-      "types": "./dist/adapters/charts/index.d.ts",
-      "import": "./dist/adapters/charts/index.js"
-    },
-    "./adapters/codemirror": {
-      "types": "./dist/adapters/codemirror/index.d.ts",
-      "import": "./dist/adapters/codemirror/index.js"
     }
   },
   "files": [
@@ -36,14 +24,15 @@
     "check:names": "node scripts/check-names.mjs",
     "check:examples": "node scripts/check-examples.mjs",
     "check:errors": "node scripts/check-error-codes.mjs",
-    "test": "node scripts/check-duplication.mjs && node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-modularity.mjs && node scripts/check-names.mjs && npm run test:unit",
+    "test": "node scripts/check-duplication.mjs && node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-modularity.mjs && node scripts/check-names.mjs && npm run build && npm run test:unit",
     "test:unit": "npm run generate:errors && tsc -p tsconfig.test.json && node --test \"dist-test/tests/**/*.test.js\"",
     "check:layering": "node scripts/check-layering.mjs",
     "check:duplication": "node scripts/check-duplication.mjs",
     "check:modularity": "node scripts/check-modularity.mjs",
     "generate:errors": "node scripts/generate-error-catalogue.mjs",
-    "typecheck": "npm run generate:errors && tsc -p tsconfig.test.json --noEmit",
-    "build": "npm run generate:errors && tsc -p tsconfig.json"
+    "typecheck": "npm run generate:errors && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "build": "npm run generate:errors && tsc -p tsconfig.json",
+    "prepack": "npm run build"
   },
   "keywords": [
     "trading",

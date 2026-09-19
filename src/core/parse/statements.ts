@@ -1,5 +1,11 @@
-import type { AssignmentOperator, Expression, Statement, TypeAnnotation } from '../ast/index.js';
-import { ASSIGNMENT_OPERATORS, makeNode } from '../ast/index.js';
+import type {
+  AssignmentOperator,
+  Expression,
+  FunctionDeclaration,
+  Statement,
+  TypeAnnotation,
+} from '../ast/index.js';
+import { ASSIGNMENT_OPERATORS, makeNode, withoutGrouping } from '../ast/index.js';
 import { spanning } from '../span/index.js';
 import type { NumberToken, TokenKind } from '../tokens/index.js';
 import { parseTypeAnnotation } from './annotations.js';
@@ -28,7 +34,9 @@ import { parseSwitchStatement } from './switches.js';
 
 const ASSIGNMENT: ReadonlySet<TokenKind> = new Set<TokenKind>(ASSIGNMENT_OPERATORS);
 
-export function parseStatement(cursor: Cursor): Statement | undefined {
+export function parseStatement(
+  cursor: Cursor,
+): Statement | FunctionDeclaration | undefined {
   cursor.beginStatement();
   const statement = dispatch(cursor);
   if (statement !== undefined) cursor.noteStatement(statement.span.line);
@@ -51,7 +59,7 @@ export function finishStatement(cursor: Cursor): void {
   cursor.skipToEndOfLine();
 }
 
-function dispatch(cursor: Cursor): Statement | undefined {
+function dispatch(cursor: Cursor): Statement | FunctionDeclaration | undefined {
   switch (cursor.kind) {
     case 'if':
       return parseIfStatement(cursor);
@@ -117,8 +125,62 @@ function parseSimpleStatement(cursor: Cursor): Statement | undefined {
   }
 
   const expression = parseExpression(cursor);
+  if (ASSIGNMENT.has(cursor.kind)) {
+    const refused = assignmentToSomethingOtherThanAName(cursor, expression);
+    if (refused !== undefined) return refused;
+  }
+
   finishStatement(cursor);
   return makeNode('expressionStatement', expression.span, { expression });
+}
+
+/**
+ * An assignment whose target is an index or a member: OS1024 and OS1025.
+ *
+ * The grammar of section 19 has one assignment target and it is an identifier,
+ * so what is wrong on this line is the target and not the operator after it.
+ * That is why neither of these is OS1018, whose message would say the statement
+ * had ended before an operator the reader wrote in the middle of it. Two codes
+ * rather than one because the two have different fixes: an array element is
+ * written with a call, and a member is not written at all.
+ *
+ * Anything else the grammar cannot assign to, a literal or a call, is left to
+ * the caller and reported as OS1018, which is the nearest true thing the
+ * catalogue has for it.
+ *
+ * The value is read rather than skipped, so a mistake in it is reported on the
+ * same compile, and the statement reaches the tree as the target that was
+ * written. There is no node for an assignment whose target is not a name, and
+ * building one over a name taken out of the target, `prices` out of
+ * `prices[0]`, would put a different program in the tree from the one on the
+ * page.
+ */
+function assignmentToSomethingOtherThanAName(
+  cursor: Cursor,
+  target: Expression,
+): Statement | undefined {
+  const written = withoutGrouping(target);
+
+  if (written.kind === 'index') {
+    cursor.report('OS1024', target.span, { name: cursor.textOf(written.target.span) });
+  } else if (written.kind === 'member') {
+    cursor.report('OS1025', target.span, {
+      name: cursor.textOf(written.object.span),
+      member: written.member.text,
+    });
+  } else {
+    return undefined;
+  }
+
+  // The operator, and then the value, which is read so that a mistake inside it
+  // is reported on this compile rather than on the one after the target is
+  // fixed.
+  cursor.advance();
+  const value = parseExpression(cursor);
+  finishStatement(cursor);
+  return makeNode('expressionStatement', spanning(target.span, value.span), {
+    expression: target,
+  });
 }
 
 function parseAssignment(cursor: Cursor): Statement {
@@ -237,16 +299,31 @@ function strayArm(cursor: Cursor): undefined {
 }
 
 /**
- * A `fn` inside a block, which language.md 11.1 forbids and the catalogue has
- * no code for.
+ * A `fn` inside a block, which language.md 11.1 forbids: OS1023.
  *
- * It is read and dropped rather than reported on, because reading it keeps the
- * lines under it from being taken for statements of the block around it, and
- * dropping it leaves every call to it as OS2001 at the call site. The
- * alternative, hoisting it to the top level, would make the file compile and
- * run, which is the one outcome the specification rules out.
+ * It is read and it is kept. Reading it keeps the lines under it from being
+ * taken for statements of the block around it. Keeping it is what lets anything
+ * after the parser see the function at all: a declaration dropped here is gone
+ * from the tree, so a call to it could only ever be reported as a name nobody
+ * declared, and a nested function nobody calls would go unreported for good. It
+ * stays where the reader wrote it rather than being lifted to the top level,
+ * which would compile a file the language refuses.
+ *
+ * The caret covers `fn` and the name, which is the part of the declaration the
+ * reader has to move, and the same span OS1011 puts under `var name`.
+ *
+ * A header with no name at all has already been told that a name was expected,
+ * and the message here has nothing to name, so it waits: the node is kept
+ * either way, and the declaration is reported as nested once it has a name for
+ * the sentence to use and for the fix to tell the reader to call.
  */
-function nestedFunction(cursor: Cursor): undefined {
-  parseFunctionDeclaration(cursor);
-  return undefined;
+function nestedFunction(cursor: Cursor): FunctionDeclaration {
+  const keyword = cursor.token;
+  const declaration = parseFunctionDeclaration(cursor);
+  if (declaration.name.text !== '') {
+    cursor.report('OS1023', spanning(keyword.span, declaration.name.span), {
+      name: declaration.name.text,
+    });
+  }
+  return declaration;
 }

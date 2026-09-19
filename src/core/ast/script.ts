@@ -26,9 +26,11 @@ export interface Parameter extends Positioned {
  * has no block to give a span to and an editor folding a function should fold
  * what was written.
  *
- * A function is not a statement. Functions may not be nested and may not be
- * assigned to a name, so there is nowhere but the top level for one to appear,
- * and the tree says so rather than leaving it to a later check.
+ * A function is not a statement. It may not be assigned to a name and it may
+ * not be nested, so the only place one belongs is the top level of a file. A
+ * block holds one all the same, because a reader who nested one has written it
+ * and OS1023 has to name the line it is on; what the tree says is where it was
+ * written, and the diagnostic says whether that was allowed.
  */
 export interface FunctionDeclaration extends Positioned {
   readonly kind: 'functionDeclaration';

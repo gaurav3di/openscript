@@ -148,7 +148,7 @@ ASCII letters, digits and underscores. Identifiers are case sensitive.
 ```
 fastLength = 9      // legal
 _scratch   = 0      // legal
-2fast      = 9      // OS1001: an identifier cannot start with a digit
+2fast      = 9      // OS1029: an identifier cannot start with a digit
 längd      = 9      // OS1001: identifiers are ASCII
 ```
 
@@ -384,7 +384,7 @@ message = "entry at " + \
 
 A continuation line must be indented more deeply than the first line of its
 statement, so a continuation can never be mistaken for the start of a new
-statement. A continuation line indented the same or less is OS1003.
+statement. A continuation line indented the same or less is OS1028, which is a rule of its own rather than the block rule: a continuation opens no block.
 
 A blank line or a comment-only line inside a continuation is ignored on the terms
 of section 3.10: it carries no token, so it neither continues nor ends the

@@ -96,16 +96,18 @@ export class Layout {
    * A continuation line belongs to a statement that began above it, so it opens
    * and closes nothing. It only has to sit further right than the line that
    * began the statement, so that it can never be read as a new one (3.11).
+   *
+   * That is OS1028 rather than the block rule of OS1003, and the difference is
+   * not a formality: there is no block here, so OS1003's message would name an
+   * indentation no line carries and its fix would offer to end a block the file
+   * never opened.
    */
   #checkContinuation(pending: PendingLine): void {
     const statement = this.#statement;
     if (statement === undefined || pending.width > statement.indent) return;
-    this.#sink.report('OS1003', this.#span(pending.offset, pending.width), {
+    this.#sink.report('OS1028', this.#span(pending.offset, pending.width), {
       found: pending.width,
-      // The shallowest indentation that still reads as a continuation. The
-      // catalogue's sentence is written for a block, and this is the value that
-      // makes its fix name the action the reader has to take.
-      expected: statement.indent + 1,
+      statement: statement.indent,
       line: statement.line,
     });
   }

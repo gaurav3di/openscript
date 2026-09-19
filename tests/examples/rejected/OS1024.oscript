@@ -1,0 +1,9 @@
+// OS1024: An assignment whose target is an element rather than a name.
+// expect OS1024 at 9:1, length 9
+
+version 1
+
+study("Rejection case")
+
+var prices = [0.0]
+prices[0] = close

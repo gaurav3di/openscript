@@ -153,16 +153,27 @@ test('an empty file and a file of comments both have a tree', () => {
   assert.deepEqual(codes(''), []);
 });
 
-test('a function declared inside a block does not reach the tree', () => {
-  // Functions may not be nested (11.1) and the catalogue has no code for one
-  // that is, so the declaration is read and dropped: reading it keeps the lines
-  // under it out of the block around it, and dropping it leaves every call to
-  // it as OS2001 at the call site rather than a file that compiles and runs.
+test('a function declared inside a block is OS1023 and stays where it was written', () => {
+  // Functions may not be nested (11.1), which is OS1023. The declaration is
+  // kept rather than dropped, and kept in the block rather than lifted: one
+  // that vanished here would be invisible to every pass after the parser, so a
+  // call to it could only ever be reported as a name nobody declared, and a
+  // nested function nobody calls would go unreported for good.
   const source = 'if a\n    fn helper(x) => x + 1\n    y = helper(1)\n';
+  assert.deepEqual(codes(source), ['OS1023']);
+
   const statement = firstStatement(source) as IfStatement;
   const body = statement.branches[0]?.body;
-  assert.equal(body?.statements.length, 1);
-  assert.equal(shape(body?.statements[0] as never), '(= y (call helper (argument 1)))');
+  assert.equal(body?.statements.length, 2);
+  assert.equal(body?.statements[0]?.kind, 'functionDeclaration');
+  assert.equal(shape(body?.statements[1] as never), '(= y (call helper (argument 1)))');
+
+  // Nothing was lifted out: the file still holds the one statement written at
+  // its top level.
+  assert.deepEqual(
+    items(source).map((item) => item.kind),
+    ['ifStatement'],
+  );
 });
 
 test('only fn has a body on its own line; every other header opens a block', () => {

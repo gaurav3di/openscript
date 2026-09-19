@@ -75,8 +75,13 @@ test('a non-ASCII letter in a name is reported once and the name reads as one na
 
 test('a name that starts with a digit is reported once and reads as one name', () => {
   const diagnostic = only('2fast = 9\n');
-  assert.equal(diagnostic.code, 'OS1001');
-  assert.equal(diagnostic.values.char, '"2"');
+  // OS1029, not OS1001: the digit is a character the language accepts, and
+  // OS1001's advice to delete it would leave `fast = 9`, which compiles and is
+  // a different program from the one on the page.
+  assert.equal(diagnostic.code, 'OS1029');
+  assert.deepEqual(diagnostic.values, { written: '2fast', number: '2' });
+  assert.equal(diagnostic.span.column, 1);
+  assert.equal(diagnostic.span.length, 5);
   assert.deepEqual(words('2fast = 9\n'), ['2fast', '=', '9']);
 });
 
@@ -92,9 +97,47 @@ test('a tab outside the indentation asks for a plain space', () => {
   assert.equal(diagnostic.values.suggestion, 'Use a plain space instead.');
 });
 
-test('a hash that does not open a colour literal is OS1001', () => {
-  assert.equal(only('x = #ff88\n').code, 'OS1001');
+test('a colour literal of the wrong length is OS1027, and a bare hash is OS1001', () => {
+  // A hash with a run written against it was nearly a colour, so it gets a code
+  // that says so. OS1001's substitution row advises deleting the character or
+  // moving the text into a string, which would throw the colour away.
+  const malformed = only('x = #ff88\n');
+  assert.equal(malformed.code, 'OS1027');
+  assert.deepEqual(malformed.values, { written: '#ff88' });
+  assert.equal(malformed.span.column, 5);
+  assert.equal(malformed.span.length, 5);
+
+  // A hash with nothing written against it is not a colour anybody started, so
+  // the substitution row is the right answer and it covers the hash alone.
+  const bare = only('x = # y\n');
+  assert.equal(bare.code, 'OS1001');
+  assert.equal(bare.span.length, 1);
+
   assert.deepEqual(codes('x = #ff8800\n'), []);
+  assert.deepEqual(codes('x = #ff880080\n'), []);
+});
+
+test('a malformed colour is dropped, so the argument it stood in is lost', () => {
+  // The run is not a colour and there is no token kind for it, so it is dropped
+  // the way every other refused run is. The comma before it is then read as
+  // trailing, and OS1022's fix, to delete that comma, would throw away an
+  // argument the writer did write.
+  //
+  // Pinned rather than endorsed: this is the second diagnostic being wrong
+  // about the program, and the day the colour is emitted as a token of its own
+  // this test fails and is rewritten to the one diagnostic the line deserves.
+  assert.deepEqual(codes('plot(close, "Close", #ff88)\n'), ['OS1027']);
+  const { diagnostics } = lexed('plot(close, "Close", #ff88)\n');
+  assert.equal(diagnostics[0]?.span.column, 22);
+  assert.deepEqual(words('plot(close, "Close", #ff88)\n'), [
+    'plot',
+    '(',
+    'close',
+    ',',
+    '"Close"',
+    ',',
+    ')',
+  ]);
 });
 
 test('a semicolon is OS1007 and the line reads as the two statements it holds', () => {

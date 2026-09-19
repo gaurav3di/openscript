@@ -2,6 +2,7 @@ import type { DiagnosticCode, DiagnosticValues } from '../catalogue/index.js';
 import type { DiagnosticSink } from '../diagnostics/index.js';
 import type { SourceFile } from '../source/index.js';
 import type { Span } from '../span/index.js';
+import { endOffset } from '../span/index.js';
 import type { Token, TokenKind } from '../tokens/index.js';
 
 /**
@@ -138,6 +139,18 @@ export class Cursor {
   previousMeaningful(): Token | undefined {
     const before = this.#tokenAt(this.#at - 1);
     return this.#at > 0 && !LAYOUT.has(before.kind) ? before : undefined;
+  }
+
+  /**
+   * What the reader wrote across a span.
+   *
+   * A diagnostic that has to quote a piece of a program quotes the source
+   * rather than rebuilding it from the tree. `a.b` put back together out of a
+   * member node is a reconstruction, and one that differs from the page by so
+   * much as a space sends the reader looking for something they did not write.
+   */
+  textOf(span: Span): string {
+    return this.file.text.slice(span.offset, endOffset(span));
   }
 
   /** An empty span where something should have been written and was not. */

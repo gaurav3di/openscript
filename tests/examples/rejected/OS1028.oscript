@@ -1,0 +1,10 @@
+// OS1028: A continuation line sitting level with the line its statement began on.
+// expect OS1028 at 9:1, length 0
+
+version 1
+
+study("Rejection case")
+
+total = ema(close, 9) +
+ema(close, 21)
+plot(total, "Total")

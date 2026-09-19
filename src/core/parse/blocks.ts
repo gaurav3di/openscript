@@ -1,4 +1,4 @@
-import type { Block, Statement } from '../ast/index.js';
+import type { Block, FunctionDeclaration, Statement } from '../ast/index.js';
 import { makeNode } from '../ast/index.js';
 import type { Span } from '../span/index.js';
 import { spanning } from '../span/index.js';
@@ -34,7 +34,7 @@ export function parseBlock(cursor: Cursor, header: string, at: Span): Block {
   }
 
   const indent = cursor.advance();
-  const statements: Statement[] = [];
+  const statements: (Statement | FunctionDeclaration)[] = [];
 
   while (!cursor.at('dedent') && !cursor.at('endOfFile')) {
     const before = cursor.position;

@@ -37,6 +37,10 @@ the offending text.
 **Gate:** parses all twelve target scripts and several hundred real world
 scripts without crashing, and every error it can emit exists in the catalogue.
 
+**Production bar this phase owes.** No input, however malformed, may hang or crash
+the compiler. A trader's editor calls this on every keystroke, and a platform
+embedding it is running it on untrusted text from a million people.
+
 ## Phase 2. Checker and bar engine
 
 Four to six weeks.
@@ -47,6 +51,13 @@ output: plots, bands, levels, inputs, a generated settings dialog, saved layout.
 
 **Gate:** EMA, RSI, MACD, Bollinger Bands and Supertrend match reference
 implementations to the last decimal, and each one's warmup is exact.
+
+**Production bar this phase owes.** A runaway script stops: an instruction budget
+per bar, a memory ceiling and a wall clock, enforced by the engine because it owns
+the loop rather than by hoping a script behaves. One script failing is a
+diagnostic on that script and touches nothing else. And a benchmark with a number
+in continuous integration, because performance regresses silently and a platform
+that has to discover it in production will not adopt a second version.
 
 ## Phase 3. The whole visual surface
 
@@ -112,6 +123,11 @@ by default and live only when deliberately armed.
 **Gate:** the two engines agree on every conformance case. A disagreement is a
 release blocker, because a backtest that disagrees with the chart is worthless.
 
+**Production bar this phase owes.** The conformance suite has to be runnable by
+somebody who has never seen this repository, against an engine we did not write.
+That is the whole claim of the project, and until an outside engine passes it the
+claim is untested.
+
 ## Phase 7. The standard
 
 Ongoing.
@@ -122,6 +138,16 @@ format with a compatibility promise, a conformance badge, and an engine written
 in a third language to prove the format travels.
 
 ---
+
+## The adoption bar
+
+Every phase is measured against two questions, not one: is it correct, and can a
+platform that did not build it run production on it. The second is written into
+each phase's gate above rather than left as an intention, and the README carries
+the table of what is guaranteed today and what enforces it.
+
+The rule behind all of it: prefer a check to a promise. A promise in a document is
+worth exactly as much as the attention of whoever reads it next.
 
 ## Promises that hold from version 1
 

@@ -24,6 +24,7 @@
  * halfway.
  */
 import { execSync } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 
 /**
  * Every file in the project: tracked or not, gitignored never.
@@ -32,13 +33,45 @@ import { execSync } from 'node:child_process';
  * with a newline in it would otherwise split into two paths that do not exist.
  */
 export function projectFiles() {
-  return execSync('git ls-files --cached --others --exclude-standard -z', {
+  const listed = execSync('git ls-files --cached --others --exclude-standard -z', {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
     .split('\0')
     .map((s) => s.trim())
     .filter(Boolean);
+
+  // Plus everything under src/, gitignored or not.
+  //
+  // This is the same class of gap as the one this module was written for, found
+  // again in a new place. The generated error catalogue is gitignored, so two
+  // source files carrying every diagnostic message in the language were
+  // inspected by nothing, and the checks reported "50 source files" against a
+  // tree holding 52.
+  //
+  // A generated file still ships, still has to obey the layering, still must not
+  // exceed the size limit and still must not name anybody. "Not in version
+  // control" is the wrong reason to skip a file that ends up in the artifact.
+  //
+  // The lesson the first bug should have taught and did not: a check's blind
+  // spot is wherever its file list disagrees with what actually ships.
+  return Array.from(new Set([...listed, ...walk('src')])).sort();
+}
+
+/** Every file under a directory, ignoring version control entirely. */
+function walk(dir, out = []) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  for (const entry of entries) {
+    const full = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) walk(full, out);
+    else out.push(full);
+  }
+  return out;
 }
 
 /** Those matching `pattern`, optionally restricted to the given top directories. */

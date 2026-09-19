@@ -19,6 +19,7 @@ import {
   SPACE,
   TAB,
 } from './characters.js';
+import { closesComment, commentRegion, hasCloser, opensComment } from './comments.js';
 import { Layout } from './layout.js';
 import { scanNumber } from './numbers.js';
 import { continuesLine } from './statements.js';
@@ -62,6 +63,8 @@ class Lexer {
   #continuing = false;
   #lineHasToken = false;
   #droppedAfterToken = false;
+  /** Whether a block comment marker opened a region that no closer has ended yet. */
+  #inComment = false;
 
   constructor(file: SourceFile, sink: DiagnosticSink) {
     this.#file = file;
@@ -98,6 +101,8 @@ class Lexer {
     this.#lineHasToken = false;
     this.#droppedAfterToken = false;
 
+    if (this.#inComment) this.#skipComment(this.#offset);
+
     let backslash = false;
     while (this.#offset < this.#text.length) {
       const code = this.#text.charCodeAt(this.#offset);
@@ -111,6 +116,18 @@ class Lexer {
         // sit at column zero inside a block without closing it (3.10).
         this.#offset = this.#endOfLine(this.#offset);
         break;
+      }
+      if (opensComment(this.#text, this.#offset)) {
+        this.#openComment();
+        continue;
+      }
+      if (closesComment(this.#text, this.#offset)) {
+        // A closer with nothing open. The region it was meant to end was never
+        // read as one, so the marker is reported where it sits and read as
+        // nothing at all.
+        this.#sink.report('OS1026', this.#span(this.#offset, 2), { marker: '*/' });
+        this.#offset += 2;
+        continue;
       }
       if (code === BACKSLASH && this.#isBlankTo(this.#offset + 1)) {
         backslash = true;
@@ -161,6 +178,35 @@ class Lexer {
 
     this.#layout.closeBlocks(this.#text.length);
     this.#tokens.push({ kind: 'endOfFile', span: this.#span(this.#text.length, 0), text: '' });
+  }
+
+  /**
+   * A region the writer meant as a comment, from its opener to its closer.
+   *
+   * It is reported once, at the opener, and then skipped. Reading the prose
+   * inside it as tokens would report the operators it happens to contain and
+   * the statements it appears to hold, which is several diagnostics about a
+   * program the writer did not write, and none of them would name the comment
+   * (3.2).
+   */
+  #openComment(): void {
+    this.#sink.report('OS1026', this.#span(this.#offset, 2), { marker: '/*' });
+    this.#skipComment(this.#offset + 2);
+    // A closer written nowhere makes no region: the marker costs this line and
+    // the file is read on from the next one, rather than being swallowed whole
+    // by a form the language does not have (3.2).
+    this.#inComment = this.#inComment && hasCloser(this.#text, this.#offset);
+  }
+
+  /**
+   * The region, to its closer or to the end of the line, said once and then
+   * skipped: one region is one mistake however many lines it runs to, so a
+   * line below the opener is read as prose rather than reported again.
+   */
+  #skipComment(from: number): void {
+    const region = commentRegion(this.#text, from);
+    this.#inComment = region.open;
+    this.#offset = region.end;
   }
 
   #endOfLine(from: number): number {
@@ -234,6 +280,17 @@ class Lexer {
     this.#offset = word.end;
   }
 
+  /**
+   * A number literal, and the run that is not one: a base prefix the language
+   * does not have, a unit written against a quantity, a literal that ends in an
+   * underscore (3.5).
+   *
+   * Such a run is reported whole, as OS1029. Every character in it is one the
+   * language accepts, so naming the leading digit would name something legal,
+   * and deleting it, which is what OS1001 tells a reader to do with the
+   * character it names, leaves a valid name behind and a program that compiles
+   * and means something else.
+   */
   #readNumber(start: number): void {
     const literal = scanNumber(this.#text, start);
     const after = this.#text.codePointAt(literal.end);
@@ -242,15 +299,15 @@ class Lexer {
       // A name cannot begin with a digit (3.3), and a letter written against a
       // number is that mistake rather than two tokens that happen to touch.
       const word = this.#word(literal.end);
-      this.#sink.report(
-        'OS1001',
-        this.#span(start, word.end - start),
-        describeUnexpected(this.#text.charAt(start)),
-      );
+      const written = this.#text.slice(start, word.end);
+      this.#sink.report('OS1029', this.#span(start, word.end - start), {
+        written,
+        number: this.#text.slice(start, literal.end),
+      });
       this.#emit({
         kind: 'identifier',
         span: this.#span(start, word.end - start),
-        text: this.#text.slice(start, word.end),
+        text: written,
       });
       this.#offset = word.end;
       return;
@@ -287,7 +344,15 @@ class Lexer {
     this.#offset = literal.end;
   }
 
-  /** `#rrggbb` and `#rrggbbaa` (3.8). A `#` in front of anything else is not a colour. */
+  /**
+   * `#rrggbb` and `#rrggbbaa` (3.8).
+   *
+   * A run of the wrong length, or one carrying a character that is not a
+   * hexadecimal digit, is a colour the writer had nearly right, and it is
+   * OS1027 over the whole of what they wrote. The OS1001 sentence about `#`
+   * says to delete the character or to put the text in a string, which is the
+   * answer for a `#` standing on its own and would throw the colour away here.
+   */
   #readColour(start: number): void {
     const word = this.#word(start + 1);
     const digits = this.#text.slice(start + 1, word.end);
@@ -306,7 +371,18 @@ class Lexer {
       return;
     }
 
-    this.#sink.report('OS1001', this.#span(start, word.end - start), describeUnexpected('#'));
+    if (digits.length === 0) {
+      // Nothing was written against it, so there is no colour here to have got
+      // wrong: this is the character on its own (3.1).
+      this.#sink.report('OS1001', this.#span(start, 1), describeUnexpected('#'));
+      this.#droppedAfterToken = true;
+      this.#offset = start + 1;
+      return;
+    }
+
+    this.#sink.report('OS1027', this.#span(start, word.end - start), {
+      written: this.#text.slice(start, word.end),
+    });
     this.#droppedAfterToken = true;
     this.#offset = word.end;
   }

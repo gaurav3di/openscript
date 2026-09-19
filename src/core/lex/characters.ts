@@ -17,6 +17,7 @@ export const APOSTROPHE = 0x27;
 export const HASH = 0x23;
 export const DOT = 0x2e;
 export const SLASH = 0x2f;
+export const ASTERISK = 0x2a;
 export const BACKSLASH = 0x5c;
 export const SEMICOLON = 0x3b;
 export const UNDERSCORE = 0x5f;

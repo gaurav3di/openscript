@@ -178,7 +178,7 @@ up is not renumbered.
 
 | Range | Kind | Covers | Severity | Entries |
 |---|---|---|---|---|
-| OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 22 |
+| OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 29 |
 | OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 19 |
 | OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 20 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
@@ -186,7 +186,7 @@ up is not renumbered.
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 15 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **136** |
+| | | | **Total** | **143** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -270,6 +270,9 @@ than general. The family code remains correct for every case not listed here.
 | Code | Refines | The case it takes over |
 |---|---|---|
 | OS1005 | OS1004 | Unknown escape sequence |
+| OS1027 | OS1001 | A colour literal with the wrong number of digits |
+| OS1028 | OS1003 | A continuation line indented at or left of its statement |
+| OS1029 | OS1001 | A name written against a number |
 | OS2011 | OS2003 | A condition must be a bool |
 | OS2012 | OS2003 | The two arms of the ternary have different types |
 | OS2013 | OS2003 | An array literal mixes types |
@@ -312,6 +315,11 @@ table the compiler fills the message from:
 A character not in the table is reported with the generic fix, which is to delete
 it or move it inside a string literal.
 
+The qualifier on the last row carries weight. A `#` in front of a run of
+hexadecimal digits is a colour literal, and one whose run is not six or eight
+digits long is a colour the writer had nearly right, so it is OS1027, which names
+the form. Applying this table's row to it would advise deleting the colour.
+
 ---
 
 ## 8. The catalogue
@@ -336,7 +344,7 @@ Severity error. Stage lexer. Since language version 1. Reference language.md 3.1
 - `{char}` is the offending character, quoted, with its Unicode name when it is not an ASCII graphic.
 - `{suggestion}` is the replacement sentence for this character, from the substitution table in section 7 of this document.
 
-**Cause.** Outside a string literal the language accepts ASCII letters, ASCII digits, space, newline and the punctuation list of language.md 3.12, and nothing else. A non-breaking space pasted from a web page, a typographic quotation mark pasted from a word processor, a non-ASCII letter in a name, a digit at the start of a name, and an operator the language does not have (!, &&, ||, ^, {, }) all arrive here. The character is rejected where it sits rather than three tokens later, because an invisible character produces a baffling parse error otherwise.
+**Cause.** Outside a string literal the language accepts ASCII letters, ASCII digits, space, newline and the punctuation list of language.md 3.12, and nothing else. A non-breaking space pasted from a web page, a typographic quotation mark pasted from a word processor, a non-ASCII letter in a name, and an operator the language does not have (!, &&, ||, ^, {, }) all arrive here. The character is rejected where it sits rather than three tokens later, because an invisible character produces a baffling parse error otherwise. Two runs whose every character is legal are not this code: a name written against a number is OS1029, and a colour literal with the wrong number of digits is OS1027. Naming one character of either and advising its deletion, which is what this fix says to do, would leave a program that still compiles and means something else.
 
 **Fix.** Delete the character or replace it with the plain ASCII spelling the message names: a plain space for a non-breaking space, a straight quote for a typographic one, not for !, and for &&, or for ||, pow(a, b) for ^.
 
@@ -380,7 +388,7 @@ if close > open
 
 ### OS1003 Indentation does not match this block
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.10, 3.11. Test `tests/errors/OS1003`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1003`. The editor can apply the fix.
 
 **Message.** `This line is indented {found} spaces; the block opened at line {line} is indented {expected}.`
 
@@ -388,7 +396,7 @@ Severity error. Stage lexer. Since language version 1. Reference language.md 3.1
 - `{expected}` is the leading space count every line of this block carries.
 - `{line}` is the line that opened the block.
 
-**Cause.** Every line of one block carries exactly the same leading whitespace, and a continuation line must be indented more deeply than the first line of its statement. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see. A blank line and a comment-only line stand outside the rule: they carry no token and no indentation at all, so any leading whitespace is accepted on them and neither one is ever this error.
+**Cause.** Every line of one block carries exactly the same leading whitespace. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see. A blank line and a comment-only line stand outside the rule: they carry no token and no indentation at all, so any leading whitespace is accepted on them and neither one is ever this error. A continuation line stands outside it for a different reason: it belongs to a statement that began above it and opens no block, so what its indentation has to clear is that statement rather than a block, and that is OS1028.
 
 **Fix.** Indent this line to {expected} spaces to keep it in the block, or to {line}'s own indentation to end the block here.
 
@@ -783,7 +791,7 @@ Severity error. Stage parser. Since language version 1. Reference language.md 3.
 
 - `{token}` is the first token that follows the complete statement.
 
-**Cause.** A line holds at most one statement, so anything after a statement ends is either a missing operator or a second statement that lost its newline.
+**Cause.** A line holds at most one statement, so anything after a statement ends is either a missing operator or a second statement that lost its newline. An assignment operator after an index or after a dotted name is not this error: the statement did not end there, and what is wrong is the target rather than anything following it. Those two are OS1024 and OS1025.
 
 **Fix.** Put {token} and what follows it on its own line, or supply the operator that was meant to join them.
 
@@ -900,6 +908,189 @@ After:
 
 ```
 len = input(14, "Length") + 1
+```
+
+### OS1023 A function declared inside a block
+
+Severity error. Stage parser. Since language version 1. Reference language.md 11.1. Test `tests/errors/OS1023`.
+
+**Message.** `fn {name} is declared inside a block, and a function is declared at the top level of the file.`
+
+- `{name}` is the function being declared.
+
+**Cause.** Functions may not be nested (language.md 11.1). A declaration under an if, a loop, a switch arm or another function's body sits in a scope that ends where the block ends, so the name would exist for part of a file and not the rest, and a reader would have to trace the block structure to know whether a call on the line in front of them was legal. The declaration is reported rather than dropped or lifted: dropping it leaves every call to it as OS2001 with no word about where the function went, and lifting it to the top level compiles a form the language does not have.
+
+**Fix.** Move the whole declaration out to the top level of the file, and call {name} from inside the block.
+
+Before:
+
+```
+if trending
+    fn smoothed(src) => sma(src, 9)
+    plot(smoothed(close), "Smooth", aqua)
+```
+
+After:
+
+```
+fn smoothed(src) => sma(src, 9)
+
+if trending
+    plot(smoothed(close), "Smooth", aqua)
+```
+
+### OS1024 Assignment to an indexed element
+
+Severity error. Stage parser. Since language version 1. Reference language.md 9.6, 14.1, 19. Test `tests/errors/OS1024`.
+
+**Message.** `An assignment writes to a name, and this target is an index into {name}.`
+
+- `{name}` is the name that was indexed.
+
+**Cause.** The grammar of language.md 19 admits one assignment target, an identifier, and there is no indexed assignment anywhere in the language. The reason is that [] reads two different things (language.md 9.6): on an array it is an element, which section 14.1 writes with set(arr, i, v), and on a series it is a bar the engine has already computed, which nothing in a script may overwrite. One syntax covering both would read as though a past bar could be rewritten.
+
+**Fix.** Change an array element with set({name}, i, v), or assign to a plain name: the past of a series is computed and never written.
+
+Before:
+
+```
+var prices = [0.0]
+prices[0] = close
+```
+
+After:
+
+```
+var prices = [0.0]
+set(prices, 0, close)
+```
+
+### OS1025 Assignment to a member
+
+Severity error. Stage parser. Since language version 1. Reference language.md 15.2, 19. Test `tests/errors/OS1025`.
+
+**Message.** `An assignment writes to a name, and this target is the member {member} of {name}.`
+
+- `{name}` is the name written before the dot.
+- `{member}` is the name written after the dot.
+
+**Cause.** The grammar of language.md 19 admits one assignment target, an identifier. A dotted name reads a member of one of the namespaces on the closed list in language.md 15.2, and every member on that list is a per-bar fact, an instrument fact, a position fact or a function, each of them produced by the engine or by the host. There is nothing behind a dot that a script owns. Version 1 has no user-declared types that could add one either: type is a reserved word and is not implemented (language.md 18). A dotted name whose first half is not a namespace is the same answer for a simpler reason: it has no members at all.
+
+**Fix.** Assign to a plain name. Version 1 has no member assignment: a dot reads a member, and the members a script can reach are facts and functions the library and the host supply.
+
+Before:
+
+```
+chart.tickStep = 0.05
+plot(close + chart.tickStep, "Stepped", aqua)
+```
+
+After:
+
+```
+tickStep = 0.05
+plot(close + tickStep, "Stepped", aqua)
+```
+
+### OS1026 Block comment
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.2. Test `tests/errors/OS1026`.
+
+**Message.** `{marker} does not open or close a comment. A comment is written // and runs to the end of its line.`
+
+- `{marker}` is the two characters that were written, the opener or the closer.
+
+**Cause.** The language has line comments and no block form (language.md 3.2). The block form is left out on purpose: an unterminated one swallows the rest of a file and reports its error at the last line, which is the worst message a compiler can produce. Without the form there is nothing special about the two characters, so a divide and a multiply are what they are and the line parses as arithmetic with its operands missing. The diagnostics then land on the operators rather than on the comment that caused them, and a reader is told three things that are each true of a program they did not write. The marker is reported where it sits instead.
+
+**Fix.** Write // instead, and give every line of a commented region its own //, which every editor does with one keystroke.
+
+Before:
+
+```
+lookback = 14 /* bars */
+```
+
+After:
+
+```
+lookback = 14 // bars
+```
+
+### OS1027 Malformed colour literal
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.8. Test `tests/errors/OS1027`.
+
+**Message.** `{written} is not a colour: a colour literal is # and six or eight hexadecimal digits.`
+
+- `{written}` is the # and the run of characters written against it.
+
+**Cause.** A hexadecimal colour is # and six digits, two each for red, green and blue, or eight where the last two are the alpha byte (language.md 3.8). The three and four digit shorthands belong to other formats and this language does not have them, and a run of any other length, or one carrying a digit outside 0 to f, is a typing slip. It has a code of its own because every character in it is one the language accepts: the substitution row that gives OS1001 its sentence about # is written for a # outside a colour literal, and its advice, to delete the character or move the text into a string, would throw away a colour the writer had nearly right.
+
+**Fix.** Give it six hexadecimal digits, or eight where the last two are the alpha byte. A named colour or rgb(r, g, b) says the same thing without the digits.
+
+Before:
+
+```
+plot(close, "Close", #ff88)
+```
+
+After:
+
+```
+plot(close, "Close", #ff8800)
+```
+
+### OS1028 A continuation line is not indented past its statement
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.11. Test `tests/errors/OS1028`. The editor can apply the fix.
+
+**Message.** `A continuation line must be indented more deeply than the line its statement began on; line {line} is indented {statement} and this line is indented {found}.`
+
+- `{found}` is the leading space count on this line.
+- `{statement}` is the leading space count of the line the statement began on.
+- `{line}` is the line the statement began on.
+
+**Cause.** A statement continues onto the next line when a bracket is still open, when the line ends with a binary operator, a comma, a ?, a : or an =, or when it ends with a backslash (language.md 3.11). A continuation is required to sit further right than the line the statement began on, so that a reader can tell a continued statement from a new one without scanning back up the file for a trailing operator. This is not the block rule of OS1003, and it has a code of its own for that reason: a continuation opens no block, so OS1003, whose message names the indentation every line of a block carries and whose fix offers to end that block, would state a fact about a block that is not there.
+
+**Fix.** Indent this line further than the {statement} spaces on line {line}. Four more is the convention and the formatter's output.
+
+Before:
+
+```
+total = ema(close, 9) +
+ema(close, 21)
+```
+
+After:
+
+```
+total = ema(close, 9) +
+        ema(close, 21)
+```
+
+### OS1029 A name written against a number
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.3, 3.5. Test `tests/errors/OS1029`.
+
+**Message.** `{written} is neither a number nor a name: the number literal ends at {number}, and a name cannot begin with a digit.`
+
+- `{written}` is the whole run, the number literal and the name characters against it.
+- `{number}` is the part of the run that is a number literal.
+
+**Cause.** A number literal is decimal, with an optional fractional part and an optional exponent, or 0x and hexadecimal digits. There is no octal form and no binary form, and an underscore belongs to a literal only where a digit follows it (language.md 3.5). A name cannot begin with a digit (language.md 3.3). A base prefix the language does not have, a unit written against a quantity, and a literal that ends in an underscore all produce this run. The whole run is reported rather than its first character, because every character in it is one the language accepts: naming the leading digit would name something legal, and deleting it, which is what OS1001 advises, leaves a valid name behind and a program that means something else.
+
+**Fix.** Write the value in a form the language has: a decimal literal, or 0x and hexadecimal digits. There is no binary form and no octal form, and an underscore separates digit groups only where a digit follows it. Where a number and a name were meant as two things, put an operator between them.
+
+Before:
+
+```
+mask = 0b1011
+```
+
+After:
+
+```
+mask = 0x0b
 ```
 
 ---

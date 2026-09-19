@@ -155,7 +155,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Line ending normalisation | CRLF folded to LF before anything else, so one file compiles identically on any operating system | `specified` | `language.md` 3.1 | `unit:lex/line-endings` |
 | Illegal character rejection | Anything outside the permitted set, including a non-breaking space or a typographic quote, is OS1001 at the character | `specified` | `language.md` 3.1, `errors.md` OS1001 | `unit:lex/illegal-character` |
 | Line comment | `//` to end of line, and not inside a string literal | `specified` | `language.md` 3.2 | `unit:lex/comment` |
-| No block comment | The form does not exist, so an unterminated one cannot swallow a file | `specified` | `language.md` 3.2 | `unit:lex/no-block-comment` |
+| No block comment | The form does not exist, so an unterminated one cannot swallow a file; a marker written anyway is OS1026 at the marker, rather than arithmetic errors on the operators it is made of | `specified` | `language.md` 3.2, `errors.md` OS1026 | `unit:lex/no-block-comment` |
 | Identifiers | ASCII letter or underscore, then letters, digits, underscores; case sensitive | `specified` | `language.md` 3.3 | `unit:lex/identifier` |
 | Reserved words | The version 1 reserved list, including words reserved but unused | `specified` | `language.md` 3.4, `errors.md` OS1019 | `unit:lex/reserved-words` |
 | Decimal number literal | Integer, fractional, and a leading `.` with no digit before it | `specified` | `language.md` 3.5 | `lex/number-decimal` |
@@ -163,12 +163,14 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Exponent form | `2.5e-4` | `specified` | `language.md` 3.5 | `lex/number-exponent` |
 | Hexadecimal literal | `0xFF`, with no octal and no binary form, so `010` is ten | `specified` | `language.md` 3.5 | `lex/number-hex` |
 | Unary minus on a literal | A negative number is an operator applied to a literal, not part of it | `specified` | `language.md` 3.5 | `lex/number-negative` |
+| A name written against a number | A run such as a binary prefix or a literal ending in an underscore is neither a number nor a name, and the whole run is OS1029: naming its first character, which the language accepts, and advising its deletion would leave a valid name and a different program | `specified` | `language.md` 3.3, `language.md` 3.5, `errors.md` OS1029 | `unit:lex/number-then-name` |
 | String literal | Double or single quoted, the two forms identical | `specified` | `language.md` 3.6 | `lex/string-literal` |
 | String escapes | `\\ \" \' \n \t \r \0 \uXXXX`, any other backslash sequence OS1005 | `specified` | `language.md` 3.6, `errors.md` OS1005 | `lex/string-escapes` |
 | Unterminated string | OS1004 reported at the opening quote, naming the missing delimiter | `specified` | `language.md` 3.6, `errors.md` OS1004 | `unit:lex/string-unterminated` |
 | Boolean literals | `true` and `false`, of type `bool`, never numbers | `specified` | `language.md` 3.7 | `lex/bool-literal` |
 | Named colour literal | Nineteen bare names, no prefix | `specified` | `language.md` 3.8, `stdlib.md` 11.1 | `lex/color-named` |
 | Hex colour literal | `#rrggbb` and `#rrggbbaa` | `specified` | `language.md` 3.8 | `lex/color-hex` |
+| Malformed colour literal | A run of hexadecimal digits that is not six or eight long is OS1027, which names the form, rather than OS1001 on the `#`, whose advice is to delete it | `specified` | `language.md` 3.8, `errors.md` OS1027 | `unit:lex/color-malformed` |
 | Absent literal | `none`, written bare, with its own type | `specified` | `language.md` 3.9 | `lex/none-literal` |
 | Newline terminates a statement | One statement per line, no separator; a `;` is OS1007 | `specified` | `language.md` 3.10, `errors.md` OS1007 | `unit:lex/no-semicolon` |
 | One statement per line | Two statements on one line is OS1018, since there is no separator that would join them | `specified` | `language.md` 3.10, `errors.md` OS1018 | `unit:lex/one-statement-per-line` |
@@ -183,7 +185,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Continuation by trailing token | A trailing binary operator, comma, `?`, `:` or `=` continues the statement | `specified` | `language.md` 3.11 | `lex/continuation-operator` |
 | A continuation with nothing after it | OS1022, naming the token the statement ended on, because a trailing operator promised a right-hand side | `specified` | `language.md` 3.11, `errors.md` OS1022 | `unit:lex/continuation-incomplete` |
 | Continuation by backslash | A trailing `\` continues the statement | `specified` | `language.md` 3.11 | `lex/continuation-backslash` |
-| Continuation indentation | A continuation line must be indented past the statement's first line, or OS1003 | `specified` | `language.md` 3.11, `errors.md` OS1003 | `unit:lex/continuation-indent` |
+| Continuation indentation | A continuation line must be indented past the line its statement began on, or OS1028, which is its own code because a continuation opens no block and OS1003's message is written about one | `specified` | `language.md` 3.11, `errors.md` OS1028 | `unit:lex/continuation-indent` |
 | Bracket never closed | OS1012 at the opening bracket, and a mismatched closer is OS1013 | `specified` | `language.md` 3.11, `errors.md` OS1012, `errors.md` OS1013 | `unit:lex/bracket-unclosed` |
 | Operator token set | The exact punctuation list of section 3.12 | `specified` | `language.md` 3.12 | `unit:lex/operator-tokens` |
 | Rejected operator spellings | The C-style spellings of not, and, or and power do not exist, nor do `;` and the increment operators, and each has a named fix | `specified` | `language.md` 3.12 | `unit:lex/rejected-operators` |
@@ -347,6 +349,8 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Subscript disambiguation | `[]` is history on a series and element access on an array, decided at compile time | `specified` | `language.md` 9.6 | `expr/subscript-dispatch` |
 | Assignment is a statement | `if x = 5` is OS1006 with the fix "write `==`" | `specified` | `language.md` 10.1, `errors.md` OS1006 | `unit:expr/assignment-not-expression` |
 | Compound assignment | `+= -= *= /= %=`, expanding to the obvious form and obeying absence propagation | `specified` | `language.md` 10.1 | `expr/compound-assignment` |
+| An assignment target is a name | An indexed target is OS1024, whose fix names `set(arr, i, v)`, because `[]` reads an array element or a computed past bar and neither is written through an assignment | `specified` | `language.md` 14.1, `language.md` 19, `errors.md` OS1024 | `unit:expr/assign-to-index` |
+| No member assignment | A dotted target is OS1025: every member a script can reach is a fact or a function the library or the host supplies, and version 1 has no user-declared type that could add a writable one | `specified` | `language.md` 15.2, `language.md` 19, `errors.md` OS1025 | `unit:expr/assign-to-member` |
 
 ## 9. Control flow
 
@@ -387,7 +391,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 |---|---|---|---|---|
 | Single-line `fn` | `fn name(params) => expression` | `specified` | `language.md` 11.1 | `fn/single-line` |
 | Multi-line `fn` | A block whose final expression is the value | `specified` | `language.md` 11.1 | `fn/multi-line` |
-| Top level only | Functions may not be nested | `specified` | `language.md` 11.1 | `unit:fn/no-nesting` |
+| Top level only | Functions may not be nested; one declared inside a block is OS1023, naming the move, rather than a declaration the parser discards without a word | `specified` | `language.md` 11.1, `errors.md` OS1023 | `unit:fn/no-nesting` |
 | A function is not a value | Naming one without calling it is OS2014, and there are no function values in version 1 | `specified` | `language.md` 11.1, `errors.md` OS2014 | `unit:fn/not-a-value` |
 | A name that is not a function | Calling a name that holds a value is OS2010 | `specified` | `language.md` 11.1, `errors.md` OS2010 | `unit:fn/not-callable` |
 | Two functions of one name | OS2017, naming the earlier declaration | `specified` | `language.md` 11.1, `errors.md` OS2017 | `unit:fn/duplicate-name` |

@@ -25,6 +25,12 @@ const POINTS: readonly (readonly [string, string, string, number, number])[] = [
   ['OS1005', 'x = "a\\qb"\n', '\\q', 1, 7],
   ['OS1005', 'x = "\\u12"\n', '\\u12', 1, 6],
   ['OS1007', 'fast = 1; slow = 2\n', ';', 1, 9],
+  ['OS1026', 'lookback = 14 /* bars */\n', '/*', 1, 15],
+  ['OS1027', 'tint = #ff88\n', '#ff88', 1, 8],
+  // A continuation carries no character of its own to point at, so the caret
+  // sits empty at the start of the line whose indentation is the mistake.
+  ['OS1028', 'total = a +\nb\n', '', 2, 1],
+  ['OS1029', 'mask = 0b1011\n', '0b1011', 1, 8],
 
   // The parser.
   ['OS1006', 'if len = 14\n    x = 1\n', '=', 1, 8],
@@ -45,6 +51,9 @@ const POINTS: readonly (readonly [string, string, string, number, number])[] = [
   // A hole is empty and sits where the expression should have been, so it never
   // takes a caret meant for its neighbour.
   ['OS1022', 'x = f(a, b,)\n', '', 1, 12],
+  ['OS1023', 'if a\n    fn helper(x) => x\n', 'fn helper', 2, 5],
+  ['OS1024', 'prices[0] = close\n', 'prices[0]', 1, 1],
+  ['OS1025', 'chart.tickStep = 0.05\n', 'chart.tickStep', 1, 1],
 ];
 
 /**

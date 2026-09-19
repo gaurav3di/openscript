@@ -1,0 +1,9 @@
+// OS1029: A base prefix the language does not have, written as a number.
+// expect OS1029 at 8:8, length 6
+
+version 1
+
+study("Rejection case")
+
+mask = 0b1011
+plot(mask, "Mask")

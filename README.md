@@ -158,6 +158,49 @@ run our code at all reads the compiled program specification, writes its own
 engine, passes the suite, and its traders' scripts are the same scripts as
 everyone else's.
 
+## What is guaranteed, and what proves it
+
+A platform's engineering review asks two questions about a dependency: what do you
+promise, and how would I know. This table is the answer to the second one. Where a
+row says a check enforces something, that check runs in continuous integration and
+fails the build.
+
+| Guarantee | How you can tell | Today |
+|---|---|---|
+| No `eval`, no generated code, runs under a strict content security policy | Grep the source. There is no code construction anywhere, and the compiler emits data | Enforced |
+| Zero runtime dependencies | `dependencies` is empty and stays empty | Enforced |
+| The pieces are separable: take the language without the chart, or the chart without the language | `scripts/check-layering.mjs`. The core may not import a package or touch a browser global | Enforced |
+| Small modules with a stated surface | `scripts/check-modularity.mjs`. A module's index is its only door | Enforced |
+| Every error is documented, with a code, a cause and a fix | `scripts/check-error-codes.mjs`, and the code type is generated from the catalogue so an invented code will not compile | Enforced |
+| No fact is stated in two places | `scripts/check-duplication.mjs` | Enforced, with recorded debt |
+| The compiled program is implementable without reading our code | `spec/compiled-program.md` and `spec/host-interface.md` | Written |
+| Two engines agree to the last decimal | The conformance suite, run against both. A disagreement blocks a release | Phase 6 gate |
+| A runaway script stops | Instruction, memory and wall clock budgets, enforced by the engine that owns the loop | Phase 2 gate |
+| A failing script does not take anything else down | One script's failure is a diagnostic on that script | Phase 2 gate |
+| A saved script never stops working | The language version is declared per file and old front ends are retained | Phase 7, with a test per retained version |
+| Performance | A benchmark with a number, in continuous integration | Phase 2 gate |
+
+The rows marked as gates are not promises we intend to keep. They are conditions a
+phase does not finish without, and each one is written into the roadmap beside the
+phase that owes it.
+
+### Why a script cannot reach anything
+
+This is the row a security review spends its time on, so it is worth stating
+plainly rather than leaving as a property of the architecture.
+
+A compiled program is **data**. It is a list of instructions the engine walks. A
+script has no way to name a function the instruction set does not expose, so there
+is no call into the host, no network, no filesystem, no access to the object graph
+of the process it runs in. There is nothing to escape from, because nothing was
+ever handed over.
+
+That also makes the budgets real rather than best-effort. The engine owns the
+loop, so an instruction count per bar, a memory ceiling and a wall clock are
+counters in that loop rather than something to hope about. A platform running many
+customers' scripts in one process needs exactly this, and a design that generates
+code and runs it cannot offer it.
+
 ## The host interface
 
 Whatever a platform takes, it supplies six things and nothing more:

@@ -1,5 +1,14 @@
+import { readFileSync, readdirSync } from 'node:fs';
+
 import { DiagnosticBag, childrenOf, parse, sourceFile, walk } from '../../src/core/index.js';
-import type { AstNode, Diagnostic, Script, SourceFile, Statement } from '../../src/core/index.js';
+import type {
+  AstNode,
+  Diagnostic,
+  PlaceholderValue,
+  Script,
+  SourceFile,
+  Statement,
+} from '../../src/core/index.js';
 
 export interface Parsed {
   readonly file: SourceFile;
@@ -19,12 +28,60 @@ export function codes(text: string): readonly string[] {
   return parsed(text).diagnostics.map((diagnostic) => diagnostic.code);
 }
 
-export function messages(text: string): readonly string[] {
-  return parsed(text).diagnostics.map((diagnostic) => diagnostic.message);
-}
-
 export function fixes(text: string): readonly string[] {
   return parsed(text).diagnostics.map((diagnostic) => diagnostic.fix);
+}
+
+/**
+ * The values a diagnostic filled its slots from.
+ *
+ * A test asserts these rather than the sentence they were put into. The code is
+ * the promise and the wording may improve, but the name a message points at is
+ * part of what the diagnostic claims, and it is what an editor reads to offer a
+ * fix. Asserting the sentence instead makes a second copy of the catalogue's
+ * wording, which is the one thing the catalogue exists to prevent.
+ */
+export function values(text: string): readonly Readonly<Record<string, PlaceholderValue>>[] {
+  return parsed(text).diagnostics.map((diagnostic) => diagnostic.values);
+}
+
+/** Each diagnostic as `line:column+length`, the part a caret is drawn from. */
+export function spans(text: string): readonly string[] {
+  return parsed(text).diagnostics.map(
+    (one) => `${one.span.line}:${one.span.column}+${one.span.length}`,
+  );
+}
+
+/** Where the parser's own source lives, named from the repository root. */
+const PARSE_DIRECTORY = new URL('../../../src/core/parse/', import.meta.url);
+
+/**
+ * `cursor.report('OS1024', ...)`, which is the one shape a parse diagnostic is
+ * raised in. A code written in a comment is not a call and is not matched, and
+ * the sink's own `report(code, ...)` takes a variable rather than a literal.
+ */
+const RAISED = /\breport\(\s*'(OS\d{4})'/g;
+
+/**
+ * Every code the parser's source raises, read out of the source.
+ *
+ * A list of codes kept by hand says what somebody believed on the day they
+ * wrote it. Reading the calls says what the parser does, so a code added to a
+ * rule and forgotten everywhere else has somewhere to show up.
+ */
+export function codesTheParserRaises(): readonly string[] {
+  const found = new Set<string>();
+
+  for (const name of readdirSync(PARSE_DIRECTORY).sort()) {
+    if (!name.endsWith('.ts')) continue;
+    const source = readFileSync(new URL(name, PARSE_DIRECTORY), 'utf8');
+    for (const match of source.matchAll(RAISED)) {
+      const code = match[1];
+      if (code !== undefined) found.add(code);
+    }
+  }
+
+  return [...found].sort();
 }
 
 /**

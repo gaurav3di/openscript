@@ -110,16 +110,32 @@ test('a blank line inside a continuation neither continues nor ends it', () => {
   assert.deepEqual(layout('plot(a,\n\n     // a note\n     b)\n'), ['newline']);
 });
 
-test('a continuation line indented no more deeply than its statement is OS1003', () => {
+test('a continuation line indented no more deeply than its statement is OS1028', () => {
   const { diagnostics } = lexed('total = a +\nb\n');
   assert.deepEqual(
     diagnostics.map((one) => one.code),
-    ['OS1003'],
+    ['OS1028'],
   );
-  assert.deepEqual(diagnostics[0]?.values, { found: 0, expected: 1, line: 1 });
+  // The message names what this line is indented, what the line the statement
+  // began on is indented, and which line that was. It names no block, because
+  // there is no block: OS1003 would have named one that was never opened.
+  assert.deepEqual(diagnostics[0]?.values, { found: 0, statement: 0, line: 1 });
   // Still one statement: the trailing operator said so, and the error names the
   // indentation to fix rather than inventing a second statement.
   assert.deepEqual(layout('total = a +\nb\n'), ['newline']);
+});
+
+test('a continuation inside a block is measured against its statement, not the block', () => {
+  const source = 'if a\n    total = b +\n    c\n';
+  const { diagnostics } = lexed(source);
+  assert.deepEqual(
+    diagnostics.map((one) => one.code),
+    ['OS1028'],
+  );
+  // Four spaces is right for a line of this block and wrong for a continuation
+  // of a statement that itself began four in, and the numbers say so.
+  assert.deepEqual(diagnostics[0]?.values, { found: 4, statement: 4, line: 2 });
+  assert.deepEqual(codes('if a\n    total = b +\n        c\n    d = 1\n'), []);
 });
 
 test('a multi-line function header opens a block and a single-line one does not', () => {

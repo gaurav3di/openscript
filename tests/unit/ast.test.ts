@@ -125,14 +125,155 @@ test('every node kind builds a node of that kind', () => {
   }
 });
 
-test('every node kind has an answer from childrenOf', () => {
+/**
+ * What each kind answers with, named node by node out of the table above.
+ *
+ * The nodes themselves rather than their kinds, and compared by identity, so a
+ * slot connected to the wrong field fails here even where the two hold the same
+ * kind. Asserting only that an array of things with a string kind came back was
+ * true of an implementation that answered with nothing for every kind, and that
+ * implementation breaks the walker, the gate's hole detection and the rule that
+ * a parent's span covers its children, all of which read the tree through this
+ * one function.
+ */
+const everyChild: Readonly<Record<NodeKind, readonly AstNode[]>> = {
+  script: [],
+  functionDeclaration: [name, one],
+  parameter: [name, numberType, one],
+  versionLine: [one],
+  scriptDeclaration: [positional],
+  limitsLine: [positional],
+  expressionStatement: [close],
+  assignment: [name, one],
+  varDeclaration: [name, one],
+  ifStatement: [branch],
+  ifBranch: [close, emptyBlock],
+  elseBranch: [emptyBlock],
+  forRangeStatement: [name, one, one, emptyBlock],
+  forInStatement: [name, close, emptyBlock],
+  whileStatement: [close, emptyBlock],
+  switchStatement: [],
+  switchCase: [one, emptyBlock],
+  switchDefault: [emptyBlock],
+  breakStatement: [],
+  continueStatement: [],
+  returnStatement: [],
+  block: [],
+  numberLiteral: [],
+  stringLiteral: [],
+  booleanLiteral: [],
+  colorLiteral: [],
+  noneLiteral: [],
+  arrayLiteral: [one],
+  nameReference: [],
+  grouping: [one],
+  unary: [close],
+  binary: [close, one],
+  ternary: [close, one, one],
+  call: [close, positional],
+  argument: [one],
+  index: [close, one],
+  member: [close, name],
+  missingExpression: [],
+  namedType: [],
+  seriesType: [numberType],
+  arrayType: [numberType],
+  name: [],
+};
+
+test('every node kind answers with the children it was built from', () => {
   for (const [kind, node] of Object.entries(everyKind)) {
+    const expected = everyChild[kind as NodeKind];
     const children = childrenOf(node);
-    assert.ok(Array.isArray(children), `${kind} has no children table`);
-    for (const child of children) {
-      assert.ok(typeof child.kind === 'string', `${kind} returned something that is not a node`);
+
+    assert.equal(
+      children.length,
+      expected.length,
+      `${kind} answered with ${children.length} children and was built with ${expected.length}`,
+    );
+    for (const [at, child] of children.entries()) {
+      assert.equal(child, expected[at], `${kind}: child ${at} is not the node it was built with`);
     }
   }
+});
+
+test('a node that holds a list answers with every element of it, in order', () => {
+  // The kinds above are built with an empty list or a single element, which is
+  // enough to connect the field and not enough to show that the whole of it
+  // comes back. A list that lost an element after the first would be a hole in
+  // the tree that nothing else here could see.
+  const two = makeNode('numberLiteral', anywhere, { value: 2 });
+  const three = makeNode('numberLiteral', anywhere, { value: 3 });
+  const labelled = makeNode('argument', anywhere, { label: name, value: two });
+  const src = makeNode('parameter', anywhere, {
+    name,
+    annotation: undefined,
+    defaultValue: undefined,
+  });
+  const len = makeNode('parameter', anywhere, { name, annotation: numberType, defaultValue: one });
+  const declaration = makeNode('functionDeclaration', anywhere, {
+    name,
+    parameters: [src, len],
+    body: one,
+  });
+  const otherBranch = makeNode('ifBranch', anywhere, { condition: close, body: emptyBlock });
+  const otherwise = makeNode('elseBranch', anywhere, { body: emptyBlock });
+  const arm = makeNode('switchCase', anywhere, { values: [one, two], body: emptyBlock });
+  const fallback = makeNode('switchDefault', anywhere, { body: emptyBlock });
+  const set = makeNode('assignment', anywhere, { target: name, operator: '=', value: one });
+
+  assert.deepEqual(childrenOf(makeNode('arrayLiteral', anywhere, { elements: [one, two, three] })), [
+    one,
+    two,
+    three,
+  ]);
+  assert.deepEqual(
+    childrenOf(makeNode('call', anywhere, { callee: close, args: [positional, labelled] })),
+    [close, positional, labelled],
+  );
+  // A label is a name in a slot of its own, and it comes before the value.
+  assert.deepEqual(childrenOf(labelled), [name, two]);
+  assert.deepEqual(childrenOf(declaration), [name, src, len, one]);
+  assert.deepEqual(
+    childrenOf(
+      makeNode('ifStatement', anywhere, {
+        branches: [branch, otherBranch],
+        elseBranch: otherwise,
+      }),
+    ),
+    [branch, otherBranch, otherwise],
+  );
+  assert.deepEqual(childrenOf(arm), [one, two, emptyBlock]);
+  assert.deepEqual(
+    childrenOf(
+      makeNode('switchStatement', anywhere, {
+        subject: close,
+        cases: [arm],
+        defaultCase: fallback,
+      }),
+    ),
+    [close, arm, fallback],
+  );
+  assert.deepEqual(
+    childrenOf(makeNode('script', anywhere, { items: [set, declaration] })),
+    [set, declaration],
+  );
+});
+
+test('a block holds a function declared inside it, and answers with it', () => {
+  // A function may not be declared inside a block (11.1) and is reported where
+  // it is written, so a block has to be able to hold one. When it could not,
+  // the declaration was dropped, the mistake went unreported and every call to
+  // it was left as a name nobody declared.
+  const declaration = makeNode('functionDeclaration', anywhere, {
+    name,
+    parameters: [],
+    body: one,
+  });
+  const set = makeNode('assignment', anywhere, { target: name, operator: '=', value: one });
+  const body = makeNode('block', anywhere, { statements: [declaration, set] });
+
+  assert.deepEqual(childrenOf(body), [declaration, set]);
 });
 
 test('a slot the script left out contributes no child', () => {

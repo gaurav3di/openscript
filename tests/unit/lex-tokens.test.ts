@@ -46,11 +46,55 @@ test('a comment marker inside a string literal is ordinary text', () => {
   assert.equal(stringValue('msg = "https://x"\n'), 'https://x');
 });
 
+test('a block comment marker is reported once, where it sits', () => {
+  // The form does not exist (3.2), and the marker is reported rather than read
+  // as a divide against a multiply. Read as tokens it makes the prose between
+  // the markers a statement, and the reader is handed several diagnostics that
+  // are each true of a program they never wrote and none of which mentions the
+  // comment they were writing.
+  const source = 'lookback = 14 /* bars */\n';
+  const { diagnostics } = lexed(source);
+  assert.deepEqual(
+    diagnostics.map((one) => one.code),
+    ['OS1026'],
+  );
+  assert.deepEqual(diagnostics[0]?.values, { marker: '/*' });
+  assert.equal(diagnostics[0]?.span.column, 15);
+  assert.equal(diagnostics[0]?.span.length, 2);
+  // And what is left is a sound line, not a line with its operands missing.
+  assert.deepEqual(words(source), ['lookback', '=', '14']);
+});
+
+test('a closer with nothing open is reported where it is written', () => {
+  const { diagnostics } = lexed('a = 1\nb = 2 */\n');
+  assert.deepEqual(
+    diagnostics.map((one) => one.code),
+    ['OS1026'],
+  );
+  assert.deepEqual(diagnostics[0]?.values, { marker: '*/' });
+  assert.equal(diagnostics[0]?.span.line, 2);
+});
+
+test('a star written against a line comment is a multiply and a comment', () => {
+  // The comment form the language does have wins, so a correct line is not
+  // reported. A diagnostic on a correct program is the one mistake a lexer may
+  // never make.
+  assert.deepEqual(codes('x = a*// note\n'), []);
+  assert.deepEqual(kinds('x = a*// note\n'), ['identifier', '=', 'identifier', '*', 'newline']);
+});
+
 test('there is no block comment, so nothing swallows the rest of a file', () => {
-  // The opening marker of the form the language does not have is punctuation,
-  // and the lines below it are still read.
-  assert.deepEqual(kinds('/* x\n').slice(0, 3), ['/', '*', 'identifier']);
+  // A marked region costs its own lines and is reported at the opener, so the
+  // lines below the closer are read as usual.
+  assert.deepEqual(words('a = 1\n/* note\n   more */\nb = 2\n'), ['a', '=', '1', 'b', '=', '2']);
+  assert.deepEqual(codes('a = 1\n/* note\n   more */\nb = 2\n'), ['OS1026']);
+
+  // An opener whose closer was never written costs its own line and nothing
+  // below it. Reading the rest of the file as a comment is the silent swallow
+  // that 3.2 gives as the reason the form does not exist, and one marker may
+  // not cost a reader every other mistake in their file.
   assert.equal(words('a = 1\n/* x\nb = 2\n').includes('b'), true);
+  assert.deepEqual(codes('a = 1\n/* x\nb = 2\n'), ['OS1026']);
 });
 
 test('an identifier begins with a letter or an underscore and is case sensitive', () => {

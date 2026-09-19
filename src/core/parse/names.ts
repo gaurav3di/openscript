@@ -25,6 +25,46 @@ export function isWordKind(kind: TokenKind): boolean {
 }
 
 /**
+ * The reserved words a reader can only have meant as a name.
+ *
+ * A reserved word written where a value belongs is one of two things, and which
+ * one depends on the word. Six of them are read by a rule standing next to the
+ * expression: `and` and `or` join two operands and `not` takes one, and `in`,
+ * `to` and `step` are read by a `for` header the moment the expression before
+ * them ends. A word that opens a statement is the same answer again, because an
+ * unclosed bracket carries the statement onto the lines below it and the `if`
+ * down there belongs to its own line rather than to this expression. Taking any
+ * of those as a name would swallow a token the rule around it is waiting for,
+ * and the second diagnostic would then be about the rule rather than about the
+ * mistake.
+ *
+ * What is left is the four value type names, the two words that build a type,
+ * and the six the language reserves and version 1 does not implement. No rule
+ * of the grammar reads one of them anywhere near an expression, so a reader who
+ * wrote one where a value belongs wrote a name, and the answer is OS1019: the
+ * same answer `takeName` gives for the same word written as a target.
+ */
+const MEANT_AS_A_NAME: ReadonlySet<TokenKind> = new Set<TokenKind>([
+  'array',
+  'as',
+  'bool',
+  'color',
+  'import',
+  'is',
+  'map',
+  'matrix',
+  'number',
+  'series',
+  'string',
+  'type',
+]);
+
+/** Whether a word standing where a value belongs is a name the language has taken. */
+export function isMeantAsAName(kind: TokenKind): boolean {
+  return MEANT_AS_A_NAME.has(kind);
+}
+
+/**
  * A name that is not reserved, derived from one that is.
  *
  * OS1019 promises a near name that keeps the meaning, and the derivation has to

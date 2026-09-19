@@ -16,7 +16,7 @@ import { spanning } from '../span/index.js';
 import type { Token, TokenKind } from '../tokens/index.js';
 import type { Cursor } from './cursor.js';
 import { describeToken } from './cursor.js';
-import { atLabel, takeLabel, takeMember } from './names.js';
+import { atLabel, isMeantAsAName, takeLabel, takeMember, takeName } from './names.js';
 
 /**
  * The expression grammar, which is the precedence table of language.md 9.1 read
@@ -53,8 +53,15 @@ const STARTS_EXPRESSION: ReadonlySet<TokenKind> = new Set<TokenKind>([
   'not',
 ]);
 
+/**
+ * Whether an expression can begin here, which is what tells one argument from
+ * the next and what keeps a list from reading a closing bracket as an item.
+ *
+ * A reserved word a reader meant as a name begins one too, because `parsePrimary`
+ * reads it as the name it was meant to be rather than leaving it where it sits.
+ */
 export function startsExpression(kind: TokenKind): boolean {
-  return STARTS_EXPRESSION.has(kind);
+  return STARTS_EXPRESSION.has(kind) || isMeantAsAName(kind);
 }
 
 interface List<Item> {
@@ -289,6 +296,16 @@ function parsePrimary(cursor: Cursor): Expression {
       });
     }
     default:
+      // A reserved word where a value belongs is the name the reader meant, and
+      // OS1019 says the language has taken the word. The word is taken here as
+      // well as reported on: a rule that reports and then consumes nothing
+      // leaves the list and the bracket above it looking at the token it could
+      // not read, and the next thing the reader is told is that a bracket they
+      // plainly closed was never closed.
+      if (isMeantAsAName(token.kind)) {
+        const name = takeName(cursor);
+        return makeNode('nameReference', name.span, { name: name.text });
+      }
       return expressionExpected(cursor);
   }
 }
@@ -337,9 +354,21 @@ export function parseBracketedList<Item>(
     }
 
     if (atListEnd(cursor)) break;
-    // Nothing was read, or what follows could not have begun a second item:
-    // either way this is the closing bracket's mistake and not a missing comma.
-    if (cursor.position === before || !startsExpression(cursor.kind)) break;
+
+    // The item read nothing, so it has reported its own hole and the token it
+    // could not read is still here. Taking it carries the list on to the item
+    // after it and, more importantly, to the closing bracket: a list that
+    // stopped here would hand the bracket a token that is not a closer, and the
+    // reader would be told the bracket was never closed on a line that closes
+    // it.
+    if (cursor.position === before) {
+      cursor.advance();
+      continue;
+    }
+
+    // What follows could not have begun a second item, so this is the closing
+    // bracket's mistake and not a missing comma.
+    if (!startsExpression(cursor.kind)) break;
 
     cursor.report('OS1014', cursor.token.span, { token: describeToken(cursor.token) });
   }

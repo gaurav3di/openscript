@@ -128,9 +128,12 @@ test('a statement continues onto the next line in the three cases of 3.11 and no
 test('a continuation line has only to sit deeper than the line that began the statement', () => {
   assert.deepEqual(codes('total = a +\n b\n'), []);
   assert.deepEqual(codes('total = a +\n                    b\n'), []);
-  // Level with the statement is OS1003, because it could otherwise be read as a
-  // statement of its own.
-  assert.deepEqual(codes('total = a +\nb\n'), ['OS1003']);
+  // Level with the statement is OS1028, because it could otherwise be read as a
+  // statement of its own. Not OS1003: a continuation opens no block, so the
+  // message about the indentation every line of a block carries, and the fix
+  // offering to end that block, would both be about a block that is not there.
+  assert.deepEqual(codes('total = a +\nb\n'), ['OS1028']);
+  assert.deepEqual(codes('total = a +\n  b\nnext = 1\n'), []);
 });
 
 test('a continuation inside a block is measured against its own statement, not the block', () => {

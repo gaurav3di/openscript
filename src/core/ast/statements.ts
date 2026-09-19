@@ -3,6 +3,7 @@ import type { TypeAnnotation } from './annotations.js';
 import type { Expression } from './expressions.js';
 import type { LimitsLine, ScriptDeclaration, VersionLine } from './header.js';
 import type { Name } from './name.js';
+import type { FunctionDeclaration } from './script.js';
 
 /**
  * Every statement form of language.md section 10, plus the block they nest in.
@@ -22,10 +23,19 @@ export type AssignmentOperator = (typeof ASSIGNMENT_OPERATORS)[number];
  * A block is a node with a span of its own so that OS1003 and OS1010 have
  * something to point at, and so an editor can fold one. Blank and comment only
  * lines produce no token, so they are not statements and never appear here.
+ *
+ * A function declaration may be written here and may not be legal here, which
+ * is the same arrangement the header statements already have: a version line
+ * inside a block is OS1021 and a declaration inside one is OS1023, and both
+ * diagnostics name a line and suggest a move, which a tree that refused to hold
+ * the node could not do. So a nested declaration stays where it was written,
+ * where the reader has to change it, rather than being dropped, which would
+ * hide it from every pass after the parser, or lifted to the top level, which
+ * would compile a file the language refuses.
  */
 export interface Block extends Positioned {
   readonly kind: 'block';
-  readonly statements: readonly Statement[];
+  readonly statements: readonly (Statement | FunctionDeclaration)[];
 }
 
 /** A bare expression on a line, which is how a script calls `plot` or `signal`. */

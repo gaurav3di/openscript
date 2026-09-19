@@ -1,0 +1,15 @@
+// OS1027: A colour literal written with four hexadecimal digits instead of six.
+//
+// The second claim is the run being dropped rather than emitted as a token of
+// its own, which leaves the assignment with nothing on its right. It is claimed
+// because it happens, not because it is wanted: the day the run is emitted this
+// case reports one diagnostic and the second line below is deleted.
+// expect OS1027 at 14:8, length 5
+// expect OS1022 at 14:13, length 0
+
+version 1
+
+study("Rejection case")
+
+tint = #ff88
+plot(close, "Close", tint)

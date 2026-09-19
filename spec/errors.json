@@ -83,7 +83,7 @@
         "char": "the offending character, quoted, with its Unicode name when it is not an ASCII graphic",
         "suggestion": "the replacement sentence for this character, from the substitution table in section 7 of this document"
       },
-      "cause": "Outside a string literal the language accepts ASCII letters, ASCII digits, space, newline and the punctuation list of language.md 3.12, and nothing else. A non-breaking space pasted from a web page, a typographic quotation mark pasted from a word processor, a non-ASCII letter in a name, a digit at the start of a name, and an operator the language does not have (!, &&, ||, ^, {, }) all arrive here. The character is rejected where it sits rather than three tokens later, because an invisible character produces a baffling parse error otherwise.",
+      "cause": "Outside a string literal the language accepts ASCII letters, ASCII digits, space, newline and the punctuation list of language.md 3.12, and nothing else. A non-breaking space pasted from a web page, a typographic quotation mark pasted from a word processor, a non-ASCII letter in a name, and an operator the language does not have (!, &&, ||, ^, {, }) all arrive here. The character is rejected where it sits rather than three tokens later, because an invisible character produces a baffling parse error otherwise. Two runs whose every character is legal are not this code: a name written against a number is OS1029, and a colour literal with the wrong number of digits is OS1027. Naming one character of either and advising its deletion, which is what this fix says to do, would leave a program that still compiles and means something else.",
       "fix": "Delete the character or replace it with the plain ASCII spelling the message names: a plain space for a non-breaking space, a straight quote for a typographic one, not for !, and for &&, or for ||, pow(a, b) for ^.",
       "autofix": true,
       "example": {
@@ -125,14 +125,14 @@
         "expected": "the leading space count every line of this block carries",
         "line": "the line that opened the block"
       },
-      "cause": "Every line of one block carries exactly the same leading whitespace, and a continuation line must be indented more deeply than the first line of its statement. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see. A blank line and a comment-only line stand outside the rule: they carry no token and no indentation at all, so any leading whitespace is accepted on them and neither one is ever this error.",
+      "cause": "Every line of one block carries exactly the same leading whitespace. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see. A blank line and a comment-only line stand outside the rule: they carry no token and no indentation at all, so any leading whitespace is accepted on them and neither one is ever this error. A continuation line stands outside it for a different reason: it belongs to a statement that began above it and opens no block, so what its indentation has to clear is that statement rather than a block, and that is OS1028.",
       "fix": "Indent this line to {expected} spaces to keep it in the block, or to {line}'s own indentation to end the block here.",
       "autofix": true,
       "example": {
         "before": "if trending\n    fast = ema(close, 9)\n     slow = ema(close, 21)",
         "after": "if trending\n    fast = ema(close, 9)\n    slow = ema(close, 21)"
       },
-      "spec": "language.md 3.10, 3.11",
+      "spec": "language.md 3.10",
       "refines": null,
       "test": "tests/errors/OS1003"
     },
@@ -440,7 +440,7 @@
       "placeholders": {
         "token": "the first token that follows the complete statement"
       },
-      "cause": "A line holds at most one statement, so anything after a statement ends is either a missing operator or a second statement that lost its newline.",
+      "cause": "A line holds at most one statement, so anything after a statement ends is either a missing operator or a second statement that lost its newline. An assignment operator after an index or after a dotted name is not this error: the statement did not end there, and what is wrong is the target rather than anything following it. Those two are OS1024 and OS1025.",
       "fix": "Put {token} and what follows it on its own line, or supply the operator that was meant to join them.",
       "autofix": false,
       "example": {
@@ -535,6 +535,157 @@
       "spec": "language.md 3.11",
       "refines": null,
       "test": "tests/errors/OS1022"
+    },
+    {
+      "code": "OS1023",
+      "title": "A function declared inside a block",
+      "severity": "error",
+      "stage": "parse",
+      "since": 1,
+      "message": "fn {name} is declared inside a block, and a function is declared at the top level of the file.",
+      "placeholders": {
+        "name": "the function being declared"
+      },
+      "cause": "Functions may not be nested (language.md 11.1). A declaration under an if, a loop, a switch arm or another function's body sits in a scope that ends where the block ends, so the name would exist for part of a file and not the rest, and a reader would have to trace the block structure to know whether a call on the line in front of them was legal. The declaration is reported rather than dropped or lifted: dropping it leaves every call to it as OS2001 with no word about where the function went, and lifting it to the top level compiles a form the language does not have.",
+      "fix": "Move the whole declaration out to the top level of the file, and call {name} from inside the block.",
+      "autofix": false,
+      "example": {
+        "before": "if trending\n    fn smoothed(src) => sma(src, 9)\n    plot(smoothed(close), \"Smooth\", aqua)",
+        "after": "fn smoothed(src) => sma(src, 9)\n\nif trending\n    plot(smoothed(close), \"Smooth\", aqua)"
+      },
+      "spec": "language.md 11.1",
+      "refines": null,
+      "test": "tests/errors/OS1023"
+    },
+    {
+      "code": "OS1024",
+      "title": "Assignment to an indexed element",
+      "severity": "error",
+      "stage": "parse",
+      "since": 1,
+      "message": "An assignment writes to a name, and this target is an index into {name}.",
+      "placeholders": {
+        "name": "the name that was indexed"
+      },
+      "cause": "The grammar of language.md 19 admits one assignment target, an identifier, and there is no indexed assignment anywhere in the language. The reason is that [] reads two different things (language.md 9.6): on an array it is an element, which section 14.1 writes with set(arr, i, v), and on a series it is a bar the engine has already computed, which nothing in a script may overwrite. One syntax covering both would read as though a past bar could be rewritten.",
+      "fix": "Change an array element with set({name}, i, v), or assign to a plain name: the past of a series is computed and never written.",
+      "autofix": false,
+      "example": {
+        "before": "var prices = [0.0]\nprices[0] = close",
+        "after": "var prices = [0.0]\nset(prices, 0, close)"
+      },
+      "spec": "language.md 9.6, 14.1, 19",
+      "refines": null,
+      "test": "tests/errors/OS1024"
+    },
+    {
+      "code": "OS1025",
+      "title": "Assignment to a member",
+      "severity": "error",
+      "stage": "parse",
+      "since": 1,
+      "message": "An assignment writes to a name, and this target is the member {member} of {name}.",
+      "placeholders": {
+        "name": "the name written before the dot",
+        "member": "the name written after the dot"
+      },
+      "cause": "The grammar of language.md 19 admits one assignment target, an identifier. A dotted name reads a member of one of the namespaces on the closed list in language.md 15.2, and every member on that list is a per-bar fact, an instrument fact, a position fact or a function, each of them produced by the engine or by the host. There is nothing behind a dot that a script owns. Version 1 has no user-declared types that could add one either: type is a reserved word and is not implemented (language.md 18). A dotted name whose first half is not a namespace is the same answer for a simpler reason: it has no members at all.",
+      "fix": "Assign to a plain name. Version 1 has no member assignment: a dot reads a member, and the members a script can reach are facts and functions the library and the host supply.",
+      "autofix": false,
+      "example": {
+        "before": "chart.tickStep = 0.05\nplot(close + chart.tickStep, \"Stepped\", aqua)",
+        "after": "tickStep = 0.05\nplot(close + tickStep, \"Stepped\", aqua)"
+      },
+      "spec": "language.md 15.2, 19",
+      "refines": null,
+      "test": "tests/errors/OS1025"
+    },
+    {
+      "code": "OS1026",
+      "title": "Block comment",
+      "severity": "error",
+      "stage": "lex",
+      "since": 1,
+      "message": "{marker} does not open or close a comment. A comment is written // and runs to the end of its line.",
+      "placeholders": {
+        "marker": "the two characters that were written, the opener or the closer"
+      },
+      "cause": "The language has line comments and no block form (language.md 3.2). The block form is left out on purpose: an unterminated one swallows the rest of a file and reports its error at the last line, which is the worst message a compiler can produce. Without the form there is nothing special about the two characters, so a divide and a multiply are what they are and the line parses as arithmetic with its operands missing. The diagnostics then land on the operators rather than on the comment that caused them, and a reader is told three things that are each true of a program they did not write. The marker is reported where it sits instead.",
+      "fix": "Write // instead, and give every line of a commented region its own //, which every editor does with one keystroke.",
+      "autofix": false,
+      "example": {
+        "before": "lookback = 14 /* bars */",
+        "after": "lookback = 14 // bars"
+      },
+      "spec": "language.md 3.2",
+      "refines": null,
+      "test": "tests/errors/OS1026"
+    },
+    {
+      "code": "OS1027",
+      "title": "Malformed colour literal",
+      "severity": "error",
+      "stage": "lex",
+      "since": 1,
+      "message": "{written} is not a colour: a colour literal is # and six or eight hexadecimal digits.",
+      "placeholders": {
+        "written": "the # and the run of characters written against it"
+      },
+      "cause": "A hexadecimal colour is # and six digits, two each for red, green and blue, or eight where the last two are the alpha byte (language.md 3.8). The three and four digit shorthands belong to other formats and this language does not have them, and a run of any other length, or one carrying a digit outside 0 to f, is a typing slip. It has a code of its own because every character in it is one the language accepts: the substitution row that gives OS1001 its sentence about # is written for a # outside a colour literal, and its advice, to delete the character or move the text into a string, would throw away a colour the writer had nearly right.",
+      "fix": "Give it six hexadecimal digits, or eight where the last two are the alpha byte. A named colour or rgb(r, g, b) says the same thing without the digits.",
+      "autofix": false,
+      "example": {
+        "before": "plot(close, \"Close\", #ff88)",
+        "after": "plot(close, \"Close\", #ff8800)"
+      },
+      "spec": "language.md 3.8",
+      "refines": "OS1001",
+      "test": "tests/errors/OS1027"
+    },
+    {
+      "code": "OS1028",
+      "title": "A continuation line is not indented past its statement",
+      "severity": "error",
+      "stage": "lex",
+      "since": 1,
+      "message": "A continuation line must be indented more deeply than the line its statement began on; line {line} is indented {statement} and this line is indented {found}.",
+      "placeholders": {
+        "found": "the leading space count on this line",
+        "statement": "the leading space count of the line the statement began on",
+        "line": "the line the statement began on"
+      },
+      "cause": "A statement continues onto the next line when a bracket is still open, when the line ends with a binary operator, a comma, a ?, a : or an =, or when it ends with a backslash (language.md 3.11). A continuation is required to sit further right than the line the statement began on, so that a reader can tell a continued statement from a new one without scanning back up the file for a trailing operator. This is not the block rule of OS1003, and it has a code of its own for that reason: a continuation opens no block, so OS1003, whose message names the indentation every line of a block carries and whose fix offers to end that block, would state a fact about a block that is not there.",
+      "fix": "Indent this line further than the {statement} spaces on line {line}. Four more is the convention and the formatter's output.",
+      "autofix": true,
+      "example": {
+        "before": "total = ema(close, 9) +\nema(close, 21)",
+        "after": "total = ema(close, 9) +\n        ema(close, 21)"
+      },
+      "spec": "language.md 3.11",
+      "refines": "OS1003",
+      "test": "tests/errors/OS1028"
+    },
+    {
+      "code": "OS1029",
+      "title": "A name written against a number",
+      "severity": "error",
+      "stage": "lex",
+      "since": 1,
+      "message": "{written} is neither a number nor a name: the number literal ends at {number}, and a name cannot begin with a digit.",
+      "placeholders": {
+        "written": "the whole run, the number literal and the name characters against it",
+        "number": "the part of the run that is a number literal"
+      },
+      "cause": "A number literal is decimal, with an optional fractional part and an optional exponent, or 0x and hexadecimal digits. There is no octal form and no binary form, and an underscore belongs to a literal only where a digit follows it (language.md 3.5). A name cannot begin with a digit (language.md 3.3). A base prefix the language does not have, a unit written against a quantity, and a literal that ends in an underscore all produce this run. The whole run is reported rather than its first character, because every character in it is one the language accepts: naming the leading digit would name something legal, and deleting it, which is what OS1001 advises, leaves a valid name behind and a program that means something else.",
+      "fix": "Write the value in a form the language has: a decimal literal, or 0x and hexadecimal digits. There is no binary form and no octal form, and an underscore separates digit groups only where a digit follows it. Where a number and a name were meant as two things, put an operator between them.",
+      "autofix": false,
+      "example": {
+        "before": "mask = 0b1011",
+        "after": "mask = 0x0b"
+      },
+      "spec": "language.md 3.3, 3.5",
+      "refines": "OS1001",
+      "test": "tests/errors/OS1029"
     },
     {
       "code": "OS2001",

@@ -1,0 +1,132 @@
+name: Release
+
+# Manual only. A tag push must not publish by itself: a tag is cheap to create by
+# accident, and publishing to npm is not reversible.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish, e.g. v0.2.0. Must already exist and be pushed.'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: verify and publish to npm
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      # Required for npm trusted publishing (OIDC) and for signed provenance.
+      # This is what lets the job publish WITHOUT any long-lived npm token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          # Provenance records the commit that produced the artifact, so the
+          # checkout has to be the real one rather than a shallow synthetic.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Trusted publishing needs a recent npm. The runner's bundled version lags,
+      # so pin one known to support it rather than hoping.
+      - name: use an npm that supports trusted publishing
+        run: npm install -g npm@^11.5.1
+
+      - run: npm ci
+
+      # Publish only what passes the same gates as every pull request. A release
+      # is the worst possible moment to discover a red suite.
+      - run: npm test
+
+      - name: runtime dependency audit (must be clean)
+        run: npm audit --omit=dev --audit-level=low
+
+      # This package promises zero runtime dependencies, and a promise that is
+      # only in a README is a promise until the day somebody adds a convenience.
+      - name: no runtime dependencies
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          const deps = Object.keys(pkg.dependencies ?? {});
+          assert.deepEqual(deps, [], `runtime dependencies present: ${deps.join(', ')}`);
+          assert.notEqual(pkg.private, true, 'package.json still marks this private');
+          NODE
+
+      # The tag, the manifest, the source and the built artifact must all agree.
+      # An installed engine that reports a different version than the registry
+      # says it is makes every bug report unanswerable.
+      - name: tag matches package, source and built versions
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.equal(process.env.RELEASE_TAG, `v${pkg.version}`, 'Tag must match package.json');
+
+          const built = await import('./dist/core/index.js');
+          assert.equal(built.VERSION, pkg.version, 'Built runtime must match package.json');
+          NODE
+
+      # The number a broker's own engine actually depends on.
+      #
+      # Somebody implementing the compiled program in Java or Go targets a FORMAT
+      # version, not this package's version. The two move at different speeds on
+      # purpose: this package can reach 2.0 for an API change while the format
+      # stays at 1, and their engine must keep working. What must never happen is
+      # the format version drifting between the specification that documents it
+      # and the compiler that emits it, because then the document a third party
+      # implemented from describes something we no longer produce.
+      - name: compiled program format version matches its specification
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const built = await import('./dist/core/index.js');
+          const emitted = built.COMPILED_FORMAT_VERSION;
+          assert.ok(emitted, 'the build does not export COMPILED_FORMAT_VERSION');
+
+          const spec = readFileSync('spec/compiled-program.md', 'utf8');
+          const documented = spec.match(/format version[^0-9]{0,40}([0-9]+(?:\.[0-9]+)*)/i);
+          assert.ok(documented, 'spec/compiled-program.md does not state a format version');
+          assert.equal(
+            String(emitted),
+            documented[1],
+            `the compiler emits format ${emitted} and the specification documents ${documented[1]}`,
+          );
+          NODE
+
+      - name: generate SBOM
+        run: npm sbom --sbom-format cyclonedx --omit dev > sbom.cyclonedx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom-${{ inputs.tag }}
+          path: sbom.cyclonedx.json
+
+      # No NPM_TOKEN, deliberately. The registry checks this workflow's OIDC
+      # identity against the trusted publisher configured on the package, so
+      # there is no long-lived credential to leak or rotate, and no second factor
+      # to answer: an account secured with a security key cannot type a one-time
+      # password into a CI run at all.
+      #
+      # Configure on npmjs.com under the package's trusted publisher: this
+      # repository, this workflow filename, and the `release` environment this
+      # job declares. "Allow npm publish" must be enabled there, or only
+      # `npm stage publish` is permitted and the direct publish below is refused.
+      - name: publish with provenance
+        # npm test above already ran the complete gate, including the build.
+        # Publish that checked build rather than rebuilding inside the publish.
+        run: npm publish --provenance --access public --ignore-scripts

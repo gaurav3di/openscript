@@ -1,0 +1,9 @@
+// OS1025: An assignment whose target is a member rather than a name.
+// expect OS1025 at 8:1, length 14
+
+version 1
+
+study("Rejection case")
+
+chart.tickStep = 0.05
+plot(close + chart.tickStep, "Stepped")

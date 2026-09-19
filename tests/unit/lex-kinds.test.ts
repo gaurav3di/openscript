@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { PUNCTUATORS, RESERVED_WORDS } from '../../src/core/index.js';
 import type { TokenKind } from '../../src/core/index.js';
-import { kinds, lexed } from './lex-support.js';
+import { codes, kinds, lexed } from './lex-support.js';
 
 /**
  * Every kind a token can carry, which is section 3 counted out: the reserved
@@ -206,16 +206,49 @@ test('a colour literal is the hex form only, in either case, with or without an 
 test('a run of characters that is not a literal is one name and one diagnostic', () => {
   // 3.5 has no bare `0x`, no trailing underscore and no exponent with no digits,
   // and 3.3 has no name beginning with a digit, so each of these is one mistake.
-  for (const text of ['0x', '1_', '1e', '1__0']) {
+  // OS1029 rather than OS1001: every character in the run is one the language
+  // accepts, so naming the leading digit would name something legal and
+  // deleting it, which is what OS1001 advises, would leave a valid name behind
+  // and a program that means something else.
+  for (const [text, number] of [
+    ['0x', '0'],
+    ['1_', '1'],
+    ['1e', '1'],
+    ['1__0', '1'],
+  ] as const) {
     const { tokens, diagnostics } = lexed(`x = ${text}\n`);
     assert.deepEqual(
       diagnostics.map((one) => one.code),
-      ['OS1001'],
+      ['OS1029'],
       text,
     );
+    // The caret covers the whole run, and the message names the part of it that
+    // is a number literal.
+    assert.deepEqual(diagnostics[0]?.values, { written: text, number }, text);
+    assert.equal(diagnostics[0]?.span.length, text.length, text);
     assert.equal(tokens[2]?.kind, 'identifier', text);
     assert.equal(tokens[2]?.text, text);
   }
+});
+
+test('a base the language does not have, and a unit written against a number', () => {
+  // 3.5 has no binary form and no octal form, and there is nothing between a
+  // quantity and a name to make them two things.
+  assert.deepEqual(codes('mask = 0b1011\n'), ['OS1029']);
+  assert.deepEqual(lexed('mask = 0b1011\n').diagnostics[0]?.values, {
+    written: '0b1011',
+    number: '0',
+  });
+  assert.deepEqual(codes('lookback = 14bars\n'), ['OS1029']);
+  assert.deepEqual(lexed('lookback = 14bars\n').diagnostics[0]?.values, {
+    written: '14bars',
+    number: '14',
+  });
+  // An exponent with no digits after it, where the number part carries a
+  // fractional part of its own.
+  assert.deepEqual(lexed('x = 2.5e\n').diagnostics[0]?.values, { written: '2.5e', number: '2.5' });
+  // And the forms 3.5 does have are still read as numbers.
+  assert.deepEqual(codes('x = 0xFF\ny = 1_000_000\nz = 2.5e-4\nw = .5\n'), []);
 });
 
 test('a dot belongs to a number only when a digit follows it', () => {

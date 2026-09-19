@@ -1,0 +1,9 @@
+// OS1026: The block comment form of other languages, which this one has not.
+// expect OS1026 at 8:15, length 2
+
+version 1
+
+study("Rejection case")
+
+lookback = 14 /* bars */
+plot(sma(close, lookback), "SMA")
