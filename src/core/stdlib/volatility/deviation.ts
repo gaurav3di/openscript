@@ -1,0 +1,91 @@
+/**
+ * `variance` and `stdev`.
+ *
+ * **Population by default, the `len` divisor.** `stdlib.md` section 6 fixes it
+ * and gives the reason: that is what the band studies a chart has to reproduce
+ * use. `sample = true` switches to the `len - 1` divisor, so neither camp has
+ * to write the correction by hand and neither has to guess which one a chart
+ * drew.
+ *
+ * Two passes: the mean of the window first, then the deviations from it. The
+ * one pass arrangement that subtracts the square of the mean from the mean of
+ * the squares loses most of its significant digits on a price series, where the
+ * values are large and their spread is small, and can even produce a negative
+ * variance that then has to be floored at zero. A study whose implementation
+ * needs a floor to stay real is a study computing the wrong quantity.
+ */
+import type { Series, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+
+/** `variance(src, len, sample)`: the squared deviation over the window, from bar `len - 1`. */
+export function varianceTail(len: number, sample = false): Tail<Value, Value> {
+  const window = makeWindow(len);
+  const divisor = sample ? len - 1 : len;
+  return {
+    next(value: Value): Value {
+      window.push(value);
+      if (!window.complete() || divisor <= 0) return NONE;
+      const mean = window.mean();
+      if (!isPresent(mean)) return NONE;
+      let squares = 0;
+      // Oldest bar first, the order of `window.ts`.
+      for (let back = len - 1; back >= 0; back -= 1) {
+        const deviation = (window.at(back) as number) - mean;
+        squares += deviation * deviation;
+      }
+      return result(squares / divisor);
+    },
+  };
+}
+
+/** `variance(src, len, sample)` over a whole series. */
+export function variance(src: Series, len: number, sample = false): Value[] {
+  return fold(varianceTail(len, sample), src);
+}
+
+/** `stdev(src, len, sample)`: the square root of the same, from bar `len - 1`. */
+export function stdevTail(len: number, sample = false): Tail<Value, Value> {
+  const spread = varianceTail(len, sample);
+  return {
+    next(value: Value): Value {
+      const squared = spread.next(value);
+      if (!isPresent(squared) || squared < 0) return NONE;
+      return result(Math.sqrt(squared));
+    },
+  };
+}
+
+/** `stdev(src, len, sample)` over a whole series. */
+export function stdev(src: Series, len: number, sample = false): Value[] {
+  return fold(stdevTail(len, sample), src);
+}
+
+/**
+ * The mean absolute deviation from the window's mean.
+ *
+ * Not a call of its own in `stdlib.md`, and here because `cci` is defined
+ * against it rather than against `stdev`: the 0.015 constant in that study is
+ * calibrated for this quantity, and substituting a standard deviation changes
+ * every reading.
+ */
+export function meanDeviationTail(len: number): Tail<Value, Value> {
+  const window = makeWindow(len);
+  return {
+    next(value: Value): Value {
+      window.push(value);
+      if (!window.complete()) return NONE;
+      const mean = window.mean();
+      if (!isPresent(mean)) return NONE;
+      let total = 0;
+      for (let back = len - 1; back >= 0; back -= 1) {
+        total += Math.abs((window.at(back) as number) - mean);
+      }
+      return result(total / len);
+    },
+  };
+}
+
+/** The mean absolute deviation over a whole series. */
+export function meanDeviation(src: Series, len: number): Value[] {
+  return fold(meanDeviationTail(len), src);
+}

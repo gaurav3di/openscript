@@ -92,6 +92,56 @@ engine keeps working. What must never happen is the format version drifting
 between the specification they implemented from and the compiler that emits it.
 The release refuses to publish if it has.
 
+## What the first host can and cannot change
+
+The language stays neutral and its specification names no platform. These are
+constraints on the **integration work**, not on the language, and they are here
+because breaking one of them is expensive in a way that is not obvious from
+inside this repository.
+
+**The deployment's nginx configuration is fixed.** It is in production for a large
+user base, and changing it means every hosted upgrade carries a config migration
+that can take people offline. So the integration adds no location block, no port
+and no directive. This is achievable because `location /` already proxies
+everything to the application, and only the websocket and socket paths have
+blocks of their own. Every route and asset is already routed.
+
+Three limits that block sets, which decide the shape of the work:
+
+- **Five minute request timeout.** Anything longer is a job that returns an id,
+  not a request that returns a result. A backtest over years of minute bars would
+  be killed partway through, and the user would see a gateway error with a run
+  still executing behind it.
+- **One megabyte request body** on the smallest deployment, where the limit is
+  left at the default. Scripts and compiled programs are kilobytes and fine.
+  Nothing that grows with history may travel in a body.
+- **Responses are buffered** on the main path. A progress stream there arrives in
+  one lump at the end. Progress rides the socket channel that is already open and
+  already unbuffered.
+
+**The production container has no runtime for JavaScript.** It is Python only: the
+frontend is built in a discarded stage. A server-side sidecar in any other
+language is not a worse option, it is not an option. This is why the second engine
+is Python, and why the compiled program being plain data rather than generated
+code is load bearing rather than tidy.
+
+**A worker must be a served file, not a blob.** The content security policy allows
+scripts from the application's own origin and nothing else, so a worker built from
+a blob URL is refused. Same conclusion as the no-eval rule, reached from a
+different direction.
+
+**Nothing may assume an origin.** The application is served from a local port, a
+domain, a subdomain and a container, and people move between them with a script
+written for that purpose. Every URL is relative or comes from configuration. An
+absolute URL baked into a bundle works perfectly for whoever wrote it and breaks
+every hosted install.
+
+**A trader's files live on a mounted volume**, never inside the image, so they
+survive a container rebuild.
+
+The rule underneath all of these: **the smallest deployment sets the budget.** A
+limit that is generous on one install and default on another is the default one.
+
 ## The standing bar
 
 Everything here has to clear two questions, not one: is it correct, and can a
