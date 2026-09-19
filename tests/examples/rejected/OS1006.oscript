@@ -1,0 +1,9 @@
+// OS1006: An assignment where the condition of an if belongs.
+// expect OS1006 at 8:8, length 1
+
+version 1
+
+study("Rejection case")
+
+if len = 14
+    signal("DEFAULT")

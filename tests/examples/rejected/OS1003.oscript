@@ -1,0 +1,10 @@
+// OS1003: The second line of the block is one space deeper than the first.
+// expect OS1003 at 10:1, length 5
+
+version 1
+
+study("Rejection case")
+
+if trending
+    fast = ema(close, 9)
+     slow = ema(close, 21)

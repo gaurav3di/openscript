@@ -1,0 +1,8 @@
+// OS1004: A string that opens and never closes before the line ends.
+// expect OS1004 at 8:8, length 1
+
+version 1
+
+study("Rejection case")
+
+note = "BUY

@@ -1,0 +1,8 @@
+// OS1018: A second statement started on a line that already held one.
+// expect OS1018 at 8:22, length 4
+
+version 1
+
+study("Rejection case")
+
+fast = ema(close, 9) slow = ema(close, 21)

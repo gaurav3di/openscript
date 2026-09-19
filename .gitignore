@@ -13,3 +13,12 @@ Thumbs.db
 # Internal working notes, not part of the published project.
 PLAN.md
 notes/
+
+# Built output for the unit tests.
+dist-test/
+
+# The compiler's view of the error catalogue, written by
+# scripts/generate-error-catalogue.mjs from spec/errors.json on every build. A
+# checked-in copy would be a second source of truth, which is the one thing the
+# catalogue exists to prevent.
+src/core/catalogue/*.generated.ts

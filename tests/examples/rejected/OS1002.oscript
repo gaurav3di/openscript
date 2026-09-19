@@ -1,0 +1,9 @@
+// OS1002: The body of this block is indented with a tab.
+// expect OS1002 at 9:1, length 1
+
+version 1
+
+study("Rejection case")
+
+if trending
+	signal("UP")

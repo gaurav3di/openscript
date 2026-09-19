@@ -1,0 +1,9 @@
+// OS1020: A for header written with a comma where to belongs.
+// expect OS1020 at 8:10, length 1
+
+version 1
+
+study("Rejection case")
+
+for i = 0, 9
+    total += close[i]

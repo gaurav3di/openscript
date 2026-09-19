@@ -1,0 +1,9 @@
+// OS1001: An operator the language does not have, where not belongs.
+// expect OS1001 at 8:4, length 1
+
+version 1
+
+study("Rejection case")
+
+if !ready
+    signal("WAIT")

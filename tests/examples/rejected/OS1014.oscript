@@ -1,0 +1,8 @@
+// OS1014: Two arguments with no comma between them.
+// expect OS1014 at 8:20, length 5
+
+version 1
+
+study("Rejection case")
+
+plot(ema(close, 9) "EMA", aqua)

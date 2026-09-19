@@ -1,0 +1,8 @@
+// OS1008: A comparison chained the way it reads in arithmetic.
+// expect OS1008 at 8:22, length 1
+
+version 1
+
+study("Rejection case")
+
+zone = 30 < strength < 70

@@ -1,0 +1,8 @@
+// OS1022: An operator with nothing on its right.
+// expect OS1022 at 9:1, length 0
+
+version 1
+
+study("Rejection case")
+
+len = input(14, "Length") +

@@ -1,0 +1,12 @@
+// OS1016: An else lined up with neither its if nor the body above it.
+// expect OS1003 at 11:1, length 2
+// expect OS1016 at 11:3, length 4
+
+version 1
+
+study("Rejection case")
+
+if trending
+    signal("BUY")
+  else
+    signal("WAIT")

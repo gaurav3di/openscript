@@ -21,8 +21,8 @@
  *
  * Run: node scripts/check-layering.mjs
  */
-import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { filesMatching, nothingFound } from './lib/files.mjs';
 
 /**
  * What each layer may reach for. `outside` names the bare package specifiers a
@@ -67,10 +67,7 @@ const DOM_GLOBALS = /\b(document|window|navigator|localStorage|HTMLElement)\b/;
 const IMPORT = /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]|\brequire\(\s*['"]([^'"]+)['"]\s*\)|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 function sourceFiles() {
-  return execSync('git ls-files', { encoding: 'utf8' })
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((f) => /\.(ts|tsx|js|mjs|cjs)$/.test(f) && f.startsWith('src/'));
+  return filesMatching(/\.(ts|tsx|js|mjs|cjs)$/, ['src']);
 }
 
 function layerOf(file) {
@@ -153,6 +150,6 @@ if (hits > 0) {
 
 console.log(
   files.length === 0
-    ? 'Layering check passed: no source files yet, and the rule is in place before the first one lands.'
+    ? `Layering check: ${nothingFound('source file under src/')}. The rule is in place; nothing exercised it.`
     : `Layering check passed: ${files.length} source files, every import inside its layer.`,
 );

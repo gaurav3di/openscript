@@ -15,6 +15,7 @@
  */
 import { execSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
+import { projectFiles } from './lib/files.mjs';
 
 const ENCODED_PRODUCTS = [
   'dHJhZGluZ3ZpZXc=', 'cGluZXNjcmlwdA==', 'cGluZSBzY3JpcHQ=', 'cGluZS1zY3JpcHQ=',
@@ -68,8 +69,7 @@ function listFiles() {
   const cmd = staged
     ? 'git diff --cached --name-only --diff-filter=ACMR'
     : 'git ls-files';
-  return execSync(cmd, { encoding: 'utf8' })
-    .split('\n')
+  return (staged ? execSync(cmd, { encoding: 'utf8' }).split('\n') : projectFiles())
     .map((s) => s.trim())
     .filter(Boolean)
     .filter((f) => !BINARY.test(f) && !SKIP_DIRS.test(f))

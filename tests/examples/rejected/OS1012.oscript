@@ -1,0 +1,8 @@
+// OS1012: An argument list that is never closed.
+// expect OS1012 at 8:5, length 1
+
+version 1
+
+study("Rejection case")
+
+plot(ema(close, 9), "EMA", aqua

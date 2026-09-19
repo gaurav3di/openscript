@@ -26,8 +26,8 @@
  *
  * Run: node scripts/check-duplication.mjs [--list]
  */
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { filesMatching } from './lib/files.mjs';
 
 /** Below this, a run of quoted words is a sentence rather than a value set. */
 const MIN_MEMBERS = 3;
@@ -56,10 +56,7 @@ const MEMBER = /`?"([A-Za-z][A-Za-z0-9_.-]{0,40})"`?|`([A-Za-z][A-Za-z0-9_.-]{0,
 const SEPARATOR = /^[\s,`]*(?:or|and|\||,|\/)?[\s,`]*$/;
 
 function files() {
-  return execSync('git ls-files', { encoding: 'utf8' })
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((f) => /\.(md|oscript)$/i.test(f) && SOURCES.some((d) => f.startsWith(d + '/')));
+  return filesMatching(/\.(md|oscript)$/i, SOURCES);
 }
 
 /** Every run of MIN_MEMBERS or more quoted values in one line. */

@@ -1,0 +1,8 @@
+// OS1019: A reserved word taken as the name of a value.
+// expect OS1019 at 8:1, length 4
+
+version 1
+
+study("Rejection case")
+
+type = input("fast", "Mode")

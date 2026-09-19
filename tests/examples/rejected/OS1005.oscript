@@ -1,0 +1,8 @@
+// OS1005: A backslash sequence the language does not define.
+// expect OS1005 at 8:11, length 2
+
+version 1
+
+study("Rejection case")
+
+path = "C:\data"

@@ -27,8 +27,8 @@
  *
  * Run: node scripts/check-modularity.mjs [--list]
  */
-import { execSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
+import { filesMatching, nothingFound } from './lib/files.mjs';
 
 /**
  * Past this a file is usually two things. Generous on purpose: the number is
@@ -45,10 +45,7 @@ const IMPORT =
   /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]|\brequire\(\s*['"]([^'"]+)['"]\s*\)|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 function sourceFiles() {
-  return execSync('git ls-files', { encoding: 'utf8' })
-    .split('\n')
-    .map((s) => s.trim())
-    .filter((f) => SOURCE.test(f) && f.startsWith('src/'));
+  return filesMatching(SOURCE, ['src']);
 }
 
 /** The module a file belongs to: its directory. */
@@ -56,7 +53,14 @@ function moduleOf(file) {
   return file.slice(0, file.lastIndexOf('/'));
 }
 
-/** Resolve a relative import against the importing file, without an extension. */
+/**
+ * Resolve a relative import against the importing file, without an extension.
+ *
+ * The extension is dropped rather than ignored because a module specifier in
+ * ECMAScript carries one: `../span/index.js` is how a file has to name its
+ * neighbour's door, and comparing that against a directory name would report
+ * every legal import as a reach inside.
+ */
 function resolve(fromFile, spec) {
   const parts = fromFile.split('/').slice(0, -1);
   for (const segment of spec.split('/')) {
@@ -64,7 +68,7 @@ function resolve(fromFile, spec) {
     if (segment === '..') parts.pop();
     else parts.push(segment);
   }
-  return parts.join('/');
+  return parts.join('/').replace(/\.(ts|tsx|js|mjs|cjs)$/, '');
 }
 
 const allowed = existsSync(ALLOW_PATH) ? JSON.parse(readFileSync(ALLOW_PATH, 'utf8')) : {};
@@ -139,7 +143,7 @@ if (problems.length > 0) {
 
 console.log(
   files.length === 0
-    ? 'Modularity check passed: no source files yet, and the rules are in place before the first one lands.'
+    ? `Modularity check: ${nothingFound('source file under src/')}. The rules are in place; nothing exercised them.`
     : `Modularity check passed: ${files.length} files in ${modules.size} modules, every cross-module ` +
         `import through an index, none over ${MAX_LINES} lines.`,
 );

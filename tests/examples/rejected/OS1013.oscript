@@ -1,0 +1,8 @@
+// OS1013: A bracket closed with the wrong one.
+// expect OS1013 at 8:19, length 1
+
+version 1
+
+study("Rejection case")
+
+total = sum(closes]

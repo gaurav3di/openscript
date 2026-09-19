@@ -1,0 +1,12 @@
+// OS1017: A case after the default, which nothing could reach.
+// expect OS1017 at 11:5, length 4
+
+version 1
+
+study("Rejection case")
+
+switch method
+    default
+        len = 14
+    case "fast"
+        len = 9

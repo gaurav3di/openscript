@@ -1,0 +1,8 @@
+// OS1011: A var declared with nothing to start from.
+// expect OS1011 at 8:1, length 15
+
+version 1
+
+study("Rejection case")
+
+var runningHigh

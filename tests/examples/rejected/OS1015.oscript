@@ -1,0 +1,8 @@
+// OS1015: A ternary that asks a question and gives one answer.
+// expect OS1015 at 8:12, length 1
+
+version 1
+
+study("Rejection case")
+
+plot(ready ? value, "Value", aqua)

@@ -1,0 +1,5 @@
+// OS1021: The version line after the declaration rather than above it.
+// expect OS1021 at 5:1, length 9
+
+study("Rejection case")
+version 1

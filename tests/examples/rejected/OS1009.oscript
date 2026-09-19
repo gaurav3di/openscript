@@ -1,0 +1,9 @@
+// OS1009: break where there is no loop to break out of.
+// expect OS1009 at 9:5, length 5
+
+version 1
+
+study("Rejection case")
+
+if size(values) == 0
+    break

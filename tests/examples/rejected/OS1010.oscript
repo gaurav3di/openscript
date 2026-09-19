@@ -1,0 +1,9 @@
+// OS1010: A header that opens a block, and nothing indented under it.
+// expect OS1010 at 8:1, length 2
+
+version 1
+
+study("Rejection case")
+
+if crossUp(fast, slow)
+signal("BUY")
