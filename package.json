@@ -12,19 +12,20 @@
     }
   },
   "files": [
-    "dist",
-    "src",
-    "spec/errors.json",
+    "CHANGELOG.md",
     "LICENSE",
     "NOTICE",
-    "README.md"
+    "README.md",
+    "dist",
+    "spec/errors.json",
+    "src"
   ],
   "scripts": {
     "check:names": "node scripts/check-names.mjs",
     "check:examples": "node scripts/check-examples.mjs",
     "check:errors": "node scripts/check-error-codes.mjs",
     "test": "node scripts/check-duplication.mjs && node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-modularity.mjs && node scripts/check-names.mjs && npm run build && npm run test:unit",
-    "test:unit": "npm run generate && tsc -p tsconfig.test.json && node --test \"dist-test/tests/**/*.test.js\"",
+    "test:unit": "npm run generate && tsc -p tsconfig.test.json && node scripts/run-tests.mjs",
     "check:layering": "node scripts/check-layering.mjs",
     "check:duplication": "node scripts/check-duplication.mjs",
     "check:modularity": "node scripts/check-modularity.mjs",
@@ -33,7 +34,8 @@
     "build": "npm run generate && tsc -p tsconfig.json",
     "prepack": "npm run build",
     "generate:version": "node scripts/generate-version.mjs",
-    "generate": "npm run generate:errors && npm run generate:version"
+    "generate": "npm run generate:errors && npm run generate:version",
+    "check:changelog": "node scripts/check-changelog.mjs"
   },
   "keywords": [
     "trading",
@@ -44,7 +46,7 @@
     "technical-analysis"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {},
   "devDependencies": {

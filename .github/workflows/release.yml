@@ -33,7 +33,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: https://registry.npmjs.org
           cache: npm
 
@@ -47,6 +47,13 @@ jobs:
       # Publish only what passes the same gates as every pull request. A release
       # is the worst possible moment to discover a red suite.
       - run: npm test
+
+      # A release must say what changed. Checked here rather than on every
+      # commit, because between a version bump and its entry there is a
+      # legitimate moment where the two disagree; a published version with an
+      # empty changelog has no such excuse.
+      - name: the changelog has an entry for this version
+        run: node scripts/check-changelog.mjs
 
       - name: runtime dependency audit (must be clean)
         run: npm audit --omit=dev --audit-level=low
