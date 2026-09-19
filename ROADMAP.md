@@ -63,12 +63,31 @@ each matching its reference output exactly.
 
 Three to four weeks.
 
-An editor panel: highlighting, autocomplete from the standard library manifest,
-red underlines as you type carrying the error code and its fix, apply to chart,
-save with a revision, history and restore.
+The editor splits in two, and the split is the point.
+
+**This project ships the language intelligence, headless.** Six pure functions,
+text in and data out, no DOM anywhere: highlight, complete, diagnose, hover,
+signature, format.
+
+None of them is hand written, because a hand written one drifts from the language
+and nobody notices for a release. Highlighting comes from the real lexer, which is
+step one of the compiler. Completions come from the standard library manifest, the
+same file the example check already reads its globals from. Errors as you type are
+the compiler's own errors, with the fix taken from the error catalogue, which is
+also what the documentation site is generated from. The editor is not a second
+implementation of the language to be kept in step. It is the compiler wearing a
+different hat.
+
+**The host ships the editor on screen.** The text component, the panel, the apply
+button, saving and revisions, and the theme. Every host has a design system and
+none of them wants to fight a styled panel shipped by a language package.
+
+The same headless functions wrap into a language server later, so the same
+highlighting, completions and errors appear in a desktop editor for anyone who
+would rather keep their scripts in version control and write them there.
 
 **Gate:** someone with no setup writes and plots a working script in under two
-minutes.
+minutes, and the same script opens in a desktop editor with identical errors.
 
 ## Phase 5. Strategy and backtest
 

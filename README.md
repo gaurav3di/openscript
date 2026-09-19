@@ -88,6 +88,14 @@ That one decision carries the whole project:
 One compiler. One compiled format. Many small engines, all of which must agree
 to the last decimal.
 
+The same decision shapes the editor. This project ships the language
+intelligence as pure functions with no DOM: highlight, complete, diagnose, hover,
+signature, format. Highlighting comes from the real lexer, completions from the
+standard library manifest, and the errors you see while typing are the compiler's
+own, with their fixes taken from the error catalogue. A host supplies the text
+component and the panel around it, and keeps its own design. The editor is not a
+second implementation of the language to be kept in step.
+
 ```
 source text
    -> tokens
