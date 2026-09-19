@@ -55,7 +55,7 @@ the canonical encoding of `compiled-program.md` section 2.14, because a reader
 needs something concrete to hold; a host that passes the same facts as positional
 arguments to a function call is implementing the same interface.
 
-**Timing.** Step numbers refer to the eleven steps of the bar cycle
+**Timing.** Step numbers refer to the steps of the bar cycle
 (`compiled-program.md` section 5.1). **At load** means before step 1 of bar 0.
 **Between bars** means after step 11 of one execution and before step 1 of the
 next. Nothing arrives during step 6: an execution reads the checkpoint, the bar
@@ -81,8 +81,9 @@ each produces a number that looks computed, and a number that looks computed is
 worse than no number, because nothing downstream can tell that it is not one.
 
 **Error codes.** `errors.md` is the catalogue and the authority. Every code cited
-here is defined there. Where this document and the catalogue disagree, the
-catalogue wins and this document is wrong.
+here is defined there. Which document wins where two of them disagree is settled
+once: the specification's documents are the ones `spec/README.md` lists, with the
+precedence it gives them.
 
 **What a host may add.** A host may hold and show anything it likes beside a
 script. Nothing in the language reads it. A fact no script can name is a fact no
@@ -96,11 +97,15 @@ one host to another.
 | Duty | The host supplies | Read | Optional |
 |---|---|---|---|
 | 1. Bars | Open, high, low, close, volume, time, oldest first | Step 4 of every execution | No |
-| 2. Instrument facts | Ten facts about the instrument, plus its session | At load, once | No, though only one field is required |
+| 2. Instrument facts | The instrument record, section 4.1 | At load, once | No |
 | 3. Bars on request | Another instrument's bars, or another timeframe's | Between bars, when the answer lands | Yes |
-| 4. Bar state | Four facts about this execution | Step 4 of every execution | No |
+| 4. Bar state | The bar state, section 6 | Step 4 of every execution | No |
 | 5. Orders | A destination for order intents, and frames reporting what became of them | Step 9, and between bars | Yes |
 | 6. Settings storage | A value per input key | At load, once | Yes |
+
+An engine reads what `compiled-program.md` section 5.2 lists and nothing else.
+This table is that list cut by duty: each row names a duty a host implements and
+the section that fixes the shape it hands over.
 
 Two further things a host supplies are specified elsewhere and are not restated
 here: **a drawing surface**, which is `compiled-program.md` section 11 and the
@@ -227,8 +232,8 @@ moving bar ten times give the same answer as executing it once.
 
 ### 4.1 The record
 
-Ten facts, plus the session. The ten are the list in `compiled-program.md` section
-5.2; the session is the fact `stdlib.md` section 12.4 reads and OS6012 names.
+Eleven facts. This table is where they are defined; `compiled-program.md` section
+5.2 names the record as one of the things an engine reads from the host.
 
 | Fact | Type | Required | What a script sees when it is absent | Read by |
 |---|---|---|---|---|
@@ -252,7 +257,8 @@ Value spellings:
   silently wrong for half the year anywhere that observes a seasonal clock change
   (`stdlib.md` section 12.1, `compiled-program.md` section 8.4).
 - `instrumentType` is one of `"equity"`, `"future"`, `"option"`, `"index"`,
-  `"currency"`, `"commodity"` or `"other"` (`stdlib.md` section 3.4).
+  `"currency"`, `"commodity"` or `"other"`, and a host with none of those to say
+  states nothing rather than inventing an eighth.
 - `tickSize` and `lotSize` are positive numbers. Zero is not a tick size.
 
 ```json
@@ -295,8 +301,8 @@ venue never used.
 ### 4.3 The session
 
 The session is the instrument's trading session as the host defines it, not a
-window a script invents (`stdlib.md` section 12.4). Its shape is the one
-`conformance.md` section 3 supplies to a case:
+window a script invents. It is part of the instrument record, and this is its
+shape:
 
 ```json
 "session": { "start": "09:00", "end": "17:30", "days": [1, 2, 3, 4, 5] }
@@ -462,24 +468,13 @@ author.
 
 ## 6. Bar state
 
-### 6.1 Four facts the host states, four the engine derives
+### 6.1 What the host states and what the engine derives
 
-| The host states | Means |
-|---|---|
-| `isNew` | The last update appended a bar rather than replacing one |
-| `isConfirmed` | This bar's interval has elapsed and it will not change again |
-| `isRealtime` | A live feed is driving the updates, rather than a one-off history load |
-| `updates` | How many times this bar has been handed over, counting from 1 |
+The bar facts, and which of them the host states, are `language.md` section 7.2's.
 
-| The engine derives | From |
-|---|---|
-| `bar.index` | The bar's position in the dataset, oldest is 0 |
-| `bar.count` | `bar.index + 1` |
-| `bar.isFirst` | `bar.index == 0` |
-| `bar.isLast` | `bar.index` is the greatest index the host has supplied |
-
-This is decision 5 in `decisions.md`, and it is fixed. A host must not state the
-derived four, and an engine must not ask for them.
+This section is the host's side of that split. A host states every fact that
+section gives the host and states none of the rest; an engine must not ask a host
+for one of the rest. This is decision 5 in `decisions.md`, and it is fixed.
 
 ### 6.2 Why the line falls there
 
@@ -487,15 +482,15 @@ derived four, and an engine must not ask for them.
 and no rule says which wins.** That is the whole principle, and the rest is an
 application of it.
 
-The four stated facts are facts about the **delivery**, not about the dataset.
+The facts the host states are facts about the **delivery**, not about the dataset.
 None of them is visible in an array of bars: only the side that built the bar
-knows whether this update appended one or replaced one, whether the interval has
-elapsed, whether a live feed is driving, and how many times the bar has been
-handed over. An engine given an array cannot recover any of it.
+knows how that bar reached the engine, and an engine handed the array cannot
+recover any of it.
 
-The four derived facts are properties of **the array and the position in it**, and
-the engine holds both. `bar.isLast` in particular is a property of the dataset
-rather than of the update, which is why it sits on the derived side.
+The facts the engine derives are properties of **the array and the position in
+it**, and the engine holds both. That is the whole of the line, and a fact that
+sits on one side because of where it can be read from sits there whatever it
+describes.
 
 ### 6.3 A live feed carries ticks, not bars
 
@@ -526,17 +521,17 @@ produce identical numbers.
 
 ### 6.4 Exact obligations
 
-- `updates` is 1 on the first execution of a bar and increases by one on every
-  re-execution of that same bar (`compiled-program.md` section 2.10).
-- `isNew` is true on the execution where the bar was appended, and false on every
-  execution that follows a replacing update.
-- `isConfirmed` is true when the interval has elapsed and the bar will not change
-  again. **Confirmation is one way.** A host that has confirmed a bar must never
-  revise it and must never hand it back unconfirmed. Everything the engine defers
-  rides on this: markers, alerts and orders are applied at step 9 only on a
-  confirmed bar (`compiled-program.md` section 5.4), and an order placed on a bar
-  that is later revised cannot be unplaced.
-- `isRealtime` is true when a live feed is driving the updates.
+- **`updates` and executions are one count.** The host increments `updates` once
+  per hand-over, the engine executes once per hand-over, and a host that hands a
+  bar over without it being executed does not increment it. What the number itself
+  means is `language.md` section 7.2's.
+- **Confirmation is one way.** A host that has confirmed a bar must never revise
+  it and must never hand it back unconfirmed. Everything the engine defers rides
+  on this: markers, alerts and orders are applied at step 9 only on a confirmed
+  bar (`compiled-program.md` section 5.4), and an order placed on a bar that is
+  later revised cannot be unplaced.
+- **A host states every one of them on every execution**, and the two worked
+  cases below are what that comes to for most hosts.
 
 Two worked cases, which between them cover most hosts:
 
@@ -547,8 +542,9 @@ Two worked cases, which between them cover most hosts:
 
 ### 6.5 When the host cannot answer
 
-These four have no absent case. They are read at step 4 of every execution, and a
-host with nothing to say is not silent, it is wrong. What it does instead:
+The facts a host states have no absent case. They are read at step 4 of every
+execution, and a host with nothing to say is not silent, it is wrong. What it does
+instead:
 
 - **A host that cannot tell whether the newest bar has closed** states
   `isConfirmed` false for it and confirms it when the next bar arrives. That is
@@ -581,41 +577,39 @@ the host states what happened.
 |---|---|---|
 | `intentId` | number or string | Unique within the run. Every frame about this order carries it back |
 | `kind` | string | `"place"`, `"cancel"` or `"bracket"` |
-| `instrument` | identity | The run's resolved identity, section 9. Never a symbol the engine assembled |
-| `side` | string | `"buy"` or `"sell"` |
+| `instrument` | identity | The resolved identity of the leg this order names (`stdlib.md` section 17.1), as section 9 defines an identity. Never a symbol the engine assembled |
+| `side` | string | The order's side (`stdlib.md` section 17.2) |
 | `qty` | number | Quantity in units, positive |
-| `type` | string | `"market"`, `"limit"`, `"stop"` or `"stopLimit"` |
+| `type` | string | The order's type (`stdlib.md` section 17.2) |
 | `limit` | number? | Limit price, absent where there is none |
 | `trigger` | number? | Stop trigger price, absent where there is none |
+| `target` | number? | A `"bracket"` intent's target price, absent where it names none and on every other kind |
+| `stop` | number? | A `"bracket"` intent's stop price, absent where it names none and on every other kind |
 | `tag` | string | The script's own label, `""` when it named none. A `"cancel"` intent names the tag it cancels |
 | `product` | string | The strategy's `product` option (`language.md` section 13.3), passed through untranslated |
-| `positionRef` | number or string | Which position of this run the intent belongs to |
+| `positionRef` | number or string | The position reference of `stdlib.md` section 17.7 |
 | `bar` | object | The index and the open time of the bar whose close decided it |
 
-Four notes, each of which is a mistake somebody has already made:
+Three notes, each of which is a mistake somebody has already made:
 
-**`type` follows the prices.** With neither `limit` nor `trigger` the intent is a
-market order, with `limit` alone a limit order, with `trigger` alone a stop order,
-and with both a stop limit order (`stdlib.md` section 17.2). The field is stated
-anyway, so a host never has to infer it.
+**`type` follows the prices.** `side` and `type` take the values of `stdlib.md`
+section 17.2, which is also where `type`'s correspondence with the prices given is
+fixed. The field is stated anyway, so a host never has to infer it.
 
 **`product` is passed untranslated.** A product name is a venue's own word, and
 translating it is the host's job because only the host knows the venue. The engine
 records what the strategy asked for and the host reports what it actually sent
 (section 7.2), so the two are both on the record when they differ.
 
-**`positionRef` exists because a flip holds two positions at once.** During a
-reversal a leg can carry an outgoing position and its replacement in the same
-instant, and a fill that arrives late has to settle the position it belongs to
-rather than the one that happens to be current. Without the reference, a late fill
-on the old position silently adjusts the new one.
-
 **A bracket is an instruction, not an implementation.** `exit()` and
 `order.bracket()` hand over a protective instruction attached to a tag, carrying
-its target, its stop, its trail and the trail offset (`stdlib.md` sections 17.2
-and 17.3). A host may implement it with resting orders at the destination or by
-watching the market itself. The engine assumes nothing about which, and learns
-what happened only from the frames it gets back.
+its target and its stop (`stdlib.md` section 17.2). A host may implement it with
+resting orders at the destination or by watching the market itself. The engine
+assumes nothing about which, and learns what happened only from the frames it gets
+back. A trailing stop is never part of a bracket intent, because it is a rule the
+engine evaluates every bar rather than a price an order can rest at (`stdlib.md`
+section 17.9); what reaches the host when a trail is hit is an ordinary exit
+order.
 
 **Timing.** An intent leaves at step 9, and only on a confirmed bar or when the
 program sets `onUnconfirmed` (`compiled-program.md` section 5.4). An order
@@ -631,23 +625,58 @@ thrown away.
 An **order frame**: a cumulative snapshot of one order as the destination
 currently describes it.
 
+**Order frames are cumulative, not deltas. Every frame restates the whole life of
+the order**, not what has changed since the frame before it. A reconnecting
+session that resends its last frames, a destination that repeats a frame, and two
+frames that cross in flight are all normal, and under a delta scheme every one of
+them is a phantom fill.
+
 | Field | Type | Means |
 |---|---|---|
-| `intentId` | number or string | Which intent this is about. A frame the engine does not recognise is ignored |
+| `intentId` | number or string | Which intent this is about, and the key the fold matches on (`stdlib.md` section 17.8). A frame the engine does not recognise is ignored |
 | `orderRef` | string | The destination's own reference. Recorded, shown, and never parsed |
-| `status` | string | One word from section 7.3 |
+| `status` | string | One word the host may send, from the vocabulary of `stdlib.md` section 17.7 |
 | `filledQty` | number | **Cumulative** filled quantity, from the beginning of this order's life |
-| `avgPrice` | number? | Average price of that whole cumulative quantity. Absent while nothing has filled |
+| `avgFillPrice` | number? | Average price of that whole cumulative quantity. Absent while nothing has filled |
 | `sentInstrument` | identity | What the host actually sent, which is not always what the intent named |
 | `sentProduct` | string | The product the host actually sent, after its own translation |
 | `time` | number | The destination's timestamp for this frame, UTC milliseconds |
 | `text` | string | The destination's own words for a rejection or a cancellation, unparaphrased |
 | `seq` | number? | The destination's sequence number for this order, where it has one |
 
-A host must report at least every frame that changes an order's `status` or its
-`filledQty`. A host that reports only terminal frames is conforming and much less
-useful: `order.working` and `order.pending` have nothing to say while an order
-lives, and a script waiting for a working order to clear waits blind.
+### 7.3 The lifecycle vocabulary
+
+The status words, and which of them are terminal, are the vocabulary of
+`stdlib.md` section 17.7. A frame carries one of the words that vocabulary marks
+as a host's to send.
+
+**A partial fill is a quantity, not a status.** A partially filled order is
+`working` with a non-zero `filledQty`. Giving it a word of its own would double
+the vocabulary for every combination of state and quantity, and would give a host
+two places to state one fact.
+
+A destination whose words differ maps them onto that vocabulary. The mapping is
+the host's, because it is per venue and the engine has no way to learn it. One
+rule bounds the mapping:
+
+- **A status the host cannot map is reported as the nearest non-terminal word,
+  with the destination's own words in `text`.** Never as a terminal one. Reporting
+  a state you do not understand as terminal tells a strategy that an order is dead
+  and frees it to place another, while the first one may still be live.
+
+### 7.4 Folding a frame, which is where double counting happens
+
+An engine folds a frame exactly as `stdlib.md` section 17.8 folds one. Nothing of
+the fold is written here, so that a host reading what its frames will do to a
+ledger row reads one account of it.
+
+What this document fixes is which frames a host sends, and when what it sends
+takes effect.
+
+**A host must report at least every frame that changes an order's `status` or its
+`filledQty`.** A host that reports only terminal frames is conforming and much
+less useful: `order.working` and `order.pending` have nothing to say while an
+order lives, and a script waiting for a working order to clear waits blind.
 
 **When a frame is folded.** Frames arrive whenever the destination speaks. The
 engine folds them at a bar boundary, before step 4 of the next execution, so that
@@ -657,85 +686,19 @@ must not expect a script to react within the bar it sent the frame in. This is t
 same rule as everywhere else in this document: nothing reaches a running
 execution.
 
-### 7.3 The lifecycle vocabulary
-
-| Word | Means | Terminal |
-|---|---|---|
-| `working` | Live at the destination and not yet completely filled | No |
-| `triggerPending` | Accepted and waiting for its trigger price | No |
-| `filled` | The whole quantity is filled | Yes |
-| `cancelled` | Ended by a cancellation | Yes |
-| `rejected` | Refused, carrying the destination's own text | Yes |
-| `expired` | Ended without filling, by the destination's own rule | Yes |
-
-**A partial fill is a quantity, not a status.** A partially filled order is
-`working` with a non-zero `filledQty`. Giving it a word of its own would double
-the vocabulary for every combination of state and quantity, and would give a host
-two places to state one fact.
-
-A destination whose words differ maps them onto these six. The mapping is the
-host's, because it is per venue and the engine has no way to learn it. Two rules
-bound the mapping:
-
-- **A status the host cannot map is reported as the nearest non-terminal word,
-  with the destination's own words in `text`.** Never as a terminal one. Reporting
-  a state you do not understand as terminal tells a strategy that an order is dead
-  and frees it to place another, while the first one may still be live.
-- **Terminal is one way.** Once an order is terminal, a frame carrying a
-  non-terminal status changes nothing.
-
-### 7.4 Folding a frame, which is where double counting happens
-
-**Order frames are cumulative, not deltas.** Every frame restates the whole life
-of the order. A reconnecting session that resends its last frames, a destination
-that repeats a frame, and two frames that cross in flight are all normal, and
-under a delta scheme every one of them is a phantom fill.
-
-The engine folds a frame into its record of that order like this:
-
-1. **Match** by `intentId`. A frame naming an intent this run did not place is
-   ignored: it belongs to another run, another strategy, or a person.
-2. **Compute the fill delta** as `frame.filledQty` minus the recorded cumulative
-   quantity. If it is zero or negative, **no fill is recorded**: the frame is a
-   repeat or is stale, and the recorded cumulative quantity stands.
-3. **Apply a positive delta once.** The position, the realised profit and the
-   trade list move by the delta, and the recorded average price becomes the
-   frame's `avgPrice`, which already describes the whole cumulative quantity. The
-   engine never averages an average.
-4. **Apply the status.** A terminal status sets it. A non-terminal status arriving
-   after a terminal one changes nothing, by the rule in section 7.3.
-5. **Record nothing else.** The recorded cumulative quantity is the greatest seen,
-   the recorded status is the one rule 4 left, and `orderRef`, `sentInstrument`,
-   `sentProduct` and `text` are overwritten by the newest frame that carries them.
-
-So a repeated frame folds to no change, and a frame that arrives out of order
-folds either to no change or to the part of it that is still news. A fill is
-counted once, whatever order the frames arrive in and however many times they
-arrive.
-
-One case deserves its own sentence, because it looks like a contradiction and is
-not: **a frame that increases the cumulative quantity after a terminal status is
-folded for its quantity, and the status stays terminal.** A fill report can lag
-the status that ended the order, and refusing the quantity would leave a position
-the account holds and the strategy does not know about.
+A host therefore does not have to put its frames in order before it sends them. A
+repeat, a pair that crossed in flight and one that arrives after the order ended
+are ordinary traffic, and `stdlib.md` section 17.8 is what says what each of them
+does.
 
 ### 7.5 What the engine keeps, and what it will not read
 
-The run keeps its own ledger: one append-only record per intent, carrying the
-intent as sent, the destination's reference, the current status, the cumulative
-filled quantity, the average price and any rejection text. Position, profit, the
-equity curve and the trade list are computed from that ledger and from nothing
-else.
+The run keeps the ledger of `stdlib.md` section 17.7.
 
-**The engine never computes a position by differencing an account position.** An
-account position is per instrument and per account. A manual trade, or a second
-strategy trading the same instrument, makes it a number no single strategy may
-claim, and there is no safe way to divide it: an order sized against the account
-position is sized against somebody else's trade. Two strategies doing that on one
-instrument would fight, and neither would be wrong from its own point of view.
-
-A host may show the account position beside the strategy's, and should report it
-as shared rather than divided. The engine does not read it.
+The engine does not read the account's position, under `stdlib.md` section 17.1.
+A host may show the account's own position beside the strategy's; the engine is
+neither handed it nor asks for it, and a host that wires one into the order path
+has built something the rest of this document does not describe.
 
 ### 7.6 When the host cannot answer
 
@@ -744,8 +707,8 @@ as shared rather than divided. The engine does not read it.
 | The engine has no `orders` capability | OS6006 at load, naming the tag |
 | The host wired no destination | OS7015 when an order is placed |
 | The destination refused the order | OS7014, carrying the destination's own text as `{reason}` |
-| The connection dropped and no status is available | The order keeps its last recorded status and stays non-terminal. **Silence is not a fill and is not a cancellation.** The engine does not guess, does not retry on the host's behalf, and does not place a replacement |
-| A frame arrives for an intent the engine does not know | Ignored, section 7.4 rule 1 |
+| The connection dropped and no status is available | The order keeps its last recorded status, because nothing arrived to fold. **Silence is not a fill and is not a cancellation.** The engine does not guess, does not retry on the host's behalf, and does not place a replacement |
+| A frame arrives for an intent the engine does not know | Ignored, `stdlib.md` section 17.8 step 1 |
 | The destination reports a fill the engine never asked for | Ignored by the ledger and reported by the host as an account event. A strategy's ledger holds what that strategy did |
 
 ---
@@ -854,33 +817,25 @@ unexpired weekly expiry". It says it by describing the contract, never by spelli
 a symbol, and the host resolves the description to whatever its own symbology
 calls it.
 
-| Field | Type | Means |
-|---|---|---|
-| `underlying` | identity | The instrument the contract derives from, itself opaque |
-| `kind` | string | `"future"` or `"option"` |
-| `expiryRank` | number | 0 is the nearest unexpired contract in the series, 1 the one after it |
-| `expiryCycle` | string? | Which series to rank within, where a venue lists more than one: for example a weekly, a monthly or a quarterly series. Absent means the venue's own default series |
-| `strikeOffset` | number? | Steps of the venue's own strike increment away from the reference. 0 is the strike nearest the reference, negative is below it. Absent for a future |
-| `right` | string? | `"call"` or `"put"`. Absent for a future |
-| `reference` | number? | The price the strike offset is measured from. Absent means the underlying's price at the moment of resolution |
+A relative contract is described by the fields of `stdlib.md` section 17.6. A host
+is handed those fields, under those names, and answers with an identity and the
+instrument facts of duty 2, or refuses with OS6007 when it cannot resolve the
+description.
 
-The host answers with an identity and the instrument facts of duty 2, or refuses
-with OS6007 when it cannot resolve the description.
+Every field of the description is stated in the contract's own terms. None of them
+is a piece of a symbol, and none of them assumes how the host spells anything: the
+increment between strikes is the venue's, the series are the venue's, and the
+resolved identity may be a string, a number, a pair, or a row in the host's own
+table. The engine never learns which.
 
-Every field is stated in the contract's own terms. None of them is a piece of a
-symbol, and none of them assumes how the host spells anything: the increment
-between strikes is the venue's, the series are the venue's, and the resolved
-identity may be a string, a number, a pair, or a row in the host's own table. The
-engine never learns which.
-
-**Where version 1 stands.** The library surface for this is not in version 1:
-`chart.expiry`, `chart.strike` and `chart.optionType` are marked planned
-(`stdlib.md` section 3.4), a `symbol` input is marked planned (`stdlib.md` section
-13.1), and no order function takes a symbol, so a version 1 strategy trades the
-instrument its chart is showing (`stdlib.md` section 17.1). What is fixed now is
-the host's side: the shape of a resolution, and the rule in section 9.4. A host
-that builds the resolution once has the language surface arrive on top of it
-rather than against it.
+**Where version 1 stands.** The chart-side surface for describing a contract is
+not in version 1: `chart.expiry`, `chart.strike` and `chart.optionType` are marked
+planned (`stdlib.md` section 3.4), a `symbol` input is marked planned (`stdlib.md`
+section 13.1), and a strategy names its contracts with the leg declarations of
+`stdlib.md` section 17.6, whose descriptions a host answers with the resolution
+shape of this section. What is fixed now is the host's side: that shape, and the
+rule in section 9.4. A host that builds the resolution once has the language
+surface arrive on top of it rather than against it.
 
 ### 9.4 A relative contract resolves once
 
@@ -927,38 +882,39 @@ Each of these is a statement someone else can check.
 2. **No substitutions.** Never a zero for an unknown volume, never an absent value
    for a real zero, never a default tick size, never a price carried forward. What
    it does not know, it does not state.
-3. **States `hasVolume`.** The one required instrument fact. Every other fact is
-   stated when the host has it and absent when it does not.
-4. **Bar state.** States `isNew`, `isConfirmed`, `isRealtime` and `updates` on
-   every execution, derives none of the other four, builds bars itself from
-   whatever its feed carries, and never hands back a confirmed bar unconfirmed.
-5. **Declares its optional duties at load**, along with its ceiling on outstanding
-   requests, so that a program needing more than it offers is refused at load
-   (OS6006, OS5003, OS5006) rather than mid-bar.
+3. **Instrument facts.** Supplies the record of section 4.1: the fact that table
+   marks required is always stated, and every other is stated when the host has it
+   and absent when it does not.
+4. **Bar state.** States on every execution the facts `language.md` section 7.2
+   gives the host, states none of the rest, builds bars itself from whatever its
+   feed carries, and never hands back a confirmed bar unconfirmed.
+5. **Declares its optional duties at load**, along with its ceilings, so that a
+   program needing more than it offers is refused at load rather than mid-bar:
+   OS6006 for a capability tag it does not provide, OS5003 for a `limits()` option
+   above its ceiling, OS5006 for outstanding requests above it.
 6. **Requests.** Answers or refuses each one with a code from the catalogue and the
    reason in the source's own words, never with an empty answer; cancels every
    outstanding request when a run ends, and delivers nothing to a run that has
    ended.
-7. **Orders.** Carries `intentId` back on every frame, reports `filledQty`
-   cumulatively rather than as a delta, uses the vocabulary of section 7.3 or maps
-   its own onto it, never reports a state it does not understand as terminal, and
-   carries a rejection's own text.
+7. **Orders.** Carries `intentId` back on every frame, sends the cumulative frames
+   of section 7.2, uses the vocabulary of `stdlib.md` section 17.7 or maps its own
+   onto it, never reports a state it does not understand as terminal, and carries a
+   rejection's own text.
 8. **Settings.** Stores a value per input key with the spellings of section 8.1, or
    states plainly that it does not store them.
-9. **Identity.** Treats an identity as opaque, resolves a relative contract once per
-   run, persists what it resolved, and never changes the instrument under a running
-   script.
+9. **Identity.** Treats an identity as opaque (section 9.1) and resolves a relative
+   contract under section 9.4.
 10. **Says which of these it does not do.** A duty a host does not implement is
     declared, not discovered.
 
 **How this is tested.** The conformance suite tests compilers and engines, not
 hosts (`conformance.md` section 1). What tests a host is that same suite run
-through the host's own interface: a case supplies its bars, its instrument facts,
-its settings and its secondary series from files in the case directory
-(`conformance.md` section 3), so a host that can serve a case directory through its
+through the host's own interface: a case supplies its input from the files of
+`conformance.md` section 2, so a host that can serve a case directory through its
 own interface, and produces the expected output, has shown that its side of duties
 1, 2, 3, 4 and 6 matches the shapes here. Duty 5 is exercised by the strategy
-category of cases. A host claiming this interface says which profile of
+category of cases, which supply their order frames from the case directory in the
+same way. A host claiming this interface says which profile of
 `conformance.md` section 8 its engine passed, and which duties its own side serves.
 
 ### 10.2 What a host may not assume
@@ -977,12 +933,10 @@ category of cases. A host claiming this interface says which profile of
 - **That an order has happened when the script called the function.** Intents leave
   at step 9 of a confirmed bar, and a condition that stopped being true before the
   bar closed places nothing.
-- **That the engine tracks an account position.** It tracks its own ledger, section
-  7.5, and it will not reconcile against a position other people are also trading.
-- **That a frame may be a partial restatement.** Folding is by cumulative quantity
-  and status, so every frame must describe the whole life of the order. A frame
-  reporting only what changed since the last one will be folded as though the order
-  had shrunk.
+- **That the engine tracks an account position.** The engine does not read the
+  account's position, under `stdlib.md` section 17.1.
+- **That a frame may be a partial restatement.** A frame is cumulative, under
+  section 7.2.
 - **That the engine will call back into host code during a bar.** It will not. An
   execution reads the checkpoint, the bar and the settings.
 - **That the engine runs in a particular language, process, thread or machine.** A

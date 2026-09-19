@@ -397,14 +397,19 @@ rather than the teaching: an exact signature, an exact warmup, the precise
 behaviour at an edge, the grammar, or the wording of a diagnostic. These pages
 are allowed to simplify in order to make a point, and the specification is not.
 
-| Document | Read it for |
-|---|---|
-| [../spec/language.md](../spec/language.md) | Syntax, types, the absent value, the per-bar execution model, persistence, scope, control flow, the grammar |
-| [../spec/stdlib.md](../spec/stdlib.md) | Every callable function, its exact arguments, its return type and its exact warmup |
-| [../spec/errors.md](../spec/errors.md) | Every diagnostic: code, cause, fix, example, and the language version it first appeared in |
-| [../spec/compiled-program.md](../spec/compiled-program.md) | What a script becomes once compiled, which is the thing an engine actually runs |
-| [../spec/conformance.md](../spec/conformance.md) | How an implementation is tested, and what a passing result entitles it to claim |
-| [../spec/feature-matrix.md](../spec/feature-matrix.md) | Whether a given feature is specified, implemented or still planned today |
+Which documents the specification has, what each one holds, and which of them
+wins where two disagree are in [../spec/README.md](../spec/README.md), which is
+the only place that list is written. Open that page first. Direct links, so that
+nothing in `spec/` is more than one click away:
+
+- [../spec/language.md](../spec/language.md)
+- [../spec/stdlib.md](../spec/stdlib.md)
+- [../spec/errors.md](../spec/errors.md)
+- [../spec/compiled-program.md](../spec/compiled-program.md)
+- [../spec/host-interface.md](../spec/host-interface.md)
+- [../spec/conformance.md](../spec/conformance.md)
+- [../spec/feature-matrix.md](../spec/feature-matrix.md)
+- [../spec/decisions.md](../spec/decisions.md)
 
 One practical rule: the moment you are about to guess what a function does on its
 first bar, stop guessing and open `stdlib.md`. Every entry states it.

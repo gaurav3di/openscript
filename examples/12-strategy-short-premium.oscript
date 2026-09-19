@@ -2,8 +2,9 @@
 // target, one clock exit, all measured on the sum of the two prices rather than
 // on either leg.
 //
-// Exercises: the single instrument order model at its limit, a second leg read
-// with req.symbol and routed by the host from an alert, a stop measured on a
+// Exercises: a one leg strategy whose signal is computed from a second
+// instrument, a second leg read with req.symbol and routed by the host from an
+// alert, a stop measured on a
 // value that is not a price on this chart, a calendar test, and one close per
 // bar carrying the reason it fired.
 
@@ -25,14 +26,11 @@ exitMinute  = input(330, "Flat this many minutes after the open", min = 1, max =
 stopPct     = input(30, "Stop, in percent of the entry premium", min = 1, max = 500)
 targetPct   = input(50, "Target, in percent of the entry premium", min = 1, max = 99)
 
-// The chart carries one leg and the script reads the other. A strategy holds one
-// net position in the instrument the chart is showing and no order function
-// takes a symbol (stdlib 17.1), so the second leg is sent by the host from the
-// alerts below. That is the shape version 1 defines for a two leg position, and
-// it is stated here rather than worked around, because a per leg order would
-// need per leg position facts and a fill model for bars that are not the
-// chart's, and a fill model that guessed would report a fill at a price the leg
-// never traded.
+// The chart carries one leg and the script reads the other. A leg the chart does
+// not show has no bar series of its own, so a backtest of it has to be given
+// one, and this script therefore trades the chart's leg and routes the other
+// from the alerts below. A strategy that wants both legs in its own ledger
+// declares them with leg.relative (stdlib 17.6).
 otherPrice = req.symbol(otherLeg, chart.interval, close, exchange = chart.exchange)
 
 // The position is the sum, so the sum is what is managed. Stopping each leg

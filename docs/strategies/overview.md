@@ -79,8 +79,9 @@ from it.
 
 **A strategy keeps its own order and fill ledger, and never places an order that
 computes a delta against the account's position.** Every order states its own side
-and its own quantity outright, and every position and profit figure the language
-reports is folded from this strategy's own settled fills.
+and its own quantity outright. The engine does not read the account's position,
+under `stdlib.md` section 17.1, and the ledger it folds instead is
+`stdlib.md` section 17.7.
 
 The failure that rule prevents is silent, which is why it is a rule and not a
 default. An account position is held per contract, not per strategy. A trade you
@@ -210,10 +211,10 @@ For a strategy, one execution of one bar goes like this:
 | 6 | The risk rules are evaluated, in the fixed order given in [exits-and-brackets.md](./exits-and-brackets.md): the session limits first, then the combined rules, then each leg's own stop, target and trail |
 | 7 | If the bar is confirmed, every marker, alert and order the script or a rule asked for is applied. If it is not confirmed, they are discarded |
 
-Step 2 is where the ledger does its quiet work. Frames from a destination are
-cumulative rather than deltas, and they repeat, so the fold is what stops one fill
-from being counted twice. Nothing about that reaches your script except the
-guarantee that the position it reads is right.
+Step 2 is where the ledger does its quiet work. A frame is cumulative, under
+`host-interface.md` section 7.2, and frames repeat, so the fold of `stdlib.md`
+section 17.8 is what stops one fill from being counted twice. Nothing about that
+reaches your script except the guarantee that the position it reads is right.
 
 Step 7 is the one that surprises people, so it is worth being exact about it. When
 `buy(qty = 1)` executes, nothing is sent. The call records what it was asked to

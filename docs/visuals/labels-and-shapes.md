@@ -97,10 +97,10 @@ worth knowing before you meet them:
 
 ### signal appears anywhere; plot does not
 
-`plot`, `fill`, `level` and `table` must be at the top level, because the set of
-plotted columns and grids is fixed before bar 0 so a legend and a settings
-dialog can exist. A plot is hidden on a bar by plotting `none`, never by
-wrapping it in an `if` (OS3006).
+Some calls are top level only, and which ones is the list in `language.md`
+section 15.3. The reason is that the set of plotted columns and grids is fixed
+before bar 0, so a legend and a settings dialog can exist. A plot is hidden on a
+bar by plotting `none`, never by wrapping it in an `if` (OS3006).
 
 `signal` has no such rule. It is per-bar output, not part of the study's fixed
 shape, so an `if` around it is the normal way to write it. Both of these are

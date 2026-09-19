@@ -284,10 +284,12 @@ default is optimistic is a backtest that lies. See
 [running/backtesting.md](./running/backtesting.md).
 
 **Can I hold a long and a short at the same time?**
-No. A strategy holds one net position, because that is what a broker gives back,
-and a language whose model disagreed with the account would produce a backtest
-that cannot be reconciled with a statement. See
-[strategies/position-and-sizing.md](./strategies/position-and-sizing.md).
+Yes on two legs, no on one. A strategy trades the legs it declared, a leg holds
+one position and no order takes a leg through zero, so two opposite positions are
+two legs (`stdlib.md` section 17.1). See
+[strategies/orders.md](./strategies/orders.md) for declaring them and
+[strategies/position-and-sizing.md](./strategies/position-and-sizing.md) for
+sizing them.
 
 **How do I size a position?**
 `order.qtyForRisk(risk, entry, stop)`, `order.qtyForCash(cash)` or

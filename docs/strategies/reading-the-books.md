@@ -12,23 +12,10 @@ language hands you the account's own position.
 of what it has actually done, it is what every position and profit figure in the
 language is folded from, and it is per strategy rather than per account.
 
-The reason is the one [orders.md](./orders.md) opens with, and it is worth having
-in one sentence here too: an account position is held per contract, not per
-strategy, so a second strategy on the same contract, a trade placed by hand, or
-this same script started twice all land in that one row, and a strategy that read
-the row would be computing against somebody else's trade. Two such strategies undo
-each other all day and neither is wrong from where it is standing.
-
-So the books are the strategy's own, and three things follow.
-
-- **A strategy's position is folded from the strategy's own settled fills and from
-  nothing else.**
-- **Every profit figure comes from those same fills.** `pos.netProfit`,
-  `pos.openProfit`, `pos.equity` and `book.profit` are all sums over this
-  strategy's fills. None of them is read from an account position row.
-- **Where the account holds a position in a contract this strategy also holds, the
-  run's record says so and carries the account's quantity beside the strategy's.**
-  The language never divides a shared position between its owners.
+The engine does not read the account's position, under `stdlib.md` section 17.1.
+[orders.md](./orders.md) opens with the failure that rule prevents, worked
+through; this page is about what the strategy's own books hold and how to read
+them.
 
 ## The order row
 
@@ -37,70 +24,31 @@ sent and is never rewritten in place: each frame from the destination appends a
 revision, and the row's current fact is the fold of its revisions, so the sequence
 that produced a position can be replayed and audited rather than inferred.
 
-| Field | Holds |
-|---|---|
-| `id` | The destination's own opaque order id, exactly as given, as a string the engine never parses |
-| `tag` | The tag the script placed the order with, `""` when it named none |
-| `leg` | The leg the order belongs to |
-| `positionRef` | The position this order settles against |
-| `symbol`, `exchange` | The contract actually sent, after the leg resolved |
-| `product` | The product actually sent |
-| `side`, `qty`, `type`, `price`, `trigger` | The order as it left the engine |
-| `status` | The folded status |
-| `filledQty` | Cumulative filled quantity, never a delta |
-| `avgFillPrice` | The destination's average price over `filledQty`, absent while `filledQty` is `0` |
-| `rejection` | The destination's own rejection text, `""` when there is none |
-| `placedAt`, `updatedAt` | When the order was sent, and when a frame last changed the row |
+The run keeps the ledger of `stdlib.md` section 17.7. Two things about its fields
+are worth knowing before you reconcile anything against a statement.
 
-Three of those fields exist because the short version loses money.
+**The product, the symbol and the exchange are recorded as sent, not as
+declared.** A product is translated per destination, and a leg that resolved a
+relative contract carries a name the source never wrote, so a position reconciled
+against the declared word is reconciled against something nobody traded.
+`leg.product(name)`, `leg.symbol(name)` and `leg.exchange(name)` return what was
+sent, and they are what a statement can be matched against.
 
-**The product is recorded as sent, not as declared.** A product is translated per
-destination, so the word a strategy carries and the word that reached the
-destination are not always the same, and a position reconciled against the declared
-word is reconciled against something nobody traded. `leg.product(name)` returns the
-word that was sent.
-
-**The symbol and exchange are recorded as sent.** A leg that resolved a relative
-contract carries a name the source never wrote, and that name is the only one a
-statement can be matched against. `leg.symbol(name)` returns it.
-
-**Every order carries a position reference.** A position reference is minted when a
-leg goes from flat to holding, and it ends when that position's quantity returns to
-zero through settled fills. During a flip a leg holds two at once, the outgoing one
-and its replacement, which is why a flip is two orders and not one. A fill settles
-the position its own order names, never whichever position is current, because a
-fill that arrives late would otherwise be applied to the position that replaced the
-one it belonged to.
+**Every order carries a position reference**, which is the `positionRef` of
+`stdlib.md` section 17.7. It is the field that makes a flip readable long after
+the fact, so read that section before writing anything that reasons about one.
 
 ## Statuses, and what terminal means
 
-The ledger's `status` is one of six words:
-
-| Status | Means | Terminal |
-|---|---|---|
-| `"placed"` | Sent, and the destination has not answered yet | No |
-| `"open"` | Live at the destination | No |
-| `"triggerPending"` | Waiting for its trigger | No |
-| `"complete"` | Done | Yes |
-| `"rejected"` | Refused | Yes |
-| `"cancelled"` | Withdrawn | Yes |
-
-A destination with words of its own maps each of them onto one of the six in its
-adapter and carries its own word through to `rejection` and the log. The mapping is
-the adapter's because a status vocabulary is exactly the kind of thing that differs
-per destination and must not reach the language. Six words mean the same thing
-everywhere a script runs, which is what lets one script be read by somebody who
-has never seen your destination.
-
-A status is terminal when it is one of the last three. No further frame of a
-terminal order reaches the fold, and a terminal order's row never changes again.
-That is the property a script leans on when it stops watching an order.
+The status words, and which of them are terminal, are the vocabulary of
+`stdlib.md` section 17.7. One spelling on both sides of the boundary means the
+same word everywhere a script runs, which is what lets a script be read by
+somebody who has never seen your destination; where a destination has words of
+its own, that section says whose job the mapping is.
 
 ## Frames are cumulative, and that is why a fill can be reported twice
 
-**A frame from a destination is cumulative, not a delta.** It states the order's
-total filled quantity so far and the average price over that total, not what
-happened since the last frame.
+A frame is cumulative, under `host-interface.md` section 7.2.
 
 Frames repeat, arrive out of order and arrive twice. A session that reconnects
 resends its last frames. A destination that is unsure whether you heard it says it
@@ -111,42 +59,11 @@ This is the fact a reader writing a strategy has to hold on to, because it is wh
 the same fill can appear twice in what the destination tells you, and why an engine
 that added each frame's quantity to a running total would double a fill and report a
 position the strategy never held. The protection is not a habit anybody has to
-remember. It is in the fold.
-
-The fold of a frame into a row is exactly this:
-
-1. **Locate.** The frame names a row by the destination's order id. A frame that
-   names no row in this strategy's ledger is refused and recorded, and nothing is
-   folded. It is not an order this strategy placed.
-2. **Filled quantity.** The row's cumulative quantity becomes the greater of what
-   it held and what the frame reports, and the difference is the delta. The
-   cumulative quantity never decreases, so a frame reporting less than the row
-   already holds contributes a delta of zero.
-3. **Average price.** When the delta is positive the row takes the frame's average
-   price, which the destination computed over the cumulative quantity. When the
-   delta is zero the row keeps the price it had. The engine never averages two
-   averages of its own: the destination's average over the total is already the
-   answer. A frame reporting a greater cumulative quantity with no average price is
-   refused and recorded, because a fill with no price cannot be marked against
-   anything.
-4. **Status.** Status moves forward along `"placed"`, then `"open"` or
-   `"triggerPending"`, then a terminal word, and never backwards. A frame whose
-   status sits behind the row's leaves the status alone, and a terminal status is
-   never left.
-5. **Changed.** The frame changed the row when the status moved, or the delta was
-   positive, or the rejection text is new. Otherwise it changed nothing.
-6. **Settle.** When the delta is positive, one fill of that size at the frame's
-   average price settles against the order's own position reference, and not
-   against whichever position the leg holds now.
-7. **Stop.** When the frame changed nothing, nothing else happens: no fill, no
-   event, no report row, no recalculation. A repeated frame and a frame overtaken
-   by a later one both end here.
-
-Because frames are cumulative, a terminal frame that overtakes a partial one loses
-nothing: it carries the whole filled quantity, so step 2 produces the remaining
-delta in one piece. That is the property which makes the fold safe under
-out-of-order delivery, and it is the reason the language reads cumulative frames
-rather than asking a destination for deltas it may not be able to give.
+remember. It is in the fold, and an engine folds a frame exactly as
+`stdlib.md` section 17.8 folds one. Read that section before writing anything
+that reasons about repeated, crossed or late frames: it is numbered step by step,
+it is a conformance area with vectors of its own, and every engine that passes
+those vectors produces the same row from the same frames.
 
 ### What that means for a script you are writing
 
@@ -164,10 +81,10 @@ filledSoFar = order.filled("entry")
 filledNow   = bar.isFirst ? 0 : filledSoFar - filledSoFar[1]
 ```
 
-**A partial fill is a state, not an event.** An order can sit at `"open"` with
-`order.filled(tag)` greater than zero for as long as the destination takes. Guard
-on quantities and on the position rather than on the assumption that an order is
-either untouched or done.
+**A partial fill is a state, not an event.** An order can sit at a non-terminal
+status with `order.filled(tag)` greater than zero for as long as the destination
+takes. Guard on quantities and on the position rather than on the assumption that
+an order is either untouched or done.
 
 **Do not count anything by counting notifications.** If you ever find yourself
 adding up how many times something was reported, you have rebuilt the bug the fold
@@ -183,7 +100,7 @@ folded every repeat.
 | `order.working(tag)` | `series bool` | Whether that order is live and unfilled |
 | `order.pending` | `series number` | How many orders are live and unfilled |
 | `order.id(tag)` | `series string` | The destination's own order id, `""` before it answers |
-| `order.status(tag)` | `series string` | The folded status, one of the six words above |
+| `order.status(tag)` | `series string` | The folded status, from the vocabulary of `stdlib.md` section 17.7 |
 | `order.filled(tag)` | `series number` | Cumulative filled quantity, `0` before the first fill |
 | `order.avgFill(tag)` | `series number` | Average fill price, absent before the first fill |
 | `order.rejection(tag)` | `series string` | The destination's own rejection text, `""` when there is none |
@@ -193,8 +110,10 @@ script prints into a table when a trader asks why an entry did not happen, and
 `order.rejection` carries the destination's own words rather than a paraphrase,
 because the destination is the only party that knows why it refused.
 
-An unknown tag in any of them is OS7009: a tag that names nothing is a script that
-has lost track of its own orders.
+What these seven do with a tag that names no row, and what they read once an
+order has finished, is `stdlib.md` section 17.3. OS7009 is a call that acts on an
+order rather than one that reads one, and its scope is the one `errors.md` gives
+it.
 
 ### The positions
 
@@ -253,8 +172,8 @@ number that agrees with your account only if this strategy is the only thing in 
 strategy also holds and the account's quantity is larger than the strategy's own.
 
 It is a boolean and it stays one. There is no call that turns it into a number,
-because a script that could read the account's quantity would compute against it,
-which is the rule the whole ledger exists to keep. What the boolean is for is
+because the engine does not read the account's position, under `stdlib.md`
+section 17.1. What the boolean is for is
 telling a human: put it on a panel, print it when it first turns true, and treat it
 as the prompt to go and find out who else is trading that contract.
 
@@ -324,7 +243,7 @@ the day you want to find out from a panel rather than from a statement.
 |---|---|---|
 | A fill counted twice | Adding up reports instead of reading the total | `order.filled(tag)` is cumulative; take a difference if you need a delta |
 | `order.filled(tag)` never falls back to zero after an exit | It is that order's life total, not the position | Read `pos.size` for what is held |
-| OS7009 from a reading call | The tag names no order in this strategy's ledger | Tag every order, and read back the same tag |
+| OS7009 from `cancel` | The tag names no order to act on | Test with `order.working(tag)` first, and tag every order |
 | A late fill applied to the wrong trade | Expecting fills to settle the current position | They settle their own position reference; a flip is two orders |
 | The strategy's position disagrees with the account's | Something else is trading that contract | `pos.isShared`, then find out who |
 | A reconciliation against the declared product fails | The destination translated the product | Reconcile against `leg.product(name)`, which is what was sent |

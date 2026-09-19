@@ -64,7 +64,7 @@ An entry:
 | `since` | number | The language version the code first appeared in |
 | `autofix` | boolean | Whether an editor can apply the fix without asking a question |
 | `example` | object | `before`, the shortest script that raises it, and `after`, the same script fixed |
-| `spec` | string | The sections of `language.md` that define the rule |
+| `spec` | string | The specification sections that define the rule |
 | `refines` | string or null | The broader code this one takes a case from, if any |
 | `test` | string | The directory holding the test that produces this code |
 
@@ -318,7 +318,7 @@ it or move it inside a string literal.
 
 Entries are grouped by range and ascending by code. Each one carries its
 severity, the stage that raises it, the language version it appeared in, the
-sections of `language.md` that define the rule, and the test that produces it.
+specification sections that define the rule, and the test that produces it.
 
 A section prints the stage's label from `stageLabels` rather than the token the
 entry carries: `lex` is printed as lexer, `parse` as parser, `check` as checker,
@@ -1547,16 +1547,16 @@ b = band(close, len = 20, mult = 3)
 
 ### OS3006 This call must be at the top level
 
-Severity error. Stage checker. Since language version 1. Reference language.md 7.1, 15.3. Test `tests/errors/OS3006`.
+Severity error. Stage checker. Since language version 1. Reference language.md 7.1, 15.3; stdlib.md 17.6. Test `tests/errors/OS3006`.
 
 **Message.** `{name} defines part of the study's fixed shape and cannot appear inside {construct}.`
 
-- `{name}` is the call, one of plot, plotCandles, fill, level or table.
+- `{name}` is the call, one of plot, plotCandles, fill, level, table, leg.fixed or leg.relative.
 - `{construct}` is the enclosing construct, such as an if block, a loop or a function body.
 
-**Cause.** The set of plotted columns, bands, levels and grids is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. table() is on the list for the same reason, the grid's size and corner being part of the study's fixed shape, although what it returns is a runtime object that cell() writes to per bar (language.md 5.4). A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.
+**Cause.** The set of plotted columns, bands, levels and grids is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. table() is on the list for the same reason, the grid's size and corner being part of the study's fixed shape, although what it returns is a runtime object that cell() writes to per bar (language.md 5.4). A leg declaration is on the list for the same reason: the set of contracts a strategy trades is fixed before bar 0, and a leg that existed on some bars and not others would leave the run's record with nothing to key on. A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.
 
-**Fix.** Move the call to the top level and hide it per bar by passing none: plot(cond ? value : none, ...). Inside a request expression, read the value first and draw with it afterwards.
+**Fix.** Move the call to the top level and hide it per bar by passing none: plot(cond ? value : none, ...). Inside a request expression, read the value first and draw with it afterwards. A leg is not hidden by passing none: declare it at the top level and decide per bar whether to send it an order.
 
 Before:
 
@@ -1664,9 +1664,9 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 - `{first}` is the first of the two arguments.
 - `{second}` is the second of the two arguments.
 
-**Cause.** Two arguments that set one thing have to be reconciled, and every rule for reconciling them surprises somebody, so the call is refused and the script says which it meant. There are two pairs. An exit level can be written as an absolute price or as a distance from the entry, and the candidate rules (the nearer one, the later one, the absolute one) each surprise someone. A band takes color for both of its sides, or colorUp and colorDown for the leading and the lagging side, and color together with either of those leaves no answer for which side wins.
+**Cause.** Two arguments that set one thing have to be reconciled, and every rule for reconciling them surprises somebody, so the call is refused and the script says which it meant. There are three pairs. An exit level can be written as an absolute price or as a distance from the entry, and the candidate rules (the nearer one, the later one, the absolute one) each surprise someone. A band takes color for both of its sides, or colorUp and colorDown for the leading and the lagging side, and color together with either of those leaves no answer for which side wins. The third is a relative leg described as a future and given a right or a strike offset, which are fields of an option.
 
-**Fix.** Keep one of the two: an absolute price or a distance from the entry, one colour for the whole band or a colour for each side.
+**Fix.** Keep one of the two: an absolute price or a distance from the entry, one colour for the whole band or a colour for each side, and on a leg described as a future neither right nor strikeOffset.
 
 Before:
 
@@ -1717,7 +1717,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 - `{argument}` is the parameter that was left out.
 - `{example}` is a filled-in call showing the argument in place.
 
-**Cause.** A parameter without a default has no value the engine could invent. The title of a study and the source of an indicator are the common cases.
+**Cause.** A parameter without a default has no value the engine could invent. The title of a study and the source of an indicator are the common cases, and an order's leg argument in a file that declares more than one leg is a third: with several contracts to choose from there is none the engine could pick.
 
 **Fix.** Pass {argument} at the call site, as the example shows: {example}.
 
@@ -1836,19 +1836,19 @@ After:
 study("RSI", range = [0, 100])
 ```
 
-### OS3017 Two of these share a title
+### OS3017 Two of these share a name
 
 Severity error. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS3017`.
 
-**Message.** `{kind} titles must be unique in a file; {title} is also used at line {line}.`
+**Message.** `{kind} names must be unique in a file; {name} is also used at line {line}.`
 
-- `{kind}` is the thing being titled: plot, plotCandles, level, input or table.
-- `{title}` is the repeated title, quoted.
-- `{line}` is the line of the first use of that title.
+- `{kind}` is the thing being named: plot, plotCandles, level, input, table or leg.
+- `{name}` is the repeated name, quoted.
+- `{line}` is the line of the first use of that name.
 
-**Cause.** The legend row, the settings dialog and the saved layout all key a column by its title, and an alert message names it. Two columns with one title would overwrite each other's saved settings. fill is not on the list: a band has no title of its own and is identified by the two plots it is drawn between.
+**Cause.** The legend row, the settings dialog and the saved layout all key a column by its name, and an alert message names it. Two columns with one name would overwrite each other's saved settings. fill is not on the list: a band has no name of its own and is identified by the two plots it is drawn between. A leg's name is what every later call keys on, so two legs with one name leave every leg call with no answer.
 
-**Fix.** Rename one of them so each title appears once.
+**Fix.** Rename one of them so each name appears once.
 
 Before:
 
@@ -2368,7 +2368,7 @@ if size(window) > 500
 
 ### OS5003 The host refused this limits() value
 
-Severity error. Stage host. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS5003`.
+Severity error. Stage host. Since language version 1. Reference language.md 10.7; host-interface.md 10.1. Test `tests/errors/OS5003`.
 
 **Message.** `This host allows {option} up to {max}; the file asks for {found}.`
 
@@ -2870,7 +2870,7 @@ Severity error. Stage host. Since language version 1. Reference language.md 15.2
 - `{fact}` is the missing fact: tick size, lot size, session or timezone.
 - `{symbol}` is the instrument it is missing for.
 
-**Cause.** Tick size, lot size, the session and the timezone come from the host's instrument record, not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.
+**Cause.** Tick size, lot size, the session and the timezone come from the instrument record (host-interface.md 4.1), not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.
 
 **Fix.** Supply {fact} in the host's instrument record, or stop depending on it: round with a number the script chooses rather than chart.tickSize.
 
@@ -3299,13 +3299,13 @@ if signalUp and pos.size == 0
 
 ### OS7009 Unknown order tag
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7009`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2; stdlib.md 17.3. Test `tests/errors/OS7009`.
 
 **Message.** `There is no working order tagged {tag}.`
 
 - `{tag}` is the tag that was passed.
 
-**Cause.** A tag names an order from the moment it is placed until it fills, is cancelled or expires. Acting on a tag that names nothing is a script that has lost track of its own orders, and ignoring the call would leave it believing an order exists that does not.
+**Cause.** A tag names an order from the moment it is placed. Acting on a tag that names nothing is a script that has lost track of its own orders, and ignoring the call would leave it believing an order exists that does not. This code is for a call that acts on an order. The reading calls of stdlib.md section 17.3 read the ledger, which keeps a row after the order finishes, so a tag that names no row reads as the entry's documented empty value rather than raising.
 
 **Fix.** Use the tag the order was placed with, and test order.working({tag}) before acting on it.
 

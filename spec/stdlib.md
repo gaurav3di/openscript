@@ -71,12 +71,12 @@ saying it is planned, not a message saying the name does not exist.
 ### 2.1 Bare names and namespaces
 
 Everyday functions are bare, as `language.md` section 15.2 requires:
-`ema(close, 9)`, `highest(high, 20)`, `plot(x, "X", aqua)`. The namespaces
-`bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`, `leg`, `book`,
-`draw` and `req` hold the long tail. `leg` and `book` exist only in a
-`strategy()` file, section 17. A function is bare when a script that does nothing
-unusual reaches for it on most days, and namespaced otherwise. There is no third
-rule, and the split is settled per function here rather than left to taste.
+`ema(close, 9)`, `highest(high, 20)`, `plot(x, "X", aqua)`. The namespaces are
+the ones `language.md` section 15.2 lists, and they hold the long tail. `leg` and
+`book` exist only in a `strategy()` file, section 17. A function is bare when a
+script that does nothing unusual reaches for it on most days, and namespaced
+otherwise. There is no third rule, and the split is settled per function here
+rather than left to taste.
 
 Every name in this document, bare or namespaced, lives in the global scope, so
 assigning to one is OS2002 (`language.md` section 12.4).
@@ -209,8 +209,8 @@ is OS7001.
 
 ### 3.3 The `bar` namespace
 
-Per-bar facts. Defined in `language.md` section 7.2 and repeated here so the
-catalogue is complete.
+Per-bar facts. The bar facts, and which of them the host states, are
+`language.md` section 7.2's.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
@@ -223,10 +223,9 @@ catalogue is complete.
 | `bar.isNew` | `series bool` | bar 0 | The last update appended a bar rather than replacing one |
 | `bar.updates` | `series number` | bar 0 | How many times this bar has been executed |
 
-These land in the contract's calculation context rather than in any drawn field:
-the host supplies four facts about the execution (new, confirmed, realtime and
-the update count) and the engine derives the other four from the dataset and the
-bar's position in it (`compiled-program.md` section 5.2).
+These land in the contract's calculation context rather than in any drawn field.
+Which of them the host states and which the engine derives is `language.md`
+section 7.2's.
 
 ### 3.4 The `chart` namespace
 
@@ -256,11 +255,9 @@ carry no history.
 
 `chart.tickSize` is `none` rather than a guessed `0.01` when the host has not
 supplied it, because a script sizing a stop in ticks has to be able to tell "one
-paisa" from "nobody said". The host's instrument record supplies ten facts,
-symbol, exchange, interval, timezone, tick size, lot size, point value, currency,
-instrument type and whether the instrument has volume, and the engine derives
-`chart.intervalMinutes` and `chart.isIntraday` from the interval string rather
-than reading them from the host (`compiled-program.md` section 5.2).
+paisa" from "nobody said". Every fact here comes from the instrument record
+(`host-interface.md` section 4.1); `chart.intervalMinutes` and `chart.isIntraday`
+are derived by the engine from the interval string rather than supplied.
 `chart.now()` is the only reading of a clock available during a bar, and the
 conformance suite fixes its value, so a script that uses it is still
 reproducible.
@@ -715,8 +712,8 @@ determinism reason as `str.upper`.
 
 ### 12.4 The `session` namespace
 
-The session is the instrument's trading session as the host defines it, not a
-window the script invents. Everything here is a per-bar fact.
+The session is the instrument record's session (`host-interface.md` section 4.3),
+not a window the script invents. Everything here is a per-bar fact.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
@@ -829,22 +826,14 @@ are planned.**
 
 ### 14.1 What may appear where
 
-`plot`, `plotCandles`, `fill`, `level` and `table` are top level only (OS3006),
-and `input` is top level only under a code of its own (OS3007). They declare the
-fixed shape of the study: the set of columns, bands, levels and grids must be
-known before bar 0 so the legend, the axis and the settings dialog can exist.
-Hide one on a bar by giving it `none`, never by wrapping it in an `if`.
+The calls that are top level only are the ones `language.md` section 15.3 lists,
+and so are the calls that may appear anywhere.
 
-A `strategy()` file adds two more to that list under the same code: `leg.fixed`
-and `leg.relative` of section 17.6. The set of contracts a strategy trades is
-part of its fixed shape, it is resolved before bar 0, and a leg that existed on
-some bars and not others would leave the run's record with nothing to key on.
-
-`signal`, `alert`, `barColor`, `background`, `cell`, `clear`, `print`, the whole
-`draw` namespace and every order function, level and event of section 17 may
-appear anywhere,
-because they are per-bar events, per-bar paint or per-bar decisions. This is the
-same split as `language.md` section 15.3, stated with both lists complete.
+A `strategy()` file's two leg declarations are on the top level list for the
+reason section 17.6 gives, which is this document's own: the set of contracts a
+strategy trades is part of its fixed shape, it is resolved before bar 0, and a
+leg that existed on some bars and not others would leave the run's record with
+nothing to key on.
 
 The two lists are not two halves of one idea. `plot`, `plotCandles`, `fill` and
 `level` return a **declaration handle**, a compile-time value; `table()` returns
@@ -1211,14 +1200,20 @@ different standard from the rest. Two engines that disagree about a colour draw 
 different picture; two engines that disagree about when a stop is hit take
 different trades from the same script. Everything in sections 17.8 to 17.11 is
 therefore a conformance area with vectors of its own, on the same footing as the
-rest of the language, and an engine is conforming only when it reproduces them.
+rest of the language, and an engine is conforming only when it reproduces them. A
+case supplies frames from its case directory (`conformance.md` section 3).
 
 ### 17.1 The position model
 
 A strategy holds **one position per leg**. A leg is one contract the strategy
 trades, named by a string and declared before the run starts (section 17.6). A
-file that declares no leg has exactly one leg, the instrument its chart is
-showing, and every order function acts on it with no leg named.
+strategy trades the legs it declared: a leg names a contract outright with
+`leg.fixed` or describes one with `leg.relative`, and the host resolves the
+description before bar 0. A file that declares no leg has exactly one leg, the
+instrument its chart is showing, and every order acts on it with no leg named.
+
+**Every order names a leg, and no order function takes a symbol.** The engine
+neither parses a symbol nor builds one, for the reason section 17.6 gives.
 
 **A strategy never places an order that computes a delta against the account's
 position.** Every order states its own side and its own quantity outright.
@@ -1256,9 +1251,8 @@ One position per leg, rather than one net book across every leg, because legs ar
 different contracts: adding a position in one to a position in another produces a
 number that is not a quantity of anything and cannot be sent anywhere.
 
-An order is filled according to the declaration's `fillOn` option, which defaults
-to the next bar's open (`language.md` section 13.3), with the declared slippage
-and commission applied.
+An order is filled according to the declaration's `fillOn` option
+(`language.md` section 13.3), with the declared slippage and commission applied.
 
 An order function given an absent price or quantity is OS7002 and places nothing,
 per `language.md` section 6.8.
@@ -1279,6 +1273,12 @@ With neither `limit` nor `stop`, `buy` and `sell` place a market order. With
 both a stop-limit order. One function with optional prices rather than six named
 functions, because the trader's decision is direction and the price is a
 qualifier.
+
+`side` is `"buy"` or `"sell"`. `type` is `"market"`, `"limit"`, `"stop"` or
+`"stopLimit"`. A `type` and the prices given agree or the call is refused:
+`"limit"` takes `price`, `"stop"` takes `trigger`, `"stopLimit"` takes both and
+`"market"` takes neither. A type that names a price it was not given is OS7007,
+and a value outside either set is OS3008.
 
 **Every order function names the leg it acts on.** In a file with one leg the
 `leg` argument defaults to that leg and is never written. In a file with more
@@ -1313,7 +1313,7 @@ position is.
 | `order.bracket(tag = "", profit = none, loss = none, leg = ...)` | nothing | Set the leg's stop and target as distances from the entry |
 | `order.working(tag)` | `series bool` | Whether an order with that tag is live and unfilled |
 | `order.pending` | `series number` | How many orders are live and unfilled |
-| `order.id(tag)` | `series string` | The destination's own order id for that tag, `""` before the destination has answered |
+| `order.id(tag)` | `series string` | The destination's own reference for that tag, `""` before the destination has answered |
 | `order.status(tag)` | `series string` | The ledger's folded status for that tag, section 17.7 |
 | `order.filled(tag)` | `series number` | Cumulative filled quantity for that tag, `0` before the first fill |
 | `order.avgFill(tag)` | `series number` | Average fill price for that tag, absent before the first fill |
@@ -1325,14 +1325,20 @@ position is.
 | `order.modify(tag, ...)` (planned) | nothing | Change a working order's price or quantity in place |
 | `order.oco(tagA, tagB)` (planned) | nothing | Cancel one order when the other fills |
 
-The five reading calls, `order.id` through `order.rejection`, read the strategy's
-own ledger and never the destination. They are what a script prints into a table
-when a trader asks why an entry did not happen, and `order.rejection` carries the
-destination's own words rather than a paraphrase of them, because the destination
-is the only party that knows why it refused.
+The seven reading calls, `order.working`, `order.pending`, `order.id`,
+`order.status`, `order.filled`, `order.avgFill` and `order.rejection`, read the
+strategy's own ledger and never the destination. They are what a script prints
+into a table when a trader asks why an entry did not happen, and
+`order.rejection` carries the destination's own words rather than a paraphrase of
+them, because the destination is the only party that knows why it refused.
 
-An unknown tag in any of them is OS7009, on the same ground as `cancel`: a tag
-that names nothing is a script that has lost track of its own orders.
+They read the ledger at any status, terminal included, which is when
+`order.rejection` and `order.avgFill` have something to say. A tag that names no
+row reads as the entry's documented empty value; OS7009 is for a call that acts
+on an order, which is `cancel` and the two planned calls. Where a tag names more
+than one row, the reads read the most recently placed one.
+
+`side` and `type` take the values of section 17.2.
 
 The sizing helpers round down to a whole number of units by default, and
 `order.roundToLot` rounds down unless told otherwise, because a size rounded up
@@ -1391,10 +1397,8 @@ adding it to something should get the right answer.
 something else, such as a bid or an ask, is not expressible in version 1 and the
 entry says so rather than leaving the reader to assume.
 
-`pos.isShared` is a boolean and stays one. It says that the account's position in
-this contract is larger than the strategy's own, which is a fact a dashboard
-should show and a trader should know. It is not a quantity, and there is no call
-that turns it into one.
+`pos.isShared` is a boolean and stays one, under the rule of section 17.1. It is
+a fact a dashboard should show and a trader should know.
 
 ### 17.5 Where orders land in the chart contract
 
@@ -1419,7 +1423,7 @@ record with nothing stable to key on.
 | Call | Returns | Lands in | For |
 |---|---|---|---|
 | `leg.fixed(name, symbol, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the strategy's leg set, resolved before bar 0 | Declare a leg on a contract named outright |
-| `leg.relative(name, underlying, expiry = 0, strike = 0, right = "none", exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the same | Declare a leg on a contract named relatively |
+| `leg.relative(name, underlying, kind, expiryRank = 0, expiryCycle = none, strikeOffset = 0, right = none, reference = none, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the same | Declare a leg on a contract named relatively |
 
 Every argument of both calls is part of a declaration fixed before bar 0, so each
 must be a compile-time constant: a literal, arithmetic over literals, or an
@@ -1428,24 +1432,28 @@ OS3017, the same code as two columns sharing a title, because the name is what
 every later call keys on.
 
 `leg.fixed` names a contract the host already knows. `leg.relative` names one by
-description, and the host resolves it: `underlying` is the instrument the
-contract derives from, `expiry` is a rank with `0` for the nearest expiry and `1`
-for the one after it, `strike` is an offset in strikes from the money with `0`
-at the money and positive offsets above it, and `right` is `"none"`, `"call"` or
-`"put"`. The engine never parses a symbol and never builds one: a symbol format
-built for one market is meaningless in another, and portability is the whole
-objective.
+description, and the host resolves it. Field by field:
 
-**A relative contract resolves exactly once, before bar 0, and the resolved
-identity is what every later action uses.** This is not a preference. An
-at-the-money expression evaluated again at exit names a different contract from
-the one that was entered, so the strategy sends a closing order for a position it
-does not hold while the position it does hold stays open. The resolved identity
-is persisted with the run, so a restart uses the contract that was entered rather
-than the contract that is nearest now.
+| Field | Holds |
+|---|---|
+| `underlying` | The instrument the contract derives from, an identity the engine treats as opaque |
+| `kind` | `"future"` or `"option"`. Required, because it decides which of the other fields apply |
+| `expiryRank` | A rank, `0` for the nearest expiry and `1` for the one after it |
+| `expiryCycle` | Which series, where a venue lists more than one; absent means the venue's default series |
+| `strikeOffset` | An offset in strikes from the money, `0` at the money and positive offsets above it |
+| `right` | `"call"` or `"put"`, and absent for a future |
+| `reference` | The price the offset is measured from; absent means the underlying's price at the moment of resolution |
+| `name`, `exchange`, `product`, `qty`, `side` | The leg's own bookkeeping, not part of the contract's description |
 
-A relative description the host cannot resolve to a contract is OS6007, before
-the first bar, and the strategy does not start.
+The engine never parses a symbol and never builds one: a symbol format built for
+one market is meaningless in another, and portability is the whole objective.
+That is also why `kind` is stated outright rather than implied by `right`: a
+field whose value decides what kind of contract the other fields describe is a
+field with two jobs.
+
+`right` or `strikeOffset` given with `kind = "future"` is OS3010.
+
+A relative contract resolves once, under `host-interface.md` section 9.4.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
@@ -1486,7 +1494,8 @@ inferred.
 
 | Field | Holds |
 |---|---|
-| `id` | The destination's own opaque order id, exactly as it was given, as a string the engine never parses |
+| `intentId` | The engine's own key for this order, unique within the run, carried on the intent and on every frame about it |
+| `orderRef` | The destination's own opaque order id, exactly as it was given, as a string the engine never parses, `""` until the destination has answered |
 | `tag` | The tag the script placed the order with, `""` when it named none |
 | `leg` | The leg the order belongs to |
 | `positionRef` | The position this order settles against, below |
@@ -1519,33 +1528,43 @@ A fill settles the position its own order names, never whichever position is
 current, because a fill that arrives late would otherwise be applied to the
 position that replaced the one it belonged to.
 
-**Statuses.** The ledger's `status` is one of six words: `"placed"` before the
-destination has answered, `"open"` while the order is live, `"triggerPending"`
-while it waits for its trigger, and the three terminal words `"complete"`,
-`"rejected"` and `"cancelled"`. A destination with words of its own, `expired`
-for instance, maps each of them onto one of the six in its adapter and carries
-its own word through to `rejection` and the log. The mapping is the adapter's
-because a status vocabulary is exactly the kind of thing that differs per
-destination and must not reach the language.
+**Statuses.** The ledger's `status` is one of these words. The Terminal column
+says which of them end an order, and the last column says which of them a host
+may send in a frame.
 
-A status is terminal when it is one of the last three. The engine sends no
-further frame of a terminal order to the fold, and a terminal order's row never
-changes again.
+| Word | Means | Terminal | A host may send it |
+|---|---|---|---|
+| `placed` | Sent, and the destination has not answered yet | No | No |
+| `working` | Live at the destination and not completely filled | No | Yes |
+| `triggerPending` | Accepted and waiting for its trigger price | No | Yes |
+| `filled` | The whole quantity is filled | Yes | Yes |
+| `cancelled` | Ended by a cancellation | Yes | Yes |
+| `rejected` | Refused, carrying the destination's own text | Yes | Yes |
+| `expired` | Ended without filling, by the destination's own rule | Yes | Yes |
+
+`placed` is the engine's own: it means an intent has left and nothing has come
+back, and a host cannot report a state the destination has never described.
+
+A destination with words of its own maps each of them onto one of these in its
+adapter and carries its own word through to `rejection` and the log. The mapping
+is the adapter's because a status vocabulary is exactly the kind of thing that
+differs per destination and must not reach the language.
 
 ### 17.8 Folding an order frame
 
-**A frame from a destination is cumulative, not a delta.** It states the order's
-total filled quantity so far and the average price over that total, not what
-happened since the last frame. Frames repeat, arrive out of order and arrive
-twice, and an engine that adds each frame's quantity to a running total doubles a
-fill and reports a position the strategy never held.
+A frame is cumulative, under `host-interface.md` section 7.2. Frames repeat,
+arrive out of order and arrive twice, and an engine that adds each frame's
+quantity to a running total doubles a fill and reports a position the strategy
+never held.
 
 The fold of a frame `f` into a row `r` is exactly this, and an engine is
 conforming only when it is exactly this:
 
-1. **Locate.** `f` names a row by the destination's order id. A frame that names
-   no row in this strategy's ledger is refused and recorded, and nothing is
-   folded. It is not an order this strategy placed.
+1. **Locate.** `f` names a row by `intentId`. A frame that names no row in this
+   strategy's ledger is refused and recorded, and nothing is folded. It is not an
+   order this strategy placed. The destination's own reference is recorded from
+   the frame and is never used to find a row, because a row has none while it is
+   `placed`.
 2. **Filled quantity.** `filled = max(r.filledQty, f.filledQty)` and
    `delta = filled - r.filledQty`. The cumulative quantity never decreases, so a
    frame that reports less than the row already holds contributes `delta = 0`.
@@ -1556,10 +1575,11 @@ conforming only when it is exactly this:
    reports a greater cumulative quantity and no average price is refused and
    recorded, and nothing is folded, because a fill with no price cannot be marked
    against anything.
-4. **Status.** Status moves forward along `"placed"`, then `"open"` or
+4. **Status.** Status moves forward along `"placed"`, then `"working"` or
    `"triggerPending"`, then a terminal word, and never backwards. A frame whose
    status sits behind the row's leaves the status alone. A terminal status is
-   never left.
+   never left, and a frame arriving at a terminal row does not run this step at
+   all: see below.
 5. **Changed.** The frame changed the row when the status moved, or `delta > 0`,
    or the rejection text is new. Otherwise it changed nothing.
 6. **Settle.** When `delta > 0`, one fill of `delta` units at `f.avgFillPrice`
@@ -1574,6 +1594,26 @@ loses nothing: it carries the whole filled quantity, so step 2 produces the
 remaining delta in one piece. This is the property that makes the fold safe under
 out-of-order delivery, and it is the reason the language reads cumulative frames
 rather than asking a destination for deltas it may not be able to give.
+
+**A fill after a terminal status.** A frame naming a terminal row still runs
+steps 1, 2, 3, 5 and 6, and does not run step 4. The status keeps the terminal
+word it reached, `filledQty` rises, `avgFillPrice` takes the frame's, the
+destination's reference, the product as sent and the rejection text take the
+newest frame's, and the delta settles against the row's `positionRef` like any
+other fill. A `cancelled` row whose cumulative quantity has reached the order's
+full quantity stays `cancelled`: the status records how the order ended and the
+quantity records what traded, and the two are both true. The fold emits
+`fillAfterTerminal` (section 17.11).
+
+A venue reports a fill after a cancellation acknowledgement whenever a cancel
+races a fill, which is what a cancel sent near the touch does on a busy
+instrument. An engine that refused that frame has lost a real fill, and the loss
+is invisible from inside the script: the account holds a position the strategy
+cannot see, and every later size, level and square off is computed against the
+wrong quantity. Folding a late fill that was never traded would need a
+destination to report a quantity it never traded, which is a broken destination
+and a visible failure; refusing a real one is silent, and it is silent on exactly
+the day a cancel raced a fill.
 
 ### 17.9 Protective levels
 
@@ -1720,6 +1760,10 @@ fired, and "the position closed" is not an answer.
 | `exitTimeSquareOff` | `book.exitAt` flattened the book at its time |
 | `dailyLossHit` | The day's loss reached the limit; the book is off and no entry is taken for the rest of the day |
 | `entryRefused` | An entry was refused by the direction filter, the entry window or a daily loss already hit, naming which |
+| `fillAfterTerminal` | A frame increased an order's filled quantity after the order had reached a terminal status, carrying the tag, the added quantity and the terminal word it arrived after |
+
+`fillAfterTerminal` is not a rule's transition. It is in the list because a fill
+the strategy could not have expected is the event a trader most needs named.
 
 An event is a record, not a value. No call reads one, because a script that
 branched on its own stop having fired would be deciding twice what the rule
@@ -1795,8 +1839,10 @@ OS7015.
 ### 17.14 Refusals defined here that the catalogue has no code for
 
 Four refusals above are stated as rules with no code quoted, because `errors.md`
-is authoritative for codes and this document does not invent them. They are
-rules either way, and the code follows the rule rather than the other way round:
+is authoritative for codes and this document does not invent them. This section
+states rules and never text: a code's message, cause, fix and scope are
+`errors.md`'s. The rules hold either way, and the code follows the rule rather
+than the other way round:
 
 - A frame naming an order this strategy's ledger does not hold (section 17.8,
   step 1), at the host.

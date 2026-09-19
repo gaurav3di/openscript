@@ -204,8 +204,8 @@ last week's result with today's would be comparing two unknown things.
 
 ### Why the running strategy pins, and this is the one that costs money
 
-A strategy holds a net position and per-bar state. Consider this file running live
-with a position open.
+A running strategy holds open positions and per-bar state. Consider this file
+running live with a position open.
 
 ```
 version 1

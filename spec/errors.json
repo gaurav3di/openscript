@@ -1065,17 +1065,17 @@
       "since": 1,
       "message": "{name} defines part of the study's fixed shape and cannot appear inside {construct}.",
       "placeholders": {
-        "name": "the call, one of plot, plotCandles, fill, level or table",
+        "name": "the call, one of plot, plotCandles, fill, level, table, leg.fixed or leg.relative",
         "construct": "the enclosing construct, such as an if block, a loop or a function body"
       },
-      "cause": "The set of plotted columns, bands, levels and grids is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. table() is on the list for the same reason, the grid's size and corner being part of the study's fixed shape, although what it returns is a runtime object that cell() writes to per bar (language.md 5.4). A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.",
-      "fix": "Move the call to the top level and hide it per bar by passing none: plot(cond ? value : none, ...). Inside a request expression, read the value first and draw with it afterwards.",
+      "cause": "The set of plotted columns, bands, levels and grids is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. table() is on the list for the same reason, the grid's size and corner being part of the study's fixed shape, although what it returns is a runtime object that cell() writes to per bar (language.md 5.4). A leg declaration is on the list for the same reason: the set of contracts a strategy trades is fixed before bar 0, and a leg that existed on some bars and not others would leave the run's record with nothing to key on. A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.",
+      "fix": "Move the call to the top level and hide it per bar by passing none: plot(cond ? value : none, ...). Inside a request expression, read the value first and draw with it afterwards. A leg is not hidden by passing none: declare it at the top level and decide per bar whether to send it an order.",
       "autofix": false,
       "example": {
         "before": "if trending\n    plot(ema20, \"EMA 20\", aqua)",
         "after": "plot(trending ? ema20 : none, \"EMA 20\", aqua)"
       },
-      "spec": "language.md 7.1, 15.3",
+      "spec": "language.md 7.1, 15.3; stdlib.md 17.6",
       "refines": null,
       "test": "tests/errors/OS3006"
     },
@@ -1156,8 +1156,8 @@
         "first": "the first of the two arguments",
         "second": "the second of the two arguments"
       },
-      "cause": "Two arguments that set one thing have to be reconciled, and every rule for reconciling them surprises somebody, so the call is refused and the script says which it meant. There are two pairs. An exit level can be written as an absolute price or as a distance from the entry, and the candidate rules (the nearer one, the later one, the absolute one) each surprise someone. A band takes color for both of its sides, or colorUp and colorDown for the leading and the lagging side, and color together with either of those leaves no answer for which side wins.",
-      "fix": "Keep one of the two: an absolute price or a distance from the entry, one colour for the whole band or a colour for each side.",
+      "cause": "Two arguments that set one thing have to be reconciled, and every rule for reconciling them surprises somebody, so the call is refused and the script says which it meant. There are three pairs. An exit level can be written as an absolute price or as a distance from the entry, and the candidate rules (the nearer one, the later one, the absolute one) each surprise someone. A band takes color for both of its sides, or colorUp and colorDown for the leading and the lagging side, and color together with either of those leaves no answer for which side wins. The third is a relative leg described as a future and given a right or a strike offset, which are fields of an option.",
+      "fix": "Keep one of the two: an absolute price or a distance from the entry, one colour for the whole band or a colour for each side, and on a leg described as a future neither right nor strikeOffset.",
       "autofix": false,
       "example": {
         "before": "exit(limit = 105, profit = 5)",
@@ -1203,7 +1203,7 @@
         "argument": "the parameter that was left out",
         "example": "a filled-in call showing the argument in place"
       },
-      "cause": "A parameter without a default has no value the engine could invent. The title of a study and the source of an indicator are the common cases.",
+      "cause": "A parameter without a default has no value the engine could invent. The title of a study and the source of an indicator are the common cases, and an order's leg argument in a file that declares more than one leg is a third: with several contracts to choose from there is none the engine could pick.",
       "fix": "Pass {argument} at the call site, as the example shows: {example}.",
       "autofix": false,
       "example": {
@@ -1301,18 +1301,18 @@
     },
     {
       "code": "OS3017",
-      "title": "Two of these share a title",
+      "title": "Two of these share a name",
       "severity": "error",
       "stage": "check",
       "since": 1,
-      "message": "{kind} titles must be unique in a file; {title} is also used at line {line}.",
+      "message": "{kind} names must be unique in a file; {name} is also used at line {line}.",
       "placeholders": {
-        "kind": "the thing being titled: plot, plotCandles, level, input or table",
-        "title": "the repeated title, quoted",
-        "line": "the line of the first use of that title"
+        "kind": "the thing being named: plot, plotCandles, level, input, table or leg",
+        "name": "the repeated name, quoted",
+        "line": "the line of the first use of that name"
       },
-      "cause": "The legend row, the settings dialog and the saved layout all key a column by its title, and an alert message names it. Two columns with one title would overwrite each other's saved settings. fill is not on the list: a band has no title of its own and is identified by the two plots it is drawn between.",
-      "fix": "Rename one of them so each title appears once.",
+      "cause": "The legend row, the settings dialog and the saved layout all key a column by its name, and an alert message names it. Two columns with one name would overwrite each other's saved settings. fill is not on the list: a band has no name of its own and is identified by the two plots it is drawn between. A leg's name is what every later call keys on, so two legs with one name leave every leg call with no answer.",
+      "fix": "Rename one of them so each name appears once.",
       "autofix": false,
       "example": {
         "before": "plot(fast, \"EMA\", aqua)\nplot(slow, \"EMA\", orange)",
@@ -1747,7 +1747,7 @@
         "before": "limits(loops = 500_000_000)",
         "after": "limits(loops = 50_000_000)"
       },
-      "spec": "language.md 10.7",
+      "spec": "language.md 10.7; host-interface.md 10.1",
       "refines": null,
       "test": "tests/errors/OS5003"
     },
@@ -2140,7 +2140,7 @@
         "fact": "the missing fact: tick size, lot size, session or timezone",
         "symbol": "the instrument it is missing for"
       },
-      "cause": "Tick size, lot size, the session and the timezone come from the host's instrument record, not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.",
+      "cause": "Tick size, lot size, the session and the timezone come from the instrument record (host-interface.md 4.1), not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.",
       "fix": "Supply {fact} in the host's instrument record, or stop depending on it: round with a number the script chooses rather than chart.tickSize.",
       "autofix": false,
       "example": {
@@ -2496,14 +2496,14 @@
       "placeholders": {
         "tag": "the tag that was passed"
       },
-      "cause": "A tag names an order from the moment it is placed until it fills, is cancelled or expires. Acting on a tag that names nothing is a script that has lost track of its own orders, and ignoring the call would leave it believing an order exists that does not.",
+      "cause": "A tag names an order from the moment it is placed. Acting on a tag that names nothing is a script that has lost track of its own orders, and ignoring the call would leave it believing an order exists that does not. This code is for a call that acts on an order. The reading calls of stdlib.md section 17.3 read the ledger, which keeps a row after the order finishes, so a tag that names no row reads as the entry's documented empty value rather than raising.",
       "fix": "Use the tag the order was placed with, and test order.working({tag}) before acting on it.",
       "autofix": false,
       "example": {
         "before": "buy(qty = 1, tag = \"entry\")\norder.bracket(tag = \"entries\", loss = 10)",
         "after": "buy(qty = 1, tag = \"entry\")\nif order.working(\"entry\")\n    order.bracket(tag = \"entry\", loss = 10)"
       },
-      "spec": "language.md 15.2",
+      "spec": "language.md 15.2; stdlib.md 17.3",
       "refines": null,
       "test": "tests/errors/OS7009"
     },

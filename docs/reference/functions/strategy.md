@@ -12,14 +12,16 @@ numbers in the backtest cannot disagree.
 
 ## The position model
 
-A strategy holds **one net position** in the instrument the chart is showing.
-`buy(qty)` adds to it, `sell(qty)` subtracts from it, an order that crosses zero
-is reported as one exit and one entry, and `close()` flattens it.
+A strategy trades the legs it declared. A leg names a contract outright with
+`leg.fixed` or describes one with `leg.relative`, and the host resolves the
+description before bar 0; a file that declares no leg has exactly one leg, the
+instrument its chart is showing, and every order acts on it with no leg named
+(`stdlib.md` sections 17.1 and 17.6).
 
-One net position, rather than independent long and short books, because a net
-position is what a broker actually gives back. A language whose model disagreed
-with the account would produce a backtest that cannot be reconciled with a
-statement, and an unreconcilable backtest is a story rather than a measurement.
+`buy(qty)` adds to a leg's position, `sell(qty)` subtracts from it, and `close()`
+flattens it. What a strategy holds, what happens to an instruction that would
+take a leg through zero, and what the account's own position has to do with any
+of it are the position model of `stdlib.md` section 17.1.
 
 An order is filled according to the declaration's `fillOn` option, with the
 declared slippage and commission applied. An order function given an absent
@@ -27,6 +29,21 @@ price or an absent quantity does not place a malformed order and does not
 substitute a value: it rejects with OS7002, naming the argument that was absent.
 An order is the one place in the language where doing nothing quietly is worse
 than stopping loudly.
+
+## Declaring legs
+
+| Call | For |
+|---|---|
+| `leg.fixed(name, symbol, ...)` | Declare a leg on a contract named outright |
+| `leg.relative(name, underlying, kind, ...)` | Declare a leg on a contract named by description |
+| `leg.symbol(name)`, `leg.exchange(name)`, `leg.product(name)` | Read back what the orders actually carried |
+| `leg.expiry(name)`, `leg.strike(name)` | Read back the resolved contract's expiry and strike |
+
+Their arguments, and what each field of a relative description means, are
+`stdlib.md` section 17.6. Where a leg may be written is the placement list of
+`language.md` section 15.3, and a relative contract resolves once under
+`host-interface.md` section 9.4. A description the host cannot resolve is OS6007
+before the first bar.
 
 ## Trading options on the declaration
 
@@ -58,22 +75,24 @@ comparison against another strategy's numbers now depends on that choice.
 
 ## 1. Placing orders
 
-### `buy(qty = the declaration's, limit = none, stop = none, tag = "")`
+### `buy(qty = the declaration's, limit = none, stop = none, tag = "", leg = the only leg)`
 
-Enter or add to a long position.
+Enter or add to a long position in one leg.
 Parameters: `qty` `number` default the declaration's `qty`; `limit` `number`
-default `none`; `stop` `number` default `none`; `tag` `string` default `""`.
+default `none`; `stop` `number` default `none`; `tag` `string` default `""`;
+`leg` `string` default the only leg.
 Returns nothing.
 
 ```
 buy(qty = 1, tag = "breakout")
 ```
 
-### `sell(qty = the declaration's, limit = none, stop = none, tag = "")`
+### `sell(qty = the declaration's, limit = none, stop = none, tag = "", leg = the only leg)`
 
-Enter or add to a short position.
+Enter or add to a short position in one leg.
 Parameters: `qty` `number` default the declaration's `qty`; `limit` `number`
-default `none`; `stop` `number` default `none`; `tag` `string` default `""`.
+default `none`; `stop` `number` default `none`; `tag` `string` default `""`;
+`leg` `string` default the only leg.
 Returns nothing.
 
 ```
@@ -93,11 +112,11 @@ qualifier on it.
 | absent | given | Stop |
 | given | given | Stop-limit |
 
-### `close(tag = none, qty = none)`
+### `close(tag = none, qty = none, leg = the only leg)`
 
-Flatten the position, or the part of it carrying one tag.
+Flatten a leg, or the part of its position carrying one tag.
 Parameters: `tag` `string` default `none`; `qty` `number` default `none`, which
-means all of it.
+means all of it; `leg` `string` default the only leg.
 Returns nothing.
 
 ```
@@ -108,13 +127,13 @@ close()
 this function. The checker tells them apart by syntax, and both spellings are
 the ones a trader expects.
 
-### `exit(tag = "", qty = none, limit = none, stop = none, trail = none, trailOffset = none, profit = none, loss = none)`
+### `exit(tag = "", qty = none, limit = none, stop = none, profit = none, loss = none, leg = the only leg)`
 
-Attach a bracket: a target, a stop, or a trailing stop.
+Set the leg's stop or target from a call site.
 Parameters: `tag` `string` default `""`; `qty` `number` default `none`; `limit`
-`number` default `none`; `stop` `number` default `none`; `trail` `number`
-default `none`; `trailOffset` `number` default `none`; `profit` `number` default
-`none`; `loss` `number` default `none`.
+`number` default `none`; `stop` `number` default `none`; `profit` `number`
+default `none`; `loss` `number` default `none`; `leg` `string` default the only
+leg.
 Returns nothing.
 
 ```
@@ -125,6 +144,9 @@ Prices may be given as absolute prices (`limit`, `stop`) or as distances from
 the entry (`profit`, `loss`, in the instrument's own price units). Giving both
 an absolute and a distance for the same side is OS3010, because the two would
 have to be reconciled and any rule for doing that would surprise somebody.
+
+A trailing stop is not one of these arguments. It is `leg.trail` of
+`stdlib.md` section 17.9.
 
 ### `cancel(tag)`
 
@@ -151,22 +173,25 @@ if session.isLastBar
 
 ## 2. The `order` namespace
 
-### `order.place(side, qty, type = "market", price = none, trigger = none, tag = "")`
+### `order.place(side, qty, type = "market", price = none, trigger = none, tag = "", leg = the only leg)`
 
 The general form, for a script that computes its side rather than writing it.
 Parameters: `side` `string` required; `qty` `number` required; `type` `string`
 default `"market"`; `price` `number` default `none`; `trigger` `number` default
-`none`; `tag` `string` default `""`.
+`none`; `tag` `string` default `""`; `leg` `string` default the only leg.
 Returns nothing.
+`side` and `type` take the values of `stdlib.md` section 17.2, which is also
+where the agreement between `type` and the prices given is fixed.
 
 ```
 order.place(signalSide, size, type = "limit", price = roundToTick(close))
 ```
 
-### `order.reverse(qty = none, tag = "")`
+### `order.reverse(qty = none, tag = "", leg = the only leg)`
 
-Flatten and open the same size the other way, in one decision.
-Parameters: `qty` `number` default `none`; `tag` `string` default `""`.
+Close a leg's position and open the same size the other way, in one decision.
+Parameters: `qty` `number` default `none`; `tag` `string` default `""`; `leg`
+`string` default the only leg.
 Returns nothing.
 
 ```
@@ -174,17 +199,31 @@ if flip
     order.reverse()
 ```
 
-### `order.bracket(tag = "", profit = none, loss = none, trail = none, trailOffset = none)`
+### `order.bracket(tag = "", profit = none, loss = none, leg = the only leg)`
 
-Attach or replace a bracket on the open position.
+Set the leg's stop and target as distances from the entry.
 Parameters: `tag` `string` default `""`; `profit` `number` default `none`;
-`loss` `number` default `none`; `trail` `number` default `none`; `trailOffset`
-`number` default `none`.
+`loss` `number` default `none`; `leg` `string` default the only leg.
 Returns nothing.
 
 ```
-order.bracket(trail = atr(14) * 2, trailOffset = chart.tickSize)
+order.bracket(profit = atr(14) * 3, loss = atr(14))
 ```
+
+### `leg.trail(name, distance, arm = none)`
+
+The one trailing stop in the language: there is no `trail` argument on `exit` or
+on `order.bracket`.
+Parameters: `name` `string` default the only leg; `distance` `number` required;
+`arm` `number` default `none`.
+Returns nothing.
+
+```
+leg.trail(distance = atr(14) * 2)
+```
+
+What it follows, when it arms and how it ratchets are `stdlib.md` section 17.9,
+and when it is tested against a bar is section 17.10.
 
 ### `order.working(tag)`
 
@@ -243,10 +282,11 @@ Returns `number`.
 qty = order.qtyForEquityPercent(10)
 ```
 
-### `order.roundToLot(qty, direction = "down")`
+### `order.roundToLot(qty, direction = "down", leg = the only leg)`
 
-Round to a whole multiple of `chart.lotSize`.
-Parameters: `qty` `number` required; `direction` `string` default `"down"`.
+Round to a whole multiple of that leg's lot size.
+Parameters: `qty` `number` required; `direction` `string` default `"down"`;
+`leg` `string` default the only leg.
 Returns `number`.
 
 ```

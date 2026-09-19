@@ -136,10 +136,10 @@ if bar.isConfirmed
     signal("CLOSE")
 ```
 
-Version 1 has ten namespaces and no user record types, so the only valid left
-operand is one of `bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`,
-`draw` and `req`. **The specification does not name an error code for an unknown
-member**, so expect a name error in the OS2xxx range.
+Version 1 has no user record types, so the only valid left operand is a
+namespace, and the namespaces are the ones `language.md` section 15.2 lists.
+**The specification does not name an error code for an unknown member**, so expect
+a name error in the OS2xxx range.
 
 ---
 

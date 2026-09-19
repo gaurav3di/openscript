@@ -95,20 +95,13 @@ the planned count stays readable.
 
 ## Documents a row may cite
 
-All five exist. There is no planned document, and a citation to a document that
-does not exist is a build failure, not a promise.
+A row may cite any document `spec/README.md` lists. There is no planned
+document, and a citation to a document that does not exist is a build failure,
+not a promise.
 
-| Document | Holds |
-|---|---|
-| `language.md` | Syntax, types, scope, the per-bar execution model, the shape of the library |
-| `stdlib.md` | The library catalogue: every name a script can call, its signature, its warmup, where it lands in the chart contract |
-| `compiled-program.md` | The versioned schema and machine every engine reads |
-| `errors.md` | The error catalogue: code, cause, fix, example, for every code the compiler or an engine can emit |
-| `conformance.md` | How the suite works, and what a passing result entitles an implementation to claim |
-
-Where two of them disagree, `errors.md` wins about the text of a code,
-`language.md` wins about a rule of the language, and `stdlib.md` wins about a
-function.
+Which documents there are, what each one holds, and which of them wins where two
+disagree are `spec/README.md`'s. Nothing about that list is repeated here,
+because a list kept in two places is a list that goes stale in one of them.
 
 ## Where two documents disagree
 
@@ -288,8 +281,8 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 |---|---|---|---|---|
 | One pass per bar | Every top-level statement runs, first line to last, once per bar, oldest first | `specified` | `language.md` 7.1, `compiled-program.md` 5.1 | `bar/one-pass-per-bar` |
 | No entry point | The file is the body of the per-bar loop; there is no main and no event handler | `specified` | `language.md` 7.1 | `bar/no-entry-point` |
-| Fixed-shape statements | `plot`, `plotCandles`, `fill`, `level`, `table`, `input` and the declaration are read once; their value arguments run every bar | `specified` | `language.md` 7.1, `language.md` 15.3, `stdlib.md` 14.1 | `bar/fixed-shape-once` |
-| Fixed-shape call in a block | A `plot`, `plotCandles`, `fill`, `level` or `table` call inside a conditional is OS3006, with the fix "plot `none` instead" | `specified` | `language.md` 15.3, `errors.md` OS3006 | `unit:bar/os3006-in-block` |
+| Fixed-shape statements | The calls `language.md` 15.3 puts at the top level, and the declaration, are read once; their value arguments run every bar | `specified` | `language.md` 7.1, `language.md` 15.3, `stdlib.md` 14.1 | `bar/fixed-shape-once` |
+| Fixed-shape call in a block | A call that may only appear at the top level, written inside a conditional, is OS3006, with the fix the catalogue gives for that call | `specified` | `language.md` 15.3, `errors.md` OS3006 | `unit:bar/os3006-in-block` |
 | `bar.index` | Zero-based position in the supplied dataset, oldest bar 0 | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/index` |
 | `bar.count` | `bar.index + 1` | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/count` |
 | `bar.isFirst` | This is bar 0 | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/is-first` |
@@ -533,7 +526,8 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | The shape of an entry | Call, Returns, Warmup, For, and a Lands in column for anything the host draws | `specified` | `stdlib.md` 1, `stdlib.md` 2.7 | `lib/entry-shape` |
 | Warmup is a promise | A warmup of bar `n - 1` means `none` on bars 0 to `n - 2` and a value from `n - 1` on, on exactly those bars and no others | `specified` | `stdlib.md` 1, `language.md` 7.3 | `lib/warmup-promise` |
 | Warmups compose | A call whose source is absent is absent, so nested calls add their warmups | `specified` | `stdlib.md` 1, `language.md` 6.7 | `lib/warmup-composes` |
-| Bare names and namespaces | Everyday functions are bare; `bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`, `draw` and `req` hold the long tail, settled per function | `specified` | `language.md` 15.2, `stdlib.md` 2.1 | `lib/bare-and-namespaced` |
+| Bare names and namespaces | Everyday functions are bare and the long tail is namespaced, settled per function rather than by a rule | `specified` | `language.md` 15.2, `stdlib.md` 2.1 | `lib/bare-and-namespaced` |
+| The namespace list | The closed list of namespaces the library has, and which of them exist only in a `strategy()` file | `specified` | `language.md` 15.2 | `lib/namespaces` |
 | Overloads | One bare name may carry several signatures differing in arity or argument type, resolved at compile time with no run-time dispatch | `specified` | `stdlib.md` 2.2, `errors.md` OS3001 | `lib/overloads` |
 | Multi-output calls | A function with more than one output returns an `array<number>` holding this bar's outputs in the documented order | `specified` | `stdlib.md` 2.3 | `lib/multi-output` |
 | A multi-output array is never absent | It never changes length either, so an early bar gives an absent element rather than an out-of-range error | `specified` | `stdlib.md` 2.3 | `lib/multi-output-length` |
@@ -544,6 +538,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Where a call lands | Sections 13 to 17 name the contract field per call and section 18 collects the map | `specified` | `stdlib.md` 2.7, `stdlib.md` 18, `compiled-program.md` 11 | `lib/lands-in` |
 | Calling a planned entry | OS2001 with a message saying the name is planned, rather than a message saying it does not exist | `specified` | `stdlib.md` 1, `errors.md` OS2001 | `lib/planned-entry` |
 | The library manifest | The program names the functions it calls and the manifest it was compiled against; a mismatch is OS6004 | `specified` | `compiled-program.md` 2.5, `errors.md` OS6004 | `prog/lib-manifest` |
+| A leg declared inside a block | OS3006, because the set of contracts a strategy trades is part of its fixed shape | `specified` | `language.md` 15.3, `stdlib.md` 17.6, `errors.md` OS3006 | `unit:order/leg-in-block` |
 
 ## 16. Bar data and instrument facts
 
@@ -557,7 +552,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | `chart.interval` and friends | The canonical interval string, `chart.intervalMinutes` and `chart.isIntraday` | `specified` | `stdlib.md` 3.4, `stdlib.md` 15.2 | `chart/interval` |
 | `chart.timezone` | The chart's IANA zone, which every calendar conversion uses | `specified` | `stdlib.md` 3.4, `stdlib.md` 12.1 | `chart/timezone` |
 | `chart.tickSize`, `chart.lotSize`, `chart.pointValue` | Instrument facts a strategy needs for rounding and sizing, absent rather than guessed when the host has not said; reading one the host cannot supply is OS6012 | `specified` | `stdlib.md` 3.4, `errors.md` OS6012 | `chart/tick-and-lot` |
-| `chart.currency`, `chart.instrumentType`, `chart.hasVolume` | The remaining constant facts the host supplies, with the instrument type drawn from a closed list and the volume flag stated rather than derived | `specified` | `stdlib.md` 3.4, `compiled-program.md` 5.2 | `chart/instrument-facts` |
+| `chart.currency`, `chart.instrumentType`, `chart.hasVolume` | The remaining constant facts a script reads from the instrument record | `specified` | `stdlib.md` 3.4, `host-interface.md` 4.1 | `chart/instrument-facts` |
 | `chart.now()` | The only wall clock, supplied by the host and fixed by a conformance case | `specified` | `language.md` 7.6, `stdlib.md` 3.4 | `chart/now` |
 | `timeClose` | The instant a bar's interval ends | `planned` | `stdlib.md` 3.1 | `bar/time-close` |
 | Planned chart facts | `chart.isReplay`, `chart.expiry`, `chart.strike` and `chart.optionType` are named and not defined | `planned` | `stdlib.md` 3.4 | `chart/planned-facts` |
@@ -678,7 +673,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | `date.from` | Build a timestamp from calendar and clock fields plus a zone; a field outside its range is OS4010 | `specified` | `stdlib.md` 12.2, `errors.md` OS4010 | `time/construct` |
 | Calendar boundaries | `date.startOfDay`, `date.startOfWeek`, `date.startOfMonth`, `date.isSameDay` | `specified` | `stdlib.md` 12.2 | `time/boundaries` |
 | `date.format` | A closed set of placeholders, with English invariant month and weekday abbreviations, never a locale default | `specified` | `stdlib.md` 12.3 | `time/format` |
-| Session flags | `session.isOpen`, `session.isFirstBar`, `session.isLastBar`, the last known from the host's scheduled close rather than from a bar arriving | `specified` | `stdlib.md` 12.4 | `session/flags` |
+| Session flags | `session.isOpen`, `session.isFirstBar`, `session.isLastBar`, the last known from the session's scheduled close rather than from a bar arriving | `specified` | `stdlib.md` 12.4, `host-interface.md` 4.3 | `session/flags` |
 | Session times | `session.startTime`, `session.endTime`, `session.barIndex` | `specified` | `stdlib.md` 12.4 | `session/times` |
 | `session.isIn` and the window spec | `"HHMM-HHMM"` with an optional day list, an end before a start crossing midnight, a malformed literal OS3008 | `specified` | `stdlib.md` 12.5, `errors.md` OS3008 | `session/window-spec` |
 | `date.add` | Calendar arithmetic that respects month lengths and daylight saving, named and not defined | `planned` | `stdlib.md` 12.2 | `time/calendar-add` |
@@ -812,15 +807,20 @@ from a `study()` file is OS7001.
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| One net position | `buy` adds, `sell` subtracts, an order that crosses zero is one exit and one entry, because a net position is what a broker gives back | `specified` | `stdlib.md` 17.1 | `order/net-position` |
-| No order takes a symbol | A strategy trades the chart's instrument and nothing else, and a multi-leg script is written to that boundary on purpose | `specified` | `stdlib.md` 17.1 | `order/no-symbol` |
+| One position per leg | A strategy holds one position per declared leg, no order crosses zero, and a file that declares no leg has one leg, the chart's instrument | `specified` | `stdlib.md` 17.1 | `order/net-position` |
+| No order takes a symbol | An order names a leg, never a symbol; the engine neither parses nor builds one | `specified` | `stdlib.md` 17.1, `stdlib.md` 17.6 | `order/no-symbol` |
+| `leg.fixed`, `leg.relative` | Declare the contract a leg trades, outright or by description, top level only and resolved before bar 0 | `specified` | `stdlib.md` 17.6, `host-interface.md` 9.3, `host-interface.md` 9.4 | `order/leg-declaration` |
+| A description the host cannot resolve | OS6007 before the first bar, and the strategy does not start | `specified` | `stdlib.md` 17.6, `errors.md` OS6007 | `unit:order/leg-unresolvable` |
+| The account's own position | A strategy folds its position from its own settled fills, and no call returns the account's quantity as a number | `specified` | `stdlib.md` 17.1 | `order/account-position` |
 | An order in a study file | OS7001, with the fix naming the declaration to change | `specified` | `stdlib.md` 17.1, `errors.md` OS7001 | `unit:order/study-file` |
 | `buy(...)` | Enter or add to a long position | `specified` | `stdlib.md` 17.2 | `order/buy` |
 | `sell(...)` | Enter or add to a short position | `specified` | `stdlib.md` 17.2 | `order/sell` |
 | `close(...)` | Flatten the position, or the part carrying one tag | `specified` | `stdlib.md` 17.2 | `order/close` |
 | Limit, stop and stop-limit | `limit` alone, `stop` alone, both together, and neither for a market order: one function with optional prices rather than six names | `specified` | `stdlib.md` 17.2 | `order/price-qualifiers` |
 | A resting order with no price | OS7007 | `specified` | `stdlib.md` 17.2, `errors.md` OS7007 | `unit:order/resting-no-price` |
-| `exit(...)` brackets | A target, a stop or a trailing stop, as absolute prices or as distances from the entry | `specified` | `stdlib.md` 17.2 | `order/bracket` |
+| The side and type value sets | What `order.place` accepts, written where a script author reads; a value outside either is OS3008 | `specified` | `stdlib.md` 17.2, `errors.md` OS3008 | `order/side-and-type` |
+| `exit(...)` brackets | A target or a stop, as absolute prices or as distances from the entry | `specified` | `stdlib.md` 17.2 | `order/bracket` |
+| Trailing stop | `leg.trail`, armed at a profit and ratcheting in the leg's favour only, evaluated every bar rather than resting at a destination | `specified` | `stdlib.md` 17.9, `stdlib.md` 17.10 | `order/trailing-stop` |
 | An absolute and a distance for one side | OS3010, because the two would have to be reconciled and any rule for it surprises somebody | `specified` | `stdlib.md` 17.2, `errors.md` OS3010 | `unit:order/bracket-conflict` |
 | A bracket price on the wrong side | OS7010 | `specified` | `errors.md` OS7010 | `unit:order/bracket-side` |
 | `cancel`, `cancelAll` | Cancel a working order, or every one this strategy placed; an unknown tag is OS7009 | `specified` | `stdlib.md` 17.2, `errors.md` OS7009 | `order/cancel` |
@@ -828,6 +828,14 @@ from a `study()` file is OS7001.
 | `order.reverse` | Flatten and open the same size the other way, in one decision | `specified` | `stdlib.md` 17.3 | `order/reversal` |
 | `order.bracket` | Attach or replace a bracket on the open position | `specified` | `stdlib.md` 17.3 | `order/bracket-namespace` |
 | `order.working`, `order.pending` | Whether a tag is live and unfilled, and how many orders are | `specified` | `stdlib.md` 17.3 | `order/working` |
+| The order and fill ledger | The strategy's own record of what it sent and what filled, which every position figure is folded from | `specified` | `stdlib.md` 17.7 | `order/ledger` |
+| The status vocabulary | The words an order's status may take, which of them are terminal, and which of them a host may send | `specified` | `stdlib.md` 17.7 | `order/status-vocabulary` |
+| The position reference | Every order settles against the position its own order names, which is why a flip is two orders and a late fill finds the position it belonged to | `specified` | `stdlib.md` 17.7 | `order/position-reference` |
+| Folding an order frame | Cumulative frames folded once, whatever order they arrive in and however many times | `specified` | `stdlib.md` 17.8 | `order/fold-frame` |
+| A repeated or stale frame | Folds to no change: no fill, no event, no report row | `specified` | `stdlib.md` 17.8 | `order/fold-repeat` |
+| A fill after a terminal status | Folded for its quantity with the status left terminal, because a cancel can race a fill and dropping it leaves the account holding a position the strategy cannot see | `specified` | `stdlib.md` 17.8 | `order/fold-after-terminal` |
+| A frame naming no row | Refused and recorded, and nothing is folded, because it is not an order this strategy placed | `specified` | `stdlib.md` 17.8, `stdlib.md` 17.14 | `order/fold-unknown-row` |
+| Reading a finished order | The ledger keeps a row after the order ends, so the reading calls read a terminal row and an unknown tag reads empty rather than raising | `specified` | `stdlib.md` 17.3, `errors.md` OS7009 | `order/ledger-reads` |
 | Sizing helpers | `order.qtyForCash`, `order.qtyForRisk`, `order.qtyForEquityPercent`, rounding down by default because a size rounded up compounds with every entry | `specified` | `stdlib.md` 17.3 | `order/sizing-helpers` |
 | `order.qtyForRisk` with no distance | Returns `none` rather than raising, and the order function refuses the absent quantity with OS7002 naming the argument | `specified` | `stdlib.md` 17.3, `errors.md` OS7002 | `order/qty-for-risk-absent` |
 | `order.roundToLot` | To a whole multiple of the lot size, down unless told otherwise; a quantity that is not a multiple is OS7005 | `specified` | `stdlib.md` 17.3, `errors.md` OS7005 | `order/round-to-lot` |
@@ -930,7 +938,7 @@ from a `study()` file is OS7001.
 | Cells and series registers | Values that persist across bars, and registers that hold one value per bar plus the bar being executed | `specified` | `compiled-program.md` 4.3, `compiled-program.md` 4.4 | `prog/cells-and-registers` |
 | Call sites and state regions | One state region per call site, with a base added per frame; a program needing more regions than the engine allows is OS5004 | `specified` | `compiled-program.md` 2.12, `errors.md` OS5004 | `prog/call-sites` |
 | The bar cycle | The numbered steps of one execution of one bar, which is where rollback, channels and effects meet | `specified` | `compiled-program.md` 5.1 | `prog/bar-cycle` |
-| What the host supplies | Bars, instrument facts, settings and bar state, and nothing else | `specified` | `compiled-program.md` 5.2 | `prog/host-inputs` |
+| What the host supplies | The closed list of what an engine reads from the host | `specified` | `compiled-program.md` 5.2 | `prog/host-inputs` |
 | No bars supplied | OS6010, because a script cannot run over nothing and an empty pane with no message is indistinguishable from a study that drew nothing | `specified` | `compiled-program.md` 5.2, `errors.md` OS6010 | `unit:prog/no-bars` |
 | Bars out of order | OS6011 naming the first bar whose time does not follow the one before it, because an engine may not reorder what it is given | `specified` | `compiled-program.md` 5.2, `errors.md` OS6011 | `unit:prog/bars-out-of-order` |
 | Checkpoints | What a checkpoint holds and how one is restored | `specified` | `compiled-program.md` 6.1, `compiled-program.md` 6.2 | `prog/checkpoint` |
@@ -947,17 +955,50 @@ from a `study()` file is OS7001.
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
 | A case on disk | One directory, whose path relative to the suite root is the case identifier and the string in this file's Test column | `specified` | `conformance.md` 2 | `conf/case-layout` |
-| `case.json` | What the case is, what it asserts, and any declared tolerance | `specified` | `conformance.md` 2 | `conf/case-json` |
-| How bars are supplied | `bars.csv` in full, with the column set and the ordering fixed | `specified` | `conformance.md` 3 | `conf/bars` |
-| Instrument facts | `instrument.json`, with documented defaults when it is absent | `specified` | `conformance.md` 3 | `conf/instrument-facts` |
+| `case.json` | The file a case declares itself in, from the case's file set | `specified` | `conformance.md` 2 | `conf/case-json` |
+| How bars are supplied | `bars.csv`, which is how a case supplies the bars a program runs over | `specified` | `conformance.md` 3 | `conf/bars` |
+| Instrument facts | `instrument.json`, which is how a case supplies the instrument record | `specified` | `conformance.md` 3, `host-interface.md` 4.1 | `conf/instrument-facts` |
 | Secondary series and intrabar updates | `bars.<name>.csv` for another instrument or timeframe, `ticks.csv` for a moving bar | `specified` | `conformance.md` 3 | `conf/secondary-series` |
-| Expected output | `expected.csv` for a columnar assertion, `expected.json` for diagnostics, drawings, tables, orders, trades and log lines | `specified` | `conformance.md` 4 | `conf/expected` |
+| Order frames | `frames.csv` in the case directory, delivered between bars, so a repeated frame, a crossed frame and a fill after a terminal status can each be handed to an engine | `specified` | `conformance.md` 2, `conformance.md` 3 | `conf/frames` |
+| Expected output | `expected.csv` for a columnar assertion and `expected.json` for everything else a case may assert | `specified` | `conformance.md` 4 | `conf/expected` |
 | Runner determinism | What a runner may not do if its results are to mean anything | `specified` | `conformance.md` 5 | `conf/runner-determinism` |
 | Comparing numbers | Exact by default, with the comparison function written out | `specified` | `conformance.md` 6 | `conf/comparison` |
 | Declaring a tolerance | Per case, in the case file, rather than globally in a runner | `specified` | `conformance.md` 6 | `conf/tolerance` |
-| Categories of case | The sixteen categories, and which of them run on an engine rather than a compiler | `specified` | `conformance.md` 7 | `conf/categories` |
+| Categories of case | The categories a case may belong to, and which of them run on an engine rather than a compiler | `specified` | `conformance.md` 7 | `conf/categories` |
 | Profiles | `core`, `chart` and `strategy`, cumulative, with `unsupported` counted and printed separately | `specified` | `conformance.md` 8 | `conf/profiles` |
 | The adapter and the result document | What an implementation ships and what it reports | `specified` | `conformance.md` 9 | `conf/result-document` |
 | Cross-engine equality | Every engine produces identical output on every case, and a disagreement blocks the release | `specified` | `conformance.md` 10 | `prog/cross-engine-equality` |
 | Suite versioning | How the suite itself is versioned, so a result names what it was run against | `specified` | `conformance.md` 11 | `conf/suite-versioning` |
 | What a passing result means | What it does and does not entitle an implementation to claim, and the badge | `specified` | `conformance.md` 12 | `conf/claim` |
+
+## 35. Strategy: legs, protective levels and the book
+
+The rest of what a `strategy()` file can call: the legs it declares, the levels
+it puts in force, the book those legs make up, and the two shapes it may be
+written in. Section 29's note about a `study()` file applies to every row here.
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| What a leg reports about its contract | `leg.symbol`, `leg.exchange`, `leg.product`, `leg.expiry`, `leg.strike`, fixed for the run and reporting the contract the orders carried | `specified` | `stdlib.md` 17.6 | `order/leg-resolved-reads` |
+| A leg's own position | `leg.size`, `leg.avgPrice`, `leg.entryTime`, `leg.profit`, `leg.isOpen`, per leg rather than per strategy | `specified` | `stdlib.md` 17.6, `stdlib.md` 17.1 | `pos/leg-position` |
+| The level actually in force | `leg.stopPrice` and `leg.targetPrice` report the level in force, not the one the script last wrote | `specified` | `stdlib.md` 17.6, `stdlib.md` 17.9 | `order/level-in-force` |
+| Two legs sharing a name | OS3017, because a leg's name is what every later call keys on | `specified` | `stdlib.md` 17.6, `errors.md` OS3017 | `unit:order/leg-duplicate-name` |
+| A bar-dependent leg argument | OS3003, because a leg declaration is fixed before bar 0 | `specified` | `stdlib.md` 17.6, `errors.md` OS3003 | `unit:order/leg-not-constant` |
+| Per-leg protective levels | `leg.stop`, `leg.target` and `leg.trail`, each in force until it is replaced, and removed rather than refused when the level is absent | `specified` | `stdlib.md` 17.9 | `order/leg-levels` |
+| Combined rules | `book.stop`, `book.target`, `book.lockProfit` and `book.trailStopsToEntry`, which act on every declared leg at once | `specified` | `stdlib.md` 17.9 | `order/book-levels` |
+| Entry filters | `book.direction`, `book.entryWindow` and `book.dailyLoss`, which decide whether a new entry is taken at all | `specified` | `stdlib.md` 17.9 | `order/entry-filters` |
+| Timed square off | `book.exitAt` and `book.squareOffAtExpiry`, with the session close staying the declaration's option rather than a second call | `specified` | `stdlib.md` 17.9, `language.md` 13.3 | `order/timed-square-off` |
+| What the book reports | `book.profit`, `book.dayProfit` and `book.isOpen` | `specified` | `stdlib.md` 17.9 | `pos/book-reads` |
+| A value outside a rule's set | OS3008 for a direction filter, an entry window or a time that is not four digits | `specified` | `stdlib.md` 17.9, `errors.md` OS3008 | `unit:order/rule-value-set` |
+| `book.lockProfit` given half a step | OS3009, because `step` and `advance` are given together or not at all | `specified` | `stdlib.md` 17.9, `errors.md` OS3009 | `unit:order/lock-profit-step` |
+| The order the levels are tested in | Once per bar, after the script's own statements, in the order section 17.10 fixes, because two engines testing a combined stop before a leg stop close different positions from one script | `specified` | `stdlib.md` 17.10 | `order/level-order` |
+| How a level is tested | Against the bar's range on a confirmed bar and the last price on a moving one, with the stop taken where one bar holds both | `specified` | `stdlib.md` 17.10 | `order/level-test` |
+| Where a level's exit fills | At the level rather than the next bar's open, at the open when the bar opened beyond it, and slippage on a stop and not on a target | `specified` | `stdlib.md` 17.10 | `order/level-fill` |
+| Named events | One named event per transition a rule causes, carrying the bar's time, the leg, the rule's level and the value that crossed it | `specified` | `stdlib.md` 17.11 | `order/named-events` |
+| An event is a record | No call reads one, so a script cannot branch on its own rule having fired | `specified` | `stdlib.md` 17.11 | `order/events-not-values` |
+| Entering as a unit | `book.enter` and `book.exit`, one decision for every declared leg, which is what gives the combined rules a starting point | `specified` | `stdlib.md` 17.12 | `order/book-entry` |
+| Entering per leg | `leg.enter` and `leg.exit`, one leg at a time on that leg's own signal | `specified` | `stdlib.md` 17.12 | `order/leg-entry` |
+| Mixing the two shapes | Refused at compile time, because a leg entered outside the unit leaves the book holding a position it did not enter as a unit | `specified` | `stdlib.md` 17.12, `stdlib.md` 17.14 | `unit:order/mixed-shapes` |
+| A combined rule with no book entry | Refused at compile time, with the fix naming the per-leg levels | `specified` | `stdlib.md` 17.12, `stdlib.md` 17.14 | `unit:order/combined-rule-no-entry` |
+| A single-position read in a multi-leg file | Refused, because the twelve entries of section 17.4 name one position and the file holds several | `specified` | `stdlib.md` 17.14, `stdlib.md` 17.4 | `unit:pos/single-read-multi-leg` |
+| Arming is the host's | A strategy is born trading paper, arming it is a deliberate act in the host, and no call arms one or reports that it is armed | `specified` | `stdlib.md` 17.13 | `order/arming` |

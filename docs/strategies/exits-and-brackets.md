@@ -132,31 +132,16 @@ hiding it by recomputing the stop from the fill.
 
 ### The trail, exactly
 
-`leg.trail(name, distance, arm = none)` is the one spelling of a trailing stop.
+A trailing stop is `leg.trail` of `stdlib.md` section 17.9. That section is where
+`distance` and `arm` are defined, where the arming and the ratchet are stated, and
+where a leg carrying both a stop and an armed trail is settled. Read it before you
+write one.
+
 There is no `trail` argument on `exit`, because a trail is a rule evaluated on
 every bar rather than a price an order can rest at, and one rule with one spelling
 is easier to hold in the head than the same rule written two ways.
 
-`distance` is in the leg's own price units and is positive.
-
-**Arming.** The trail is armed when the leg's profit per unit first reaches `arm`,
-measured as the last price minus the average entry price for a long leg and the
-reverse for a short one. With `arm` absent the trail is armed by the leg's first
-settled fill. The arming is what makes a trail a trail rather than an initial
-stop: until the trade has gone your way by `arm`, nothing follows anything.
-
-**The ratchet.** Once armed, the engine keeps the best price the leg has seen
-since arming: the highest price for a long leg, the lowest for a short one, taken
-from the bar's high or low on a confirmed bar and from the last price on a bar that
-is still moving. The level is the best price less `distance` for a long leg and
-plus `distance` for a short one. **The level only ever moves in the leg's favour.**
-It never retreats and it is never recomputed from a price worse than the best one
-seen. A level that could move both ways is not a stop, it is a moving average with
-a bad name.
-
-**Two levels at once.** Where a leg carries both a stop and an armed trail, the
-level in force is the more protective of the two: the higher for a long leg, the
-lower for a short one. `leg.stopPrice(name)` returns that level, not the one the
+`leg.stopPrice(name)` returns the level actually in force rather than the one the
 script last wrote, which is why you plot the readback rather than your own
 variable when you want to see what is really protecting the position.
 

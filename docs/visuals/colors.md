@@ -175,7 +175,7 @@ The same argument shape appears on the other surfaces:
 |---|---|---|
 | `plot(value, title, color)` | Style colour | Per-bar colour callback |
 | `fill(a, b, color)` | Band colour | Per-bar band colour |
-| `signal(text, color)` | Marker plate | A colour computed for that bar |
+| `signal(text, color)` | Marker plate | Not per bar: `at`, `shape` and `color` are fixed before bar 0 (`stdlib.md` section 14.3) |
 | `barColor(color)` | Every bar the same | The usual case |
 | `background(color)` | Every bar the same | The usual case |
 | `cell(..., textColor, bgColor)` | The cell's colour | Recomputed each time the cell is written |

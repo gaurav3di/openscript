@@ -6,8 +6,8 @@ version 1.
 This document defines the **compiled program**: the plain data structure an
 OpenScript compiler emits and an engine executes. It is the contract that lets a
 second engine exist. Someone who has never seen our implementation must be able to
-write a conforming engine, in a language of their choosing, from this document,
-`language.md` and the library manifest alone.
+write a conforming engine, in a language of their choosing, from the
+specification documents `spec/README.md` lists and the library manifest alone.
 
 A compiled program is data. It is never code in any host language, it contains no
 expressions to be interpreted by a host compiler, and an engine never calls `eval`,
@@ -60,8 +60,8 @@ time (section 3.5), never half executed.
 
 **Error codes.** An engine reports a failure with a stable code, as `language.md`
 requires. Section 10 lists every code this document uses and marks the ones it
-introduces to the catalogue. `errors.md` is authoritative; if a code here disagrees
-with the catalogue, the catalogue wins and this document is wrong.
+introduces to the catalogue. Where this document and another disagree about a
+code, the precedence that settles it is the one `spec/README.md` states.
 
 **Examples.** Every instruction carries a source fragment and the instructions it
 compiles to. Instruction indices in an example are relative to the start of that
@@ -164,21 +164,34 @@ The declaration statement, evaluated at compile time. Every option value here is
 compile-time constant, by `language.md` section 13.2, so nothing in this object can
 depend on a bar.
 
-| Field | Type | Default | Means |
-|---|---|---|---|
-| `kind` | string | required | `"study"` or `"strategy"` |
-| `title` | string | required | Legend and picker name |
-| `short` | string | `title` | Shorter legend name |
-| `overlay` | bool | `false` | Draw on the price pane |
-| `precision` | number | `4` | Decimals on this study's axis and legend, 0 to 10 |
-| `format` | string | `"price"` | `"price"`, `"percent"` or `"volume"` |
-| `range` | array? | `null` | `[min, max]` fixed pane scale |
-| `scale` | string | `"right"` | `"right"`, `"left"` or `"none"` |
-| `group` | string | `""` | Category in a picker |
-| `onUnconfirmed` | bool | `false` | Allow deferred effects on a moving bar, section 5.4 |
+Each field below is the declaration option of the same name. The options a
+declaration takes, what each one means and the default each one carries are the
+ones `language.md` section 13.2 gives. This table is the representation and
+nothing else: the field name and the shape its value takes in the canonical
+encoding. `kind` is the one field that is not an option, because it records which
+declaration statement the source wrote.
+
+| Field | Type |
+|---|---|
+| `kind` | string, `"study"` or `"strategy"` |
+| `title` | string |
+| `short` | string |
+| `overlay` | bool |
+| `precision` | number |
+| `format` | string |
+| `range` | array? |
+| `scale` | string |
+| `group` | string |
+| `onUnconfirmed` | bool |
+
+`meta.onUnconfirmed` is the field section 5.4 reads when it decides whether a
+deferred effect is applied on a bar that is still moving.
 
 When `kind` is `"strategy"`, `meta` also carries the trading options of
-`language.md` section 13.3, under a `strategy` sub-object:
+`language.md` section 13.3, under a `strategy` sub-object. The object below
+illustrates the shape, one field per option and spelled as the option is spelled;
+which options there are and what each one defaults to are that section's, and a
+program carries whatever its own declaration resolved to:
 
 ```json
 "strategy": {
@@ -189,11 +202,19 @@ When `kind` is `"strategy"`, `meta` also carries the trading options of
 }
 ```
 
-A study program carries no `strategy` object. The compiler writes every option with
-its effective value, defaults included, rather than omitting the ones the script
-left out. An engine therefore never needs a table of defaults, and a default that
-changes in a later language version cannot silently change an old program, because
-the old program carries the old value in writing.
+A study program carries no `strategy` object.
+
+**Every option and every declaration field is written with its effective value.**
+The compiler writes each field of `meta`, each field of `meta.strategy` and each
+field of every declaration in `outputs` with the value that option or that
+argument resolved to, defaults included, rather than omitting the ones the script
+left out or writing null in their place. A field is nullable only where absence is
+a value the script itself could have written, and there null is the effective
+value rather than a missing one. An engine therefore never needs a table of
+defaults, and a default that changes in a later language version cannot silently
+change an old program, because the old program carries the old value in writing.
+The one thing a field may hold in place of a value is the reference below, and it
+is resolved away before bar 0.
 
 **An option a script wrote with an `input()` is carried as a reference.** A field
 may hold the object `{ "input": "<key>" }` in place of a literal value, naming an
@@ -354,7 +375,7 @@ a settings dialog and a pane have to exist before the first bar runs
 | `lineStyle` | string | `"solid"`, `"dashed"` or `"dotted"` |
 | `offset` | number | Bars to shift the drawn column right, negative for left |
 | `overlay` | bool? | Force this one plot onto the price pane |
-| `scale` | string? | `"right"`, `"left"` or `"none"` |
+| `scale` | string | `"right"`, `"left"` or `"none"` |
 | `precision` | number? | Decimals on the scale this plot maps to, or null when the script named none |
 | `priceFormat` | string? | `"price"`, `"percent"` or `"volume"` for the scale this plot maps to, or null when the script named none |
 | `ohlc` | object? | The channels and colours of a candle, in the shape below; null for every other type |
@@ -370,6 +391,12 @@ than the study's own (`stdlib.md` section 14.2). They are two fields because the
 are two arguments of two types, exactly as they are two fields of `meta`, and a
 plot that named neither carries null in both and leaves that scale formatted as
 the pane already formats it.
+
+`scale` carries a value on every plot, by the rule of section 2.3: a plot that
+named no scale carries the effective value of `plot`'s own `scale` argument
+(`stdlib.md` section 14.2). `overlay`, `precision` and `priceFormat` are nullable
+because absence is what those arguments resolve to when a script names none,
+which is an effective value like any other and not a field left out.
 
 **A candle is one plot.** The six styles of `stdlib.md` section 14.2 are the whole
 of what a `style` argument may name; `"candle"` is the seventh value of this field
@@ -588,17 +615,13 @@ code runs. The fields and their exact definitions:
 | `hlc3` | `(high + low + close) / 3` |
 | `ohlc4` | `(open + high + low + close) / 4` |
 | `hlcc4` | `(high + low + close + close) / 4` |
-| `bar.index` | Zero based position in the dataset |
-| `bar.count` | `bar.index + 1` |
-| `bar.isConfirmed`, `bar.isRealtime`, `bar.isNew` | Booleans the host states for this execution |
-| `bar.isFirst`, `bar.isLast` | Derived by the engine: `bar.index == 0`, and `bar.index` is the greatest index the host has supplied |
-| `bar.updates` | How many times this bar has been executed, counting from 1 |
+| `bar.index`, `bar.count`, `bar.isFirst`, `bar.isLast`, `bar.isConfirmed`, `bar.isRealtime`, `bar.isNew`, `bar.updates` | The bar facts of `language.md` section 7.2, which fixes what each one means and which of them the host states |
 
-The derived fields are written as expressions because their order of operations is
-part of the contract: `hlc3` adds high to low, adds close to that, then divides. A
-different association gives a different last bit, and a study that matches a
-reference implementation on one engine and not on another is exactly the failure
-this project exists to prevent.
+The derived price fields are written as expressions because their order of
+operations is part of the contract: `hlc3` adds high to low, adds close to that,
+then divides. A different association gives a different last bit, and a study that
+matches a reference implementation on one engine and not on another is exactly the
+failure this project exists to prevent.
 
 An absent `volume` rather than a zero is deliberate, on the same ground as the
 chart contract's treatment of an unknown tick size: a script that sizes something
@@ -1693,9 +1716,9 @@ An engine reads all of this from the host and none of it from anywhere else:
 | Fact | Used by |
 |---|---|
 | The bars: open, high, low, close, volume, time | Step 4 |
-| Bar state: is this bar new, confirmed, realtime, and the update count | Step 4 and step 9 |
+| Bar state: the facts the host states (`language.md` section 7.2) | Step 4 and step 9 |
 | Settings, keyed by input `key` | Step 5 |
-| Instrument facts: symbol, exchange, interval, timezone, tick size, lot size, point value, currency, instrument type, and whether the instrument has volume | The `chart` library namespace |
+| The instrument record (`host-interface.md` section 4.1) | The `chart` library namespace |
 | The chart clock, for `chart.now()` | The `chart` library namespace |
 | More bars, on request | The `req` library namespace |
 | A drawing surface | Steps 8 and 9 |
@@ -1703,11 +1726,9 @@ An engine reads all of this from the host and none of it from anywhere else:
 
 `chart.intervalMinutes` and `chart.isIntraday` are not on that list because the
 engine derives them from the interval string rather than reading them, which keeps
-them from disagreeing with the interval they describe. Every supplied instrument
-fact is absent when the host does not state it, on the same ground as an unknown
-tick size, except the volume flag: the host must state that one, because an
-instrument that has no volume and a bar whose volume nobody supplied are different
-facts and no derivation tells them apart.
+them from disagreeing with the interval they describe. Which facts the record
+holds, which of them a host must state and what a script sees when one is absent
+are `host-interface.md` section 4.1's.
 
 An engine must not adjust, round, resample, deduplicate or reorder the bars it is
 given. If two engines are handed the same bars they compute the same numbers, and
@@ -2205,7 +2226,7 @@ the manifest's, and section 8.3 is why it is written down.
         "key": "p0", "title": "Mean", "type": "line", "channel": 0,
         "color": [0, 255, 255, 1], "colorChannel": null,
         "width": 1.5, "lineStyle": "solid", "offset": 0,
-        "overlay": null, "scale": null,
+        "overlay": null, "scale": "right",
         "precision": null, "priceFormat": null, "ohlc": null
       }
     ],

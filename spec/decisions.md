@@ -884,3 +884,1382 @@ Each file, and the decisions that touch it. The decisions hold the detail.
 | `examples/README.md` | 2, 19 |
 | `issues/0001-spec-examples-shadow-builtins.md` | 22 |
 | `scripts/check-examples.mjs` | 22, last edit of all |
+
+---
+
+# Single sourcing
+
+Decisions 1 to 22 each fixed a contradiction and left the copy that produced it
+in place. The count did not fall, because synchronising two copies is not a fix:
+two readable copies of one fact drift again the moment either is edited, and
+round three proved it twice over when two agents, each obeying its file ownership
+exactly, wrote an order status vocabulary and a fill fold independently.
+
+This part does something different. It does not reconcile copies. It assigns each
+duplicated fact one home and turns every other appearance into a citation.
+
+**The test.** If a fact changed, would the specification stay true only if two
+files were edited? Then one of those two is a copy, and it becomes a citation.
+
+**What a citation is.** A citation names a document and a section and says
+nothing about what is in it: "the order status vocabulary of `stdlib.md` section
+17.7". A sentence that summarises what it cites is still a copy, because a
+summary can be wrong on its own. "the six status words of `stdlib.md` section
+17.7" is a copy: it states a count, and the count can go stale.
+
+**How a home is chosen.** Three rules, in this order.
+
+1. `language.md` fixes the shape of the language, so a list of what a script may
+   write, and where it may write it, lives there.
+2. `compiled-program.md` is the contract a second engine reads, so a
+   representation, a field name, a wire value and an encoding live there.
+3. Where a fact is about the boundary and nothing else, and never appears in a
+   compiled program, `host-interface.md` owns it.
+
+Two clauses that keep the rules workable:
+
+- **The catalogue clause.** `stdlib.md` is the catalogue of callable names, and
+  `errors.md` is the catalogue of codes. A catalogue may carry a one-line gloss
+  per entry so that it is usable as a catalogue. A gloss is never where a rule is
+  stated, it never carries a count or a value set, and where a gloss and its home
+  disagree the home wins and the gloss is the defect.
+- **The checklist clause.** A conformance checklist (`host-interface.md` 10,
+  `compiled-program.md` 13, `conformance.md` 12) may name a duty and cite its
+  section. It may not restate the duty's content in different words, because a
+  checklist written in different words is the copy that drifts first.
+
+Part one below is the home register. Part two settles the questions that were
+hiding inside the duplications, as decisions 23 to 37.
+
+---
+
+## Part one: the home register
+
+Every fact that currently appears in more than one specification document, its
+one home, the exact citation every other document uses, and why the home is
+where it is.
+
+### H1. The order lifecycle status vocabulary
+
+**Fact.** The words an order's status may take, which of them are terminal, and
+which of them a host may send in a frame.
+
+**Home.** `stdlib.md` 17.7.
+
+**Why.** The vocabulary is what `order.status(tag)` returns, and by
+`feature-matrix.md`'s own precedence rule `stdlib.md` is authoritative about a
+function. The set a script sees is the larger of the two sets (decision 23), so
+it is the set that has to be written out once; the host's set is that set with
+one word removed, which a column states without a second table.
+
+**Copies to replace.** `host-interface.md` 7.3, the six-row table.
+
+**Citation.** "The status words, and which of them are terminal, are the
+vocabulary of `stdlib.md` section 17.7."
+
+### H2. The fold of an order frame
+
+**Fact.** The algorithm that turns a frame into a change to a ledger row and a
+settled fill.
+
+**Home.** `stdlib.md` 17.8.
+
+**Why.** The fold can only be written in the field names of the ledger row, which
+`stdlib.md` 17.7 owns, and its result is what every `pos`, `leg` and `book` read
+reports, which are library functions. It is also declared a conformance area with
+vectors of its own, and a conformance area needs its steps numbered in one place.
+
+**Copies to replace.** `host-interface.md` 7.4, the five numbered steps and the
+paragraph after them.
+
+**Citation.** "An engine folds a frame exactly as `stdlib.md` section 17.8 folds
+one."
+
+### H3. A frame is cumulative, not a delta
+
+**Fact.** Every frame restates the whole life of the order rather than what
+changed since the last frame.
+
+**Home.** `host-interface.md` 7.2.
+
+**Why.** It is a duty on the host, about what a host must put in a frame, and it
+is about the boundary and nothing else. The fold depends on it but does not
+decide it.
+
+**Copies to replace.** `stdlib.md` 17.8, the opening bold sentence;
+`host-interface.md` 10.2, the bullet beginning "That a frame may be a partial
+restatement" (checklist clause).
+
+**Citation.** "A frame is cumulative, under `host-interface.md` section 7.2."
+
+### H4. The order frame's field set
+
+**Fact.** The named facts a frame carries, and their types.
+
+**Home.** `host-interface.md` 7.2.
+
+**Why.** A frame never appears in a compiled program and never appears in a
+script. It is the boundary shape and nothing else.
+
+**Copies to replace.** None today. `conformance.md` 3 acquires one under decision
+31 and cites rather than restates.
+
+**Citation.** "The fields of a frame are the ones `host-interface.md` section 7.2
+names."
+
+### H5. The order intent's field set
+
+**Fact.** The named facts an intent carries, and their types.
+
+**Home.** `host-interface.md` 7.1.
+
+**Why.** Same as H4, in the other direction.
+
+**Copies to replace.** None, once the `side` and `type` rows cite H13 for their
+value sets.
+
+**Citation.** "The fields of an intent are the ones `host-interface.md` section
+7.1 names."
+
+### H6. The ledger row's field set
+
+**Fact.** The fields of one row of a strategy's order and fill ledger.
+
+**Home.** `stdlib.md` 17.7.
+
+**Why.** The ledger is the strategy's own state, five library calls read it by
+name, and it is not a wire shape. The catalogue of what a script can read is
+`stdlib.md`'s.
+
+**Copies to replace.** `host-interface.md` 7.5, the first paragraph, which lists
+the row's contents in prose.
+
+**Citation.** "The run keeps the ledger of `stdlib.md` section 17.7."
+
+### H7. The position reference
+
+**Fact.** That every order carries a reference to the position it settles
+against, when one is minted, when it ends, and why a late fill settles its own
+position rather than the current one.
+
+**Home.** `stdlib.md` 17.7.
+
+**Why.** It is a ledger field and a rule about how fills fold into a position,
+both of which live with the ledger. `host-interface.md` carries `positionRef` as
+an intent field, which is H5, not this.
+
+**Copies to replace.** `host-interface.md` 7.1, the note beginning "`positionRef`
+exists because a flip holds two positions at once".
+
+**Citation.** "`positionRef` is the position reference of `stdlib.md` section
+17.7."
+
+### H8. No position is computed against an account position
+
+**Fact.** That a strategy folds its position from its own settled fills only,
+that an account position is per instrument and shared, that it is reported as
+shared and never divided, and why.
+
+**Home.** `stdlib.md` 17.1.
+
+**Why.** It is the position model of the language, and it is the rule that
+`pos.isShared` and the whole of 17.4 rest on.
+
+**Copies to replace.** `host-interface.md` 7.5, the second and third paragraphs;
+`host-interface.md` 10.2, the bullet beginning "That the engine tracks an account
+position" (checklist clause); `stdlib.md` 17.4, the `pos.isShared` paragraph,
+which keeps the entry and cites the rule rather than restating it.
+
+**Citation.** "The engine does not read the account's position, under
+`stdlib.md` section 17.1."
+
+### H9. What a strategy trades
+
+**Fact.** One position per leg; a file that declares no leg has exactly one leg,
+the instrument its chart is showing; every order names a leg and no order
+function takes a symbol.
+
+**Home.** `stdlib.md` 17.1.
+
+**Why.** It is the position model, and `stdlib.md` is authoritative about the
+functions that act on it.
+
+**Copies to replace.** `host-interface.md` 9.3, the paragraph "Where version 1
+stands"; `feature-matrix.md` 29, the rows "One net position" and "No order takes
+a symbol"; `examples/12-strategy-short-premium.oscript` lines 29 to 35;
+`examples/README.md` entry 12; `docs/reference/functions/strategy.md` 15 to 22;
+`docs/first-strategy.md` 90 and 100; `docs/faq.md` 287. Every one of them is
+stale as well as duplicated; decision 25 says what replaces the claim.
+
+**Citation.** "A strategy trades the legs of `stdlib.md` section 17.1."
+
+### H10. The leg declarations and the relative description
+
+**Fact.** `leg.fixed` and `leg.relative`, their arguments, and what each field of
+a relative description means.
+
+**Home.** `stdlib.md` 17.6.
+
+**Why.** The description's field names are argument names a script writes, so a
+host refusing a resolution has to be able to name the argument the author typed.
+One set of words, and the words are the ones in the source.
+
+**Copies to replace.** `host-interface.md` 9.3, the seven-row table.
+
+**Citation.** "A relative contract is described by the fields of `stdlib.md`
+section 17.6."
+
+### H11. A relative contract resolves once
+
+**Fact.** That resolution happens once before bar 0, that the resolved identity
+is persisted with the run, that a restart re-attaches rather than re-resolves,
+that a new expiry is a new run, and that a host which cannot resolve refuses the
+run.
+
+**Home.** `host-interface.md` 9.4.
+
+**Why.** Every clause is a duty on the host, about identity at the boundary, and
+none of it appears in a compiled program.
+
+**Copies to replace.** `stdlib.md` 17.6, the bold paragraph beginning "A relative
+contract resolves exactly once" and the paragraph after it.
+
+**Citation.** "A relative contract resolves once, under `host-interface.md`
+section 9.4."
+
+### H12. The trail
+
+**Fact.** That a trail exists, how it is spelled, its arming, its ratchet, and
+how it combines with a stop.
+
+**Home.** `stdlib.md` 17.9.
+
+**Why.** A trail is a rule evaluated every bar rather than a price an order rests
+at, so it belongs with the protective levels and their evaluation order, not with
+the order functions and not in the intent shape.
+
+**Copies to replace.** `host-interface.md` 7.1, the words "its trail and the
+trail offset"; `feature-matrix.md` 29, the row "`exit(...)` brackets";
+`docs/reference/functions/strategy.md` 111, 177 and the worked call at 186;
+`docs/first-strategy.md` 97 and 220.
+
+**Citation.** "A trailing stop is `leg.trail` of `stdlib.md` section 17.9."
+
+### H13. The `side` and `type` value sets
+
+**Fact.** What `side` may be, what `type` may be, and how `type` follows the
+prices given.
+
+**Home.** `stdlib.md` 17.2.
+
+**Why.** They are argument value sets of the order functions, written where a
+script author reads. 17.2 already fixes the correspondence between the prices
+given and the order produced, so the sets belong beside it.
+
+**Copies to replace.** `host-interface.md` 7.1, the `side` and `type` rows and
+the note "type follows the prices"; `docs/reference/functions/strategy.md`, the
+`order.place` entry.
+
+**Citation.** "`side` and `type` take the values of `stdlib.md` section 17.2."
+
+### H14. Which calls are top level only, and which may appear anywhere
+
+**Fact.** The two placement lists.
+
+**Home.** `language.md` 15.3.
+
+**Why.** Where a script may write a call is a rule of the language's shape, which
+is what `language.md` fixes. Decision 17 put it there once already, and a third
+list appeared because two other documents kept their own copies.
+
+**Copies to replace.** `stdlib.md` 14.1, both lists and the sentence "This is the
+same split as `language.md` section 15.3, stated with both lists complete";
+`errors.md` and `errors.json` OS3006, the `{name}` placeholder gloss, which is a
+value set and therefore not covered by the catalogue clause.
+
+**Citation.** "The calls that are top level only are the ones `language.md`
+section 15.3 lists."
+
+### H15. The namespace list
+
+**Fact.** Which namespaces the library has.
+
+**Home.** `language.md` 15.2.
+
+**Why.** `language.md` 15 states in its own preamble that what it fixes is the
+shape of the library, and a closed list of namespaces is that shape.
+
+**Copies to replace.** `stdlib.md` 2.1, the sentence listing twelve namespaces,
+which keeps only the rule about when a name is bare and the note that `leg` and
+`book` exist only in a `strategy()` file.
+
+**Citation.** "The namespaces are the ones `language.md` section 15.2 lists."
+
+### H16. The instrument record
+
+**Fact.** The facts a host states about the instrument, their types, which is
+required, and what a script sees when one is absent.
+
+**Home.** `host-interface.md` 4.1.
+
+**Why.** The record is handed over at the boundary, it never appears in a
+compiled program, and 4.1 already carries four columns of per-fact detail that no
+other copy carries. This supersedes the placement in decision 6; the substance of
+decision 6 is unchanged.
+
+**Copies to replace.** `compiled-program.md` 5.2, the row beginning "Instrument
+facts", which becomes one citation and stops enumerating; `conformance.md` 3, the
+lead-in to `instrument.json`; `conformance.md` 2, the `instrument.json` row of
+the file table; `host-interface.md` 2, the duty 2 row (same document, cites its
+own 4.1); `stdlib.md` 3.4, the sentence decision 6 added, which stops naming the
+ten and cites 4.1 instead.
+
+**Citation.** "The instrument record is the one `host-interface.md` section 4.1
+defines."
+
+### H17. The session
+
+**Fact.** That the session is the host's, its shape, and that the scheduled close
+is what `session.isLastBar` rests on.
+
+**Home.** `host-interface.md` 4.3.
+
+**Why.** It is part of the instrument record, so it goes where the record goes.
+`stdlib.md` 12.4 keeps the calls that read it, which is the catalogue clause.
+
+**Copies to replace.** `conformance.md` 3, the session line of the defaults,
+which keeps the default value and cites 4.3 for the shape; `stdlib.md` 12.4, the
+opening sentence, which cites rather than restating where a session comes from.
+
+**Citation.** "The session is the instrument record's session, `host-interface.md`
+section 4.3."
+
+### H18. The bar state the host states, and what each fact means
+
+**Fact.** The four facts the host states, the four the engine derives, and the
+meaning of each.
+
+**Home.** `language.md` 7.2.
+
+**Why.** It is the per-bar execution model, which `language.md` owns, and
+decision 5 already settled the split there. `host-interface.md` 6.4 keeps the
+host's obligations, which are duties and not meanings.
+
+**Copies to replace.** `host-interface.md` 6.1, the two tables, which become a
+citation plus the host's own obligations; `host-interface.md` 6.2, the phrase
+"how many times the bar has been handed over"; `stdlib.md` 3.3, the sentence
+"Defined in `language.md` section 7.2 and repeated here so the catalogue is
+complete", which becomes a plain citation under the catalogue clause.
+
+**Citation.** "The bar facts, and which of them the host states, are
+`language.md` section 7.2's."
+
+### H19. What an engine reads from the host
+
+**Fact.** The closed list of what an engine reads, and that it reads nothing
+else.
+
+**Home.** `compiled-program.md` 5.2.
+
+**Why.** It is what a second engine implementer needs in one closed list. The
+list stays; what changes is that its instrument facts row cites H16 rather than
+enumerating, which is what let the session go homeless.
+
+**Copies to replace.** `feature-matrix.md` 33, the row "What the host supplies",
+whose "and nothing else" turns a gloss into a closed list; `host-interface.md` 2,
+the duties table, which is the same list cut a different way and cites it.
+
+**Citation.** "An engine reads what `compiled-program.md` section 5.2 lists and
+nothing else."
+
+### H20. The documents that make up the specification
+
+**Fact.** Which documents there are, what each holds, and which wins where two
+disagree.
+
+**Home.** `spec/README.md`.
+
+**Why.** It is the page a reader lands on when they open `spec/`, and listing the
+documents is its whole job. Three lists of the documents is how a whole document
+became unreachable.
+
+**Copies to replace.** `feature-matrix.md`, the section "Documents a row may
+cite", which keeps only its own rule (a row may cite any document in that list,
+and a citation to a document that does not exist fails the build) and the
+precedence paragraph moves out; `docs/README.md`, the specification table;
+`language.md` 1 and `host-interface.md` 1, the sentences about the catalogue
+winning.
+
+**Citation.** "The specification's documents are the ones `spec/README.md`
+lists."
+
+### H21. An error code's message, cause, fix and placeholders
+
+**Fact.** The text of a code.
+
+**Home.** `errors.md`, with `errors.json` as the same entry in machine form.
+
+**Why.** Already the rule, by `language.md` 1 and 16. It is listed here because
+two sections now state a code's scope in their own words, which is the same
+failure with a different shape.
+
+**Copies to replace.** `stdlib.md` 17.3, the sentence "An unknown tag in any of
+them is OS7009, on the same ground as `cancel`", which states a code's scope;
+`stdlib.md` 17.14, which lists four refusals with no code and is correct as a
+list of rules, and gains one line saying it states rules and never text.
+
+**Citation.** "OS7009, whose scope is the one `errors.md` gives it."
+
+### H22. A conformance case's file set
+
+**Fact.** Which files a case directory may hold and what each supplies.
+
+**Home.** `conformance.md` 2.
+
+**Why.** The suite's layout is the suite document's, and a runner reads exactly
+one list.
+
+**Copies to replace.** `feature-matrix.md` 34, the rows that describe file
+contents rather than naming them; `stdlib.md` 17, the conformance-area paragraph,
+which cites rather than promising vectors in its own words.
+
+**Citation.** "A case supplies it from the case directory, `conformance.md`
+section 2."
+
+### H23. The declaration's options and their defaults
+
+**Fact.** The options a `study()` or `strategy()` declaration takes and each
+one's default value.
+
+**Home.** `language.md` 13.2 and 13.3.
+
+**Why.** A declaration is a statement of the language. `compiled-program.md` 2.3
+owns the field names, their types and the rule that the compiler writes every
+option with its effective value, which is the representation.
+
+**Copies to replace.** `compiled-program.md` 2.3, the `"strategy"` JSON sample,
+which gains a lead-in naming it an illustration of the defaults of `language.md`
+13.3; `stdlib.md` 17.1, the sentence that names `fillOn`'s default value.
+
+**Citation.** "The declaration's options are the ones `language.md` section 13.3
+lists, with the defaults it gives them."
+
+### H24. A declared default's effective value in the compiled program
+
+**Fact.** That every option and every declaration field is written with its
+effective value, defaults included.
+
+**Home.** `compiled-program.md` 2.3.
+
+**Why.** It is a rule about the representation.
+
+**Copies to replace.** None, but two places break it: `compiled-program.md` 2.8's
+`plots[].scale` has no default column at all and 12.2 writes `"scale": null` for
+a plot whose argument default is `"right"`. Decision 36 rules on it.
+
+**Citation.** "Written with its effective value, under `compiled-program.md`
+section 2.3."
+
+---
+
+## Part two: the questions inside the duplications
+
+## 23. (D1) Are the script-facing and host-facing status vocabularies one set or two?
+
+**Question.** `host-interface.md` 7.3 fixes six words and `stdlib.md` 17.7 fixes
+six different ones, one of which does not exist on the other side and two of
+which are the same state spelled differently. Is there one vocabulary or two, and
+if two, who owns the mapping?
+
+**Decision.** **One vocabulary of seven words, with one home, and no mapping
+table anywhere.** The words are:
+
+| Word | Means | Terminal | A host may send it |
+|---|---|---|---|
+| `placed` | Sent, and the destination has not answered yet | No | No |
+| `working` | Live at the destination and not completely filled | No | Yes |
+| `triggerPending` | Accepted and waiting for its trigger price | No | Yes |
+| `filled` | The whole quantity is filled | Yes | Yes |
+| `cancelled` | Ended by a cancellation | Yes | Yes |
+| `rejected` | Refused, carrying the destination's own text | Yes | Yes |
+| `expired` | Ended without filling, by the destination's own rule | Yes | Yes |
+
+The script-facing set and the host-facing set are not the same set, and the
+difference is exactly one word. `placed` is a fact only the engine holds: it
+means an intent has left and nothing has come back, and a host cannot report a
+state the destination has not described. Every other word is a state the
+destination reports and a script reads, with one spelling on both sides.
+
+There is a mapping, and it has one owner: **a destination's own words are mapped
+onto these seven by the host's adapter**, which is where `host-interface.md` 7.3
+already puts it and where `stdlib.md` 17.7 also says it belongs. There is no
+second mapping between the language and the boundary, because there is nothing
+left to map.
+
+Where the spellings conflicted, `host-interface.md`'s win: `working` over `open`
+and `filled` over `complete`. Not for seniority. `stdlib.md` 17.3 already
+publishes `order.working(tag)` for "live and unfilled" and `order.filled(tag)`
+for the filled quantity, so choosing `open` and `complete` would have made
+`order.working()` true on a status called `"open"` and `order.filled()` a
+quantity on a status called `"complete"`, in one document, about one order.
+
+`expired` is one of the seven rather than something mapped onto cancellation. A
+day order that reached the close without filling and an order a person cancelled
+are different events, the report has to name which, and a vocabulary that cannot
+tell them apart makes the adapter throw away the only copy of that fact.
+
+**Why one set rather than two.** The argument for two is real: what a script
+observes and what a host reports need not coincide, and here they genuinely do
+not, by one word. But a second set of *spellings* buys nothing and costs a
+mapping table that two documents would then both have to hold, which is the
+defect this part exists to end. One set with a column saying who may send each
+word carries the same information in one place.
+
+**Changes required.**
+
+- `stdlib.md` 17.7, the paragraph headed **Statuses**: replace it with the table
+  above, four columns as written, and keep the sentence that a destination with
+  words of its own maps them in its adapter. Delete the sentence naming `expired`
+  as an example of a word to be mapped. Delete the two sentences beginning "A
+  status is terminal when it is one of the last three" and "The engine sends no
+  further frame of a terminal order to the fold"; the first is the table's
+  Terminal column and the second is decided by decision 24.
+- `stdlib.md` 17.3, the `order.status(tag)` row: no change, it already cites
+  17.7.
+- `host-interface.md` 7.3: delete the six-row table and replace the section body
+  with the citation of H1, followed by the two host rules it already carries, in
+  their existing words: a partial fill is a quantity and not a status, and a
+  status the host cannot map is reported as the nearest non-terminal word with
+  the destination's own words in `text`, never as a terminal one. Delete the
+  bullet "Terminal is one way", which is decision 24's step 4.
+- `host-interface.md` 7.2, the `status` row: "One word the host may send, from
+  the vocabulary of `stdlib.md` section 17.7."
+- `host-interface.md` 10.1, duty 7: replace "uses the vocabulary of section 7.3
+  or maps its own onto it" with "uses the vocabulary of `stdlib.md` section 17.7
+  or maps its own onto it".
+- `feature-matrix.md` 29: add one row after "`order.working`, `order.pending`":
+  `| The status vocabulary | Seven words, one spelling each, of which six are ones a host may send and one is the engine's own | `specified` | `stdlib.md` 17.7 | `order/status-vocabulary` |`
+
+---
+
+## 24. (D2) The match key, the field name, and a fill that arrives after a terminal status
+
+**Question.** `host-interface.md` 7.4 matches a frame by intent id and
+`stdlib.md` 17.8 locates the row by the destination's own order id; one calls the
+average `avgPrice` and the other `avgFillPrice`; and they disagree about whether
+a frame that arrives after a terminal status is folded at all.
+
+**Decision, in three parts.**
+
+**The match key is `intentId`.** A frame is located by the intent it names, and
+the destination's own reference is recorded and never used as a key. The
+destination's order id cannot be the key: a row sits at `placed` from the moment
+the intent leaves until the destination first answers, and during that window the
+row has no destination id, so the first frame of every order would find no row
+and be refused. `intentId` exists on both sides from the beginning, is unique
+within the run, and `host-interface.md` 7.2 already requires it on every frame.
+
+To make that unambiguous in the ledger, the row's field named `id` is renamed
+`orderRef`, which is the name the frame already uses for the same thing, and the
+row gains `intentId` as its key. `order.id(tag)` keeps its name and returns
+`orderRef`, because "the order id" is what a trader calls the destination's
+reference and renaming a published call to tidy a field would cost more than it
+buys. A row with `id` beside `intentId` is the ambiguity that produced this
+defect, and the rename removes it.
+
+**The field name is `avgFillPrice`, in the frame and in the row.** One name.
+`avgPrice` is the wrong survivor: `pos.avgPrice` and `leg.avgPrice()` are already
+the average price of an open position, which is a different number computed a
+different way, and a name that already means something else in the same document
+set will be read as that other thing.
+
+**A frame that arrives after a terminal status is folded for its quantity, and
+the status stays terminal.** `host-interface.md` is right and `stdlib.md` is
+wrong, and this is the part that costs money.
+
+A venue reports a fill after a cancellation acknowledgement whenever a cancel
+races a fill: the order filled at the exchange, the cancel arrived afterwards and
+was acknowledged against nothing, and the fill report follows. It is not an
+exotic case; it is what a cancel sent near the touch does on a busy instrument.
+An engine that refuses that frame has lost a real fill. The account holds a
+position the strategy cannot see, every later `pos.size`, `leg.size()` and
+`book.profit` is computed against the wrong quantity, the protective levels of
+17.9 defend a position of the wrong size, and the end-of-day square off flattens
+a quantity that does not match what is there. None of it is visible from inside
+the script, because the script's own ledger says the order died before it filled.
+
+Exactly what the engine does, stated so there is nothing to infer: a frame naming
+a terminal row still runs steps 1, 2, 3, 5 and 6 of the fold, and does not run
+step 4. The status keeps the terminal word it reached. `filledQty` rises,
+`avgFillPrice` takes the frame's, `orderRef`, `sentProduct` and the rejection
+text take the newest frame's, and the delta settles against the row's
+`positionRef` like any other fill. A `cancelled` row whose cumulative quantity
+has reached the order's full quantity stays `cancelled`: the status records how
+the order ended and the quantity records what traded, and the two are both true.
+The run's record says so out loud, with a named event, because a fill arriving
+after the order was dead is precisely the thing a trader must be told.
+
+**Why this way round.** The two failures are not symmetric. Folding a late fill
+that was not real would require a destination to report a cumulative quantity it
+never traded, which is a broken destination and a broken destination is visible.
+Refusing a late fill that was real is invisible by construction, and it is
+invisible on exactly the day a cancel raced a fill, which is a fast day.
+
+**Changes required.**
+
+- `stdlib.md` 17.7, the ledger table: rename the `id` row to `orderRef` with its
+  existing gloss, and add above it a row
+  `| `intentId` | The engine's own key for this order, unique within the run, carried on the intent and on every frame about it |`.
+  Add to the `orderRef` gloss: `""` until the destination has answered.
+- `stdlib.md` 17.7, the `avgFillPrice` row: no change, this is the surviving
+  name.
+- `stdlib.md` 17.8, step 1: replace with
+  "**Locate.** `f` names a row by `intentId`. A frame that names no row in this
+  strategy's ledger is refused and recorded, and nothing is folded. It is not an
+  order this strategy placed. The destination's own reference is recorded from
+  the frame and is never used to find a row, because a row has none while it is
+  `placed`."
+- `stdlib.md` 17.8, step 4: replace the last sentence "A terminal status is never
+  left" with "A terminal status is never left, and a frame arriving at a terminal
+  row does not run this step at all: see below."
+- `stdlib.md` 17.8, after step 7: add a paragraph headed **A fill after a
+  terminal status** carrying the four sentences of the decision above, beginning
+  "A frame naming a terminal row still runs steps 1, 2, 3, 5 and 6" and ending
+  with the `cancelled` row that stays `cancelled`, and one sentence naming the
+  event.
+- `stdlib.md` 17.11, the event table: add
+  `| `fillAfterTerminal` | A frame increased an order's filled quantity after the order had reached a terminal status, carrying the tag, the added quantity and the terminal word it arrived after |`.
+  Add one sentence after the table: this one is not a rule's transition, and it is
+  in the list because a fill the strategy could not have expected is the event a
+  trader most needs named.
+- `stdlib.md` 17.14: the first two bullets keep their wording; add a third for a
+  frame naming no row at all, which is the same refusal reached by `intentId`.
+- `host-interface.md` 7.4: delete the five numbered steps and the two paragraphs
+  after them. The section becomes the citation of H2, plus the host duties it
+  alone states: a host must report at least every frame that changes an order's
+  `status` or its `filledQty`, a host that reports only terminal frames is
+  conforming and much less useful, and the paragraph headed "When a frame is
+  folded" about the bar boundary, which stays here because it is about timing at
+  the boundary.
+- `host-interface.md` 7.2, the `avgPrice` row: rename to `avgFillPrice`, same
+  gloss. The `intentId` row gains: it is the key the fold matches on
+  (`stdlib.md` section 17.8).
+- `host-interface.md` 7.6, the row "A frame arrives for an intent the engine does
+  not know": change the citation from "section 7.4 rule 1" to `stdlib.md` 17.8
+  step 1.
+- `host-interface.md` 10.1, duty 7: no change beyond decision 23's.
+- `feature-matrix.md` 29: add three rows after "`order.working`,
+  `order.pending`":
+  `| Folding an order frame | Cumulative frames folded once, whatever order they arrive in and however many times | `specified` | `stdlib.md` 17.8 | `order/fold-frame` |`
+  `| A repeated or stale frame | Folds to no change: no fill, no event, no report row | `specified` | `stdlib.md` 17.8 | `order/fold-repeat` |`
+  `| A fill after a terminal status | Folded for its quantity with the status left terminal, because a cancel can race a fill and dropping it leaves the account holding a position the strategy cannot see | `specified` | `stdlib.md` 17.8 | `order/fold-after-terminal` |`
+
+---
+
+## 25. (D3) Version 1 does name a contract
+
+**Question.** `host-interface.md` 9.3 says no order function takes a symbol so a
+version 1 strategy trades the instrument its chart is showing, and cites
+`stdlib.md` 17.1 for it, while `stdlib.md` 17.6 defines `leg.fixed` and
+`leg.relative` as version 1 calls. What replaces the claim?
+
+**Decision.** The claim is wrong and is deleted everywhere. Half of it is still
+true and the two halves must not be confused again:
+
+- **True, and stays:** no order function takes a symbol. An order names a leg.
+  The engine never parses a symbol and never builds one.
+- **False, and goes:** that a strategy therefore trades only the instrument its
+  chart is showing.
+
+The replacement sentence, which is the one every stale site adopts, is:
+
+> A strategy trades the legs it declared. A leg names a contract outright with
+> `leg.fixed` or describes one with `leg.relative`, and the host resolves the
+> description before bar 0; a file that declares no leg has exactly one leg, the
+> instrument its chart is showing, and every order acts on it with no leg named
+> (`stdlib.md` sections 17.1 and 17.6).
+
+What is still planned, and what `host-interface.md` 9.3 keeps saying, is the
+*chart-side* surface for describing a contract: `chart.expiry`, `chart.strike`
+and `chart.optionType` are planned (`stdlib.md` 3.4), and a `symbol` input kind
+is planned (`stdlib.md` 13.1). Those are not the leg calls and their being
+planned says nothing about the leg calls.
+
+**Why.** There is no judgement here. Two sections of one specification describe
+the same version, one of them says a facility does not exist, and the facility is
+defined three sections later in the same file. The only decision is which way the
+correction runs, and a defined call outranks a sentence about what is absent.
+
+**Changes required.**
+
+- `host-interface.md` 9.3, the paragraph "Where version 1 stands": delete the
+  clause "and no order function takes a symbol, so a version 1 strategy trades
+  the instrument its chart is showing (`stdlib.md` section 17.1)". Replace with
+  "and a strategy names its contracts with the leg declarations of `stdlib.md`
+  section 17.6, which this section's resolution shape is what a host answers."
+  Keep the sentence about `chart.expiry`, `chart.strike`, `chart.optionType` and
+  the `symbol` input unchanged.
+- `feature-matrix.md` 29, the row "One net position": retitle to "One position
+  per leg" and rewrite the What-it-is cell as "A strategy holds one position per
+  declared leg, no order crosses zero, and a file that declares no leg has one
+  leg, the chart's instrument". Section cell `stdlib.md` 17.1. Test identifier
+  unchanged (`order/net-position`).
+- `feature-matrix.md` 29, the row "No order takes a symbol": rewrite the
+  What-it-is cell as "An order names a leg, never a symbol; the engine neither
+  parses nor builds one". Section cell `stdlib.md` 17.1, `stdlib.md` 17.6. Test
+  identifier unchanged (`order/no-symbol`).
+- `feature-matrix.md` 29: add two rows after them:
+  `| `leg.fixed`, `leg.relative` | Declare the contract a leg trades, outright or by description, top level only and resolved before bar 0 | `specified` | `stdlib.md` 17.6 | `order/leg-declaration` |`
+  `| A description the host cannot resolve | OS6007 before the first bar, and the strategy does not start | `specified` | `stdlib.md` 17.6, `errors.md` OS6007 | `unit:order/leg-unresolvable` |`
+- `docs/reference/functions/strategy.md` 15 to 22: replace the "one net position"
+  paragraph with the replacement sentence above, and add a short section for the
+  leg calls citing `stdlib.md` 17.6.
+- `docs/first-strategy.md` 90 and 100: the same replacement sentence, once.
+- `docs/faq.md` 287: the answer to "Can I hold a long and a short at the same
+  time?" becomes yes, on two legs, and no, on one: a leg holds one position and
+  no order crosses zero, and two opposite positions are two legs. Cite
+  `stdlib.md` 17.1.
+- `examples/README.md` entry 12: delete the sentence beginning "This is the
+  script that found the version 1 boundary on orders" and the sentence after it.
+  Replace with: this script trades one leg on its chart and routes the other from
+  an alert, which is one of two shapes; a strategy that wants both legs in its own
+  ledger declares them with `leg.relative` and enters them as a unit
+  (`stdlib.md` sections 17.6 and 17.12).
+- `examples/12-strategy-short-premium.oscript` lines 28 to 35: replace the
+  comment with one that states the script's own reason and claims no boundary:
+  a leg the chart does not show has no bar series of its own, so a backtest of it
+  has to be given one, and this script therefore trades the chart's leg and routes
+  the other from an alert; a strategy that wants both legs in its own ledger
+  declares them with `leg.relative` (`stdlib.md` section 17.6). Change the
+  "Exercises" line at the top of the file in the same way: delete "the single
+  instrument order model at its limit" and write "a one-leg strategy whose signal
+  is computed from a second instrument". No code in the file changes.
+- No change to `docs/strategies/*.md` under this decision beyond what the same
+  sentence requires; whoever owns `docs/` greps for "one net position" and for
+  "no order function takes a symbol" and applies the replacement sentence at
+  every hit.
+
+---
+
+## 26. (D4) One trail, one spelling, one home
+
+**Question.** `stdlib.md` 17.2 says there is no trail on an order, while five
+other places give `trail` and `trailOffset` as bracket arguments and one gives a
+trail as a field of a bracket intent.
+
+**Decision.** **There is one trailing stop in the language and it is
+`leg.trail(name, distance, arm = none)` of `stdlib.md` 17.9.** `trail` and
+`trailOffset` are deleted from `exit()` and from `order.bracket()`, and a trail
+is not a field of an order intent.
+
+The old two arguments map onto the new two exactly: `trail` is `distance`, the
+amount the level follows behind the best price, and `trailOffset` is `arm`, the
+profit at which the trail starts following. A worked call written
+`exit(trail = 20, trailOffset = 5)` is written `leg.trail(distance = 20, arm = 5)`
+in a file with one leg.
+
+**Why it lives there.** A stop and a target are prices an order can rest at, so a
+destination can hold them and a host can implement a bracket with resting orders.
+A trail is not a price; it is a rule that recomputes a price on every bar from
+the best price seen since arming. It cannot be handed to a destination as a
+number, the engine has to evaluate it, and section 17.10 already fixes exactly
+when in the bar it is evaluated and in what order against the other rules. A
+trail listed as a bracket argument promises a host something the host cannot
+implement and the engine will do anyway.
+
+**Changes required.**
+
+- `stdlib.md` 17.2: no change. It already states the rule and points at 17.9.
+- `stdlib.md` 17.9, the `leg.trail` row: no change.
+- `host-interface.md` 7.1, the note "A bracket is an instruction, not an
+  implementation": replace "carrying its target, its stop, its trail and the
+  trail offset (`stdlib.md` sections 17.2 and 17.3)" with "carrying its target
+  and its stop (`stdlib.md` section 17.2)". Add one sentence: a trailing stop is
+  never part of a bracket intent, because it is a rule the engine evaluates every
+  bar rather than a price an order can rest at (`stdlib.md` section 17.9); what
+  reaches the host when a trail is hit is an ordinary exit order.
+- `feature-matrix.md` 29, the row "`exit(...)` brackets": rewrite the What-it-is
+  cell as "A target or a stop, as absolute prices or as distances from the entry"
+  and delete "or a trailing stop".
+- `feature-matrix.md` 29: add one row after it:
+  `| Trailing stop | `leg.trail`, armed at a profit and ratcheting in the leg's favour only, evaluated every bar rather than resting at a destination | `specified` | `stdlib.md` 17.9, `stdlib.md` 17.10 | `order/trailing-stop` |`
+- `docs/reference/functions/strategy.md` 111: the `exit` signature loses `trail`
+  and `trailOffset`, and its parameter list loses the two lines.
+- `docs/reference/functions/strategy.md` 177 and the worked call at 186: the
+  `order.bracket` signature loses `trail` and `trailOffset`; the worked call
+  `order.bracket(trail = atr(14) * 2, trailOffset = chart.tickSize)` becomes
+  `leg.trail(distance = atr(14) * 2)`. Add a `leg.trail` entry to the page citing
+  `stdlib.md` 17.9 for the ratchet.
+- `docs/first-strategy.md` 97: delete the `trail, trailOffset` cell from the
+  `exit` row of the call table.
+- `docs/first-strategy.md` 220: delete the `trail`, `trailOffset` row from the
+  bracket argument table and add a sentence naming `leg.trail` with its two
+  arguments.
+
+---
+
+## 27. (D5) Which calls are top level only
+
+**Question.** Three lists again, and OS3006's placeholder says the name it prints
+can only be one of five, so an engine raising OS3006 on a leg prints a name the
+catalogue says cannot occur and offers a fix that is not a fix for a leg.
+
+**Decision.** `language.md` 15.3 owns both placement lists (H14). The top level
+only list is **seven** calls under OS3006: `plot`, `plotCandles`, `fill`,
+`level`, `table`, `leg.fixed` and `leg.relative`. `input` remains top level only
+under OS3007. The anywhere list gains the protective levels: `signal`, `alert`,
+`barColor`, `background`, `cell`, `clear`, `print`, the `draw` namespace, every
+order function, every protective level of `stdlib.md` 17.9 and every strategy
+shape call of `stdlib.md` 17.12.
+
+OS3006's `{name}` gloss is a value set, not a gloss, so it is not covered by the
+catalogue clause: it must list the same seven. Its cause gains the leg case and
+its fix gains the leg's fix, which is not the plot's fix. You cannot hide a leg by
+passing `none`: a leg is a contract the strategy trades, and the way to trade it
+on some bars and not others is to declare it at the top level and decide per bar
+whether to send it an order.
+
+**Why `language.md`.** The catalogue is authoritative by `language.md` 1 and 16,
+which means the catalogue's text wins over another document's text about a code.
+It does not mean the catalogue decides the rule: a rule about where a script may
+write a call is the language's shape. The right relationship is that
+`language.md` 15.3 states the rule, and OS3006's text is edited to match it, in
+one place, when the rule changes.
+
+**Changes required.**
+
+- `language.md` 15.3, the top-level-only sentence: the list becomes `plot`,
+  `plotCandles`, `fill`, `level`, `table`, `leg.fixed` and `leg.relative`
+  (OS3006), and `input` (OS3007). Add one clause: the two leg declarations exist
+  only in a `strategy()` file, and the set of contracts a strategy trades is part
+  of its fixed shape for the same reason the set of columns is
+  (`stdlib.md` section 17.6).
+- `language.md` 15.3, the anywhere sentence: add "every protective level and
+  every strategy shape call of `stdlib.md` section 17" after "every order
+  function".
+- `stdlib.md` 14.1: delete both lists and the sentence "This is the same split as
+  `language.md` section 15.3, stated with both lists complete". Replace the whole
+  opening with the H14 citation and one sentence saying why a leg is on the top
+  level list, which is 17.6's reason and is `stdlib.md`'s own. Keep the paragraph
+  about declaration handles and runtime objects unchanged.
+- `errors.md` OS3006, the `{name}` bullet: "one of plot, plotCandles, fill,
+  level, table, leg.fixed or leg.relative".
+- `errors.md` OS3006, cause: add one sentence. "A leg declaration is on the list
+  for the same reason: the set of contracts a strategy trades is fixed before bar
+  0, and a leg that existed on some bars and not others would leave the run's
+  record with nothing to key on."
+- `errors.md` OS3006, fix: add one sentence. "A leg is not hidden by passing
+  none: declare it at the top level and decide per bar whether to send it an
+  order."
+- `errors.md` OS3006, Reference line: add `stdlib.md` 17.6.
+- `errors.json`, entry OS3006: the same three edits to `placeholders.name`,
+  `cause` and `fix`, and `spec` becomes "language.md 7.1, 15.3; stdlib.md 17.6".
+- `feature-matrix.md` 15: add one row:
+  `| A leg declared inside a block | OS3006, because the set of contracts a strategy trades is part of its fixed shape | `specified` | `language.md` 15.3, `stdlib.md` 17.6, `errors.md` OS3006 | `unit:order/leg-in-block` |`
+
+---
+
+## 28. (D6) The namespace list
+
+**Question.** `language.md` 15.2 lists ten namespaces and `stdlib.md` 17 adds two
+more with twenty-six entries between them.
+
+**Decision.** `language.md` 15.2 is the closed list (H15) and it gains `leg` and
+`book`, each marked as existing only in a `strategy()` file. `stdlib.md` 2.1
+stops listing them.
+
+**Why.** `language.md` 15 says in its own words that what it fixes is the shape
+of the library. A namespace is that shape. A namespace that exists in the
+catalogue and not in the shape is a namespace no second implementer knows to
+build.
+
+**Changes required.**
+
+- `language.md` 15.2, the namespace table: add two rows in the order the table
+  already uses, after `order`:
+  `| `leg` | The contract each leg trades, and each leg's own position and protective levels, in a strategy |`
+  `| `book` | Every declared leg taken together: the combined rules, the entry filters and the book's own profit, in a strategy |`
+  Add one sentence after the table: `leg` and `book` exist only in a `strategy()`
+  file, and calling one from a `study()` file is OS7001.
+- `language.md` 15.2, the fenced example: no change.
+- `stdlib.md` 2.1: replace the sentence listing twelve namespaces with the H15
+  citation, keeping the rule that decides bare from namespaced and keeping the
+  sentence that `leg` and `book` exist only in a `strategy()` file, which is
+  `stdlib.md`'s own and is cited from `language.md` rather than repeated in it.
+- `feature-matrix.md` 15, the row about namespaces if one exists, otherwise add:
+  `| The namespace list | The closed list of namespaces, two of which exist only in a strategy file | `specified` | `language.md` 15.2 | `lib/namespaces` |`
+
+---
+
+## 29. (D7) The session's home
+
+**Question.** `compiled-program.md` 5.2 says an engine reads all of a list from
+the host and none of it from anywhere else, and the session is not on the list
+and the word does not appear in the document; three other documents are built on
+the session coming from the host.
+
+**Decision.** The session is part of the instrument record, and the instrument
+record's home is `host-interface.md` 4.1 (H16). `compiled-program.md` 5.2's list
+stays closed and stays where it is, and its instrument facts row becomes a
+citation of 4.1 rather than an enumeration, which is what left the session with
+nowhere to be listed.
+
+**Why not the other way round.** `compiled-program.md` 5.2's job is the closed
+list of *channels* an engine reads: bars, bar state, settings, the instrument
+record, the chart clock, more bars on request, a drawing surface, an order route.
+That list is the engine contract and it belongs there. The *contents* of the
+record, eleven facts with types, required-ness and absence behaviour, never
+appear in a compiled program at all: they are handed over at the boundary, which
+is what `host-interface.md` is for, and 4.1 is the only copy with the detail.
+This supersedes the placement decision 6 made, not its substance.
+
+**Changes required.**
+
+- `compiled-program.md` 5.2, the table row beginning "Instrument facts": replace
+  the whole cell with "The instrument record (`host-interface.md` section 4.1)",
+  keeping the Used-by cell as it is.
+- `compiled-program.md` 5.2, the paragraph after the table: keep the sentence
+  about `chart.intervalMinutes` and `chart.isIntraday` being derived, and delete
+  the clause that restates which facts are absent when the host does not state
+  them, which is 4.1's Required column.
+- `host-interface.md` 4.1, the lead sentence: replace "Ten facts, plus the
+  session. The ten are the list in `compiled-program.md` section 5.2; the session
+  is the fact `stdlib.md` section 12.4 reads and OS6012 names" with "Eleven
+  facts. This table is where they are defined; `compiled-program.md` section 5.2
+  names the record as one of the things an engine reads from the host."
+- `host-interface.md` 2, the duties table, duty 2: "The instrument record,
+  section 4.1" in place of "Ten facts about the instrument, plus its session".
+- `stdlib.md` 3.4, the sentence decision 6 added: replace with "Every fact here
+  comes from the instrument record (`host-interface.md` section 4.1);
+  `chart.intervalMinutes` and `chart.isIntraday` are derived by the engine from
+  the interval string rather than supplied."
+- `stdlib.md` 12.4, the opening sentence: "The session is the instrument record's
+  session (`host-interface.md` section 4.3), not a window the script invents."
+- `conformance.md` 2, the `instrument.json` row: "Instrument facts: the record of
+  `host-interface.md` 4.1. Defaults in section 3."
+- `conformance.md` 3, the lead-in to `instrument.json`: keep the default block
+  exactly as it is, and replace the sentence that explains which facts the block
+  holds with the H16 citation. The defaults themselves are `conformance.md`'s own
+  and stay.
+- `errors.md` OS6012, cause: replace "come from the host's instrument record, not
+  from the bars" with "come from the instrument record (`host-interface.md` 4.1),
+  not from the bars". `errors.json` the same.
+- `feature-matrix.md` 33, the row "What the host supplies": see decision 36.
+
+---
+
+## 30. (D8) OS7009 against the ledger reads
+
+**Question.** OS7009 says there is no working order tagged `{tag}` and its cause
+says a tag names an order from placement until it fills, cancels or expires,
+while `stdlib.md` 17.3 makes `order.rejection` and `order.avgFill` reads of a
+finished order, which is the only time they have anything to say.
+
+**Decision.** **Acting on a tag that names nothing is an error. Reading a tag
+that names nothing is not.** OS7009 applies to a call that acts on an order:
+`cancel(tag)`, and the planned `order.modify` and `order.oco`. It does not apply
+to the seven reading calls.
+
+A row stays in the ledger after it finishes. That is what the ledger is for: it
+is append-only, it is the audit trail, and `order.rejection` and `order.avgFill`
+exist to be read from a finished row. The reads therefore read a row at any
+status, terminal included, and a tag naming no row at all returns the value each
+entry already documents for "nothing yet": `order.working` false,
+`order.id` `""`, `order.status` `""`, `order.filled` `0`, `order.avgFill` absent,
+`order.rejection` `""`.
+
+**Why the line falls there.** Acting on a tag that names nothing is a script that
+believes an order exists when it does not, and it will keep believing it. Reading
+is how a script finds out; a read that raised would mean a script could not ask
+the question without already knowing the answer, and `order.working(tag)` would
+be unusable as the guard that OS7009's own fix tells the author to write.
+
+Where a tag names more than one row, because the same tag was used for a later
+order, the reads read the most recently placed row carrying that tag. A tag is a
+label a script reuses, not a key, and the most recent one is the only answer a
+script can act on.
+
+**Changes required.**
+
+- `errors.md` OS7009, cause: replace the first sentence with "A tag names an
+  order from the moment it is placed. Acting on a tag that names nothing is a
+  script that has lost track of its own orders, and ignoring the call would leave
+  it believing an order exists that does not." Add: "This code is for a call that
+  acts on an order. The reading calls of `stdlib.md` section 17.3 read the
+  ledger, which keeps a row after the order finishes, so a tag that names no row
+  reads as the entry's documented empty value rather than raising."
+  `errors.json` the same.
+- `errors.md` OS7009, Reference line: add `stdlib.md` 17.3. `errors.json`'s
+  `spec` the same.
+- `stdlib.md` 17.3, the paragraph beginning "The five reading calls": it is seven
+  calls, not five (`order.id`, `order.status`, `order.filled`, `order.avgFill`,
+  `order.rejection`, `order.working`, `order.pending`). Replace the sentence "An
+  unknown tag in any of them is OS7009, on the same ground as `cancel`" with:
+  "They read the ledger at any status, terminal included, which is when
+  `order.rejection` and `order.avgFill` have something to say. A tag that names
+  no row reads as the entry's documented empty value; OS7009 is for a call that
+  acts on an order, which is `cancel` and the two planned calls. Where a tag
+  names more than one row, the reads read the most recently placed one."
+- `stdlib.md` 17.3, the `order.id` row: the gloss becomes "The destination's own
+  reference for that tag, `""` before the destination has answered", which is
+  decision 24's rename.
+- `feature-matrix.md` 29, the row "`cancel`, `cancelAll`": no change. Add one
+  row:
+  `| Reading a finished order | The ledger keeps a row after the order ends, so the reading calls read a terminal row and an unknown tag reads empty rather than raising | `specified` | `stdlib.md` 17.3, `errors.md` OS7009 | `order/ledger-reads` |`
+
+---
+
+## 31. (D9) Order frames in a conformance case
+
+**Question.** `stdlib.md` 17 promises that 17.8 to 17.11 are a conformance area
+with vectors of their own, and a case directory has no file that supplies order
+frames, so there is no way to hand an engine a repeated frame, an out-of-order
+frame or a fill after a terminal status.
+
+**Decision.** A case directory gains an optional file, **`frames.csv`**, which
+supplies order frames the way `bars.csv` supplies bars and `ticks.csv` supplies
+intrabar updates. Its home is `conformance.md` 2 and 3 (H22).
+
+```text
+afterBar,intent,status,filledQty,avgFillPrice,orderRef,text
+0,1,working,0,none,R1,
+1,1,filled,25,101.5,R1,
+1,1,filled,25,101.5,R1,
+2,1,filled,40,101.75,R1,
+```
+
+- `afterBar` is the zero-based index of the bar after whose execution the frame
+  is delivered, so the fold happens at a bar boundary before the next execution
+  (`host-interface.md` section 7.2). Several rows may name one bar and are
+  delivered in file order, which is how a case orders two frames that cross.
+- `intent` is an ordinal, not an id: 1 is the first intent the run placed, 2 the
+  second. A case cannot know the id an engine minted and must not depend on its
+  spelling, so the runner maps the ordinal to the engine's own `intentId`. An
+  ordinal greater than the number of intents the run placed is how a case
+  exercises a frame naming an order the ledger does not hold.
+- `status` is one word a host may send, from the vocabulary of `stdlib.md`
+  section 17.7.
+- `filledQty` is cumulative. `avgFillPrice` is absent as `none`, written as
+  `bars.csv` writes an absent field.
+- `orderRef` and `text` are optional columns; an omitted column is absent on
+  every row. Extra columns are an error, as in `bars.csv`.
+
+The four rows above are the whole of what was missing: a working frame, a fill,
+the same fill repeated, and a frame whose cumulative quantity rose after the row
+had gone terminal. A case asserts the result through the `orders` channel of
+`expected.json`, whose elements are ledger rows of `stdlib.md` 17.7 compared on
+the fields the case names.
+
+**Why a file rather than a script call.** Every byte of a case's input lives in
+the case directory, and a frame is input. A case that produced its own frames
+from a script would be testing the script, and the fold is exactly the thing that
+has to be provable against input the engine did not choose.
+
+**Changes required.**
+
+- `conformance.md` 2, the file table: add a row after `ticks.csv`:
+  `| `frames.csv` | no | Order frames delivered between bars, for a strategy case that asserts the fold |`
+- `conformance.md` 3: add a subsection `### frames.csv` after "Intrabar updates",
+  carrying the fenced sample above and the six bullets above, with the citation
+  of H4 for the frame's fields.
+- `conformance.md` 4, under `expected.json`: add one sentence naming the `orders`
+  channel's element as a ledger row of `stdlib.md` section 17.7, compared on the
+  fields the case names and no others.
+- `stdlib.md` 17, the paragraph promising a conformance area: keep it and add the
+  citation "a case supplies frames from its case directory (`conformance.md`
+  section 3)", so the promise names the mechanism that keeps it.
+- `feature-matrix.md` 34: add one row:
+  `| Order frames | `frames.csv` in the case directory, delivered between bars, so a repeated frame, a crossed frame and a fill after a terminal status can each be handed to an engine | `specified` | `conformance.md` 2, `conformance.md` 3 | `conf/frames` |`
+- `feature-matrix.md` 29: the three rows decision 24 adds carry test identifiers
+  `order/fold-frame`, `order/fold-repeat` and `order/fold-after-terminal`, each
+  of which is a case directory holding a `frames.csv`.
+
+---
+
+## 32. (D10) The `side` and `type` value sets
+
+**Question.** `order.place` takes `side` and `type` and no section says what
+either may be; `"stopLimit"` is spelled only in `host-interface.md` 7.1, as a
+wire field rather than as an argument's value set.
+
+**Decision.** Both sets are written in `stdlib.md` 17.2 (H13), where a script
+author reads, and every other appearance cites them.
+
+- `side` is `"buy"` or `"sell"`.
+- `type` is `"market"`, `"limit"`, `"stop"` or `"stopLimit"`.
+
+`type` and the prices agree or the call is refused: `"limit"` needs `price`,
+`"stop"` needs `trigger`, `"stopLimit"` needs both, `"market"` takes neither. A
+type that names a price it was not given is OS7007, which already exists for
+exactly that. A value outside either set is OS3008, which is the code for a value
+outside a fixed set and already names the accepted values in its message.
+
+`order.place(side, ...)` is the only place a script writes a side as a value,
+because `buy` and `sell` write it as a name. That is why the set has to be
+written down: a script computing `side` has nothing else to check its string
+against.
+
+**Why `stdlib.md` 17.2 and not 17.3.** 17.2 already fixes the correspondence
+between the prices given and the order produced, in the paragraph beginning "With
+neither `limit` nor `stop`". Putting the value sets anywhere else would split one
+fact across two sections of one document, which is the same defect at a smaller
+scale.
+
+**Changes required.**
+
+- `stdlib.md` 17.2, after the paragraph beginning "With neither `limit` nor
+  `stop`": add one short paragraph giving both sets, the agreement rule between
+  `type` and the prices, and the two codes. Word it as a value set and not as a
+  gloss: the accepted values, spelled, and nothing about what an engine does with
+  them.
+- `stdlib.md` 17.3, the `order.place` row: no change. Add to the paragraph after
+  the table: "`side` and `type` take the values of section 17.2."
+- `host-interface.md` 7.1, the `side` row: "The order's side
+  (`stdlib.md` section 17.2)." The `type` row: "The order's type
+  (`stdlib.md` section 17.2)."
+- `host-interface.md` 7.1, the note "`type` follows the prices": replace the
+  first sentence with the H13 citation and keep the second, which is the boundary
+  fact: the field is stated anyway, so a host never has to infer it.
+- `docs/reference/functions/strategy.md`, the `order.place` entry: name both
+  value sets and cite `stdlib.md` 17.2.
+- `feature-matrix.md` 29, the row "Limit, stop and stop-limit": add "`side` is
+  buy or sell and `type` is market, limit, stop or stopLimit" to the What-it-is
+  cell, or add one row:
+  `| The side and type value sets | What `order.place` accepts, written where a script author reads; a value outside either is OS3008 | `specified` | `stdlib.md` 17.2, `errors.md` OS3008 | `order/side-and-type` |`
+
+---
+
+## 33. (D11) One shape for a relative contract
+
+**Question.** `host-interface.md` 9.3 names seven fields and `stdlib.md` 17.6
+takes nine arguments; some of the difference is spelling drift of one fact, three
+fields exist on one side only, and the `right` enum genuinely differs.
+
+**Decision.** One shape, one set of words, home `stdlib.md` 17.6 (H10). The
+signature becomes:
+
+```text
+leg.relative(name, underlying, kind, expiryRank = 0, expiryCycle = none,
+             strikeOffset = 0, right = none, reference = none,
+             exchange = chart.exchange, product = the declaration's,
+             qty = the declaration's, side = "buy")
+```
+
+Field by field, with the ruling and its reason:
+
+| Field | Ruling | Why |
+|---|---|---|
+| `underlying` | Kept, an identity, opaque | Agreed on both sides |
+| `kind` | Kept, required, `"future"` or `"option"` | It decides which of the other fields apply, so it is required and has no default, exactly as `meta.kind` is in a compiled program. Encoding it as `right = "none"` made a value of one field mean "a different kind of contract", which is how `right` ended up with three values on one side and two on the other |
+| `expiryRank` | `expiry` is renamed to it | `leg.expiry(name)` already reads back the resolved contract's expiry, which is a date. One document cannot have `expiry` meaning a rank in one section and a date in another |
+| `expiryCycle` | Kept, optional, absent means the venue's default series | A venue listing a weekly and a monthly series cannot be addressed by rank alone, and a script that must say which could not say it at all |
+| `strikeOffset` | `strike` is renamed to it | Same reason as `expiryRank`: `leg.strike(name)` reads back a price |
+| `right` | `"call"` or `"put"`, absent for a future | With `kind` explicit, `"none"` has nothing left to say |
+| `reference` | Kept, optional, absent means the underlying's price at the moment of resolution | An offset measured from nothing is not an offset, and a script measuring from a settlement or a session open has no way to say so otherwise |
+| `name`, `exchange`, `product`, `qty`, `side` | Kept, `stdlib.md`'s own | They are the leg's bookkeeping, not part of the contract's description, and no host field corresponds to them |
+
+Giving `right` or `strikeOffset` with `kind = "future"` is OS3010, which is
+already the code for two arguments that cannot both be given.
+
+**Why the source's words and not the boundary's.** The description's fields are
+argument names a script author types. When a host refuses a resolution with
+OS6007 the message has to be able to name the argument the author wrote, and a
+host that had its own seven words for the author's seven would be describing a
+call nobody made. Where the two sides differed on spelling, the boundary's word
+won every time except `name`, because in each case `stdlib.md`'s word was already
+taken by a read of the resolved contract in the same section.
+
+**Changes required.**
+
+- `stdlib.md` 17.6, the `leg.relative` row: the signature above.
+- `stdlib.md` 17.6, the paragraph beginning "`leg.fixed` names a contract the
+  host already knows": rewrite the second half as the field-by-field meanings,
+  using the words above, and keep the sentence about the engine never parsing or
+  building a symbol.
+- `stdlib.md` 17.6: add one sentence: `right` or `strikeOffset` with
+  `kind = "future"` is OS3010.
+- `stdlib.md` 17.6, the bold paragraph "A relative contract resolves exactly
+  once" and the paragraph after it: replace with the H11 citation. The rule does
+  not change; its home does.
+- `host-interface.md` 9.3, the seven-row table: delete it and replace with the
+  H10 citation, plus the sentence that already follows about what the host
+  answers with and OS6007, and the paragraph beginning "Every field is stated in
+  the contract's own terms", which is `host-interface.md`'s own argument for why
+  the description is portable.
+- `errors.md` OS3010, cause: add one sentence naming the third pair: a relative
+  leg described as a future and given a right or a strike offset, which are
+  fields of an option. `errors.json` the same.
+- `feature-matrix.md` 29, the `leg.relative` row decision 25 adds: Section cell
+  `stdlib.md` 17.6, `host-interface.md` 9.3, 9.4.
+
+---
+
+## 34. (D12) Reaching `host-interface.md`
+
+**Question.** Nothing links to `host-interface.md`. `spec/README.md` says three
+documents make up the specification, `docs/README.md` lists six spec files
+without it, and `feature-matrix.md` says all five exist and names five. A reader
+never learns it exists.
+
+**Decision.** `spec/README.md` is the home for what the specification is (H20):
+the documents, what each holds, and which wins where two disagree. Six documents
+are the specification, `decisions.md` is the minutes and `feature-matrix.md` is
+the index, and the README says which is which rather than counting to three.
+
+Precedence, stated once and cited from everywhere else: `errors.md` wins about
+the text of a code, `language.md` wins about a rule of the language, `stdlib.md`
+wins about a function, `compiled-program.md` wins about a representation,
+`host-interface.md` wins about the boundary, and `conformance.md` wins about the
+suite. Where none of those settles it, the home register in `decisions.md` names
+the owner.
+
+**Why the README and not the matrix.** The matrix's table exists to support a
+build check on citations, which is a rule about rows, and it acquired a count as
+a side effect. The README's whole job is the list. A list whose job is something
+else is the list that goes stale.
+
+**Changes required.**
+
+- `spec/README.md`: rewrite. The opening sentence names six documents and does
+  not count to three in prose. The table gains a `host-interface.md` row
+  ("Everything a platform supplies so an engine can run, and everything the
+  engine hands back: the boundary") and a `stdlib.md` row, which is also missing
+  today. Add two rows below the table for `decisions.md` (the minutes of every
+  settled cross-document question, and the home register) and `feature-matrix.md`
+  (what is specified, implemented or planned, one row per feature). Add the
+  precedence paragraph. Note that `errors.json` is `errors.md` in machine form
+  and not a document of its own.
+- `feature-matrix.md`, the section "Documents a row may cite": delete "All five
+  exist" and the six-row table. Keep the rule, rewritten: a row may cite any
+  document `spec/README.md` lists, and a citation to a document that does not
+  exist is a build failure. Replace the precedence paragraph with the H20
+  citation.
+- `docs/README.md`, the specification table near line 402: add a
+  `host-interface.md` row, and replace whatever counts the files with the H20
+  citation.
+- `docs/README.md` line 416: the pointer to `spec/README.md` stays and is now
+  the pointer that carries the list.
+- `language.md` 1, "Error codes": keep the sentence that the catalogue is
+  authoritative and replace the general precedence clause with the H20 citation.
+- `host-interface.md` 1, "Error codes": the same.
+- `CONTRIBUTING.md`: whoever owns the root files greps for a count of
+  specification documents and applies the H20 citation at each hit.
+
+---
+
+## 35. (D13) `signal`'s colour in the colour guide
+
+**Question.** `docs/visuals/colors.md` line 178 still gives
+`signal(text, color)` a colour computed for that bar, which decision 3 removed.
+
+**Decision.** The cell is wrong and is replaced. `signal`'s `color`, `at` and
+`shape` are part of the marker's declaration and are fixed before bar 0; only the
+text is read per bar. The per-bar column for that row reads "Not per bar: the
+colour is part of the declaration (`stdlib.md` section 14.3)".
+
+**Why.** It is not a judgement call: decision 3 settled it, the edit landed in
+`stdlib.md` 14.3 and not in the documentation page, and a page that contradicts
+the specification is a page with a bug by `docs/README.md`'s own rule.
+
+**Changes required.**
+
+- `docs/visuals/colors.md` 178, the `signal(text, color)` row: the Per bar cell
+  becomes "Not per bar: `at`, `shape` and `color` are fixed before bar 0
+  (`stdlib.md` section 14.3)". The Constant cell keeps "Marker plate".
+- `docs/visuals/colors.md`: whoever owns `docs/` greps the page for any other
+  sentence that offers a per-bar signal colour and applies the same correction.
+
+---
+
+## 36. (D14) Seven one-line rulings
+
+**1. OS3012 cited for an omitted leg, but its cause names a study title and an
+indicator source.** OS3012 is the right code, because a `leg` argument in a file
+with more than one leg is a parameter with no default and no value the engine
+could invent; its cause gains one sentence naming the leg as a third common case,
+and `errors.json` the same.
+
+**2. OS3017 cited for two legs sharing a name, but it is titled "two of these
+share a title" and its cause is about legend rows.** OS3017 is the right code and
+its wording is the defect: the heading becomes "Two of these share a name", the
+message becomes `{kind} names must be unique in a file; {name} is also used at
+line {line}`, the `{title}` placeholder is renamed `{name}`, `{kind}` gains
+`leg`, and the cause gains one sentence: a leg's name is what every later call
+keys on, so two legs with one name leave every `leg.` call with no answer. "Name"
+is true of a plot's title and "title" is false of a leg, so one word covers both
+and the other does not. `errors.json` the same, and `stdlib.md` 17.6's sentence
+citing OS3017 keeps its wording.
+
+**3. `plots[].scale` writes `null` while its stdlib default is `"right"` and 2.3
+says defaults are written with their effective value.** The rule wins: the field
+is `string` rather than `string?`, its default is `"right"`, and
+`compiled-program.md` 12.2's worked example writes `"scale": "right"`. `overlay`
+stays `bool?` with `null`, because `plot`'s `overlay` argument's default really is
+`none` and `null` is its effective value.
+
+**4. `feature-matrix.md` 33's "and nothing else" turns a short list into a closed
+one.** The row's What-it-is cell becomes "The closed list of what an engine reads
+from the host", with no enumeration and no "and nothing else", citing
+`compiled-program.md` 5.2, which is where the closure is stated (H19).
+
+**5. `host-interface.md` 10.1 cites OS5003 for a host duty when OS5003 is about a
+script's limits budget.** The citation is correct and stays: OS5003 fires when a
+host's ceiling is below what a file asked for, which is a host duty declared at
+load. What is missing is which code covers which ceiling, so duty 5 gains one
+clause: OS6006 for a capability tag, OS5003 for a `limits()` option above the
+host's ceiling, OS5006 for outstanding requests above it. OS5003's Reference line
+in `errors.md` gains `host-interface.md` 10.1, and `errors.json` the same.
+
+**6. `bar.updates` is "handed over" in one place and "executed" in two others.**
+"Executed" is the word, everywhere, because `bar.updates` is read from inside an
+execution and a script can only count what it ran. `host-interface.md` 6.1's row
+and 6.2's sentence adopt it, and 6.4 gains the obligation that makes the two
+counts one number: the host increments `updates` once per hand-over, the engine
+executes once per hand-over, and a host that hands a bar over without it being
+executed does not increment it. The meaning's home is `language.md` 7.2 (H18).
+
+**7. `spec/README.md` says three documents and `spec/` holds nine.** Decision 34
+rewrites that page; this is the same edit and not a second one.
+
+---
+
+## 37. What the sweep turned up beyond D1 to D14
+
+Five more, each already carried in the home register above, listed here so that
+nobody has to rediscover them: the ledger row restated in prose in
+`host-interface.md` 7.5 (H6), the position reference defined twice (H7), the
+account-position rule argued at length in two documents (H8), the four stated bar
+facts listed in three (H18), and the strategy option defaults written out in the
+compiled format's sample (H23).
+
+One thing the sweep exposed that this part does not settle, because it is a new
+question rather than a duplicated fact: **a leg on a contract the chart does not
+show has no bar series of its own.** `stdlib.md` 17.6 lets a strategy declare it,
+`stdlib.md` 17.10 tests its stop against a bar's range, and nothing says where
+that bar comes from in a backtest. It is not a contradiction between two
+documents, so it is not a defect this part can close by assigning a home. It
+needs an issue of its own and a decision after it, and until then nothing should
+be written that assumes either answer.
+
+---
+
+## Applier index
+
+Seven appliers, each owning its own files and nobody else's. A decision touching
+two owners is listed under both, and the text to write is in the decision.
+
+| Applier | Files | Decisions and register entries |
+|---|---|---|
+| 1 | `spec/stdlib.md` | H1, H2, H6, H7, H8, H9, H10, H12, H13, H15, H16, H17, H18, H21, H22, H23; 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33 |
+| 2 | `spec/host-interface.md` | H1 to H13, H16, H17, H18, H19, H20; 23, 24, 25, 26, 29, 32, 33, 34, 36.5, 36.6 |
+| 3 | `spec/language.md`, `spec/compiled-program.md` | H14, H15, H18, H19, H20, H23, H24; 27, 28, 29, 34, 36.3, 36.6 |
+| 4 | `spec/errors.md`, `spec/errors.json` | H14, H21; 27, 29, 30, 33, 36.1, 36.2, 36.5 |
+| 5 | `spec/README.md`, `spec/feature-matrix.md`, `spec/conformance.md` | H16, H17, H19, H20, H22; 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36.4 |
+| 6 | `docs/` | H9, H12, H13, H20; 25, 26, 32, 34, 35 |
+| 7 | `examples/` | H9; 25 |
+
+Two standing reminders, the same ones this file opens with: every change to a
+per-code section of `errors.md` is the same change to the matching field of the
+same entry in `errors.json`, and every `feature-matrix.md` row added here must
+satisfy the five rules in that file's preamble, with a test identifier that
+appears nowhere else. `npm test` passes after every edit.

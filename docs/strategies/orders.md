@@ -9,7 +9,9 @@ you.
 ## The rule the whole page hangs on
 
 **A strategy never places an order that computes a delta against the account's
-position.** Every order states its own side and its own quantity outright.
+position.** Every order states its own side and its own quantity outright. The
+engine does not read the account's position, under `stdlib.md` section 17.1, and
+what follows here is why that rule is worth the words.
 
 The reason is not tidiness, and it is worth reading before the tables. An account
 position is held per contract, not per strategy. A second strategy on the same
@@ -45,7 +47,7 @@ compiler refuses the call with OS7001 and names the declaration to change.
 | Call | For |
 |---|---|
 | `leg.fixed(name, symbol, ...)` | Declare a leg on a contract named outright |
-| `leg.relative(name, underlying, expiry, strike, right, ...)` | Declare a leg on a contract named by description |
+| `leg.relative(name, underlying, kind, ...)` | Declare a leg on a contract named by description |
 | `buy(qty = the declaration's, limit = none, stop = none, tag = "", leg = the only leg)` | Enter or add to a long position in one leg |
 | `sell(qty = ..., limit = none, stop = none, tag = "", leg = ...)` | Enter or add to a short position in one leg |
 | `close(tag = none, qty = none, leg = ...)` | Flatten a leg, or the part carrying one tag |
@@ -63,26 +65,27 @@ is bare, and the long tail is namespaced.
 
 ## Legs: the contracts a strategy trades
 
-A strategy holds **one position per leg**. A leg is one contract the strategy
-trades, named by a string and declared before the run starts.
-
-A file that declares no leg has exactly one leg, the instrument its chart is
-showing, and every order function acts on it with no leg named. That is the shape
-of almost every script, and the examples below are written in it unless they say
-otherwise.
+A strategy trades the legs it declared. A leg names a contract outright with
+`leg.fixed` or describes one with `leg.relative`, and the host resolves the
+description before bar 0; a file that declares no leg has exactly one leg, the
+instrument its chart is showing, and every order acts on it with no leg named
+(`stdlib.md` sections 17.1 and 17.6). That last shape is almost every script, and
+the examples below are written in it unless they say otherwise.
 
 ```
 leg.fixed("near",  "AAA-F1")
 leg.fixed("far",   "AAA-F2")
 ```
 
-Legs are declared at the top level and never inside a block or a function, under
-OS3006, for the same reason a plot is: the set of contracts a strategy trades is
-part of its fixed shape, known before bar 0, and a leg that appeared on some bars
-and not others would leave the run's record with nothing stable to key on. Every
-argument of a leg declaration is part of that fixed shape, so each must be a
-compile-time constant: a literal, arithmetic over literals, or an `input()`. A
-bar-dependent one is OS3003. Two legs declared with one name is OS3017.
+A leg declaration is one of the top level only calls that `language.md` section
+15.3 lists, under OS3006, for the same reason a plot is: the set of contracts a
+strategy trades is part of its fixed shape, known before bar 0, and a leg that
+appeared on some bars and not others would leave the run's record with nothing
+stable to key on. You cannot hide a leg by passing `none`: declare it at the top
+level and decide per bar whether to send it an order. Every argument of a leg
+declaration is part of that fixed shape, so each must be a compile-time constant:
+a literal, arithmetic over literals, or an `input()`. A bar-dependent one is
+OS3003. Two legs declared with one name is OS3017.
 
 **Every order function names the leg it acts on.** In a file with one leg the
 `leg` argument defaults to that leg and is never written. In a file with more than
@@ -93,14 +96,9 @@ that are.
 ### A contract named by description
 
 `leg.fixed` names a contract the host already knows. `leg.relative` names one by
-description and the host resolves it:
-
-| Argument | Says |
-|---|---|
-| `underlying` | The instrument the contract derives from |
-| `expiry` | A rank: `0` is the nearest expiry, `1` the one after it |
-| `strike` | An offset in strikes from the money: `0` is at the money, positive is above |
-| `right` | `"none"`, `"call"` or `"put"` |
+description and the host resolves it. A relative contract is described by the
+fields of `stdlib.md` section 17.6, which is also where each field's meaning and
+the arguments' own refusals are fixed.
 
 The engine never parses a symbol and never builds one. A symbol format built for
 one market is meaningless in another, and portability is the whole objective, so
@@ -108,8 +106,7 @@ the description goes to the host and a resolved contract comes back. A descripti
 the host cannot resolve is OS6007, before the first bar, and the strategy does not
 start.
 
-**A relative contract resolves exactly once, before bar 0, and the resolved
-identity is what every later action uses.**
+**A relative contract resolves once, under `host-interface.md` section 9.4.**
 
 This is not a preference. It is how you avoid closing a position you do not hold.
 Take a leg described as the nearest expiry, at the money, on the call side.
@@ -121,9 +118,8 @@ entered, which either fails or, worse, opens a brand new position in the wrong
 direction, while the position it actually holds stays open with nothing managing
 it. You would end the day with two positions where you meant to have none.
 
-So the resolved identity is persisted with the run. A restart uses the contract
-that was entered rather than the contract that is nearest now, and `leg.symbol()`
-reads back the contract the orders actually carried.
+That is what the rule cited above buys, and `leg.symbol()` reads back the
+contract the orders actually carried.
 
 | Call | Returns | Reads back |
 |---|---|---|
@@ -147,9 +143,10 @@ One position per leg, rather than one net book across every leg, because legs ar
 different contracts. Adding a position in one to a position in another produces a
 number that is not a quantity of anything and cannot be sent anywhere.
 
-**No order crosses zero.** An instruction that would take a leg from long to short
-is sent as two orders: one that closes the outgoing position, one that opens the
-replacement. Each carries its own position reference.
+**No order crosses zero**, under `stdlib.md` section 17.1. An instruction that
+would take a leg from long to short is sent as two orders: one that closes the
+outgoing position, one that opens the replacement. Each carries its own position
+reference.
 
 ```
 // The leg is long 5 here.
@@ -279,7 +276,7 @@ is an answer.
 | `order.working(tag)` | `series bool` | Whether one named order is live and unfilled |
 | `order.pending` | `series number` | How many orders are live in total |
 | `order.id(tag)` | `series string` | The destination's own order id, `""` before it answers |
-| `order.status(tag)` | `series string` | The ledger's folded status |
+| `order.status(tag)` | `series string` | The ledger's folded status, from the vocabulary of `stdlib.md` section 17.7 |
 | `order.filled(tag)` | `series number` | Cumulative filled quantity, `0` before the first fill |
 | `order.avgFill(tag)` | `series number` | Average fill price, absent before the first fill |
 | `order.rejection(tag)` | `series string` | The destination's own rejection text, `""` when there is none |
@@ -289,11 +286,11 @@ Every one of those reads the strategy's own ledger and never the destination.
 important thing to know about reading orders back, and
 [reading-the-books.md](./reading-the-books.md) is the page that explains why.
 
-An unknown tag in any of them is OS7009, on the same ground as `cancel`: a tag
-that names nothing is a script that has lost track of its own orders. Cancelling
-something that is no longer live is refused with OS7009 too, not ignored, because
-a script mutating an order that has gone has lost track of its own state and will
-keep doing so. Test first with `order.working(tag)`.
+What these reads do with a tag that names no row, and what they read once an
+order has finished, is `stdlib.md` section 17.3. Cancelling something that is no
+longer live is a different matter: it is refused with OS7009 rather than ignored,
+because a script acting on an order that has gone has lost track of its own state
+and will keep doing so. Test first with `order.working(tag)`.
 
 Two habits that pay for themselves: give every order a tag, even when the script
 has only one, and make the tag describe the intention (`"entry"`, `"stop"`,

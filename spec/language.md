@@ -4,10 +4,9 @@ Version of this document: draft, tracking language version 1.
 
 This is the anchor document of the specification. It defines the source text, the
 types, the per-bar execution model, the scope rules and the statement and
-expression forms of OpenScript. Two sibling documents depend on it:
-`compiled-program.md` defines the instruction format a compiler emits and an
-engine reads, and `errors.md` is the authoritative catalogue for every error code
-quoted here.
+expression forms of OpenScript. The documents that make up the specification,
+what each one holds, and which one wins where two disagree are listed in
+`spec/README.md`.
 
 Where a rule could reasonably go two ways, this document says which way it goes
 and why in one sentence. Nothing in the language is left implementation defined.
@@ -47,8 +46,8 @@ engine. "Never" is a prohibition the compiler enforces.
 
 **Error codes.** A rule that the compiler enforces names the code it emits, for
 example OS2002. The code, its message, its cause, its fix and a worked example
-live in `errors.md`, which is authoritative. If a code here disagrees with the
-catalogue, the catalogue wins and this document is wrong.
+live in `errors.md`, which is authoritative. Where two documents disagree, the
+precedence is the one `spec/README.md` states.
 
 **Grammar notation.** Section 19 uses a small EBNF: `|` alternation, `[x]`
 optional, `{x}` zero or more, `"x"` a literal token, lowercase names for
@@ -843,14 +842,14 @@ n = bar.index           // runs on bar 0, then bar 1, then bar 2, ...
 plot(n, "Bar index")
 ```
 
-Statements that build the chart's fixed surface (`plot`, `plotCandles`, `fill`,
-`level`, `table`, `input`, the declaration itself) are read once, when the program
-is compiled, even though
-they sit in the per-bar body. Their **arguments** are still evaluated every bar,
-which is how a plot gets a new value per bar. This is why those statements must
-appear at the top level: the set of plotted columns, levels and settings must be
-fixed before the first bar runs so the chart can build a legend and a settings
-dialog. Putting one inside an `if` is OS3006, with the fix "plot `none` on the
+The statements that declare a file's fixed shape, which are the ones section 15.3
+lists as top level only, and the declaration itself, are read once, when the
+program is compiled, even though they sit in the per-bar body. Their
+**arguments** are still evaluated every bar, which is how a plot gets a new value
+per bar. This is why those statements must appear at the top level: what a file
+declares has to be fixed before the first bar runs, so that the chart can build a
+legend and a settings dialog and the run's record has a stable set of names to
+key on. Putting a plot inside an `if` is OS3006, with the fix "plot `none` on the
 bars you want hidden".
 
 ```
@@ -880,14 +879,22 @@ The `bar` namespace:
 | `bar.isConfirmed` | `series bool` | This bar's interval has elapsed |
 | `bar.isRealtime` | `series bool` | A live feed is driving updates |
 | `bar.isNew` | `series bool` | The last update appended a bar rather than replacing one |
-| `bar.updates` | `series number` | How many times this bar has been executed |
+| `bar.updates` | `series number` | How many times this bar has been executed, counting from 1 |
 
-The host states four of these facts about the execution, `bar.isNew`,
-`bar.isConfirmed`, `bar.isRealtime` and `bar.updates`, and the engine derives the
-other four from the dataset and this bar's position in it: `bar.index` is the
-position, `bar.count` is `bar.index + 1`, `bar.isFirst` is `bar.index == 0`, and
-`bar.isLast` is true when `bar.index` is the greatest index the host has supplied
-(`compiled-program.md` section 5.2).
+This table is where the bar facts are defined, and it is the only place they are
+defined: every other document cites it.
+
+The host states four of them about the execution, `bar.isNew`, `bar.isConfirmed`,
+`bar.isRealtime` and `bar.updates`. The engine derives the other four from the
+dataset and this bar's position in it: `bar.index` is the position, `bar.count`
+is `bar.index + 1`, `bar.isFirst` is `bar.index == 0`, and `bar.isLast` is true
+when `bar.index` is the greatest index the host has supplied. A fact the engine
+can derive is never also stated by the host, because two sources for one number
+can disagree and no rule would say which of them wins.
+
+Bar state is one of the channels an engine reads from the host
+(`compiled-program.md` section 5.2), and the duties a host carries when it
+supplies one are `host-interface.md` section 6.4's.
 
 `bar.isConfirmed` is `true` for every historical bar and for the newest bar once
 its interval has elapsed. It is the flag a script uses to refuse to act on a bar
@@ -1654,11 +1661,18 @@ that question is always "there should only have been one".
 
 Missing declaration: OS2007. Two declarations: OS2008.
 
+Sections 13.2 and 13.3 are where every option of both declarations and its
+default value is defined, and they are the only place either is defined. Every
+option is optional except `title`, and an option a script leaves out takes the
+default in its own row. What a compiled program writes them as is
+`compiled-program.md` section 2.3.
+
 ### 13.2 study options
 
 All option values must be compile-time constants: literals, arithmetic over
 literals, or a call to `input()`. An option that depends on a bar's data is OS3003,
-because a settings dialog and a legend are built before the first bar runs.
+because a settings dialog and a legend are built before the first bar runs. An
+`input()` is a constant for this purpose, because it is resolved before bar 0.
 
 | Option | Type | Default | Means |
 |---|---|---|---|
@@ -1854,18 +1868,27 @@ family) live directly in the global scope.
 grouped behind a name, which keeps the bare global scope small enough to memorise
 and keeps autocomplete useful.
 
+The table below is the closed list of namespaces, and it is the only place that
+list is written down. A name with a dot in it that is not one of these is not a
+namespace in version 1.
+
 | Namespace | Holds |
 |---|---|
 | `bar` | Per-bar facts, section 7.2 |
-| `chart` | Symbol, exchange, interval, timezone, tick size, lot size, point value, currency, instrument type, whether the instrument has volume, and `chart.now()` |
+| `chart` | The instrument record (`host-interface.md` section 4.1), and `chart.now()` |
 | `session` | Session start and end tests, the day's first and last bar |
 | `date` | Calendar fields and construction from a timestamp |
 | `str` | String operations beyond concatenation |
 | `math` | Mathematics beyond the common functions, which are bare |
 | `pos` | Open position facts in a strategy: size, average price, unrealised profit |
-| `order` | Order facts and placement beyond the bare `buy`, `sell`, `close`, `exit`, `cancel` and `cancelAll` |
+| `order` | Order facts and placement beyond the bare order functions |
+| `leg` | The contract each leg trades, and each leg's own position and protective levels, in a strategy |
+| `book` | Every declared leg taken together: the combined rules, the entry filters and the book's own profit, in a strategy |
 | `draw` | Line, label, box and polyline objects a script creates and mutates |
 | `req` | Higher timeframe and other-instrument reads |
+
+`leg` and `book` exist only in a `strategy()` file, and calling one from a
+`study()` file is OS7001.
 
 ```
 if session.isFirstBar
@@ -1877,14 +1900,21 @@ if date.dayOfWeek(time) == 5 and bar.isConfirmed
 hi = req.timeframe("1D", high)
 ```
 
-### 15.3 Drawing surfaces
+### 15.3 Where a call may appear
 
-Top level only, because they declare the fixed shape of the study: `plot`,
-`plotCandles`, `fill`, `level` and `table` (OS3006), and `input` (OS3007).
+These two lists are the whole of the rule, and they are the only place either
+list is written down.
 
-Anywhere, because they are per-bar events or per-bar paint: `signal`, `alert`,
-`background`, `barColor`, `cell`, `clear`, `print`, the `draw` namespace, and
-every order function.
+Top level only, because they declare the fixed shape of the file: `plot`,
+`plotCandles`, `fill`, `level`, `table`, `leg.fixed` and `leg.relative` (OS3006),
+and `input` (OS3007). The two leg declarations exist only in a `strategy()` file,
+and the set of contracts a strategy trades is part of its fixed shape for the
+same reason the set of columns is (`stdlib.md` section 17.6).
+
+Anywhere, because they are per-bar events, per-bar paint or per-bar decisions:
+`signal`, `alert`, `background`, `barColor`, `cell`, `clear`, `print`, the `draw`
+namespace, every order function, and every protective level and strategy shape
+call of `stdlib.md` section 17.
 
 ```
 upper = plot(hi, "Upper", color = aqua, width = 2, style = "line")

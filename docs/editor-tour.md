@@ -91,9 +91,9 @@ and no others.
 Four places autocomplete does more than complete a word:
 
 **Namespaces.** Type `pos.` and you get the position facts and nothing else. The
-namespaces are `bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`,
-`draw` and `req`, and they exist precisely so that the bare global scope stays
-small enough to memorise and autocomplete over the whole library stays useful.
+namespaces are the ones `language.md` section 15.2 lists, and they exist precisely
+so that the bare global scope stays small enough to memorise and autocomplete over
+the whole library stays useful.
 Everyday functions are bare: it is `ema(close, 9)` and `aqua`, never a prefix and
 a dot.
 

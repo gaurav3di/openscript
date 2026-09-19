@@ -60,11 +60,16 @@ cases/
 | `bars.csv` | for an engine case | The input bars, in full |
 | `expected.csv` | for a columnar assertion | One column per asserted output channel, one row per bar |
 | `expected.json` | for a non-columnar assertion | Diagnostics, drawings, table contents, orders, trades, log lines |
-| `instrument.json` | no | Instrument facts: the ten a host supplies (`compiled-program.md` 5.2), plus the session. Defaults documented in section 3 |
+| `instrument.json` | no | Instrument facts: the record of `host-interface.md` 4.1. Defaults in section 3 |
 | `settings.json` | no | Values for the script's inputs. Absent means every input takes its declared default |
 | `bars.<name>.csv` | no | A secondary bar series, for a higher timeframe or other instrument read |
 | `ticks.csv` | no | Intrabar updates, for a case that tests the moving bar |
+| `frames.csv` | no | Order frames delivered between bars, for a strategy case that asserts the fold |
 | `notes.md` | no | Why the case exists and what it is defending against |
+
+That table is the whole of a case directory. A runner reads no other file from
+it, and a file the table does not name is not input: a case that needs something
+no row covers is a case the suite cannot run until the row exists.
 
 The source file is always named `script.os` inside a case, whatever extension
 user-authored files end up carrying, so a runner never has to guess a name or
@@ -154,13 +159,14 @@ a case testing something else is not accidentally testing a session rule:
 }
 ```
 
-A fact the file does not state is absent, which is what a host that does not state
-it produces (`compiled-program.md` 5.2), so `chart.pointValue`, `chart.currency`
-and `chart.instrumentType` are absent in a case that says nothing about them. The
-volume flag is the exception the same section makes: a host must state it, so the
-default set states it, and `true` is the value that matches the default bars,
-which carry a volume column. A case about an instrument with no volume sets it to
-`false`.
+Which facts the record holds, which of them a host must state and what a script
+sees when one is absent are the instrument record's (`host-interface.md` section
+4.1). The block above is this suite's default set and nothing more: `true` for the
+volume flag is the value that matches the default bars, which carry a volume
+column, and a case about an instrument with no volume states it as `false`.
+
+The `session` value in that block is a default of this suite as well. The session
+is the instrument record's session (`host-interface.md` section 4.3).
 
 A case that is about sessions, timezones or instrument facts says so in
 `instrument.json` and in its `notes.md`.
@@ -188,6 +194,42 @@ Each row replaces the newest bar and re-executes it. The runner applies the rows
 in file order. A case with a `ticks.csv` normally asserts that the final per-bar
 output is identical to the same case run without it, which is the rollback rule
 of `language.md` 7.5 expressed as a test.
+
+### frames.csv
+
+`frames.csv` supplies order frames the way `bars.csv` supplies bars, so a strategy
+case can assert the fold against input the engine did not choose. One row is one
+frame, and the fields of a frame are the ones `host-interface.md` section 7.2
+names:
+
+```
+afterBar,intent,status,filledQty,avgFillPrice,orderRef,text
+0,1,working,0,none,R1,
+1,1,filled,25,101.5,R1,
+1,1,filled,25,101.5,R1,
+2,1,filled,40,101.75,R1,
+```
+
+- `afterBar` is the zero-based index of the bar after whose execution the frame is
+  delivered, so the fold happens at a bar boundary before the next execution
+  (`host-interface.md` section 7.2). Several rows may name one bar and are
+  delivered in file order, which is how a case orders two frames that cross.
+- `intent` is an ordinal, not an id: 1 is the first intent the run placed, 2 the
+  second. A case cannot know the id an engine minted and must not depend on its
+  spelling, so the runner maps the ordinal to the engine's own `intentId`. An
+  ordinal greater than the number of intents the run placed is how a case hands an
+  engine a frame naming an order its ledger does not hold.
+- `status` is one word a host may send, from the vocabulary of `stdlib.md` section
+  17.7.
+- `filledQty` is cumulative. `avgFillPrice` is absent as `none`, written the way
+  `bars.csv` writes an absent field.
+- `orderRef` and `text` are optional columns, and an omitted column is absent on
+  every row. Extra columns are an error, as in `bars.csv`.
+
+The four rows above are a working frame, a fill, the same fill repeated, and a
+frame whose cumulative quantity rose after the row had gone terminal. A case
+asserts what came of them through the `orders` channel of `expected.json`, and a
+case with no `frames.csv` is handed no frames at all.
 
 ### Where bars come from
 
@@ -242,6 +284,9 @@ ordered list, and each element is a flat object of named fields.
   ]
 }
 ```
+
+An element of the `orders` channel is a ledger row of `stdlib.md` section 17.7,
+compared on the fields the case names and no others.
 
 A diagnostic is compared on `code`, `line`, `column` and `severity` only. The
 message text and the suggested fix are deliberately not compared, because

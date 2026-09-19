@@ -31,7 +31,7 @@ reference for that.
 | [`09-supply-demand-zones.oscript`](./09-supply-demand-zones.oscript) | Study | Drawing objects created, mutated and deleted over hundreds of bars |
 | [`10-strategy-ema-cross.oscript`](./10-strategy-ema-cross.oscript) | Strategy | Orders, a bracket, and sizing from the distance to the stop |
 | [`11-strategy-opening-range.oscript`](./11-strategy-opening-range.oscript) | Strategy | One trade per session, a bracket, and an exit on the clock |
-| [`12-strategy-short-premium.oscript`](./12-strategy-short-premium.oscript) | Strategy | A two leg position managed on the sum, inside the single instrument order model |
+| [`12-strategy-short-premium.oscript`](./12-strategy-short-premium.oscript) | Strategy | A two leg position managed on the sum, one leg on the chart and the other routed from an alert |
 
 ## What each one is for
 
@@ -113,11 +113,10 @@ position that has not worked in five hours is not going to.
 **12. Short premium.** Two legs sold together and managed as one position. The
 stop is measured on the sum of the two prices, because stopping each leg
 separately is the classic way to take two losses on a day the legs were hedging
-each other. This is the script that found the version 1 boundary on orders: a
-strategy trades the instrument on its chart and nothing else, so the chart
-carries one leg, the script reads the other, and the second leg is routed by the
-host from an alert. That is the shape `stdlib.md` section 17.1 defines, and this
-script is written to it rather than around it.
+each other. This script trades one leg on its chart and routes the other from an
+alert, which is one of two shapes. A strategy that wants both legs in its own
+ledger declares them with `leg.relative` and enters them as a unit
+(`stdlib.md` sections 17.6 and 17.12).
 
 ## What the twelve did not need
 
@@ -186,14 +185,11 @@ the answer now lives, and the scripts have been brought to it.
 - **Nothing reads equity.** `stdlib.md` section 17.4 carries `pos.equity`,
   `pos.netProfit` and `pos.openProfit`, with `pos.maxDrawdown` named and planned
   beside them.
-- **Orders are single instrument, and the position facts are too.** Settled as a
-  decision rather than as new surface. `stdlib.md` section 17.1 states that no
-  order function takes a symbol, and that a position built from more than one
-  instrument is one leg traded, the others read with `req.symbol`, and the
-  decision routed by the host from an `alert`. Script 12 is written to that
-  model. A per leg order form is a later objective, not a version 1 hole, because
-  it needs per leg position facts and a fill model for bars that are not the
-  chart's.
+- **An order names no symbol.** Settled as a decision rather than as new
+  surface. What a strategy trades is `stdlib.md` section 17.1, and the leg
+  declarations are `stdlib.md` section 17.6. Script 12 reads its second leg with
+  `req.symbol` and routes the decision from an `alert`, because a leg the chart
+  does not show has no bar series a backtest could fill against.
 - **There is no symbol input.** `stdlib.md` section 13.1 names `kind = "symbol"`
   and marks it planned, so scripts 6 and 12 take a plain text input and say so in
   a comment. Calling a planned kind would be OS2001.

@@ -24,8 +24,8 @@ The whole of it is one function.
 
 `alert()` returns nothing. It may appear anywhere a statement may appear: at the
 top level, inside an `if`, inside a `for`, inside the body of an `fn`. It is a
-per-bar event, not part of the fixed shape of the study, so it is not subject to
-the top level rule that `plot`, `fill`, `level`, `input` and `table` obey.
+per-bar event, not part of the fixed shape of the study, so it is not one of the
+top level only calls that `language.md` section 15.3 lists.
 
 Each call site lands in one entry of the chart contract's watched conditions,
 carrying that entry's id, title, message and predicate.

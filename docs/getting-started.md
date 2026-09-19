@@ -182,9 +182,9 @@ indistinguishable from a gap you meant to be there.
 Between steps 4 and 5 there is a step with no errors of its own, and it is the
 one that makes the settings dialog exist: the host reads the compiled program's
 list of inputs and its list of outputs and builds the dialog, the legend row and
-the pane before the first bar runs. This is why `input`, `plot`, `fill`, `level`
-and `table` have to sit at the top level of the file and can never be wrapped in
-an `if`. The shape of the study is fixed before any data is seen. Section
+the pane before the first bar runs. This is why the calls `language.md` section 15.3
+lists as top level only have to sit at the top level of the file and can never be
+wrapped in an `if`. The shape of the study is fixed before any data is seen. Section
 [Three rules](#three-rules-that-will-save-you-an-afternoon) below says what to do
 instead.
 

@@ -213,15 +213,9 @@ cases/
       notes.md
 ```
 
-| File | Holds |
-|---|---|
-| `case.json` | What the case asserts, the language version it pins, any tolerance |
-| `script.os` | The source text |
-| `bars.csv` | The bars, oldest first, with a header row |
-| `expected.csv` | One column per asserted output, one row per bar |
-| `settings.json` | Values for the script's inputs; absent means every input takes its default |
-| `ticks.csv` | Intrabar updates, for a case that tests the moving bar |
-| `notes.md` | Why the case exists and what it is defending against |
+A case supplies it from the case directory, `conformance.md` section 2, which is
+where the files a case may hold and what each one supplies are defined. The tree
+above is one case using some of them.
 
 ```json
 {

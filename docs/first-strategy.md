@@ -87,21 +87,24 @@ cost tells you nothing about whether it works.
 
 ## The position model
 
-A strategy holds **one net position** in the instrument on the chart.
+A strategy trades the legs it declared. A leg names a contract outright with
+`leg.fixed` or describes one with `leg.relative`, and the host resolves the
+description before bar 0; a file that declares no leg has exactly one leg, the
+instrument its chart is showing, and every order acts on it with no leg named
+(`stdlib.md` sections 17.1 and 17.6). This file declares none, so everything
+below acts on the chart's instrument.
 
 | Call | Does |
 |---|---|
-| `buy(qty, limit, stop, tag)` | Enter or add to a long position |
-| `sell(qty, limit, stop, tag)` | Enter or add to a short position |
-| `close(tag, qty)` | Flatten the position, or the part carrying one tag |
-| `exit(tag, qty, limit, stop, trail, trailOffset, profit, loss)` | Attach a bracket: a target, a stop, or a trailing stop |
+| `buy(qty, limit, stop, tag, leg)` | Enter or add to a long position in one leg |
+| `sell(qty, limit, stop, tag, leg)` | Enter or add to a short position in one leg |
+| `close(tag, qty, leg)` | Flatten a leg, or the part carrying one tag |
+| `exit(tag, qty, limit, stop, profit, loss, leg)` | Set the leg's stop or target from a call site |
 | `cancel(tag)`, `cancelAll()` | Cancel working orders that have not filled |
 
-`buy` adds, `sell` subtracts, and an order that crosses zero is reported as one
-exit and one entry. There are no independent long and short books, because a net
-position is what a broker actually gives you back, and a language whose model
-disagreed with your account statement would produce a backtest you could never
-reconcile against it.
+`buy` adds and `sell` subtracts. What a leg holds, and what an instruction that
+would take it through zero is sent as, is the position model of `stdlib.md`
+section 17.1.
 
 With neither `limit` nor `stop`, `buy` and `sell` place a market order. With
 `limit` alone, a limit order. With `stop` alone, a stop order. With both, a
@@ -217,11 +220,14 @@ if enterLong and pos.isFlat and not isNone(atrValue)
 | `limit` | An absolute price | `exit(limit = 1520.0)` |
 | `loss` | A distance from the entry, in price units | `exit(loss = 12.5)` |
 | `profit` | A distance from the entry, in price units | `exit(profit = 25.0)` |
-| `trail`, `trailOffset` | A trailing stop and its offset | `exit(trail = 20, trailOffset = 5)` |
 
 Giving both an absolute price and a distance for the same side is refused, rather
 than reconciled: any rule for combining them would surprise somebody, and this is
 not a place to be surprised.
+
+A trailing stop is not one of these arguments: it is `leg.trail(name, distance,
+arm)`, the one spelling in the language, and what it follows and when it arms are
+`stdlib.md` section 17.9.
 
 The two `var` names are doing real work. They hold the levels **as they were
 sent**, so the lines you plot are the orders that exist:

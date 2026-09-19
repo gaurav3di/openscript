@@ -66,10 +66,10 @@ These are the same in paper as in live, to the last decimal:
 - Position accounting: `pos.size`, `pos.avgPrice`, `pos.barsHeld`, `pos.entries`,
   one position per leg, folded from this strategy's own settled fills and from
   nothing else.
-- The ledger and the fold: one row per order, cumulative frames rather than
-  deltas, a repeated frame folding to no change.
-- Which contract each leg resolved to. A relative contract resolves once, before
-  bar 0, on paper exactly as it does live.
+- The ledger of `stdlib.md` section 17.7 and the fold of section 17.8, applied to
+  the same frames in the same order.
+- Which contract each leg resolved to. A relative contract resolves once, under
+  `host-interface.md` section 9.4, on paper exactly as it does live.
 - The cost model you declared: slippage in ticks, commission, lot rounding.
 - The risk rules and the order they are evaluated in, and the named events they
   emit.
@@ -356,8 +356,8 @@ of them is a matter of opinion.
    the size ends up absent refuses the trade rather than sending it.
 9. Every leg the file declares is declared at the top level with compile-time
    arguments, and you have read back what a relative one resolved to, with
-   `leg.symbol(name)`, rather than assuming it. It resolves once, before bar 0,
-   and the run keeps that identity for every later action.
+   `leg.symbol(name)`, rather than assuming it. A relative contract resolves once,
+   under `host-interface.md` section 9.4.
 10. The risk rules you meant are set: per leg a stop and, where you want one, a
     target and a trail with its arming distance; per strategy a combined stop only
     if the file enters as a unit; per session an exit time, an expiry square off
