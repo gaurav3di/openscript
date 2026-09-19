@@ -18,6 +18,28 @@ jobs:
       - name: No outside product or company is named
         run: node scripts/check-names.mjs
 
+  examples:
+    name: examples compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: No documented example shadows a built-in name
+        run: node scripts/check-examples.mjs
+
+  error-codes:
+    name: error code check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Every documented error code is in the catalogue
+        run: node scripts/check-error-codes.mjs
+
   build:
     name: build and test
     runs-on: ubuntu-latest
