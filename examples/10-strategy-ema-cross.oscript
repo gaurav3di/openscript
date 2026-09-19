@@ -1,9 +1,9 @@
 // The same crossing as the first example, traded: a stop and a target fixed at
 // entry, and a size chosen so that the stop costs the same on every trade.
 //
-// Exercises: strategy options and the cost model, buy and close, order.bracket,
-// pos facts, sizing rounded to a whole lot, and holding the entry levels in var
-// so the plotted stop is the stop that was actually sent.
+// Exercises: strategy options and the cost model, buy and close, exit with
+// absolute bracket prices, pos facts, sizing rounded to a whole lot, and holding
+// the entry levels in var so the plotted stop is the stop that was actually sent.
 
 version 1
 
@@ -47,10 +47,15 @@ if crossUp(fast, slow) and flat and canSize
     // next bar's open, which is the default and is the honest one. They are the
     // levels the decision was made on, and the backtest reports the slippage
     // between them and the fill rather than hiding it.
+    //
+    // exit rather than order.bracket: exit takes absolute prices and
+    // order.bracket takes distances from the entry (stdlib 17.2 and 17.3), and
+    // these two are prices. Both in one call, never two, so a gap through both
+    // cannot fill them as separate orders.
     entryStop   = close - stopDistance
     entryTarget = close + targetDistance
-    buy(qty = orderQty)
-    order.bracket(stop = entryStop, target = entryTarget)
+    buy(qty = orderQty, tag = "entry")
+    exit(tag = "entry", stop = entryStop, limit = entryTarget)
 
 if crossDown(fast, slow) and pos.size > 0
     entryStop   = none

@@ -3,7 +3,7 @@
 //
 // Exercises: intraday product and closeOnSessionEnd, one entry per session held
 // in var, a bracket whose stop is a level the market drew rather than a
-// multiple, and an exit on elapsed session time rather than on a signal.
+// multiple, and a flattening on elapsed session time rather than on a signal.
 
 version 1
 
@@ -46,16 +46,19 @@ ok    = not isNone(rangeWidth) and rangeWidth > 0
 
 if ready and ok and close > rangeHigh
     traded = true
-    buy(qty = lots)
+    buy(qty = lots, tag = "entry")
     // The far side of the range is the stop because that is the level that says
     // the breakout was wrong. A multiple of volatility would be a second opinion
-    // about a level the market has already drawn.
-    order.bracket(stop = rangeLow, target = rangeHigh + rangeWidth * targetMult)
+    // about a level the market has already drawn. Both levels are absolute
+    // prices, which is what exit takes; order.bracket takes distances from the
+    // entry instead (stdlib 17.2 and 17.3), and stating the same level two ways
+    // is OS3010.
+    exit(tag = "entry", stop = rangeLow, limit = rangeHigh + rangeWidth * targetMult)
 
 if ready and ok and close < rangeLow
     traded = true
-    sell(qty = lots)
-    order.bracket(stop = rangeHigh, target = rangeLow - rangeWidth * targetMult)
+    sell(qty = lots, tag = "entry")
+    exit(tag = "entry", stop = rangeHigh, limit = rangeLow - rangeWidth * targetMult)
 
 // The clock exit. It is not a stop and not a target: it is the admission that a
 // position that has not worked in five hours is not going to, and that carrying

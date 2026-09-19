@@ -9,16 +9,16 @@ version 1
 
 study("Anchored VWAP", overlay = true, precision = 2)
 
-anchorText = input("2025-01-01 09:15", "Anchor", kind = "time")
+anchorTime = input("2025-01-01 09:15", "Anchor", kind = "time")
 src        = input(hlc3, "Source")
 bandMult   = input(1.0, "Band width, in standard deviations", min = 0.1, max = 5)
 showBands  = input(true, "Show the bands")
 
-// A time input is a wall clock string so that a saved layout restores to the
-// same clock in another zone. It becomes a bar time here, once, and an anchor
-// that cannot be read stays absent: the comparison below is then absent on
-// every bar, nothing accumulates, and the plot is empty rather than wrong.
-anchorTime = date.fromString(anchorText)
+// A time input stores a wall clock string, so that a saved layout restores to
+// the same clock in another zone, and returns the instant that string names as
+// a number (stdlib 13.3). There is nothing to convert here, and an anchor the
+// host cannot read is absent: the comparison below is then absent on every bar,
+// nothing accumulates, and the plot is empty rather than wrong.
 
 var priceVolume  = 0.0
 var squareVolume = 0.0
@@ -37,20 +37,22 @@ if started
     squareVolume += src * src * volume
     totalVolume  += volume
 
-ready = started and totalVolume > 0
-vwap  = ready ? priceVolume / totalVolume : none
+// vwap and variance are library names (stdlib 6 and 7), and assigning to a
+// built-in is OS2002, so the two readings computed here carry their own names.
+ready     = started and totalVolume > 0
+vwapValue = ready ? priceVolume / totalVolume : none
 
 // The second moment about the mean can come out very slightly negative on a
 // long run of near identical prices, which is floating point and not data, so
 // it is floored at zero before the root. Without the floor sqrt would return
 // none and put a one bar hole in both bands.
-variance = ready ? max(squareVolume / totalVolume - vwap * vwap, 0) : none
-dev      = ready ? sqrt(variance) : none
+varianceValue = ready ? max(squareVolume / totalVolume - vwapValue * vwapValue, 0) : none
+dev           = ready ? sqrt(varianceValue) : none
 
-upper = showBands ? vwap + bandMult * dev : none
-lower = showBands ? vwap - bandMult * dev : none
+upper = showBands ? vwapValue + bandMult * dev : none
+lower = showBands ? vwapValue - bandMult * dev : none
 
-plot(vwap,  "Anchored VWAP", orange, width = 2)
+plot(vwapValue, "Anchored VWAP", orange, width = 2)
 plot(upper, "Upper band", aqua)
 plot(lower, "Lower band", aqua)
 fill(upper, lower, fade(aqua, 92))

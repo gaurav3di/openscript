@@ -1,24 +1,28 @@
 // The combined price of two option legs, read from two instruments that are not
 // the one on the chart, with the session's opening premium held as a reference.
 //
-// Exercises: req.instrument, a symbol input, chart facts (exchange and lot
-// size), absence propagating through an addition so a half read is never
-// mistaken for a whole one, and a two argument alert.
+// Exercises: req.symbol, chart facts (exchange and lot size), absence
+// propagating through an addition so a half read is never mistaken for a whole
+// one, and an alert guarded by the condition that raises it.
 
 version 1
 
 study("Combined premium", precision = 2, format = "price")
 
-callLeg   = input("", "Call leg", kind = "symbol")
-putLeg    = input("", "Put leg",  kind = "symbol")
+// Plain text inputs. The instrument picker, input kind "symbol", is planned
+// rather than part of version 1 (stdlib 13.1), and calling a planned kind would
+// be OS2001, so the legs are typed in until the picker lands.
+callLeg   = input("", "Call leg")
+putLeg    = input("", "Put leg")
 lots      = input(1,  "Lots", min = 1, max = 100)
 targetPct = input(30, "Decay to mark, in percent of the opening premium", min = 1, max = 99)
 
 // Each leg is read at the chart's own interval and aligned to the chart's bars,
 // so the two legs and the chart share one time axis and the sum below is a sum
-// of the same moment.
-callPrice = req.instrument(callLeg, close, exchange = chart.exchange)
-putPrice  = req.instrument(putLeg,  close, exchange = chart.exchange)
+// of the same moment. The mode is left at its default, "confirmed", which is the
+// only one that never repaints.
+callPrice = req.symbol(callLeg, chart.interval, close, exchange = chart.exchange)
+putPrice  = req.symbol(putLeg,  chart.interval, close, exchange = chart.exchange)
 
 // If either leg has no bar at this time the sum is absent, not half a position.
 // That is the whole reason absence propagates through arithmetic: a missing leg
@@ -44,7 +48,12 @@ plot(premium, "Combined premium", orange, width = 2)
 plot(opening, "Opening premium", fade(silver, 40), style = "step")
 plot(money,   "Position value", aqua, scale = "left")
 
-alert(decay >= targetPct, "Combined premium decayed " + text(decay, 1) + " percent")
-
+// The condition is the guard, not an argument: alert takes a message and an id
+// (stdlib 16), and the compiler lifts the chain of guards reaching the call into
+// the watched condition's predicate. decay is absent on any bar where either leg
+// is missing, and an absent condition takes the false branch, so neither the
+// alert nor the marker fires on a gap.
 if decay >= targetPct
+    alert("Combined premium decayed " + text(decay, 1) + " percent",
+          id = "premium-decay")
     signal("TARGET")

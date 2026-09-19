@@ -17,9 +17,11 @@ corner  = input("topRight", "Corner",
 
 // The grid is declared once, before the first bar, for the same reason a plot
 // is: the pane has to know what it is reserving room for before any data
-// arrives. Only the contents of the cells are per bar.
-panel = table(position = corner, rows = 7, columns = 2,
-              textColor = silver, background = fade(black, 25))
+// arrives. Only the contents of the cells are per bar. The title is the first
+// positional argument and has no default (stdlib 14.3), because a grid the host
+// cannot name has no row in a legend and no heading in a settings dialog.
+panel = table("Readings", rows = 7, cols = 2, position = corner,
+              textColor = silver, bgColor = fade(black, 25))
 
 oscillator = rsi(close, rsiLen)
 atrValue   = atr(atrLen)

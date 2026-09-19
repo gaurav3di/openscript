@@ -52,7 +52,7 @@ for i = size(zones) - 1 to 0 step -1
     // Extended to this bar's own time rather than past it, because the interval
     // between bars is not a fact the script has, and guessing it would leave the
     // right edge of every box in a slightly different place on every timeframe.
-    draw.setEnd(element(zones, i), time, bottom)
+    draw.setTo(element(zones, i), time, bottom)
     draw.setTooltip(element(zones, i), (side > 0 ? "Supply" : "Demand") +
                     ", " + text(age, 0) + " bars old")
 
@@ -66,7 +66,7 @@ if not isNone(pivotUp) and size(zones) < maxZones * 2
     zoneHigh  = high[rightBars]
     zoneLow   = max(open[rightBars], close[rightBars])
     shape = draw.box(startTime, zoneHigh, time, zoneLow,
-                     color = red, fill = fade(red, 85), text = "Supply")
+                     color = red, fillColor = fade(red, 85), text = "Supply")
     push(zones, shape)
     push(zoneTop, zoneHigh)
     push(zoneBottom, zoneLow)
@@ -78,7 +78,7 @@ if not isNone(pivotDown) and size(zones) < maxZones * 2
     zoneHigh  = min(open[rightBars], close[rightBars])
     zoneLow   = low[rightBars]
     shape = draw.box(startTime, zoneHigh, time, zoneLow,
-                     color = lime, fill = fade(lime, 85), text = "Demand")
+                     color = lime, fillColor = fade(lime, 85), text = "Demand")
     push(zones, shape)
     push(zoneTop, zoneHigh)
     push(zoneBottom, zoneLow)

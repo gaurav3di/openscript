@@ -15,21 +15,27 @@ paint   = input(true, "Recolour the candles")
 
 // mode is a literal and not an input, deliberately. The three readings are:
 //
-//   "closed"  the last coarse bar that has finished, held constant across the
-//             one now forming. It never uses a bar that had not happened yet,
-//             so what is on the chart today is what was on it at the time.
-//   "forming" the coarse bar as it stands on this bar: its high so far, its
-//             close so far. Also honest, but the value changes while the coarse
-//             bar is still open, so a signal taken from it can be withdrawn.
-//   "final"   the finished values of the coarse bar, on every bar inside it.
-//             This reads bars from the future and repaints. It exists so that a
-//             study written elsewhere can be reproduced, not because it is a
-//             defensible way to trade.
+//   "confirmed"  the last coarse bar that has finished, held constant across
+//                the one now forming. It never uses a bar that had not happened
+//                yet, so what is on the chart today is what was on it at the
+//                time.
+//   "developing" the coarse bar as it stands on this bar: its high so far, its
+//                close so far. Also honest, but the value changes while the
+//                coarse bar is still open, so a signal taken from it can be
+//                withdrawn.
+//   "lookahead"  the finished values of the coarse bar, on every bar inside it.
+//                This reads bars from the future and repaints. It exists so
+//                that a study written elsewhere can be reproduced, not because
+//                it is a defensible way to trade.
+//
+// "confirmed" is the default, which is why a read that says nothing cannot
+// repaint, and the other two are warned about: "developing" carries OS8002 and
+// "lookahead" carries OS8005.
 //
 // Making this a setting would let a reader change the honesty of the study
 // without reading it, which is exactly the thing the mode is here to prevent.
-biasClose   = req.timeframe(biasTf, close, mode = "closed")
-biasAverage = req.timeframe(biasTf, ema(close, biasLen), mode = "closed")
+biasClose   = req.timeframe(biasTf, close, mode = "confirmed")
+biasAverage = req.timeframe(biasTf, ema(close, biasLen), mode = "confirmed")
 
 // The average is computed from the folded bars, not from the chart's bars: a 20
 // period average of daily closes, sampled onto every five minute bar, which is

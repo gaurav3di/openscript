@@ -981,7 +981,7 @@ the requested timeframe.
 ```
 dayHigh   = req.timeframe("1D", high)
 dayRsi    = req.timeframe("1D", rsi(close, 14))
-indexTrend = req.symbol("NIFTY", "1D", ema(close, 20) > ema(close, 50))
+indexTrend = req.symbol("INDEX", "1D", ema(close, 20) > ema(close, 50))
 ```
 
 A name from the file scope may be read inside `expr` only when it is a
@@ -1075,6 +1075,16 @@ One net position rather than independent long and short books, because a net
 position is what a broker actually gives back, and a language whose model
 disagreed with the account would produce a backtest that cannot be reconciled
 with a statement.
+
+**No order function takes a symbol.** A strategy trades the instrument on its
+chart and nothing else, so a position built from more than one instrument is
+written as one leg traded, the others read with `req.symbol` of section 15, and
+the decision routed by the host from an `alert`. Version 1 stops there rather
+than half-defining a per-leg order, because a per-leg order needs per-leg
+position facts and a fill model for bars that are not the chart's, and a fill
+model that guessed would report a backtest fill at a price the leg never traded.
+The boundary is stated here so that a multi-leg script is written to it on
+purpose rather than discovering it in a backtest.
 
 An order is filled according to the declaration's `fillOn` option, which defaults
 to the next bar's open (`language.md` section 13.3), with the declared slippage

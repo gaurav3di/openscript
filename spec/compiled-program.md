@@ -131,7 +131,7 @@ version 1 for a program that says `"language": 1`, forever. That is how
 
 A list of capability tags. At load time the engine compares the list against its
 own capabilities and refuses the program, naming the first tag it does not have, if
-any is absent (OS6003).
+any is absent (OS6006).
 
 Tags are the real compatibility mechanism, and the version number is the coarse
 one. A version number says how new a program is; a tag says what it actually needs.
@@ -152,7 +152,7 @@ The tags defined in format 1.0:
 | `tables` | Declares a table |
 | `alerts` | Declares an alert |
 | `req.timeframe` | Reads a higher timeframe |
-| `req.instrument` | Reads another instrument |
+| `req.symbol` | Reads another instrument |
 
 A compiler must emit every tag the program needs and must not emit a tag it does
 not need, because a spurious tag turns an engine that could have run the program
@@ -274,7 +274,7 @@ The host supplies a settings object keyed by `key`. For each input the engine
 resolves the effective value as: the host's value when the host supplies one and it
 passes validation, otherwise `default`. Validation is exact: wrong type, a number
 outside `min` or `max`, a `"select"` value not in `options`. A value that fails
-validation is OS3008 and the program does not run, rather than falling back to the
+validation is OS6019 and the program does not run, rather than falling back to the
 default, because a settings dialog that silently ignores what a user typed is worse
 than one that says the value is out of range.
 
@@ -675,3 +675,1604 @@ below it, so a run of instructions from one expression costs one triple.
 `debug` never affects execution. An engine may drop it after load. It may not be
 absent from the program, because an error message without a line is the thing this
 project promised not to ship.
+
+---
+
+## 3. The machine
+
+### 3.1 Values
+
+A value on the machine is one of six things, and every instruction's behaviour is
+defined by the tags of the values it is handed.
+
+| Tag | Holds |
+|---|---|
+| absent | Nothing. The value written `none` in source |
+| number | A finite IEEE-754 binary64 value |
+| bool | `true` or `false` |
+| string | A sequence of Unicode code points |
+| color | Red, green, blue as whole numbers 0 to 255, alpha as a number 0 to 1 |
+| reference | An array, a table, or a drawing object, held in the object heap |
+
+Rules that hold everywhere and are not repeated at each instruction:
+
+- **A number is always finite.** Any arithmetic result that is not finite is
+  absent, checked after each individual operation and not at the end of an
+  expression. So `(1e308 * 10) / 10` is absent, not `1e307`. Checking per operation
+  rather than per expression is what makes the rule explainable and what makes two
+  engines agree, because the alternative depends on where an engine happens to
+  round.
+- **Negative zero is normalised to positive zero** on every arithmetic result and
+  on every store. Nothing in the language can observe the sign of a zero, since
+  dividing by one produces absence rather than a signed infinity, so normalising
+  removes a difference that could otherwise reach a string through `text()` and
+  differ between two engines for no reason a reader could ever act on.
+- **A string is a sequence of code points.** Length, indexing and comparison are by
+  code point, not by the storage unit of whatever language the engine is written
+  in. An engine whose native strings are sixteen bit units must count and index
+  past a surrogate pair as one element, or two engines will disagree about the
+  length of a string holding a symbol outside the basic plane and about every
+  substring taken after one.
+- **A reference is opaque.** Equality on two references is identity
+  (`language.md` section 9.3). A reference is never a number and never converts to
+  one.
+
+### 3.2 Memory
+
+| Region | Addressed by | Lifetime | Rolled back | In a checkpoint |
+|---|---|---|---|---|
+| Operand stack | implicit | one statement | not applicable | no |
+| Frame slots | `LOAD`, `STORE` | one execution of a bar | not applicable | no |
+| Call frames | `CALL_FN`, `RET` | one call | not applicable | no |
+| Cells | `LOADC`, `STOREC`, `CELL_INIT` | across bars | `"var"` yes, `"live"` no | yes |
+| Library state | the `CALL_LIB` state operand | across bars | yes | yes |
+| Series registers | `SLOAD`, `SSTORE`, `HIST`, `HISTP` | across bars | current bar's entry only | yes |
+| Object heap | references held anywhere | across bars while reachable | yes | yes |
+| Channels | `EMIT` | one execution of a bar | rewritten | the committed bar values |
+| Pending effects | library calls with an effect | one execution of a bar | discarded | no |
+| Loop counter | `TICK` | one execution of a bar | reset | no |
+| Strategy state | order library calls | across bars | yes | yes |
+
+The whole of the per-bar state question is in that table's third and fourth
+columns, and section 6 is its consequences.
+
+**The operand stack** is where instructions take their arguments and leave their
+results. It is empty at the start of every top-level statement and empty when
+`HALT` executes. A frame's stack region is its own: a called function cannot see or
+disturb the caller's operands, which is what makes the verifier's job local.
+
+**Frame slots** are indices into the current frame. The top-level frame has
+`frame.slots` slots and is frame 0. A `CALL_FN` pushes a frame of
+`functions[fn].slots` slots, with the arguments already written into slots 0 to
+`argc - 1`. Slots are not shared between frames and have no history.
+
+**Cells** are a flat array of `cells.length` entries, each either uninitialised or
+holding one value. A cell operand inside a function body is added to the current
+frame's `cellBase`, so the same body reaches different cells from different call
+sites.
+
+**Library state** is a flat array of `states.length` regions. The state operand of
+a `CALL_LIB` inside a function body is added to the current frame's `stateBase`,
+on the same principle.
+
+**Series registers** each hold a history of one value per bar plus a cell for the
+bar currently executing. The current cell is set to absent at the start of each
+execution of a bar; `SSTORE` writes it; `HIST` at offset 0 reads it. At the end of
+the execution the current cell becomes the history entry for that bar, replacing
+whatever a previous execution of the same bar left there.
+
+**The object heap** holds arrays, tables and drawing objects. A reference is a
+handle into it. The heap is reachable from cells, from slots and from inside other
+objects; only what is reachable from cells and from strategy state survives a bar.
+
+### 3.3 Frames
+
+A frame is:
+
+| Field | Means |
+|---|---|
+| `code` | The instruction list being executed |
+| `pc` | The index of the next instruction |
+| `slots` | This frame's slot array |
+| `cellBase` | Added to every cell operand |
+| `stateBase` | Added to every state operand |
+| `series` | Register bound to each series parameter, from the call site |
+| `stack` | This frame's operand stack |
+
+Frame 0 has `cellBase` 0, `stateBase` 0, an empty `series` array and the top-level
+`code`. Frames nest to the depth of the call graph, which is statically bounded
+because recursion is an error (`language.md` section 11.4). An engine that declares
+a maximum frame depth refuses a program that exceeds it at load, with OS5005, and
+never discovers the problem halfway through a bar.
+
+### 3.4 The absent value in memory
+
+Absent is a value, not a missing field. In the canonical encoding it is the pool
+entry `["z", null]`. In a value that leaves the machine for a host, it is `null`,
+which is what the chart contract already uses for a gap in a plotted column.
+
+An engine must not represent absence as a number. A sentinel such as not-a-number
+would make absence propagate through arithmetic by accident, which happens to be
+the right answer for four operators and the wrong answer for six, and it would make
+`isNone` and `==` a floating point comparison. A separate tag costs a branch and
+buys every rule in `language.md` section 6.
+
+### 3.5 Load-time verification
+
+Before executing a single bar, an engine **must** verify the program. Verification
+is not optional and not a debug mode: an engine that skips it can be handed a
+malformed instruction list and will read past the end of an array or execute a jump
+into the middle of an expression. A program that fails verification is refused with
+OS6018, naming the first instruction index that failed and why.
+
+Every check below is decidable from the program alone:
+
+1. **Structure.** Every required field is present and of the declared type. Every
+   index into a table is in range: constant pool, slots, cells, states, registers,
+   channels, library functions, call sites, loops, functions.
+2. **Opcodes.** Every opcode name is one this engine implements, with exactly the
+   operand count of section 4.
+3. **Jumps.** Every jump target is an instruction index within the same list. No
+   target is past the terminator.
+4. **Termination.** The last instruction of `code` is `HALT`, and of every function
+   body is `RET`. No other instruction may be the last.
+5. **Stack depth.** Every instruction has a fixed stack effect, so the depth at
+   each instruction is computable by walking the list. The depth must agree on
+   every path reaching an instruction, must never go below zero, and must be zero
+   at `HALT`. A disagreement at a join is a corrupt program.
+6. **Loops.** The target of every backward jump must be a `TICK` instruction. This
+   is the whole of the loop budget's integrity: it means no cycle in the control
+   flow graph can run without charging the budget, and it is checkable by looking
+   at one instruction rather than by analysing the graph.
+7. **Channels.** Every channel declared `once` is written exactly once on every
+   path from instruction 0 to `HALT`. That is how a plot column is guaranteed to
+   have a value, or an explicit absence, for every bar.
+8. **Capabilities.** Every tag in `requires` is one this engine has, and every
+   instruction used is covered by a tag the program declared.
+9. **Library.** Every `lib.functions` entry matches the manifest for
+   `openscript.language`, in name, arity, `state` and `effect`.
+
+A verified program cannot underflow the stack, cannot jump out of bounds, cannot
+address a slot that does not exist and cannot loop without charging the budget.
+Every remaining failure is a script error with a source position, which is the only
+kind of failure a user should ever see.
+
+---
+
+## 4. The instruction set
+
+Forty instructions. The set is deliberately small and deliberately dull: there is
+one way to do each thing, no instruction is a shorthand for two others, and nothing
+in it is clever. An engine's dispatch loop is a switch with forty arms, and a new
+one cannot be added without a major format bump (section 9), so the number is a
+promise rather than a measurement.
+
+**Operand names** are used consistently throughout:
+
+| Name | Means |
+|---|---|
+| `k` | Constant pool index |
+| `s` | Frame slot index |
+| `c` | Cell index, relative to the frame's `cellBase` |
+| `r` | Series register index |
+| `p` | Series parameter index in the current frame |
+| `t` | Jump target: an absolute instruction index in the current list |
+| `l` | Loop index into `loops` |
+| `f` | Library function index into `lib.functions` |
+| `st` | Library state index relative to `stateBase`, or `-1` for none |
+| `site` | Call site index into `callSites` |
+| `n` | A count, given in the instruction |
+| `ch` | Channel index |
+
+**Stack** columns are written as `before -> after`, with the top of the stack on
+the right. A blank side is an empty effect.
+
+### 4.1 Constants and stack
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `CONST` | `k` | `-> v` | Push `consts[k]`. Pool entries 0, 1 and 2 are always absent, `false` and `true` |
+| `DUP` | | `v -> v v` | Push a second reference to the value on top. Never copies an array, only the reference |
+| `POP` | | `v ->` | Discard the top value |
+
+```
+// close                          // none
+["SLOAD", 3]                      ["CONST", 0]
+
+// 14                             // an argument retained for a call site
+["CONST", 7]                      ["SLOAD", 5]
+                                  ["DUP"]
+                                  ["SSTORE", 2]
+
+// a statement whose value is discarded: log("hi")
+["CONST", 9]
+["CALL_LIB", 4, 1, -1]
+["POP"]
+```
+
+`DUP` and `POP` are the only stack shuffling instructions. There is no swap and no
+rotate, because the compiler evaluates every expression left to right and never
+needs to reorder what it has already pushed. Adding a swap would create a second
+way to compile the same expression, and two compilers that agree on the language
+would then disagree on the program.
+
+### 4.2 Slots
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `LOAD` | `s` | `-> v` | Push the current frame's slot `s` |
+| `STORE` | `s` | `v ->` | Pop into the current frame's slot `s` |
+
+```
+// len = 14                       // total = len
+["CONST", 7]                      ["LOAD", 0]
+["STORE", 0]                      ["STORE", 1]
+```
+
+A slot read before anything wrote it yields absent, but the checker makes that
+unreachable in a valid program (`language.md` section 12.5), so an engine that sees
+it is looking at a program its verifier should have rejected.
+
+### 4.3 Cells: values that persist across bars
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `CELL_INIT` | `c`, `t` | | If cell `c` is initialised, jump to `t`. Otherwise mark it initialised and continue |
+| `LOADC` | `c` | `-> v` | Push cell `c`. Absent if it holds absent |
+| `STOREC` | `c` | `v ->` | Pop into cell `c` |
+
+```
+// var count = 0
+ 0 ["CELL_INIT", 0, 3]
+ 1 ["CONST", 3]          // 0
+ 2 ["STOREC", 0]
+ 3 ...
+
+// count = count + 1
+["LOADC", 0]
+["CONST", 4]             // 1
+["ADD"]
+["STOREC", 0]
+```
+
+`CELL_INIT` marks the cell before the initialiser runs, not after. The two differ
+only if the initialiser could reach the same `CELL_INIT` again, which needs
+recursion, which is an error; marking first means the flag is set by one
+instruction rather than by a pair that must stay together across a jump.
+
+A cell declared inside a block is initialised on the first bar on which control
+reaches its `CELL_INIT`, which is exactly `language.md` section 8.2: a `var` inside
+an `if` that is false for a hundred bars is absent for a hundred bars.
+
+### 4.4 Series registers
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `SLOAD` | `r` | `-> v` | Push register `r`'s value for the bar being executed |
+| `SSTORE` | `r` | `v ->` | Pop into register `r`'s current bar cell |
+| `HIST` | `r` | `n -> v` | Pop `n`, push register `r`'s value `n` bars back |
+| `HISTP` | `p` | `n -> v` | As `HIST`, on the register the call site bound to series parameter `p` |
+
+```
+// close                          // close[1]
+["SLOAD", 3]                      ["CONST", 5]     // 1
+                                  ["HIST", 3]
+
+// diff = close - open, at the top level, where diff[n] is read somewhere
+["SLOAD", 3]
+["SLOAD", 0]
+["SUB"]
+["SSTORE", 7]
+
+// inside fn change(src) => src - src[1]
+["LOAD", 0]
+["CONST", 5]     // 1
+["HISTP", 0]
+["SUB"]
+["RET"]
+```
+
+`HIST` resolves `n` in this order, and an engine must follow it:
+
+1. `n` is absent: the result is absent, by the propagation rule.
+2. `n` is not a whole number, or is negative: OS4001, with the offending value in
+   the message.
+3. `n` is greater than `bar.index`: the result is absent. Not clamped, not zero.
+4. `n` is greater than `limits.history` when that is not null: OS4002, naming the
+   depth and the `limits(history = ...)` line that raises it.
+5. Otherwise the value the register held on that bar, which may itself be absent
+   because nothing wrote the register on that bar.
+
+Case 3 and case 4 are different on purpose. In case 3 the value never existed; in
+case 4 it existed and the engine threw it away. Returning absence for both would
+hide a real bug behind a plausible gap.
+
+`HISTP` reads `frame.series[p]` to find its register and then behaves as `HIST`. A
+parameter whose call site bound `-1` cannot be reached by a `HISTP`, because the
+compiler only binds a register for a parameter whose history the body reads;
+`HISTP` against `-1` is a corrupt program, caught by the verifier.
+
+### 4.5 Arithmetic
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `ADD` | | `a b -> v` | Sum of two numbers, or concatenation of two strings |
+| `SUB` | | `a b -> v` | `a - b` |
+| `MUL` | | `a b -> v` | `a * b` |
+| `DIV` | | `a b -> v` | `a / b`, absent when `b` is zero, including `0 / 0` |
+| `MOD` | | `a b -> v` | Remainder of truncated division, sign follows `a`, absent when `b` is zero |
+| `NEG` | | `a -> v` | `-a` |
+
+```
+// a + b * c
+["LOAD", 0]
+["LOAD", 1]
+["LOAD", 2]
+["MUL"]
+["ADD"]
+
+// -x                             // bar.index % 5
+["LOAD", 0]                       ["SLOAD", 8]
+["NEG"]                           ["CONST", 16]
+                                  ["MOD"]
+
+// high - low
+["SLOAD", 1]
+["SLOAD", 2]
+["SUB"]
+
+// "count: " + text(n)
+["CONST", 8]
+["LOAD", 1]
+["CALL_LIB", 2, 1, -1]
+["ADD"]
+```
+
+Every one of the six: if either operand is absent the result is absent, and no
+further work is done. Otherwise the operation is performed in binary64 with
+round-to-nearest-even, the result is checked for finiteness and becomes absent if
+it is not finite, and negative zero becomes positive zero.
+
+`ADD` is the only instruction that reads two tags. Two numbers add, two strings
+concatenate, and any other combination is a program the checker should have
+rejected: an engine treats it as a corrupt program rather than inventing a
+conversion, because `language.md` section 5.3 has no coercion anywhere and an
+engine that grows one here becomes the only engine that runs that script.
+
+There is no instruction for unary plus. `+x` on a number is the identity and its
+type is checked at compile time, so it compiles to nothing at all.
+
+There is no exponent instruction. `pow(x, y)` is a library call, and the library
+manifest pins its algorithm, because a power computed by a platform's own maths
+library is the single most likely place for two engines to differ in the last bit
+(section 8.3).
+
+### 4.6 Comparison
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `LT` | | `a b -> v` | `a < b` |
+| `LE` | | `a b -> v` | `a <= b` |
+| `GT` | | `a b -> v` | `a > b` |
+| `GE` | | `a b -> v` | `a >= b` |
+| `EQ` | | `a b -> v` | `a == b`, always `true` or `false` |
+| `NE` | | `a b -> v` | `a != b`, always `true` or `false` |
+
+```
+// close > open                   // r == none
+["SLOAD", 3]                      ["LOAD", 2]
+["SLOAD", 0]                      ["CONST", 0]
+["GT"]                            ["EQ"]
+
+// close < avg                    // close <= avg
+["SLOAD", 3]                      ["SLOAD", 3]
+["LOAD", 1]                       ["LOAD", 1]
+["LT"]                            ["LE"]
+
+// r >= 70                        // mode != "fast"
+["LOAD", 2]                       ["LOAD", 3]
+["CONST", 16]                     ["CONST", 17]
+["GE"]                            ["NE"]
+```
+
+The four ordering instructions **propagate absence**: if either operand is absent
+the result is absent, not `false` (`language.md` section 6.4). They compare two
+numbers, or two strings by Unicode code point.
+
+`EQ` and `NE` are **total**: they always produce a boolean. Absent equals absent,
+absent equals nothing else. Two colours are equal when all four channels match. Two
+references are equal when they are the same object, which is why `arrayEqual`
+exists in the library for comparing contents.
+
+The split is the one place in the language where absence is treated two ways, and
+it is deliberate: an operator that can itself be absent gives a script no way to
+ask whether a value is absent at all, so equality is the exception and every other
+comparison is not.
+
+### 4.7 Logic
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `NOT` | | `a -> v` | `true` becomes `false`, `false` becomes `true`, absent stays absent |
+| `AND` | | `a b -> v` | The three-valued conjunction below |
+| `AND_SHORT` | `t` | `a -> a` | If the top value is `false`, jump to `t` leaving it in place |
+| `OR_SHORT` | `t` | `a -> a` | If the top value is `true` or absent, jump to `t` leaving it in place |
+
+The conjunction `AND` implements, from `language.md` section 6.6:
+
+| `a` | `b` | `a and b` |
+|---|---|---|
+| `true` | `true` | `true` |
+| `true` | `false` | `false` |
+| `true` | absent | absent |
+| absent | `true` | absent |
+| absent | `false` | `false` |
+| absent | absent | absent |
+
+```
+// a and b
+ 0 <a>
+ 1 ["AND_SHORT", 4]      // a is false: the answer is false, and b is not evaluated
+ 2 <b>
+ 3 ["AND"]
+ 4 ...
+
+// a or b
+ 0 <a>
+ 1 ["OR_SHORT", 4]       // a is true or absent: a is the answer
+ 2 ["POP"]               // a is false: the answer is b
+ 3 <b>
+ 4 ...
+
+// not ready
+["LOAD", 0]
+["NOT"]
+```
+
+There is no `OR` instruction, and the asymmetry is the truth table's, not a
+preference. `or` short-circuits when its left operand is `true` **and** when it is
+absent, because absent on the left makes the result absent whatever `b` is, so `b`
+cannot change the answer and `language.md` section 9.4 says it must therefore not
+be evaluated. That leaves `false` as the only case that reaches the right operand,
+and in that case the answer is simply `b`, so nothing needs combining. `and` is not
+so lucky: absent on the left still lets a `false` on the right decide, so the right
+operand runs and `AND` combines the two.
+
+Whether the right operand runs is observable, not a detail: a stateful call that
+does not execute does not advance its state and leaves its series absent for the
+bar (`language.md` section 11.4). Two engines that short-circuit differently would
+produce different numbers, so the short-circuit points are instructions rather than
+an engine's choice.
+
+### 4.8 Branching and loops
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `JUMP` | `t` | | Continue at `t` |
+| `JUMP_FALSE` | `t` | `v ->` | Pop. Jump to `t` when the value is `false` or absent |
+| `TICK` | `l` | | Charge one iteration of loop `l` to the per-bar budget. OS5001 when the budget is spent |
+| `FOR_INIT` | `l`, `s`, `sLim`, `sStep`, `t` | `a b c ->` | Pop step, limit and start. Set up the loop. Jump to `t` when the body must not run |
+| `FOR_NEXT` | `l`, `s`, `sLim`, `sStep`, `t` | | Advance the loop variable. Jump to `t` when another iteration is due |
+
+**`JUMP_FALSE` treats absence as false.** This is the one place absence is absorbed
+rather than propagated, and it is unavoidable: execution has to go somewhere. It
+serves `if`, `else if`, `while`, the ternary and a `switch` condition arm, so the
+rule is written once in one instruction.
+
+```
+// if close > open
+//     signal("UP")
+ 0 ["SLOAD", 3]
+ 1 ["SLOAD", 0]
+ 2 ["GT"]
+ 3 ["JUMP_FALSE", 6]
+ 4 ["CONST", 9]          // "UP"
+ 5 ["EMIT", 1]
+ 6 ...
+
+// up ? lime : red
+ 0 ["LOAD", 0]
+ 1 ["JUMP_FALSE", 4]
+ 2 ["CONST", 6]          // lime
+ 3 ["JUMP", 5]
+ 4 ["CONST", 7]          // red
+ 5 ...
+
+// while i < 10
+//     i += 1
+ 0 ["TICK", 0]
+ 1 ["LOAD", 0]
+ 2 ["CONST", 8]          // 10
+ 3 ["LT"]
+ 4 ["JUMP_FALSE", 10]
+ 5 ["LOAD", 0]
+ 6 ["CONST", 4]          // 1
+ 7 ["ADD"]
+ 8 ["STORE", 0]
+ 9 ["JUMP", 0]
+10 ...
+```
+
+**`TICK`** is the loop budget, and the budget is counted in `TICK` executions
+rather than in anything an engine measures for itself, so two engines run out at
+the same iteration of the same loop on the same bar. The counter is set to zero at
+the start of every execution of a bar. When a `TICK` would take the count past
+`limits.loops`, the engine raises OS5001 naming `loops[l].line`, stops the bar and
+marks the study errored. It does not break out of the loop and carry on, because a
+loop that ran two million times and then stopped produces a plausible wrong number.
+
+Every loop body begins with a `TICK`, and the verifier requires that the target of
+every backward jump **is** a `TICK` instruction (section 3.5, check 6). One
+structural rule, checkable by looking at a single instruction, guarantees that no
+cycle can execute without charging the budget.
+
+**`FOR_INIT` and `FOR_NEXT`** carry the numeric `for` loop. They take four
+operands besides the loop index: the loop variable's slot and two hidden slots
+holding the limit and the step, which the compiler allocates in the frame.
+
+`FOR_INIT` pops the step, then the limit, then the start, in that order. It then:
+
+1. Raises OS4013 if any of the three is absent. An absent bound means the number of
+   iterations is unknown, and running zero times would hide that; the alternative,
+   treating absence as "do not run", was rejected because a `for` loop whose bound
+   is absent during warmup would silently produce nothing and the script would look
+   correct.
+2. Raises OS4001 if any of the three is not a number.
+3. Raises OS3004 if the step is zero.
+4. Writes start into `s`, limit into `sLim`, step into `sStep`.
+5. Jumps to `t`, the instruction after the loop, when the first iteration must not
+   run: the step is positive and start is above limit, or the step is negative and
+   start is below limit. A descending range with a positive step runs zero times
+   and is never silently reversed.
+
+`FOR_NEXT` adds `sStep` to `s`, then jumps back to `t`, the `TICK` at the top of
+the body, when the new value is still within the limit for the step's sign.
+Otherwise it falls through and the loop is over.
+
+```
+// for i = 0 to 9
+//     total += close[i]
+ 0 ["CONST", 3]          // 0, start
+ 1 ["CONST", 8]          // 9, limit
+ 2 ["CONST", 4]          // 1, step
+ 3 ["FOR_INIT", 0, 1, 2, 3, 12]
+ 4 ["TICK", 0]
+ 5 ["LOAD", 4]           // total
+ 6 ["LOAD", 1]           // i
+ 7 ["HIST", 3]           // close[i]
+ 8 ["ADD"]
+ 9 ["STORE", 4]
+10 ["FOR_NEXT", 0, 1, 2, 3, 4]
+11 ["JUMP", 12]
+12 ...
+```
+
+`break` compiles to a forward `JUMP` to the instruction after the loop, and
+`continue` to a forward `JUMP` to the `FOR_NEXT`, or to the `TICK` for a `while`.
+Both are forward jumps, which is why the backward jump rule stays simple.
+
+The `for x in arr` form has no instructions of its own. It compiles to a `while`
+over a hidden cursor slot, because its semantics are already a `while`: the element
+count is read when the loop is entered, elements appended during the loop are not
+visited, and the loop stops early if the array shrinks past the cursor. Giving it a
+dedicated instruction pair would have meant an instruction that re-reads an array's
+size, which is a library call the compiler can emit in one line:
+
+```
+// for price in prices
+//     total += price
+ 0 ["LOAD", 0]           // prices
+ 1 ["CALL_LIB", 1, 1, -1]  // size
+ 2 ["STORE", 5]          // hidden limit
+ 3 ["CONST", 3]          // 0
+ 4 ["STORE", 6]          // hidden cursor
+ 5 ["TICK", 1]
+ 6 ["LOAD", 6]
+ 7 ["LOAD", 5]
+ 8 ["LT"]
+ 9 ["JUMP_FALSE", 24]
+10 ["LOAD", 6]
+11 ["LOAD", 0]
+12 ["CALL_LIB", 1, 1, -1]  // size again: the array may have shrunk
+13 ["LT"]
+14 ["JUMP_FALSE", 24]
+15 ["LOAD", 0]
+16 ["LOAD", 6]
+17 ["ELEM"]
+18 ["STORE", 7]          // price
+19 <body>
+20 ["LOAD", 6]
+21 ["CONST", 4]
+22 ["ADD"]
+23 ["STORE", 6]
+24 ["JUMP", 5]
+25 ...
+```
+
+### 4.9 Arrays
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `ARRAY` | `n` | `v1 .. vn -> a` | Pop `n` values, push a new array holding them in order |
+| `ELEM` | | `a i -> v` | Pop index and array, push the element |
+
+```
+// [20.0, 50.0, 80.0]             // prices[1]
+["CONST", 10]                     ["LOAD", 0]
+["CONST", 11]                     ["CONST", 5]     // 1
+["CONST", 12]                     ["ELEM"]
+["ARRAY", 3]
+```
+
+`ARRAY` allocates a new array every time it executes, which is why an array literal
+is not a constant pool entry. `ARRAY 0` builds an empty array.
+
+`ELEM` raises OS4004, naming the index and the size, when the index is outside `0`
+to `size - 1`, when it is not a whole number, or when it is absent. That is the
+opposite of a history read past the start of the dataset, which is absence, and the
+difference is the point: an array has an extent the script chose, so an index
+outside it is a mistake rather than a missing measurement.
+
+Everything else an array does is a library call: `size`, `push`, `pop`, `set`,
+`slice`, `sort` and the rest. Only the two operators of the language, the literal
+and the subscript, are instructions.
+
+### 4.10 Calls
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `CALL_LIB` | `f`, `n`, `st` | `a1 .. an -> v` | Call library function `f` with `n` arguments, using state region `stateBase + st` when `st` is not `-1` |
+| `CALL_FN` | `site` | `a1 .. an -> v` | Call the user function the call site names |
+| `RET` | | `v ->` | Leave the current frame, pushing the value onto the caller's stack |
+
+```
+// ema(close, 9)                  // sma(close, len), which holds state
+["SLOAD", 3]                      ["SLOAD", 3]
+["CONST", 13]                     ["LOAD", 0]
+["CALL_LIB", 0, 2, 0]             ["CALL_LIB", 1, 2, 1]
+
+// change(hlc3), where change reads src[1]
+["SLOAD", 6]            // hlc3
+["DUP"]
+["SSTORE", 4]           // retain this call site's argument history
+["CALL_FN", 0]
+
+// fn typicalPrice() => (high + low + close) / 3
+["SLOAD", 1]
+["SLOAD", 2]
+["ADD"]
+["SLOAD", 3]
+["ADD"]
+["CONST", 14]           // 3
+["DIV"]
+["RET"]
+```
+
+**Arguments are positional and complete.** Named arguments, defaults and argument
+order are entirely a compile-time matter: the compiler fills every default and
+emits the arguments in parameter order, so an engine never sees a name, never
+consults a signature and never counts. A default that is an expression rather than
+a literal is compiled **into the call site**, not into the function body, so its
+per-call-site state lives with the call that used it, which is where
+`language.md` section 11.4 puts every other piece of state.
+
+**A stateful library call names its region.** `st` is `-1` for a pure function and
+a region index otherwise. The region is created on first use and persists across
+bars. A call that does not execute on a bar leaves its region untouched and its
+series absent for that bar, which falls out of the instruction never running rather
+than being a rule an engine has to implement.
+
+**A series argument is always given a fresh register.** When a call site passes an
+expression to a series parameter whose history the body reads, the compiler emits
+`DUP` and `SSTORE` into an `"argument"` register and binds that register in the
+call site. It does this even when the argument is a bare series name whose register
+already exists, and the extra register is not an oversight: binding the existing
+register would give the body history on bars where the call did not execute, which
+would contradict the rule above and would make a call inside an `if` behave
+differently from a call inside a function inside an `if`.
+
+**`CALL_FN`** reads everything it needs from `callSites[site]`: the function, the
+argument count, the cell and state bases, and the series bindings. It pops `argc`
+values into the new frame's slots 0 to `argc - 1`, in order, so the first argument
+lands in slot 0. The remaining slots start absent.
+
+**`RET`** pops the return value from the current frame and pushes it onto the
+caller's. A bare `return` compiles to `CONST 0` followed by `RET`, and a function
+body that ends without an expression does the same, so every function returns a
+value and `RET` never has to decide.
+
+### 4.11 Output
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `EMIT` | `ch` | `v ->` | Pop and write the value into channel `ch` for the bar being executed |
+
+```
+// plot(avg, "Mean", aqua)        // signal("BUY")
+["LOAD", 1]                       ["CONST", 9]
+["EMIT", 0]                       ["EMIT", 1]
+
+// background(risky ? fade(red, 92) : none)
+["LOAD", 2]
+["JUMP_FALSE", 6]
+["CONST", 7]
+["CONST", 15]
+["CALL_LIB", 3, 2, -1]
+["JUMP", 7]
+["CONST", 0]
+["EMIT", 4]
+```
+
+One instruction covers every drawing surface. A plot's value, a plot's per-bar
+colour, a level's price, a marker's text, an alert's condition, an alert's message,
+a bar colour and a pane background are all one value per bar written to a declared
+channel. A second write on the same bar replaces the first, so the last write wins
+and no surface needs a rule of its own.
+
+A channel whose value is absent means a gap in a plot, no marker, no alert, no
+recolouring: absence reaching a drawing surface is never a zero (`language.md`
+section 6.7).
+
+Table cells and drawing objects do not go through channels. A table is a handle in
+a slot and its cells are written by library calls; a line, label or box is an
+object in the heap that a script creates once and mutates over many bars. Both
+would need an unbounded number of channels, and a channel is by definition one
+value per bar.
+
+### 4.12 Termination
+
+| Opcode | Operands | Stack | Effect |
+|---|---|---|---|
+| `HALT` | | | End the bar. The stack must be empty |
+
+`HALT` is the last instruction of `code` and the only way a bar ends normally.
+Requiring it, rather than treating the end of the array as the end of the bar,
+gives the verifier something to check against and gives a truncated program a
+definite failure instead of an accidental one.
+
+### 4.13 The whole set
+
+Forty instructions, with their stack effect as a signed depth change.
+
+| Opcode | Operands | Depth | Group |
+|---|---|---|---|
+| `CONST` | `k` | `+1` | Constants and stack |
+| `DUP` | | `+1` | Constants and stack |
+| `POP` | | `-1` | Constants and stack |
+| `LOAD` | `s` | `+1` | Slots |
+| `STORE` | `s` | `-1` | Slots |
+| `CELL_INIT` | `c`, `t` | `0` | Cells |
+| `LOADC` | `c` | `+1` | Cells |
+| `STOREC` | `c` | `-1` | Cells |
+| `SLOAD` | `r` | `+1` | Series |
+| `SSTORE` | `r` | `-1` | Series |
+| `HIST` | `r` | `0` | Series |
+| `HISTP` | `p` | `0` | Series |
+| `ADD` | | `-1` | Arithmetic |
+| `SUB` | | `-1` | Arithmetic |
+| `MUL` | | `-1` | Arithmetic |
+| `DIV` | | `-1` | Arithmetic |
+| `MOD` | | `-1` | Arithmetic |
+| `NEG` | | `0` | Arithmetic |
+| `LT` | | `-1` | Comparison |
+| `LE` | | `-1` | Comparison |
+| `GT` | | `-1` | Comparison |
+| `GE` | | `-1` | Comparison |
+| `EQ` | | `-1` | Comparison |
+| `NE` | | `-1` | Comparison |
+| `NOT` | | `0` | Logic |
+| `AND` | | `-1` | Logic |
+| `AND_SHORT` | `t` | `0` | Logic |
+| `OR_SHORT` | `t` | `0` | Logic |
+| `JUMP` | `t` | `0` | Control |
+| `JUMP_FALSE` | `t` | `-1` | Control |
+| `TICK` | `l` | `0` | Control |
+| `FOR_INIT` | `l`, `s`, `sLim`, `sStep`, `t` | `-3` | Control |
+| `FOR_NEXT` | `l`, `s`, `sLim`, `sStep`, `t` | `0` | Control |
+| `ARRAY` | `n` | `1 - n` | Arrays |
+| `ELEM` | | `-1` | Arrays |
+| `CALL_LIB` | `f`, `n`, `st` | `1 - n` | Calls |
+| `CALL_FN` | `site` | `1 - argc` | Calls |
+| `RET` | | `-1` | Calls |
+| `EMIT` | `ch` | `-1` | Output |
+| `HALT` | | `0` | Termination |
+
+`CALL_FN`'s depth change uses `callSites[site].argc`, which is fixed at load, so
+the depth remains statically computable.
+
+---
+
+## 5. Per-bar execution
+
+### 5.1 The bar cycle
+
+An engine executes a bar by running these eleven steps in this order. Everything
+else in this document is a detail of one of them.
+
+1. **Restore.** If this is not the first execution of bar `i`, restore the
+   checkpoint taken at the end of bar `i - 1` (section 6). On the first execution
+   of bar `i` the state already is that checkpoint, so nothing is copied.
+2. **Truncate.** Set every series register's history length to `i`, discarding any
+   entry a previous execution of bar `i` wrote.
+3. **Clear.** Empty the operand stack. Set every slot of frame 0 to absent. Set
+   every channel to absent. Empty the table cell buffers. Empty the pending effect
+   list. Set the loop counter to zero. Set every series register's current bar cell
+   to absent.
+4. **Fill bar registers.** Write the host's bar `i` into every `"bar"` register,
+   including the derived fields and the `bar.*` facts, using the definitions in
+   section 2.10.
+5. **Fill inputs.** Write each input's effective value into its slot.
+6. **Execute.** Run `code` from instruction 0 until `HALT`.
+7. **Close the registers.** Append each series register's current bar cell to its
+   history as the entry for bar `i`.
+8. **Publish the columns.** Write each channel's value into the per-bar output
+   buffer for bar `i`, as `null` where the channel is absent.
+9. **Decide about effects.** If the bar is confirmed, or `meta.onUnconfirmed` is
+   true, apply the deferred channels and the pending effect list (section 5.4).
+   Otherwise discard them, having already published the columns.
+10. **Trim history.** If `limits.history` is a number, drop register entries older
+    than that depth.
+11. **Checkpoint.** If the engine is moving on to the next bar, take a checkpoint
+    (section 6.1).
+
+Steps 1 and 2 are what make a still-moving bar idempotent. Steps 8 and 9 are what
+separate what a script may do on a moving bar from what it may not: the drawing is
+recomputed from scratch on every update and published every time, while a signal,
+an alert or an order waits for the bar to close.
+
+An error raised during step 6 stops the bar. Steps 7 to 11 do not run, the bar's
+output columns keep whatever the previous execution published or stay absent, and
+the engine reports the error with its code and source position. It does not
+continue to the next bar with a half executed state.
+
+### 5.2 What the host supplies
+
+An engine reads all of this from the host and none of it from anywhere else:
+
+| Fact | Used by |
+|---|---|
+| The bars: open, high, low, close, volume, time | Step 4 |
+| Bar state: is this bar new, confirmed, realtime, and the update count | Step 4 and step 9 |
+| Settings, keyed by input `key` | Step 5 |
+| Instrument facts: symbol, exchange, interval, timezone, tick size, lot size | The `chart` library namespace |
+| The chart clock, for `chart.now()` | The `chart` library namespace |
+| More bars, on request | The `req` library namespace |
+| A drawing surface | Steps 8 and 9 |
+| An order route | Step 9 |
+
+An engine must not adjust, round, resample, deduplicate or reorder the bars it is
+given. If two engines are handed the same bars they compute the same numbers, and
+if they are handed different bars they were never going to agree, which is a host
+problem with a host's answer.
+
+### 5.3 What persists and what does not
+
+Restating section 3.2 as the two questions a script author actually asks.
+
+**Cleared at the start of every execution of a bar:** the operand stack, every
+frame 0 slot, every channel, every table cell buffer, the pending effect list, the
+loop counter, every register's current bar cell.
+
+**Kept from bar to bar:** every cell, every library state region, every series
+register's history, the object heap, and the strategy's position, orders, equity
+and trade list.
+
+A name that is not a `var` is therefore computed fresh every bar even though its
+slot is the same slot, which is exactly `language.md` section 8.1: the previous
+value is still readable through `[]` when the name has a register, but it is not
+the starting point for this bar's computation.
+
+### 5.4 Deferred effects
+
+Two things are held back on a bar that is still moving: **channels declared
+`defer`**, which are markers and alerts, and **library calls whose manifest entry
+carries an `effect`**, which are the order functions and anything else that reaches
+the outside world.
+
+A library function with an effect does not perform it when it executes. It appends
+a record to the pending effect list, holding the function index and the argument
+values as they stood, and pushes absent as its result. The list is discarded at
+step 3 of every execution and applied at step 9 only when the bar is confirmed, or
+when `meta.onUnconfirmed` is true.
+
+The consequence is the one `language.md` section 7.5 promises: a condition that was
+true halfway through a bar and false when it closed never places an order at all,
+because the execution that produced the pending record was thrown away and the
+execution that decided the bar produced no such record.
+
+An order function returning absent while deferred is deliberate. The alternative,
+inventing an order id at call time, would hand the script an identifier for
+something that may never exist. A script that needs to act on a placed order reads
+the `pos` and `order` namespaces on the next bar, where the fact is real.
+
+### 5.5 The loop budget
+
+The counter is set to zero at step 3 and incremented by one for each `TICK`
+executed, including every `TICK` inside a user function called from the bar. When
+the count would exceed `limits.loops`, the engine raises OS5001, names
+`loops[l].line`, and stops the bar.
+
+The budget is per bar rather than per loop so that ten sequential loops and one
+nested loop are treated alike, and it resets each bar so that a long dataset is
+never itself a reason to fail.
+
+---
+
+## 6. State, checkpoints, rollback and replay
+
+One mechanism serves three purposes: making a moving bar idempotent, letting a
+debugger step backwards, and making a chart replay exact. They are the same
+problem, and an engine that implements the checkpoint gets all three.
+
+### 6.1 What a checkpoint holds
+
+A checkpoint taken at the end of bar `i` holds:
+
+| Content | Note |
+|---|---|
+| Every cell, `"var"` and `"live"` alike, with its initialised flag | |
+| Every library state region | |
+| The object heap, restricted to what is reachable from the above | Sharing preserved, section 6.2 |
+| The strategy's position, pending orders, equity and trade list | Strategies only |
+| The history length of every series register, which is `i + 1` | The entries themselves are append only |
+
+A checkpoint does not hold the operand stack, the frame slots, the channels, the
+pending effects or the loop counter, because step 3 of the next execution clears
+all of them anyway.
+
+### 6.2 Restoring one
+
+A restore replaces every region above with its recorded contents. Two requirements
+that are easy to get wrong:
+
+- **Sharing is preserved.** If two cells held the same array before the checkpoint,
+  they hold the same array after the restore, and a `push` through one is visible
+  through the other. A restore that deep copied each cell separately would turn one
+  array into two and would change what the script computes.
+- **Library state is restored wholesale**, not recreated. An engine does not
+  re-seed an `ema` from history; it puts back the record it copied. This is why
+  section 2.11 requires a state region to be mechanically copyable.
+
+An engine may implement a checkpoint however it likes: a full copy, copy on write,
+an undo journal, or nothing at all when it can prove the state is unchanged. **The
+specification requires the semantics, not the representation.** An engine that only
+ever runs history and never re-executes a bar may keep one checkpoint; an engine
+backing a debugger keeps many.
+
+### 6.3 The rollback rule
+
+Before re-executing bar `i`, the engine restores the checkpoint from the end of bar
+`i - 1`, **except** that cells declared `"live"` keep their current values.
+
+That exception is the whole of `live var` (`language.md` section 8.2). Everything
+else rolls back, so executing a moving bar ten times gives the same answer as
+executing it once, and a live chart agrees with a backtest of the same data.
+
+A `"live"` cell is still written into the checkpoint even though rollback skips it,
+so that a debugger stepping backwards can show what the value actually was rather
+than what a replay would recompute. A script using `live var` is not reproducible
+by design, and recording the value is the only honest way to show it.
+
+### 6.4 The replay invariant
+
+**Restoring the checkpoint taken at the end of bar `j` and then executing bars
+`j + 1` through `k` must produce state and output for bar `k` that is identical, bit
+for bit, to the original run's.**
+
+This is the property a chart replay, a step-backwards debugger and a reproducible
+backtest all rest on, and it is testable rather than aspirational: the conformance
+suite runs a program over `n` bars, then for each `k` restores the checkpoint at
+`k - 1`, re-runs bar `k`, and compares every channel, every cell and every state
+region. A difference is a failing engine.
+
+The invariant holds only because execution reads nothing but the checkpoint, the
+bar and the settings. Section 8 is the list of ways an engine could break it.
+
+### 6.5 Stepping
+
+A debugger steps **forward** by executing one bar. It steps **backward** by
+restoring the checkpoint at `k - 2` and executing bar `k - 1`, or, where an engine
+keeps sparse checkpoints, by restoring the nearest earlier one and replaying
+forward. Either way the invariant makes the result exact.
+
+Within a bar, `debug.pos` gives the source line and column of every instruction, so
+a stepper can walk instruction by instruction and show the position. An engine that
+wants to step backwards within a bar records the stack and slots per instruction;
+that is permitted and is not required, because it changes nothing a script can
+observe.
+
+---
+
+## 7. Warmup and the absent value
+
+**There is no warmup field in a compiled program, and there is no warmup phase in
+an engine.** The script runs on bar 0 exactly as it runs on bar 40,000.
+
+Warmup is entirely the absent value:
+
+- A library function that needs `k` values returns absent until it has seen `k`.
+  The count lives in its state region, so a call that does not execute on some bar
+  does not count that bar.
+- `HIST` past the start of the dataset is absent.
+- A cell that has not been initialised is absent.
+- A channel nothing wrote is absent, and a plot column with `null` is a gap.
+
+The compiler could have emitted a warmup length per plot for a host to trim, and
+does not, because a declared number would be a second source of truth about when a
+line starts and the two could disagree. The line starts on the bar the value stops
+being absent, and there is nowhere for that to be wrong.
+
+**Absence propagates through arithmetic and ordering comparison, is total under
+equality, is three-valued under `and`, `or` and `not`, and is false at a branch.**
+Those five rules are implemented by the instructions of sections 4.5 to 4.8 and by
+nothing else. An engine that gets all five right has the whole of `language.md`
+section 6, and an engine that special cases absence anywhere else has a bug.
+
+At the boundary, absence is `null`: in a plot column, in a level's price, in a
+table cell, in an alert message, in anything an engine hands a host.
+
+---
+
+## 8. Determinism
+
+Two engines running the same compiled program over the same bars must produce the
+same output, to the last bit, on every machine, every operating system and every
+run. This section is the list of things an engine may not do. Each one has cost
+somebody a mismatched backtest somewhere.
+
+### 8.1 Floating point
+
+- Every arithmetic operation is IEEE-754 binary64 with round-to-nearest, ties to
+  even.
+- **Operations happen in the order the instructions give.** An engine may not
+  reassociate, may not distribute, may not fuse a multiply and an add into a single
+  rounding, may not vectorise in a way that changes the order of a sum, and may not
+  hoist an operation out of a loop if doing so changes when it rounds.
+- **No extended precision.** An engine on hardware with wider internal registers
+  must round every intermediate to binary64 before it is used again. In practice:
+  use the double precision path rather than an eighty bit stack, store each
+  intermediate to a binary64 variable, and turn off the compiler flags that permit
+  unsafe maths.
+- **No flush to zero and no denormals as zero.** Subnormal results are computed
+  exactly as IEEE-754 says.
+- **The rounding mode is never changed** while a program runs.
+- Negative zero is normalised to positive zero at every store and every result
+  (section 3.1).
+- A non-finite result becomes absent, checked after each operation (section 3.1).
+
+### 8.2 Order of evaluation
+
+- Arguments are evaluated left to right, as the instruction order shows.
+- Both operands of a binary operator are evaluated left to right, except where
+  `AND_SHORT` or `OR_SHORT` skips the right one.
+- A short circuit is an instruction, not a choice: whether the right operand runs is
+  observable through the state of any stateful call inside it.
+- Iteration over an array is index order. Version 1 has no unordered collection.
+- Statements run in source order, which is instruction order.
+
+### 8.3 The standard library
+
+The library is where determinism is actually won or lost, because a moving average
+is a sum and a sum has an order.
+
+- **A library function's result is defined by the reference accumulation order in
+  the library manifest.** An engine may use any algorithm that is bit-identical to
+  it, and no other. Specifically, an incremental rolling sum that subtracts the
+  outgoing value and adds the incoming one is **not** bit-identical to a fresh sum
+  over the window, so it is permitted only for a function whose manifest defines
+  the incremental form as the reference.
+- **Transcendental functions do not use the platform's maths library.** `exp`,
+  `log`, `pow`, the trigonometric functions and anything built on them are computed
+  by the portable reference algorithm named in the manifest. A platform's own
+  implementation is correct to within an ulp or so and differs between platforms in
+  the last bit, which is precisely the difference this project has declared a
+  release blocker. The cost is a slower `pow`; the alternative is a chart and a
+  backtest that disagree in the fourth decimal and no way to say which is right.
+- **Number to string conversion is specified.** `text(x)` produces the shortest
+  decimal string that reads back as the same binary64 value. `text(x, d)` rounds to
+  `d` decimals, ties away from zero, and always emits exactly `d` digits after the
+  point. Ties away from zero rather than ties to even because this is a display
+  conversion and half up is what a reader of a price expects, and because the
+  choice has to be written down somewhere or two engines will label the same bar
+  differently.
+- **String to number is specified** by the manifest, and returns absent for
+  anything it does not parse.
+
+### 8.4 Nothing outside the program
+
+- No randomness. There is no random function in version 1 and no source of entropy
+  in an engine.
+- No wall clock during a bar, except `chart.now()`, whose value the host supplies
+  and the conformance suite fixes.
+- No locale. Number formatting, string comparison and case conversion are defined
+  by the manifest and by Unicode, never by an environment setting.
+- No timezone from the environment. The chart's zone is a host fact and an IANA
+  zone name, never a fixed offset, because a fixed offset is silently wrong for
+  half the year anywhere that observes a seasonal clock change.
+- No iteration over a hash table's natural order, anywhere, for anything a script
+  can observe.
+- No concurrency that a script can observe. An engine may use threads, and the
+  result must be what a single pass in instruction order would have produced.
+
+### 8.5 The budget is part of the semantics
+
+Two engines must fail at the same iteration of the same loop on the same bar, so
+the loop budget counts `TICK` executions and nothing else (section 5.5). An engine
+that counted its own instructions, or measured time, would make a script that runs
+on one engine fail on another.
+
+---
+
+## 9. Versioning and compatibility
+
+### 9.1 Two versions, two jobs
+
+`openscript.format` versions **this document**: the field names, the instruction
+set, the encoding. `openscript.language` versions **meaning**: the front end that
+parsed the source and the library semantics the engine must apply.
+
+An engine declares what it implements:
+
+| Declares | Means |
+|---|---|
+| Format majors | Which majors it can load, and the highest minor of each |
+| Language versions | Which language versions it has library semantics for |
+| Capabilities | The tags of section 2.2 |
+| Limits | Maximum instructions, cells, states, frame depth, loop budget it will allow |
+
+### 9.2 What a minor bump may do
+
+A minor bump of the format may:
+
+- Add a field to any object, where an engine that ignores the field computes
+  exactly the same numbers.
+- Add an entry kind to a table that is only reachable from a new field.
+- Add a capability tag.
+- Add metadata, including anything under `debug` and `compiler`.
+- Tighten a rule that no valid program could have depended on, such as a
+  verification check that only rejects programs that were already malformed.
+
+A minor bump may **not** add an instruction, change what an instruction does,
+change an instruction's operand count, change the constant pool encoding, change
+the canonical form, add a required field, or change any default in `meta`.
+
+The guarantee that makes this work: **any field whose absence would change a number
+must be announced by a capability tag in `requires`.** Given that, an older engine
+may ignore a field it does not recognise, because anything that mattered would have
+been named in a tag it did not have. Without that rule an older engine would have
+to refuse every program from every later minor, and a minor bump would be a major
+one wearing a smaller number.
+
+### 9.3 What a major bump may do
+
+A major bump may do anything this document forbids a minor one: add or remove an
+instruction, change an instruction's meaning, renumber or restructure a table,
+change the encoding. It is a different format that happens to share a name.
+
+A major bump is not a way to change what an existing program computes. A program
+carries its `language` version, and a compiler that emits a new format from old
+source emits a program that computes the same numbers, because `language.md`
+section 4.1 binds the project to that whatever the format does.
+
+### 9.4 How an engine refuses
+
+At load, in this order, stopping at the first failure:
+
+1. Parse the canonical encoding. A parse failure is OS6018.
+2. Read `openscript.format`. If the major is higher than any the engine implements,
+   refuse with OS6016, naming the program's format and the highest the engine has.
+   If the major is one the engine does not implement at all, refuse the same way; an
+   engine never makes a best effort at a format it does not have.
+3. If the major matches and the minor is higher than the engine's, continue. A
+   minor bump is additive by section 9.2, and step 4 catches anything that is not.
+4. Check every tag in `requires`. Refuse with OS6006 at the first tag the engine
+   does not have, naming the tag.
+5. Read `openscript.language`. If the engine has no library semantics for that
+   version, refuse with OS6017, naming the version.
+6. Check `lib.functions` against the manifest for that language version. Refuse
+   with OS6004 on the first mismatch, naming the function and what disagreed.
+7. Check the program against the engine's declared limits: OS5009 for the
+   instruction count, OS5004 for the state region count, OS5005 for the call
+   depth, each naming the limit and the program's value.
+8. Verify the program (section 3.5). Refuse with OS6018, naming the instruction
+   index.
+
+Every refusal names what is missing and what would fix it. "This program is too
+new" is not a message an engine is allowed to stop at.
+
+### 9.5 What never changes
+
+- A program that ran yesterday runs today and produces the same numbers.
+- A program's numbers depend on `openscript.language` and on nothing about the
+  engine, its version, its host or its machine.
+- An engine upgrade never changes a stored backtest result. A host that recorded
+  the source hash and the program hash can prove it.
+
+---
+
+## 10. Errors an engine raises
+
+Every failure carries a stable code, a source line and column where one exists, a
+message and a fix, as `language.md` section 16 requires. `errors.md` is the
+catalogue and the authority.
+
+Codes this document uses that the catalogue already carries:
+
+| Code | Raised when |
+|---|---|
+| OS3004 | A loop step is zero, or an argument value is out of range |
+| OS4001 | A history index is negative or not a whole number |
+| OS4002 | A history index is past the retained depth |
+| OS4004 | An array index is outside the array |
+| OS5001 | The per-bar loop budget is spent |
+| OS5003 | A host refuses the program's `limits()` |
+| OS5004 | The program needs more state regions than the engine allows |
+| OS5005 | A construct nests deeper than the engine allows, including call depth |
+| OS5009 | The program holds more instructions than the engine allows |
+| OS6004 | A library entry disagrees with the engine's manifest |
+| OS6006 | The program requires a capability this engine does not have |
+| OS7002 | An order argument is absent |
+
+Codes this document introduces, to be carried in the catalogue:
+
+| Code | Raised when |
+|---|---|
+| OS4013 | A `for` loop's start, limit or step is absent |
+| OS6016 | The compiled format version is not one this engine implements |
+| OS6017 | The program's language version is not one this engine implements |
+| OS6018 | The compiled program is malformed or fails verification |
+| OS6019 | A host setting fails an input's declared validation |
+
+A load-time refusal carries no line, because the failure is in the program rather
+than in the source; it carries the instruction index and the field instead. An
+error raised during execution carries the line and column from `debug.pos` for the
+instruction that raised it, and for OS5001 the line of the loop rather than the
+line of whatever was executing.
+
+---
+
+## 11. Becoming a chart
+
+An engine computes columns. Turning them into a drawing is a separate job, done by
+a separate module, and it is a mapping rather than a decision:
+
+| Compiled program | Chart descriptor |
+|---|---|
+| `meta.title`, `meta.short`, `meta.group` | Name and category |
+| `meta.overlay` | Price pane or its own pane |
+| `meta.precision`, `meta.format` | Value formatting for the pane's scale |
+| `meta.range` | Fixed pane range |
+| `inputs[]` | The settings rows, by `kind` |
+| `outputs.plots[]` and their channels | One column per plot, `null` for a gap |
+| `outputs.fills[]` | Shaded bands between two plot keys |
+| `outputs.levels[]` | Horizontal reference levels, from the last bar's value |
+| `outputs.markers[]` | Bar anchored markers |
+| `outputs.tables[]` | A summary grid pinned to a corner |
+| `outputs.alerts[]` | Conditions the runtime watches |
+| `outputs.barColor` | Recolouring of the price bars |
+| `outputs.background` | Per-bar shading behind the pane |
+
+The mapping is listed here so that an independent engine knows what its output is
+for, not because an engine must perform it. An engine that only backtests produces
+the same columns and hands them to a report instead.
+
+---
+
+## 12. A worked example
+
+A short script, its compiled program in full, and a bar by bar trace including a
+re-executed moving bar. It is a few lines longer than the smallest thing that would
+compile, because it has to exercise an input, a stateful library call, a value that
+persists across bars, a branch, a marker, a plot and warmup, and five lines cannot.
+
+### 12.1 The source
+
+```
+ 1  version 1
+ 2
+ 3  study("Two bar mean", overlay = true)
+ 4
+ 5  len = input(2, "Length")
+ 6  avg = sma(close, len)
+ 7  var hits = 0
+ 8
+ 9  if close > avg
+10      hits = hits + 1
+11      signal("UP")
+12
+13  plot(avg, "Mean", aqua)
+```
+
+`sma(src, len)` is absent until it has seen `len` values, and is otherwise the sum
+of the last `len` values in oldest to newest order, divided by `len`. That order is
+the manifest's, and section 8.3 is why it is written down.
+
+### 12.2 The compiled program
+
+```json
+{
+  "openscript": { "format": "1.0", "language": 1 },
+  "requires": ["core.1"],
+  "compiler": { "name": "openscript", "version": "0.1.0" },
+  "source": {
+    "hash": "sha256:9f2c1b7e4a6d508fb3c0e21d7a4f8b95c6d3e07a1b2c4d5e6f708192a3b4c5d6",
+    "lines": 13,
+    "file": "two-bar-mean.osc"
+  },
+  "meta": {
+    "kind": "study",
+    "title": "Two bar mean",
+    "short": "Two bar mean",
+    "overlay": true,
+    "precision": 4,
+    "format": "price",
+    "range": null,
+    "scale": "right",
+    "group": "",
+    "onUnconfirmed": false
+  },
+  "limits": { "loops": 2000000, "history": null },
+  "lib": {
+    "manifest": 1,
+    "functions": [
+      { "name": "sma", "arity": 2, "state": true, "effect": "none" }
+    ]
+  },
+  "inputs": [
+    {
+      "key": "len", "kind": "number", "label": "Length", "default": 2,
+      "min": null, "max": null, "step": null, "options": null,
+      "group": "", "tooltip": null, "slot": 0
+    }
+  ],
+  "channels": [
+    { "id": 0, "type": "number", "defer": false, "once": true },
+    { "id": 1, "type": "string", "defer": true, "once": false }
+  ],
+  "outputs": {
+    "plots": [
+      {
+        "key": "p0", "title": "Mean", "type": "line", "channel": 0,
+        "color": [0, 255, 255, 1], "colorChannel": null,
+        "width": 1.5, "lineStyle": "solid", "offset": 0,
+        "overlay": null, "scale": null, "priceFormat": null, "ohlc": null
+      }
+    ],
+    "fills": [],
+    "levels": [],
+    "markers": [
+      {
+        "key": "m0", "channel": 1, "position": "above", "shape": "label",
+        "color": null, "textColor": null
+      }
+    ],
+    "tables": [],
+    "alerts": [],
+    "barColor": null,
+    "background": null
+  },
+  "consts": [
+    ["z", null], ["b", false], ["b", true],
+    ["n", 0], ["n", 1], ["s", "UP"]
+  ],
+  "series": [
+    { "id": 0, "kind": "bar", "field": "close", "name": "close" }
+  ],
+  "frame": { "slots": 2 },
+  "cells": [ { "id": 0, "kind": "var", "name": "hits" } ],
+  "states": [ { "id": 0, "fn": 0 } ],
+  "functions": [],
+  "callSites": [],
+  "loops": [],
+  "code": [
+    ["SLOAD", 0],
+    ["LOAD", 0],
+    ["CALL_LIB", 0, 2, 0],
+    ["STORE", 1],
+    ["CELL_INIT", 0, 7],
+    ["CONST", 3],
+    ["STOREC", 0],
+    ["SLOAD", 0],
+    ["LOAD", 1],
+    ["GT"],
+    ["JUMP_FALSE", 17],
+    ["LOADC", 0],
+    ["CONST", 4],
+    ["ADD"],
+    ["STOREC", 0],
+    ["CONST", 5],
+    ["EMIT", 1],
+    ["LOAD", 1],
+    ["EMIT", 0],
+    ["HALT"]
+  ],
+  "debug": {
+    "pos": [
+      [0, 6, 11], [1, 6, 18], [2, 6, 7], [3, 6, 1],
+      [4, 7, 1], [5, 7, 12], [6, 7, 1],
+      [7, 9, 4], [8, 9, 12], [9, 9, 10], [10, 9, 1],
+      [11, 10, 12], [12, 10, 19], [13, 10, 17], [14, 10, 5],
+      [15, 11, 12], [16, 11, 5],
+      [17, 13, 6], [18, 13, 1], [19, 13, 1]
+    ],
+    "fnPos": [],
+    "names": {
+      "slots": ["len", "avg"],
+      "cells": ["hits"],
+      "series": ["close"],
+      "channels": ["Mean", "UP"]
+    },
+    "retain": false
+  }
+}
+```
+
+Reading it back to the source: instruction 0 to 3 is line 6, 4 to 6 is the `var` on
+line 7, 7 to 10 is the `if` on line 9, 11 to 14 is line 10, 15 to 16 is the
+`signal` on line 11, and 17 to 19 is the `plot` on line 13 plus the terminator.
+There is no instruction for `input()`: the engine writes the effective value into
+slot 0 at step 5 of every bar. There is no instruction for `study()` or for the
+plot's declaration: both are in `meta` and `outputs`, read once.
+
+`requires` is just `core.1`: no arrays, no user functions, no loops, no orders.
+
+### 12.3 The bars
+
+| Bar | close | State |
+|---|---|---|
+| 0 | 100 | confirmed |
+| 1 | 102 | confirmed |
+| 2 | 101 | confirmed |
+| 3 | 105 | confirmed |
+| 4 | moving | executed twice, see 12.6 |
+
+### 12.4 Bar 0, instruction by instruction
+
+Before step 6: cell 0 uninitialised, state region 0 empty, register 0's history
+empty, register 0's current cell is 100, slot 0 is 2 from the input, slot 1 is
+absent, both channels absent.
+
+| pc | Instruction | Stack after | Note |
+|---|---|---|---|
+| 0 | `SLOAD 0` | `100` | close |
+| 1 | `LOAD 0` | `100, 2` | len |
+| 2 | `CALL_LIB 0, 2, 0` | `none` | region 0 becomes `{queue: [100], seen: 1}`. One value, two needed |
+| 3 | `STORE 1` | | avg is absent |
+| 4 | `CELL_INIT 0, 7` | | uninitialised: mark it, fall through |
+| 5 | `CONST 3` | `0` | |
+| 6 | `STOREC 0` | | hits is 0 |
+| 7 | `SLOAD 0` | `100` | |
+| 8 | `LOAD 1` | `100, none` | |
+| 9 | `GT` | `none` | an ordering comparison with an absent operand is absent |
+| 10 | `JUMP_FALSE 17` | | absent takes the false branch |
+| 17 | `LOAD 1` | `none` | |
+| 18 | `EMIT 0` | | the plot column gets absent |
+| 19 | `HALT` | | the stack is empty, as the verifier proved it would be |
+
+After: plot column at bar 0 is `null`, no marker. Checkpoint 0 holds
+`hits = 0`, `{queue: [100], seen: 1}`, and a history length of 1.
+
+The whole of warmup is on lines 2, 9 and 10 of that table: the library function has
+not seen enough values, the comparison is absent rather than false, and the branch
+is not taken. Nothing declared a warmup length and nothing had to.
+
+### 12.5 Bar 1, instruction by instruction
+
+| pc | Instruction | Stack after | Note |
+|---|---|---|---|
+| 0 | `SLOAD 0` | `102` | |
+| 1 | `LOAD 0` | `102, 2` | |
+| 2 | `CALL_LIB 0, 2, 0` | `101` | region 0 becomes `{queue: [100, 102], seen: 2}`, and `(100 + 102) / 2` is 101 |
+| 3 | `STORE 1` | | avg is 101 |
+| 4 | `CELL_INIT 0, 7` | | already initialised: jump to 7, the initialiser never runs again |
+| 7 | `SLOAD 0` | `102` | |
+| 8 | `LOAD 1` | `102, 101` | |
+| 9 | `GT` | `true` | |
+| 10 | `JUMP_FALSE 17` | | true: fall through |
+| 11 | `LOADC 0` | `0` | |
+| 12 | `CONST 4` | `0, 1` | |
+| 13 | `ADD` | `1` | |
+| 14 | `STOREC 0` | | hits is 1 |
+| 15 | `CONST 5` | `"UP"` | |
+| 16 | `EMIT 1` | | the marker channel holds "UP" |
+| 17 | `LOAD 1` | `101` | |
+| 18 | `EMIT 0` | | |
+| 19 | `HALT` | | |
+
+Bar 1 is confirmed, so step 9 applies the deferred marker channel and a marker is
+drawn above bar 1.
+
+### 12.6 Bars 0 to 4
+
+| Bar | close | State region 0 after the call | avg | close > avg | hits | Plot column | Marker |
+|---|---|---|---|---|---|---|---|
+| 0 | 100 | `{[100], 1}` | absent | absent | 0 | `null` | none |
+| 1 | 102 | `{[100, 102], 2}` | 101 | true | 1 | 101 | UP |
+| 2 | 101 | `{[102, 101], 3}` | 101.5 | false | 1 | 101.5 | none |
+| 3 | 105 | `{[101, 105], 4}` | 103 | true | 2 | 103 | UP |
+| 4 first execution | 106 | `{[105, 106], 5}` | 105.5 | true | 3 | 105.5 | held |
+| 4 second execution | 104 | `{[105, 104], 5}` | 104.5 | false | 2 | 104.5 | none |
+
+Every value in the table is exact in binary64: `(100 + 102) / 2`,
+`(102 + 101) / 2`, `(101 + 105) / 2` and `(105 + 104) / 2` all divide by two.
+
+### 12.7 The moving bar, and what rollback is for
+
+Bar 4 is the newest bar of a live chart. It is executed once when the price is 106
+and again when the price has fallen back to 104.
+
+Checkpoint 3, taken at the end of bar 3, holds `hits = 2`,
+`{queue: [101, 105], seen: 4}`, and a history length of 4.
+
+**First execution**, price 106. This is the first execution of bar 4, so nothing is
+restored. The library call pushes 106 onto `[101, 105]`, giving `[105, 106]` and an
+average of 105.5. 106 is above 105.5, so `hits` becomes 3 and the marker channel is
+written. Bar 4 is not confirmed and `meta.onUnconfirmed` is false, so step 8
+publishes the plot column, 105.5, and step 9 discards the marker.
+
+**Second execution**, price 104. Step 1 restores checkpoint 3: `hits` goes back to
+2 and the state region goes back to `{queue: [101, 105], seen: 4}`. Step 2 truncates
+the history to four entries. The library call then pushes 104, giving `[105, 104]`
+and an average of 104.5. 104 is below 104.5, so the branch is not taken, `hits`
+stays 2 and no marker is written. The plot column for bar 4 is rewritten to 104.5.
+
+**Without the restore**, the second execution would have pushed 104 onto
+`[105, 106]`, giving `[106, 104]` and an average of 105, which is a number that
+corresponds to no two bars on the chart. `hits` would have stayed at 3, counting a
+crossing that did not happen, and the same script would produce different numbers
+on a live chart than in a backtest of the same data.
+
+That is the whole argument for section 6 in one table row.
+
+---
+
+## 13. Conformance checklist
+
+An engine claims conformance to compiled format 1.0 and language 1 when all of the
+following hold, and the conformance suite tests each one.
+
+**Loading**
+
+- [ ] Parses the canonical encoding and rejects anything that is not it.
+- [ ] Performs every verification check of section 3.5 before executing a bar.
+- [ ] Refuses in the order of section 9.4, with the code and the named cause.
+- [ ] Declares its format majors, language versions, capabilities and limits.
+
+**The machine**
+
+- [ ] Implements all forty instructions of section 4, with the stated stack effect.
+- [ ] Implements six value tags, with absence as its own tag and never a number.
+- [ ] Keeps numbers finite, normalises negative zero, and measures strings in code
+      points.
+- [ ] Addresses cells and state regions through the frame's bases, so one function
+      body serves many call sites.
+
+**Per bar**
+
+- [ ] Runs the eleven steps of section 5.1 in order.
+- [ ] Clears exactly what section 5.3 says to clear, and keeps exactly the rest.
+- [ ] Charges the loop budget once per `TICK` and raises OS5001 at the same
+      iteration as every other engine.
+- [ ] Holds deferred channels and pending effects on an unconfirmed bar, and
+      discards rather than applies them when the bar is re-executed.
+
+**State**
+
+- [ ] Takes a checkpoint holding everything section 6.1 lists.
+- [ ] Restores it before re-executing a bar, exempting `"live"` cells.
+- [ ] Preserves object sharing across a restore.
+- [ ] Satisfies the replay invariant of section 6.4 for every bar of every
+      conformance case.
+
+**Determinism**
+
+- [ ] Does nothing in section 8's list of prohibitions.
+- [ ] Matches the reference accumulation order for every library function.
+- [ ] Uses the manifest's reference algorithms for transcendental functions rather
+      than the platform's.
+- [ ] Produces byte-identical output to the reference engine on every conformance
+      case.
+
+The last line is the only one that cannot be satisfied by reading this document
+carefully, and it is the one that matters: a backtest that disagrees with the chart
+is worthless, so cross-engine equality is a release blocker rather than a target.

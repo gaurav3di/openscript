@@ -31,7 +31,7 @@ reference for that.
 | [`09-supply-demand-zones.oscript`](./09-supply-demand-zones.oscript) | Study | Drawing objects created, mutated and deleted over hundreds of bars |
 | [`10-strategy-ema-cross.oscript`](./10-strategy-ema-cross.oscript) | Strategy | Orders, a bracket, and sizing from the distance to the stop |
 | [`11-strategy-opening-range.oscript`](./11-strategy-opening-range.oscript) | Strategy | One trade per session, a bracket, and an exit on the clock |
-| [`12-strategy-short-premium.oscript`](./12-strategy-short-premium.oscript) | Strategy | Two legs entered and exited together under one combined stop |
+| [`12-strategy-short-premium.oscript`](./12-strategy-short-premium.oscript) | Strategy | A two leg position managed on the sum, inside the single instrument order model |
 
 ## What each one is for
 
@@ -106,8 +106,11 @@ position that has not worked in five hours is not going to.
 **12. Short premium.** Two legs sold together and managed as one position. The
 stop is measured on the sum of the two prices, because stopping each leg
 separately is the classic way to take two losses on a day the legs were hedging
-each other. This is the script that strains hardest against the current
-specification; see gaps 7 and 8 below.
+each other. This is the script that found the version 1 boundary on orders: a
+strategy trades the instrument on its chart and nothing else, so the chart
+carries one leg, the script reads the other, and the second leg is routed by the
+host from an alert. That is the shape `stdlib.md` section 17.1 defines, and this
+script is written to it rather than around it.
 
 ## What the twelve did not need
 
@@ -121,107 +124,118 @@ Worth recording, because it is evidence that the defaults are set about right.
 
 ## Gaps these twelve found
 
-Written bluntly, because that is what the exercise is for. Each one is a change
-the specification needs before a compiler is written against it.
+Written bluntly, because that is what the exercise is for. The list is in two
+parts: what the specification still owes, and what has been settled since the
+twelve were written, with the section that settled it. Everything in the second
+part was a real gap when these scripts were first drafted, and recording the
+answer is how a reader tells a decision from an omission.
 
-1. **The standard library is not specified.** Section 15 fixes the shape of the
-   library and says the per function reference is generated from a manifest. The
-   manifest does not exist, so all twelve scripts assume names and signatures:
-   `ema`, `sma`, `rsi`, `atr`, `stdev`, `highest`, `lowest`, `crossUp`,
-   `crossDown`, `pivotHigh`, `pivotLow`, `sqrt`, `floor`, `max`, `min`, `text`,
-   `isNone`, `orElse`, `fade`, and the array operations. Until the manifest
-   lands, none of that can be checked.
+### Still owed
 
-2. **`color` is a reserved word and also an argument name.** Section 3.4
-   reserves `color`; section 15.3 writes `plot(value, "Title", color = aqua)`
-   and `fill(upper, lower, color = fade(aqua, 88))`. The grammar in section 19
-   requires an IDENT before `=` in an argument, and a reserved word is not one,
-   so the specification's own examples do not parse. `step` has the same
-   problem: it is reserved by `for`, and it is the natural name for a number
-   input's increment. Either drop both from the reserved list, neither being
-   needed as a keyword outside its own statement, or rename the arguments.
+1. **`color` is a reserved word and also an argument name.** `language.md`
+   section 3.4 reserves `color`; section 15.3 writes `plot(value, "Title",
+   color = aqua)`, and `stdlib.md` sections 14.2 and 14.4 take `color` as an
+   argument throughout. The grammar in `language.md` section 19 requires an
+   IDENT before `=` in an argument, and a reserved word is not one, so the
+   specification's own examples do not parse, and neither do scripts 4 and 9.
+   `step` has the same problem: it is reserved by `for`, and it is the natural
+   name for a number input's increment. Either drop both from the reserved list,
+   neither being needed as a keyword outside its own statement, or rename the
+   arguments.
 
-3. **`close` means two things.** Section 15.1 makes `close` a built-in series;
-   section 13.3 and the project README flatten a position with `close()`.
-   Section 12.4 treats a built-in as one name in the global scope. Scripts 10
-   and 11 use both meanings in the same file. Either the specification states
-   that the call form resolves to the order function and the bare form to the
-   series, or the order function is renamed.
+2. **Drawing objects and tables have no type.** `stdlib.md` sections 14.3 and
+   14.4 return a `table`, a `line`, a `label`, a `box` and a `polyline`, while
+   `language.md` section 5.1 lists only `number`, `string`, `bool`, `color`,
+   `none`, `series T` and `array<T>`, and the type grammar allows an array only
+   of those. Scripts 4, 8 and 9 hold those values, and script 9 holds an array
+   of boxes with no annotation it could write. Add the object types, and let
+   `array<T>` name them.
 
-4. **Drawing objects and tables have no type.** Section 5.1 lists `number`,
-   `string`, `bool`, `color`, `none`, `series T` and `array<T>`, and the type
-   grammar allows an array only of those. Scripts 4, 8 and 9 need a value that
-   is a line, a label, a box or a table, and script 9 needs an array of boxes
-   with no annotation it can write. Add the object types, and let `array<T>`
-   name them.
+3. **A drawing object cannot be read back.** `stdlib.md` section 14.4 lists
+   sixteen ways to change an object and none to ask it anything, and does not say
+   whether that is deliberate. Script 9 keeps four parallel arrays describing
+   boxes it drew itself, because there is no way to ask a box where its edges
+   are. Either add the reads, or state that these objects are write only, so
+   nobody plans around the other answer.
 
-5. **A drawing object cannot be read back.** Script 9 keeps four parallel arrays
-   describing boxes it drew itself, because there is no way to ask a box where
-   its edges are. Either add the reads, or say in the specification that these
-   objects are write only, so nobody plans around the other answer.
+4. **The two placement lists disagree.** `language.md` section 15.3 puts `plot`,
+   `fill`, `level`, `input` and `table` at the top level only, and `signal`,
+   `alert`, `background`, `barColor`, the `draw` namespace and the order
+   functions anywhere. `stdlib.md` section 14.1 has `cell` and `print` in the
+   second list and neither `alert` nor `input` in either, and `plotCandles` and
+   `clear` appear in no list at all. Script 8 writes `cell` inside an `if` on the
+   strength of `stdlib.md`. One list has to be the list.
 
-6. **The repaint mode is not named.** Section 15.2's example is
-   `req.timeframe("1D", high)`, with no mode at all, while the project promises
-   that a higher timeframe read states whether it repaints. Script 7 assumes a
-   `mode` argument taking `"closed"`, `"forming"` or `"final"`, defaulting to
-   `"closed"`. The specification has to name the three, fix the default, and
-   then either accept its own example or change it.
+5. **The library manifest does not exist.** `stdlib.md` fixes the name, the
+   arguments, the result and the warmup of every function the twelve call, and
+   its section 19 says the exact arithmetic, the seeding and the worked example
+   live in a manifest that the compiler, the editor's autocomplete and the
+   generated reference all read. Until that file exists, `ema`, `rsi`, `atr`,
+   `pivotHigh` and the rest have a signature and no numbers, and nothing in this
+   folder can be checked against a reference implementation.
 
-7. **Nothing reads equity.** Script 10 risks a cash amount per trade because a
-   script cannot ask what its equity is. Percent of equity risk sizing, which is
-   how most position sizing is actually described, cannot be written:
-   `qtyType = "equityPercent"` sizes a whole order, not a risk measured against
-   a stop distance. `pos` should carry equity, or `strategy` should.
+6. **Where the next bar starts is not a fact.** `chart.intervalMinutes`
+   (`stdlib.md` section 3.4) gives the interval, so script 9 could project a box
+   one interval past the newest bar. It still extends only to the current bar's
+   own time, because one interval past the last bar of a session is not where the
+   next bar opens, and a projected box is looked at exactly there.
+   `session.nextOpen` is the missing piece and is marked planned in section 12.4.
 
-8. **Orders are single instrument, and the position facts are too.** This is the
-   largest gap. Script 12 sells two legs that are not the chart's instrument,
-   and `pos.size`, `pos.avgPrice` and `pos.profit` have no per leg form, so the
-   script tracks its own flag and cannot ask the engine what it is holding. The
-   fill model has the same hole: `fillOn = "nextOpen"` is defined against the
-   chart's bars, and nothing says what fills an order in an instrument whose own
-   bars are the ones that matter. Multi leg strategies are a stated objective,
-   so this needs a section of its own.
+7. **A blank line inside a block is undefined.** `language.md` section 3.10 says
+   every line of one block carries exactly the same leading whitespace, and a
+   blank line carries none. Scripts 8 and 9 both space their block bodies out, so
+   the lexer has to state that a blank line and a comment only line are skipped
+   before indentation is measured, or a great many readable scripts will fail to
+   parse for a reason nobody will guess.
 
-9. **There is no symbol input.** Section 13.4 covers a number, a source, a bool,
-   a colour, an options list and an interval. Scripts 6 and 12 need the user to
-   pick an instrument, and assume `kind = "symbol"`.
+### Answered since
 
-10. **A time input cannot become a bar time.** Script 3 takes a wall clock
-    string and needs `date.fromString` to turn it into a timestamp. The `date`
-    namespace is described as calendar fields and construction from a timestamp,
-    which is the other direction. The same paragraph has to settle which zone a
-    calendar field reads in: section 5.1 says time is UTC, section 15.2 says
-    `chart.timezone` exists, and nothing says which one `date.dayOfWeek(time)`
-    uses. Script 12 depends on that answer.
+Each of these was a hole when the twelve were drafted. The section named is where
+the answer now lives, and the scripts have been brought to it.
 
-11. **Nothing writes a table cell.** Section 15.3 lists `table` among the top
-    level only surfaces and names no call that fills it. Script 8 assumes a bare
-    `cell(...)` usable anywhere, which also means section 15.3's second list
-    needs a row for it.
+- **`close` means two things.** `stdlib.md` section 3.2. The bare name is the
+  series, the call form is the order function, and the checker tells them apart
+  by syntax. Scripts 10, 11 and 12 use both spellings in one file.
+- **The repaint mode is not named.** `stdlib.md` section 15.3 names
+  `"confirmed"`, `"developing"` and `"lookahead"`, makes `"confirmed"` the
+  default and attaches a warning to the other two. Script 7 states its mode as a
+  literal.
+- **Nothing reads equity.** `stdlib.md` section 17.4 carries `pos.equity`,
+  `pos.netProfit` and `pos.openProfit`, with `pos.maxDrawdown` named and planned
+  beside them.
+- **Orders are single instrument, and the position facts are too.** Settled as a
+  decision rather than as new surface. `stdlib.md` section 17.1 states that no
+  order function takes a symbol, and that a position built from more than one
+  instrument is one leg traded, the others read with `req.symbol`, and the
+  decision routed by the host from an `alert`. Script 12 is written to that
+  model. A per leg order form is a later objective, not a version 1 hole, because
+  it needs per leg position facts and a fill model for bars that are not the
+  chart's.
+- **There is no symbol input.** `stdlib.md` section 13.1 names `kind = "symbol"`
+  and marks it planned, so scripts 6 and 12 take a plain text input and say so in
+  a comment. Calling a planned kind would be OS2001.
+- **A time input cannot become a bar time.** `stdlib.md` section 13.3: a `"time"`
+  input stores a wall clock string, so a saved layout restores to the same clock
+  in another zone, and returns the instant it names as a number, so script 3
+  converts nothing. Section 12.1 settles the zone question with it: every
+  calendar field reads in `chart.timezone` unless a `zone` argument names
+  another, which is the answer script 12's weekday test depends on.
+- **Nothing writes a table cell.** `stdlib.md` section 14.3: `table` takes a
+  title, `cell` writes one cell and `clear` empties the grid.
+- **`fill` takes one colour.** `stdlib.md` section 14.2: `colorUp` and
+  `colorDown` beside `color`, which is what makes a crossing readable at a
+  glance.
+- **Per plot options are not enumerated.** `stdlib.md` section 14.2 lists
+  `width`, `style`, `offset`, `scale`, `precision` and `format`, with the closed
+  style list and the rule that a constant colour and a per-bar colour are the
+  same argument.
+- **An alert's shape is never stated.** `stdlib.md` section 16:
+  `alert(message, id, title, frequency)`. The condition is the `if` that guards
+  the call, not an argument to it, and the compiler lifts the chain of guards
+  into the watched condition's predicate. Script 6 was written the other way and
+  has been corrected.
 
-12. **`fill` takes one colour.** The chart contract carries two, one for each
-    side of the crossing, which is what makes "the fast average is above the
-    slow one" readable at a glance. Script 1 wanted that and could not write it.
-
-13. **Per plot options are not enumerated.** `width` and `style` appear only in
-    an example, and a plot that belongs on a different scale, or is drawn at an
-    offset, has no stated spelling, though the chart contract supports both.
-
-14. **There is no bar duration.** Script 9 extends its boxes to the current
-    bar's own time rather than one bar past it, because nothing exposes the
-    interval in milliseconds. `time - time[1]` is right intraday and wrong
-    across a session gap, which is exactly where a projected box is looked at.
-
-15. **An alert's shape is never stated.** Section 6.6 refers to "an alert
-    condition", so script 6 writes `alert(condition, message)`. That is a guess.
-
-16. **A blank line inside a block is undefined.** Section 3.10 says every line
-    of one block carries exactly the same leading whitespace, and a blank line
-    carries none. Scripts 8 and 9 both space their block bodies out, so the
-    lexer has to state that a blank line and a comment only line are skipped
-    before indentation is measured, or a great many readable scripts will fail
-    to parse for a reason nobody will guess.
-
-None of these sixteen required a change to the shape of the language. They are
-missing surface rather than wrong decisions, which is the result this gate was
-looking for.
+None of these required a change to the shape of the language. The seven still
+owed are missing surface or a disagreement between two documents, and the ten
+answered were missing decisions that have since been made, which is the result
+this gate was looking for.

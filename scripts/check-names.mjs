@@ -16,7 +16,7 @@
 import { execSync } from 'node:child_process';
 import { readFileSync, statSync } from 'node:fs';
 
-const ENCODED = [
+const ENCODED_PRODUCTS = [
   'dHJhZGluZ3ZpZXc=', 'cGluZXNjcmlwdA==', 'cGluZSBzY3JpcHQ=', 'cGluZS1zY3JpcHQ=',
   'cGluZXRz', 'cGluZSB0cw==', 'bHV4YWxnbw==', 'bXVsdGljaGFydHM=',
   'dHJhZGVzdGF0aW9u', 'ZWFzeWxhbmd1YWdl', 'cG93ZXJsYW5ndWFnZQ==', 'bmluamF0cmFkZXI=',
@@ -24,14 +24,40 @@ const ENCODED = [
   'cXVhbnRjb25uZWN0', 'dmVsYQ==',
 ];
 
-const terms = ENCODED.map((e) => Buffer.from(e, 'base64').toString('utf8'));
+/**
+ * Real market instruments and indices, which are trademarks of the exchanges and
+ * index providers that run them.
+ *
+ * A specification that reaches for a real index as its example symbol reads as a
+ * document about one market, and OpenScript is meant to be picked up by an
+ * exchange on the other side of the world. Examples use placeholder symbols.
+ *
+ * Deliberately excluded: identifiers that are also ordinary English words. A
+ * build that fails because a sentence used the word "reliance" costs more than
+ * the leak it would have caught, and the reviewer catches that case anyway.
+ */
+const ENCODED_MARKETS = [
+  'bmlmdHk=', 'YmFua25pZnR5', 'ZmlubmlmdHk=', 'bWlkY3BuaWZ0eQ==', 'c2Vuc2V4',
+  'YmFua2V4', 'YnRjdXNkdA==', 'ZXRodXNkdA==', 'bmFzZGFx', 'bmlra2Vp', 'ZnRzZQ==',
+  'ZG93IGpvbmVz', 'cyZwIDUwMA==',
+];
+
+const decode = (e) => Buffer.from(e, 'base64').toString('utf8');
+
+const groups = [
+  { terms: ENCODED_PRODUCTS.map(decode), why: 'names another product or company' },
+  { terms: ENCODED_MARKETS.map(decode), why: 'names a real market instrument or index' },
+];
 
 // Word boundaries on both ends, and a run of whitespace or a hyphen where the
 // term has a space, so a name split across a line wrap is still caught. Without
 // the boundaries an ordinary English word that happens to contain a short term
 // as a substring would fail the build.
-const patterns = terms.map(
-  (t) => new RegExp(`\\b${t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&').replace(/ /g, '[\\s-]+')}\\b`, 'i'),
+const patterns = groups.flatMap((g) =>
+  g.terms.map((t) => ({
+    re: new RegExp(`\\b${t.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&').replace(/ /g, '[\\s-]+')}\\b`, 'i'),
+    why: g.why,
+  })),
 );
 
 const BINARY = /\.(png|jpe?g|gif|svg|ico|webp|woff2?|ttf|eot|pdf|zip|gz|mp4|wasm)$/i;
@@ -63,14 +89,11 @@ for (const file of listFiles()) {
   }
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
-    for (const re of patterns) {
+    for (const { re, why } of patterns) {
       const m = re.exec(lines[i]);
       if (m) {
         hits++;
-        console.error(
-          `${file}:${i + 1}:${m.index + 1}: names another product or company. ` +
-            `Describe it generically instead.`,
-        );
+        console.error(`${file}:${i + 1}:${m.index + 1}: ${why}. Use a generic description or a placeholder symbol.`);
       }
     }
   }

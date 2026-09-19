@@ -2,21 +2,22 @@
 // target, one clock exit, all measured on the sum of the two prices rather than
 // on either leg.
 //
-// Exercises: orders that name an instrument other than the chart's, two legs
-// entered and exited together, a stop on a value that is not a price on this
-// chart, a calendar test, and the state a multi leg script has to keep for
-// itself because the position facts are single instrument.
+// Exercises: the single instrument order model at its limit, a second leg read
+// with req.symbol and routed by the host from an alert, a stop measured on a
+// value that is not a price on this chart, a calendar test, and one close per
+// bar carrying the reason it fired.
 
 version 1
 
 strategy("Short premium, combined stop", precision = 2,
-         capital = 500000, qtyType = "units", qty = 1,
+         capital = 500000, qtyType = "lots", qty = 1,
          product = "intraday", pyramiding = 1, closeOnSessionEnd = true,
          fillOn = "nextOpen", slippage = 1,
          commissionType = "perTrade", commission = 20)
 
-callLeg     = input("", "Call leg", kind = "symbol")
-putLeg      = input("", "Put leg",  kind = "symbol")
+// A plain text input. The instrument picker, input kind "symbol", is planned
+// rather than part of version 1 (stdlib 13.1), so the second leg is typed in.
+otherLeg    = input("", "The other leg's symbol")
 lots        = input(1,  "Lots per leg", min = 1, max = 100)
 tradeDay    = input(4,  "Weekday to trade, 1 is Monday", min = 1, max = 7)
 entryMinute = input(20, "Enter this many minutes after the open", min = 0, max = 1440)
@@ -24,60 +25,74 @@ exitMinute  = input(330, "Flat this many minutes after the open", min = 1, max =
 stopPct     = input(30, "Stop, in percent of the entry premium", min = 1, max = 500)
 targetPct   = input(50, "Target, in percent of the entry premium", min = 1, max = 99)
 
-callPrice = req.instrument(callLeg, close, exchange = chart.exchange)
-putPrice  = req.instrument(putLeg,  close, exchange = chart.exchange)
+// The chart carries one leg and the script reads the other. A strategy holds one
+// net position in the instrument the chart is showing and no order function
+// takes a symbol (stdlib 17.1), so the second leg is sent by the host from the
+// alerts below. That is the shape version 1 defines for a two leg position, and
+// it is stated here rather than worked around, because a per leg order would
+// need per leg position facts and a fill model for bars that are not the
+// chart's, and a fill model that guessed would report a fill at a price the leg
+// never traded.
+otherPrice = req.symbol(otherLeg, chart.interval, close, exchange = chart.exchange)
 
 // The position is the sum, so the sum is what is managed. Stopping each leg
 // separately is the classic way to take two losses on a day the two legs were
 // hedging each other.
-premium  = callPrice + putPrice
-legQty   = lots * chart.lotSize
+premium = close + otherPrice
 
-var openTime      = none
-var entryPremium  = none
-var shortNow      = false
-var doneToday     = false
+var openTime     = none
+var entryPremium = none
+var doneToday    = false
 
 if session.isFirstBar
     openTime  = time
     doneToday = false
 
+// Cleared before the entry below can set a fresh one, so a position closed by
+// the session end rule does not leave its entry premium behind for the next day
+// to measure against. Written the other way round it would wipe the level on the
+// entry bar itself, because the position is still flat until the fill.
+if pos.isFlat
+    entryPremium = none
+
 elapsed = isNone(openTime) ? none : time - openTime
 
 // Days of the week rather than a date list, because the day this strategy wants
 // is a weekly recurrence and a list of dates goes stale.
-rightDay = date.dayOfWeek(time) == tradeDay
-priced   = not isNone(premium)
+rightDay   = date.dayOfWeek(time) == tradeDay
+priced     = not isNone(premium)
 afterEntry = not isNone(elapsed) and elapsed >= entryMinute * 60000
 afterExit  = not isNone(elapsed) and elapsed >= exitMinute * 60000
 
-if rightDay and priced and afterEntry and not shortNow and not doneToday
-    order.sell(symbol = callLeg, exchange = chart.exchange, qty = legQty, id = "call")
-    order.sell(symbol = putLeg,  exchange = chart.exchange, qty = legQty, id = "put")
+if rightDay and priced and afterEntry and pos.isFlat and not doneToday
+    sell(qty = lots, tag = "premium")
     entryPremium = premium
-    shortNow     = true
     doneToday    = true
+    alert("SELL " + text(lots, 0) + " lots of " + otherLeg, id = "other-leg-entry")
 
 // Positive when the seller is losing, which is the direction the stop cares
-// about, so the two comparisons below read the way they are spoken.
-movePct = shortNow and priced ? (premium - entryPremium) / entryPremium * 100 : none
+// about, so the two comparisons below read the way they are spoken. Absence does
+// the guarding: entryPremium is absent while flat and premium is absent whenever
+// either leg has no bar, so movePct is absent and no test below is true.
+movePct = (premium - entryPremium) / entryPremium * 100
 
-if shortNow and not isNone(movePct)
-    if movePct >= stopPct
-        order.closeAll()
-        shortNow = false
-        signal("STOP")
-    else if movePct <= -targetPct
-        order.closeAll()
-        shortNow = false
-        signal("TARGET")
+hit     = not isNone(movePct) and movePct >= stopPct
+banked  = not isNone(movePct) and movePct <= -targetPct
+timeOut = afterExit
 
-if shortNow and afterExit
-    order.closeAll()
-    shortNow = false
-    signal("TIME")
+// One close, with the reason attached, rather than three blocks that could each
+// send one on the same bar. The position stays short until the fill on the next
+// bar's open, so three separate blocks would be three orders on one bar, which
+// is OS7013.
+if pos.isShort and (hit or banked or timeOut)
+    close()
+    alert("BUY " + text(lots, 0) + " lots of " + otherLeg, id = "other-leg-exit")
+    signal(hit ? "STOP" : (banked ? "TARGET" : "TIME"))
 
+// No ternary on any of these: entryPremium is absent while flat, absence
+// propagates through the arithmetic, and a plot given an absent value draws a
+// gap rather than a zero.
 plot(premium, "Combined premium", orange, width = 2)
-plot(shortNow ? entryPremium : none, "Entry premium", fade(silver, 40), style = "step")
-plot(shortNow ? entryPremium * (1 + stopPct / 100) : none, "Stop", red, style = "step")
-plot(shortNow ? entryPremium * (1 - targetPct / 100) : none, "Target", lime, style = "step")
+plot(entryPremium, "Entry premium", fade(silver, 40), style = "step")
+plot(entryPremium * (1 + stopPct / 100), "Stop", red, style = "step")
+plot(entryPremium * (1 - targetPct / 100), "Target", lime, style = "step")

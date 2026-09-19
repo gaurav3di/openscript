@@ -1,0 +1,3884 @@
+# OpenScript error catalogue
+
+Version of this document: draft, tracking language version 1.
+
+This is the authoritative list of every diagnostic OpenScript can emit. The
+language specification quotes codes from here; where the two disagree, this
+document wins and `language.md` is wrong.
+
+The catalogue exists as one machine-readable file, `errors.json`, with three
+consumers that must never drift apart:
+
+1. **The compiler and the engines** emit a code, a line, a column and the values
+   that fill the message. They never emit a bare string.
+2. **The editor** reads the message and the fix and puts them on the exact
+   character, and applies the fix directly where the entry says it can.
+3. **The documentation site** generates one page per code from the same file.
+
+This document is the human face of that file. The per-code sections in part 8
+are rendered from `errors.json` by the documentation build, so the two cannot
+disagree, and the parts before it are the design that `errors.json` implements.
+
+## Contents
+
+1. [The shape of errors.json](#1-the-shape-of-errorsjson)
+2. [What a diagnostic carries](#2-what-a-diagnostic-carries)
+3. [The two rules every entry obeys](#3-the-two-rules-every-entry-obeys)
+4. [The ranges](#4-the-ranges)
+5. [What the build enforces](#5-what-the-build-enforces)
+6. [Codes that refine or reassign a code quoted elsewhere](#6-codes-that-refine-or-reassign-a-code-quoted-elsewhere)
+7. [Substitutions for OS1001](#7-substitutions-for-os1001)
+8. [The catalogue](#8-the-catalogue)
+
+---
+
+## 1. The shape of errors.json
+
+The file is one object. Everything above `entries` is a small amount of context a
+consumer needs in order to read the entries at all; `entries` is the catalogue.
+
+| Field | Type | Holds |
+|---|---|---|
+| `catalogue` | string | Always `openscript-errors`, so a file can be identified by content |
+| `schemaVersion` | number | The shape of this file. A new field is not a bump; a changed or removed field is |
+| `languageVersion` | number | The language version this catalogue describes |
+| `placeholderSyntax` | string | Always `{name}`. Stated so a consumer does not infer it from examples |
+| `severities` | object | Each severity and what it does to the run |
+| `stages` | object | Each stage and where in the pipeline it sits |
+| `ranges` | array | One per thousand block: prefix, kind, what it covers, its severity |
+| `entries` | array | The catalogue, ascending by code |
+
+An entry:
+
+| Field | Type | Holds |
+|---|---|---|
+| `code` | string | `OSNxxx`. Stable for ever: a code is never reused and never renumbered |
+| `title` | string | Two to six words, sentence case, no full stop. The heading and the editor's list entry |
+| `message` | string | The template the reader sees, with `{name}` placeholders |
+| `placeholders` | object | Every placeholder in `message` and `fix`, mapped to what the compiler puts there |
+| `cause` | string | What the compiler or the engine saw, and why the rule exists |
+| `fix` | string | What to do, in the imperative. Never a restatement of the message |
+| `severity` | string | `error` or `warning` |
+| `stage` | string | `lex`, `parse`, `check`, `runtime` or `host` |
+| `since` | number | The language version the code first appeared in |
+| `autofix` | boolean | Whether an editor can apply the fix without asking a question |
+| `example` | object | `before`, the shortest script that raises it, and `after`, the same script fixed |
+| `spec` | string | The sections of `language.md` that define the rule |
+| `refines` | string or null | The broader code this one takes a case from, if any |
+| `test` | string | The directory holding the test that produces this code |
+
+A complete entry, as it appears in the file:
+
+```json
+{
+  "code": "OS1006",
+  "title": "Assignment used as a condition",
+  "severity": "error",
+  "stage": "parse",
+  "since": 1,
+  "message": "= assigns a value, and a condition needs a comparison.",
+  "placeholders": {},
+  "cause": "Assignment is a statement and never an expression, so the classic typo cannot compile into a condition that is always true.",
+  "fix": "Write == to compare, or move the assignment to its own line above the if.",
+  "autofix": true,
+  "example": {
+    "before": "if len = 14\n    signal(\"DEFAULT\")",
+    "after": "if len == 14\n    signal(\"DEFAULT\")"
+  },
+  "spec": "language.md 10.1",
+  "refines": null,
+  "test": "tests/errors/OS1006"
+}
+```
+
+Four decisions in that shape are worth stating, because each could have gone the
+other way.
+
+**The message is a template, and the values are not in the catalogue.** The
+compiler supplies a line, a column and the values; the catalogue supplies the
+words. The alternative, letting the compiler build whole strings, is what allows
+a message in the product to drift from the message in the documentation, and
+drift is the one thing this file exists to prevent.
+
+**Every placeholder is declared.** A placeholder that appears in `message` or
+`fix` and not in `placeholders` fails the build, and so does one declared and
+never used. The editor therefore knows, without running anything, exactly what a
+diagnostic will carry, and a translator knows what each slot means.
+
+**The example is two scripts, not one.** A before with no after tells a reader
+what is wrong and leaves them to guess the shape of right. The after is the same
+script with the smallest change that compiles. Both may be fragments; where the
+condition is one the host produces rather than the script, the example shows the
+host input that fails and the host input that passes.
+
+**`since` is on the entry, not derived from a changelog.** A code that appears in
+language version 2 is invisible to a version 1 script, and an editor pinned to a
+version needs to know which diagnostics it can be shown without consulting
+anything else. Codes are never renumbered and never reused, so the field only
+ever grows.
+
+---
+
+## 2. What a diagnostic carries
+
+A diagnostic, as the compiler or an engine hands it over, is the code plus the
+position plus the values:
+
+```
+code    OS2002
+line    14
+column  5
+span    3
+values  { name: "len", line: 1 }
+```
+
+The reader sees the message with the values filled in, a caret under the span,
+and the fix underneath:
+
+```
+14 |     len = 9
+   |     ^^^
+OS2002: len is already declared at line 1, so a second one cannot be declared here.
+Fix: rename this one, or drop the inner declaration and let the assignment update the len at line 1.
+```
+
+An error stops compilation, or stops the bar that raised it. A warning stops
+nothing: it is reported on its line, and the script runs.
+
+A runtime error stops the bar and marks the study as errored, with the message on
+the chart. It does not silently skip the bar, because a gap that has no
+explanation is indistinguishable from a gap the script meant.
+
+---
+
+## 3. The two rules every entry obeys
+
+**One. The message tells the reader what to do.** The `fix` field names an action
+on the source in front of them: a replacement, a line to move, a call to wrap, a
+guard to add. If a proposed error cannot say something concrete, the error is
+badly designed and the design changes, rather than the entry shipping with advice
+like "check your script". Three shapes are banned outright: a fix that restates
+the message, a fix that says the behaviour is undefined, and a fix that names
+only the section of a document to go and read.
+
+**Two. No entry names any product, platform or company.** Not in a title, a
+message, a cause, a fix, an example, a symbol in an example or a file path. Prior
+art is described generically, as "an existing chart scripting language". Example
+scripts use `SYMBOL` and `EXCHANGE` as placeholder instruments. This is checked
+mechanically over this file and `errors.json`, so it is not a matter of taste.
+
+---
+
+## 4. The ranges
+
+A code's thousand block says what kind of thing went wrong, and it never says how
+serious it is: severity is a field. The blocks are stable, and a range that fills
+up is not renumbered.
+
+| Range | Kind | Covers | Severity | Entries |
+|---|---|---|---|---|
+| OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 22 |
+| OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 18 |
+| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 18 |
+| OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
+| OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 9 |
+| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
+| OS7xxx | Orders | An order could not be placed as written. | error | 15 |
+| OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 18 |
+| | | | **Total** | **132** |
+
+Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
+kind rather than by severity precisely so that a reader can tell from a bare code
+in a log which part of the system produced it.
+
+Numbers within a range are assigned in the order the codes were added, not
+grouped by topic. A new entry takes the next free number in its range, because
+renumbering to make a range tidy would break every log, every saved report and
+every link that ever quoted a code.
+
+---
+
+## 5. What the build enforces
+
+Documentation drifts from code because nothing fails when it does. Two rules,
+both run in continuous integration, both of which fail the build rather than
+print a note.
+
+### Rule 1. Every code the compiler can emit exists here
+
+The compiler and every engine emit codes from one generated constant table, and
+nothing anywhere constructs a code string by hand. The build extracts the set of
+codes from that table, reads the set of codes from `errors.json`, and compares
+them in both directions:
+
+- A code the compiler can emit with no entry here fails the build, naming the
+  code and the source position that emits it. This is the rule that stops a
+  diagnostic reaching a user with no documentation behind it.
+- An entry here that no code path can emit also fails the build, naming the code.
+  An entry for a diagnostic that no longer exists is worse than no entry: it
+  sends a reader looking for a cause that cannot occur. A code that is genuinely
+  retired stays in the file with an explicit retirement, and a retired code is
+  never reused.
+
+The check covers the message templates too: the placeholders the emitting call
+site supplies must be exactly the placeholders the entry declares. A message with
+an unfilled slot is a build failure, not a run-time surprise.
+
+### Rule 2. Every entry here has a test that produces it
+
+Each entry names a test directory in its `test` field. The test holds the source
+from `example.before` and the expected diagnostic. The runner asserts four
+things:
+
+- Compiling or running `example.before` produces this code, at the expected line
+  and column.
+- The diagnostic supplies exactly the placeholders the entry declares, so the
+  rendered message has no empty slots.
+- Compiling or running `example.after` produces no diagnostic at all, which is
+  what makes the fix a fix rather than a suggestion.
+- For a warning, the script still runs to completion and produces output.
+
+An entry whose condition the host raises rather than the source (`stage` is
+`host`) is tested the same way with the host input its example shows: the runner
+drives the engine with the failing input, then with the passing one.
+
+An entry with no test directory fails the build. A test that produces a different
+code than the one it is filed under fails the build. Together with rule 1 this
+closes the loop: the compiler cannot emit an undocumented code, the catalogue
+cannot document a code that does not exist, and no entry can describe behaviour
+that the implementation does not have.
+
+Two smaller checks run in the same job, because they are cheap and they catch the
+same class of rot: the schema check (every field present, every placeholder
+declared and used, every fix non-empty and ending in a full stop) and the
+independence check (no product, platform or company named anywhere in either
+file).
+
+---
+
+## 6. Codes that refine or reassign a code quoted elsewhere
+
+The specification is several documents, and a rule is often stated where it
+belongs rather than here. Two kinds of difference are therefore possible, and
+both are resolved the same way: the catalogue is what the compiler emits.
+
+**Refinements.** `language.md` sometimes quotes a family code for a case this
+catalogue gives its own code, so that the fix can be specific rather than
+general. The family code remains correct for every case not listed here.
+
+| Code | Refines | The case it takes over |
+|---|---|---|
+| OS1005 | OS1004 | Unknown escape sequence |
+| OS2011 | OS2003 | A condition must be a bool |
+| OS2012 | OS2003 | The two arms of the ternary have different types |
+| OS2013 | OS2003 | An array literal mixes types |
+
+**Reassignments.** Where a sibling document quotes a code that this catalogue
+assigns to something else, the catalogue's assignment is the one the compiler
+emits, and the sibling document is corrected rather than the code moved. A code
+is never reused for a second meaning, so these are listed once and then settled.
+
+| Quoted as | In | This catalogue emits | Why |
+|---|---|---|---|
+| OS6002, quoted for any request the host cannot answer | `stdlib.md` | OS6007, OS6008, OS6009 | an unknown symbol, an empty answer and a failed fetch have three different fixes |
+| OS3008, for a host setting that fails an input's validation | `compiled-program.md` | OS6019 | OS3008 is about a value written in the source; a setting arrives from outside it |
+
+---
+
+## 7. Substitutions for OS1001
+
+OS1001 names the character it found and the plain spelling to use instead. The
+table the compiler fills the message from:
+
+| Written | Fix named in the message |
+|---|---|
+| a non-breaking space | a plain space |
+| a typographic quotation mark, single or double | a straight quote |
+| an en space, an em space or a narrow space | a plain space |
+| a non-ASCII letter in a name | the ASCII spelling of the name |
+| ! | not |
+| && | and |
+| || | or |
+| ^ | pow(a, b) |
+| ** | pow(a, b) |
+| ++ | a += 1 |
+| { or } | indentation, which is how a block is written |
+| #, $ or @ outside a colour literal | delete it, or put the text in a string |
+
+A character not in the table is reported with the generic fix, which is to delete
+it or move it inside a string literal.
+
+---
+
+## 8. The catalogue
+
+Entries are grouped by range and ascending by code. Each one carries its
+severity, the stage that raises it, the language version it appeared in, the
+sections of `language.md` that define the rule, and the test that produces it.
+
+## 8.1 OS1xxx Syntax
+
+### OS1001 Unexpected character
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.1, 3.3, 3.12. Test `tests/errors/OS1001`. The editor can apply the fix.
+
+**Message.** `Unexpected character {char}. {suggestion}`
+
+- `{char}` is the offending character, quoted, with its Unicode name when it is not an ASCII graphic.
+- `{suggestion}` is the replacement sentence for this character, from the substitution table in section 7 of this document.
+
+**Cause.** Outside a string literal the language accepts ASCII letters, ASCII digits, space, newline and the punctuation list of language.md 3.12, and nothing else. A non-breaking space pasted from a web page, a typographic quotation mark pasted from a word processor, a non-ASCII letter in a name, a digit at the start of a name, and an operator the language does not have (!, &&, ||, ^, {, }) all arrive here. The character is rejected where it sits rather than three tokens later, because an invisible character produces a baffling parse error otherwise.
+
+**Fix.** Delete the character or replace it with the plain ASCII spelling the message names: a plain space for a non-breaking space, a straight quote for a typographic one, not for !, and for &&, or for ||, pow(a, b) for ^.
+
+Before:
+
+```
+if !ready
+    signal("BUY")
+```
+
+After:
+
+```
+if not ready
+    signal("BUY")
+```
+
+### OS1002 Tab in indentation
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1002`. The editor can apply the fix.
+
+**Message.** `This line is indented with a tab.`
+
+**Cause.** Leading whitespace is spaces only. A tab is rejected rather than expanded because the width of a tab is an editor setting, so a file whose block structure depends on it means something different when someone else opens it.
+
+**Fix.** Replace the leading tabs with spaces. Four spaces per level is the convention and the formatter's output.
+
+Before:
+
+```
+if close > open
+	signal("UP")
+```
+
+After:
+
+```
+if close > open
+    signal("UP")
+```
+
+### OS1003 Indentation does not match this block
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10, 3.11. Test `tests/errors/OS1003`. The editor can apply the fix.
+
+**Message.** `This line is indented {found} spaces; the block opened at line {line} is indented {expected}.`
+
+- `{found}` is the leading space count on this line.
+- `{expected}` is the leading space count every line of this block carries.
+- `{line}` is the line that opened the block.
+
+**Cause.** Every line of one block carries exactly the same leading whitespace, and a continuation line must be indented more deeply than the first line of its statement. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see.
+
+**Fix.** Indent this line to {expected} spaces to keep it in the block, or to {line}'s own indentation to end the block here.
+
+Before:
+
+```
+if trending
+    fast = ema(close, 9)
+     slow = ema(close, 21)
+```
+
+After:
+
+```
+if trending
+    fast = ema(close, 9)
+    slow = ema(close, 21)
+```
+
+### OS1004 Unterminated string literal
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.6. Test `tests/errors/OS1004`.
+
+**Message.** `This string literal opens with {quote} and the line ends before a matching {quote}.`
+
+- `{quote}` is the opening delimiter, a double or a single quote.
+
+**Cause.** A string literal may not span a line, so the scanner reports the opening quote rather than swallowing the rest of the file and complaining about the last line.
+
+**Fix.** Close the string with a matching {quote} before the end of the line, and join text across lines with + and a continuation.
+
+Before:
+
+```
+signal("BUY)
+```
+
+After:
+
+```
+signal("BUY")
+```
+
+### OS1005 Unknown escape sequence
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.6. Test `tests/errors/OS1005`. The editor can apply the fix.
+
+**Message.** `{sequence} is not an escape sequence.`
+
+- `{sequence}` is the backslash and the character that followed it.
+
+**Cause.** The escapes are a backslash followed by one of \ " ' n t r 0, and uXXXX with exactly four hexadecimal digits. Anything else is almost always a Windows path or a regular expression that was pasted without doubling its backslashes.
+
+**Fix.** Double the backslash to write one literally, or use one of the escapes the language defines.
+
+Before:
+
+```
+path = "C:\data\bars"
+```
+
+After:
+
+```
+path = "C:\\data\\bars"
+```
+
+### OS1006 Assignment used as a condition
+
+Severity error. Stage parser. Since language version 1. Reference language.md 10.1. Test `tests/errors/OS1006`. The editor can apply the fix.
+
+**Message.** `= assigns a value, and a condition needs a comparison.`
+
+**Cause.** Assignment is a statement and never an expression, so the classic typo cannot compile into a condition that is always true. There is no form of this language in which if x = 5 means anything.
+
+**Fix.** Write == to compare, or move the assignment to its own line above the if.
+
+Before:
+
+```
+if len = 14
+    signal("DEFAULT")
+```
+
+After:
+
+```
+if len == 14
+    signal("DEFAULT")
+```
+
+### OS1007 Semicolon
+
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1007`. The editor can apply the fix.
+
+**Message.** `; is not part of the language.`
+
+**Cause.** A statement ends at the end of its line and a line holds at most one statement, so there is no separator to write.
+
+**Fix.** Delete the ; and put the second statement on its own line.
+
+Before:
+
+```
+fast = ema(close, 9); slow = ema(close, 21)
+```
+
+After:
+
+```
+fast = ema(close, 9)
+slow = ema(close, 21)
+```
+
+### OS1008 Chained comparison
+
+Severity error. Stage parser. Since language version 1. Reference language.md 9.3. Test `tests/errors/OS1008`.
+
+**Message.** `A comparison cannot be chained: {op1} is already applied before {op2}.`
+
+- `{op1}` is the first comparison operator on the line.
+- `{op2}` is the second comparison operator on the line.
+
+**Cause.** Two readings of a < b < c are plausible to a reader, the mathematical one and the C-family one, and a form with two plausible meanings has no place in a language that places orders. The grammar allows at most one comparison operator per expression.
+
+**Fix.** Split it with and, naming the middle value twice: a < b and b < c.
+
+Before:
+
+```
+if 30 < r < 70
+    zone = "mid"
+```
+
+After:
+
+```
+if 30 < r and r < 70
+    zone = "mid"
+```
+
+### OS1009 break or continue outside a loop
+
+Severity error. Stage parser. Since language version 1. Reference language.md 10.5. Test `tests/errors/OS1009`.
+
+**Message.** `{word} is only valid inside a for or a while body.`
+
+- `{word}` is break or continue, whichever was written.
+
+**Cause.** break leaves the innermost loop and continue starts its next iteration, so neither has a meaning where there is no loop to act on.
+
+**Fix.** Move it inside the loop body, or write return to leave a function early.
+
+Before:
+
+```
+fn firstAbove(values, level) =>
+    if size(values) == 0
+        break
+    values[0]
+```
+
+After:
+
+```
+fn firstAbove(values, level) =>
+    if size(values) == 0
+        return none
+    values[0]
+```
+
+### OS1010 Block header with no body
+
+Severity error. Stage parser. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1010`. The editor can apply the fix.
+
+**Message.** `{header} opens a block, and the next line is not indented more deeply.`
+
+- `{header}` is the keyword that opened the block, such as if, else, for, while, case or default.
+
+**Cause.** A header line introduces a block that consists of the following lines indented more deeply than the header. With nothing indented under it the header has no body, which is almost always a line that lost its indentation in a paste.
+
+**Fix.** Indent the body under the header, or delete the header line if the body is genuinely empty.
+
+Before:
+
+```
+if crossUp(fast, slow)
+signal("BUY")
+```
+
+After:
+
+```
+if crossUp(fast, slow)
+    signal("BUY")
+```
+
+### OS1011 var with no initial value
+
+Severity error. Stage parser. Since language version 1. Reference language.md 8.2. Test `tests/errors/OS1011`. The editor can apply the fix.
+
+**Message.** `var {name} has no initial value.`
+
+- `{name}` is the name being declared.
+
+**Cause.** The declaration and the first assignment are one statement, so a persistent value always has something in it and no bar can read it before it exists.
+
+**Fix.** Give it a starting value; var {name} = none is the empty start.
+
+Before:
+
+```
+var highest
+if high > orElse(highest, high)
+    highest = high
+```
+
+After:
+
+```
+var highest = none
+if isNone(highest) or high > highest
+    highest = high
+```
+
+### OS1012 Bracket is never closed
+
+Severity error. Stage parser. Since language version 1. Reference language.md 3.11. Test `tests/errors/OS1012`.
+
+**Message.** `The {bracket} opened at line {line} is never closed.`
+
+- `{bracket}` is the opening bracket character.
+- `{line}` is the line the bracket was opened on.
+
+**Cause.** An open ( or [ continues the statement onto the following lines, so a missing closer makes the scanner read the rest of the file as one statement. The error is reported at the opening bracket, which is where the mistake is.
+
+**Fix.** Add the matching closer at the end of the argument list on line {line}.
+
+Before:
+
+```
+plot(ema(close, 9), "EMA", aqua
+```
+
+After:
+
+```
+plot(ema(close, 9), "EMA", aqua)
+```
+
+### OS1013 Mismatched closing bracket
+
+Severity error. Stage parser. Since language version 1. Reference language.md 19. Test `tests/errors/OS1013`. The editor can apply the fix.
+
+**Message.** `Found {found} where {expected} was expected, closing the {opener} opened at line {line}.`
+
+- `{found}` is the closing bracket that was written.
+- `{expected}` is the closing bracket the opener requires.
+- `{opener}` is the opening bracket character.
+- `{line}` is the line the bracket was opened on.
+
+**Cause.** Brackets nest, and a call closes with ) while an index or an array literal closes with ].
+
+**Fix.** Change {found} to {expected}, which is what closes the {opener} opened at line {line}.
+
+Before:
+
+```
+total = sum(closes]
+```
+
+After:
+
+```
+total = sum(closes)
+```
+
+### OS1014 Missing comma between arguments
+
+Severity error. Stage parser. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS1014`. The editor can apply the fix.
+
+**Message.** `Two arguments run together; a comma is missing before {token}.`
+
+- `{token}` is the first token of the second argument.
+
+**Cause.** Arguments are separated by commas. Two expressions side by side inside a call are not a form the language has, so the missing comma is reported rather than guessed at.
+
+**Fix.** Put a comma between the two arguments.
+
+Before:
+
+```
+plot(ema(close, 9) "EMA", aqua)
+```
+
+After:
+
+```
+plot(ema(close, 9), "EMA", aqua)
+```
+
+### OS1015 Ternary with no second arm
+
+Severity error. Stage parser. Since language version 1. Reference language.md 9.5. Test `tests/errors/OS1015`.
+
+**Message.** `This ? has no matching :`
+
+**Cause.** The ternary always yields a value, so both arms are required. A ternary with one arm is usually a plot that wanted to draw nothing on some bars.
+
+**Fix.** Give the ternary both arms, and use none for the arm that should draw nothing.
+
+Before:
+
+```
+plot(ready ? value, "Value", aqua)
+```
+
+After:
+
+```
+plot(ready ? value : none, "Value", aqua)
+```
+
+### OS1016 else does not follow an if
+
+Severity error. Stage parser. Since language version 1. Reference language.md 10.2. Test `tests/errors/OS1016`. The editor can apply the fix.
+
+**Message.** `This else is indented {found} spaces and the nearest if is indented {expected}.`
+
+- `{found}` is the leading space count on the else line.
+- `{expected}` is the leading space count of the if it should pair with.
+
+**Cause.** An else pairs with the if at its own indentation. At any other indentation there is no if for it to belong to, and guessing which one was meant would make the block structure unreadable.
+
+**Fix.** Line the else up with its if, at {expected} spaces.
+
+Before:
+
+```
+if trending
+    signal("BUY")
+  else
+    signal("WAIT")
+```
+
+After:
+
+```
+if trending
+    signal("BUY")
+else
+    signal("WAIT")
+```
+
+### OS1017 case or default in the wrong place
+
+Severity error. Stage parser. Since language version 1. Reference language.md 10.6. Test `tests/errors/OS1017`.
+
+**Message.** `{word} is only valid inside a switch, and default must be its last arm.`
+
+- `{word}` is case or default, whichever was written.
+
+**Cause.** The arms of a switch are its whole body. A default that is not last would leave the arms after it unreachable, which the language rejects rather than silently accepts.
+
+**Fix.** Move the arm inside the switch block, and put default after every case.
+
+Before:
+
+```
+switch method
+    default
+        len = 14
+    case "fast"
+        len = 9
+```
+
+After:
+
+```
+switch method
+    case "fast"
+        len = 9
+    default
+        len = 14
+```
+
+### OS1018 More than one statement on a line
+
+Severity error. Stage parser. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1018`.
+
+**Message.** `Unexpected {token} after the end of this statement.`
+
+- `{token}` is the first token that follows the complete statement.
+
+**Cause.** A line holds at most one statement, so anything after a statement ends is either a missing operator or a second statement that lost its newline.
+
+**Fix.** Put {token} and what follows it on its own line, or supply the operator that was meant to join them.
+
+Before:
+
+```
+fast = ema(close, 9) slow = ema(close, 21)
+```
+
+After:
+
+```
+fast = ema(close, 9)
+slow = ema(close, 21)
+```
+
+### OS1019 Reserved word used as a name
+
+Severity error. Stage parser. Since language version 1. Reference language.md 3.4. Test `tests/errors/OS1019`.
+
+**Message.** `{word} is a reserved word and cannot be used as a name.`
+
+- `{word}` is the reserved word that was used as a name.
+- `{suggestion}` is a near name that is not reserved, derived from the word.
+
+**Cause.** The reserved words of language.md 3.4 include five that version 1 does not implement (import, map, matrix, type, as). They are reserved now so that implementing them later cannot break a script that used one as a name.
+
+**Fix.** Rename it; {suggestion} keeps the meaning and is not reserved.
+
+Before:
+
+```
+type = input("fast", "Mode", options = ["fast", "slow"])
+```
+
+After:
+
+```
+mode = input("fast", "Mode", options = ["fast", "slow"])
+```
+
+### OS1020 Incomplete for header
+
+Severity error. Stage parser. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS1020`.
+
+**Message.** `A for header needs = start to end or in array; found {token}.`
+
+- `{token}` is the token that appeared where to or in was expected.
+
+**Cause.** There are two loop forms and no third. A counted loop names a start and an end, and a loop over an array names the array.
+
+**Fix.** Write for i = 0 to size(values) - 1 for a counted loop, or for v in values to visit elements.
+
+Before:
+
+```
+for i = 0, 9
+    total += close[i]
+```
+
+After:
+
+```
+for i = 0 to 9
+    total += close[i]
+```
+
+### OS1021 The version declaration is not first
+
+Severity error. Stage parser. Since language version 1. Reference language.md 4. Test `tests/errors/OS1021`. The editor can apply the fix.
+
+**Message.** `version must be the first line that is not blank and not a comment; line {line} came before it.`
+
+- `{line}` is the line of the first statement that preceded the version declaration.
+
+**Cause.** A host reads the version with a one-line scan so it can pick a front end before any parsing happens. A declaration further down the file would be read by the wrong front end, which defeats the purpose of having one.
+
+**Fix.** Move the version line to the top of the file, above the study or strategy declaration.
+
+Before:
+
+```
+study("EMA cross")
+version 1
+```
+
+After:
+
+```
+version 1
+
+study("EMA cross")
+```
+
+### OS1022 Expression expected
+
+Severity error. Stage parser. Since language version 1. Reference language.md 3.11. Test `tests/errors/OS1022`.
+
+**Message.** `An expression was expected after {token}.`
+
+- `{token}` is the operator or punctuation the statement ended on.
+
+**Cause.** An operator, a comma or an opening bracket at the end of a statement continues it onto the next line, so a statement that ends this way and is followed by nothing usable has lost its right-hand side.
+
+**Fix.** Supply the missing operand, or delete the trailing {token}.
+
+Before:
+
+```
+len = input(14, "Length") +
+```
+
+After:
+
+```
+len = input(14, "Length") + 1
+```
+
+---
+
+## 8.2 OS2xxx Names and types
+
+### OS2001 Name is not defined here
+
+Severity error. Stage checker. Since language version 1. Reference language.md 12.2, 12.5. Test `tests/errors/OS2001`.
+
+**Message.** `{name} is not defined at this point in the file.`
+
+- `{name}` is the name that was read.
+- `{suggestion}` is the closest name that is in scope here, by edit distance.
+
+**Cause.** The file is the body of the per-bar loop and runs top to bottom, so a name must be assigned above the line that reads it. A name first assigned inside a block belongs to that block and is not visible outside it. A misspelling arrives here too.
+
+**Fix.** Assign {name} above this line, move this line below its assignment, or correct the spelling to {suggestion}.
+
+Before:
+
+```
+plot(spread, "Spread", aqua)
+spread = high - low
+```
+
+After:
+
+```
+spread = high - low
+plot(spread, "Spread", aqua)
+```
+
+### OS2002 The name already exists in an enclosing scope
+
+Severity error. Stage checker. Since language version 1. Reference language.md 12.3, 12.4. Test `tests/errors/OS2002`.
+
+**Message.** `{name} is already declared at line {line}, so a second one cannot be declared here.`
+
+- `{name}` is the name being declared.
+- `{line}` is the line of the existing declaration, or the word built-in when it is a library name.
+
+**Cause.** There is no shadowing. An assignment to a name that exists in an enclosing scope updates that name, so declaring the same name inside is a request the language has no syntax for and is always a mistake. Built-in names such as close, ema, aqua and plot live in the global scope, so assigning to one lands here as well.
+
+**Fix.** Rename this one, or drop the inner declaration and let the assignment update the {name} at line {line}.
+
+Before:
+
+```
+len = 20
+
+fn smooth(src) =>
+    len = 9
+    sma(src, len)
+```
+
+After:
+
+```
+len = 20
+
+fn smooth(src) =>
+    inner = 9
+    sma(src, inner)
+```
+
+### OS2003 Types do not match
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 10.1. Test `tests/errors/OS2003`.
+
+**Message.** `{leftType} and {rightType} do not mix here.`
+
+- `{leftType}` is the type of the left operand or of the name's first assignment.
+- `{rightType}` is the type of the right operand or of the value being assigned.
+
+**Cause.** There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money.
+
+**Fix.** Convert explicitly: text(x) for a string, number(s) for a number, bool(x) for a bool, or use a separate name for the second value.
+
+Before:
+
+```
+s = "count: " + 5
+```
+
+After:
+
+```
+s = "count: " + text(5)
+```
+
+### OS2004 This value has no history
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.2. Test `tests/errors/OS2004`.
+
+**Message.** `{expr} has no history, so [] cannot read a past value of it.`
+
+- `{expr}` is the expression the history operator was applied to.
+
+**Cause.** History is retained for four kinds of value: a built-in series, a name assigned at the top level of the file, a call to a function declared to return a series, and a series parameter of a user function. Retaining it for every temporary inside every block would cost memory per bar and would not run fifty thousand bars in a browser tab.
+
+**Fix.** Assign the value to a name at the top level of the file, then read that name's history.
+
+Before:
+
+```
+if trending
+    body = close - open
+    plot(body[1], "Previous body", aqua)
+```
+
+After:
+
+```
+body = close - open
+plot(trending ? body[1] : none, "Previous body", aqua)
+```
+
+### OS2005 Recursive call
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.4. Test `tests/errors/OS2005`.
+
+**Message.** `{name} calls itself: {cycle}.`
+
+- `{name}` is the function at the start of the cycle.
+- `{cycle}` is the call chain, from the function back to itself.
+
+**Cause.** State slots for var and for stateful library calls are allocated statically, one per call site. Recursion would need a dynamic stack of them, whose cost would be paid on every bar of every script to support a form a per-bar language almost never needs.
+
+**Fix.** Rewrite it as a loop, or split the work into two functions that do not call each other.
+
+Before:
+
+```
+fn total(n) =>
+    if n <= 0
+        return 0
+    close[n] + total(n - 1)
+```
+
+After:
+
+```
+fn total(n) =>
+    sum = 0.0
+    for i = 0 to n
+        sum += close[i]
+    sum
+```
+
+### OS2006 Assignment to a loop variable
+
+Severity error. Stage checker. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS2006`.
+
+**Message.** `{name} is this loop's variable and cannot be assigned inside the body.`
+
+- `{name}` is the loop variable.
+
+**Cause.** The loop controls its own variable, so a body that also writes to it produces a loop whose iteration count cannot be read from its header.
+
+**Fix.** Use break to leave early, or keep a separate name for the value the body changes.
+
+Before:
+
+```
+for i = 0 to 9
+    if close[i] > hi
+        i = 9
+```
+
+After:
+
+```
+for i = 0 to 9
+    if close[i] > hi
+        break
+```
+
+### OS2007 The file has no declaration
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.1. Test `tests/errors/OS2007`.
+
+**Message.** `A file needs one study() or strategy() declaration before any other statement.`
+
+**Cause.** The declaration supplies the title, the pane, the precision and the settings the host needs before the first bar runs. Without one there is nothing to put in a legend and nothing to name in a picker.
+
+**Fix.** Add study("Name") as the first statement, or strategy("Name") if the file places orders.
+
+Before:
+
+```
+fast = ema(close, 9)
+plot(fast, "Fast", aqua)
+```
+
+After:
+
+```
+study("EMA", overlay = true)
+
+fast = ema(close, 9)
+plot(fast, "Fast", aqua)
+```
+
+### OS2008 More than one declaration
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.1. Test `tests/errors/OS2008`.
+
+**Message.** `This file already declares {kind} at line {line}.`
+
+- `{kind}` is study or strategy, whichever came first.
+- `{line}` is the line of the first declaration.
+
+**Cause.** Two declarations would need a rule for whose overlay, precision and title win, and the answer to that question is always that there should have been one. A strategy accepts every study option, so a file that wants both is a strategy.
+
+**Fix.** Delete this declaration and move the options you wanted onto the one at line {line}.
+
+Before:
+
+```
+study("EMA cross", overlay = true)
+strategy("EMA cross")
+```
+
+After:
+
+```
+strategy("EMA cross", overlay = true)
+```
+
+### OS2009 Unknown member of a namespace
+
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS2009`.
+
+**Message.** `{namespace} has no member named {member}.`
+
+- `{namespace}` is the namespace that was read.
+- `{member}` is the member name that does not exist.
+- `{suggestion}` is the closest member of that namespace, by edit distance.
+
+**Cause.** Namespaces hold a fixed set of names, published in the library manifest the editor completes from. A member that does not exist is a typo or a name from a different namespace.
+
+**Fix.** Use one of {namespace}'s members; {suggestion} is the closest match to what was written.
+
+Before:
+
+```
+plot(bar.idx, "Bar", aqua)
+```
+
+After:
+
+```
+plot(bar.index, "Bar", aqua)
+```
+
+### OS2010 This name is not a function
+
+Severity error. Stage checker. Since language version 1. Reference language.md 15.1. Test `tests/errors/OS2010`.
+
+**Message.** `{name} is {type}, not a function, so it cannot be called.`
+
+- `{name}` is the name that was called.
+- `{type}` is the type the name holds.
+- `{suggestion}` is the library function whose name is closest, with its first argument filled in.
+
+**Cause.** A built-in series and a user value are read bare. An argument list after one of them is usually a library function that was remembered with the wrong name.
+
+**Fix.** Remove the argument list to read the value, or call the function that was meant: {suggestion}.
+
+Before:
+
+```
+v = volume(20)
+```
+
+After:
+
+```
+v = sma(volume, 20)
+```
+
+### OS2011 A condition must be a bool
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 10.2. Test `tests/errors/OS2011`.
+
+**Message.** `This condition is {type}; a condition must be bool or none.`
+
+- `{type}` is the type the condition expression produced.
+- `{name}` is the condition expression as written, or its name when it is one.
+
+**Cause.** There is no truthiness. A number is not a condition, a string is not a condition, and an absent value takes the false branch only after the condition has been written as a genuine test.
+
+**Fix.** Write the test out: {name} > 0 for a count, isNone({name}) for absence, {name} != "" for a string.
+
+Before:
+
+```
+if count
+    signal("SEEN")
+```
+
+After:
+
+```
+if count > 0
+    signal("SEEN")
+```
+
+### OS2012 The two arms of the ternary have different types
+
+Severity error. Stage checker. Since language version 1. Reference language.md 9.5. Test `tests/errors/OS2012`.
+
+**Message.** `The arms of this ? : are {leftType} and {rightType}.`
+
+- `{leftType}` is the type of the arm before the colon.
+- `{rightType}` is the type of the arm after the colon.
+
+**Cause.** The ternary yields one value, so both arms must agree on its type. The one exception is none, which is a member of every type and is how an arm says there is nothing here.
+
+**Fix.** Make both arms the same type with text() or number(), or use none for the empty arm.
+
+Before:
+
+```
+label = up ? 1 : "down"
+```
+
+After:
+
+```
+label = up ? "up" : "down"
+```
+
+### OS2013 An array literal mixes types
+
+Severity error. Stage checker. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS2013`.
+
+**Message.** `This array holds {firstType} at index 0 and {otherType} at index {index}.`
+
+- `{firstType}` is the type of the first element.
+- `{otherType}` is the type of the element that disagrees.
+- `{index}` is the index of the element that disagrees.
+
+**Cause.** An array is homogeneous, which is what lets size, sum, avg and sort mean one thing. A mixed literal is usually two lists that belong side by side.
+
+**Fix.** Make every element {firstType}, or keep two arrays and index them together.
+
+Before:
+
+```
+rows = ["RSI", 14, "EMA", 9]
+```
+
+After:
+
+```
+names = ["RSI", "EMA"]
+lengths = [14, 9]
+```
+
+### OS2014 A function cannot be used as a value
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.1, 18. Test `tests/errors/OS2014`.
+
+**Message.** `{name} is a function, and version 1 has no function values.`
+
+- `{name}` is the function name that was used bare.
+
+**Cause.** Functions are not values in version 1: they cannot be assigned, stored in an array or passed as an argument. The feature is reserved rather than absent, and language.md 18 names it.
+
+**Fix.** Call {name} with its arguments and use the value it returns.
+
+Before:
+
+```
+src = ema
+plot(src, "EMA", aqua)
+```
+
+After:
+
+```
+src = ema(close, 9)
+plot(src, "EMA", aqua)
+```
+
+### OS2015 The element type of this empty array is unknown
+
+Severity error. Stage checker. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS2015`.
+
+**Message.** `An empty array literal needs its element type from an annotation or from a first use.`
+
+**Cause.** An array is homogeneous, so its element type has to be known before anything is pushed into it. An empty literal with nothing around it to infer from leaves the type open, and the language does not guess.
+
+**Fix.** Annotate the declaration: var hits: array<number> = [].
+
+Before:
+
+```
+var hits = []
+push(hits, close)
+```
+
+After:
+
+```
+var hits: array<number> = []
+push(hits, close)
+```
+
+### OS2016 Unknown type in an annotation
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 19. Test `tests/errors/OS2016`.
+
+**Message.** `{type} is not a type.`
+
+- `{type}` is the word that was written where a type was expected.
+
+**Cause.** The types are number, string, bool, color, none and array<T>, with series in front where a per-bar value is meant. There is no integer type: a length, a bar count and a price are all number.
+
+**Fix.** Use number, string, bool, color or array<T>, with series in front for a per-bar value.
+
+Before:
+
+```
+fn band(src: series number, len: int = 20) =>
+    sma(src, len)
+```
+
+After:
+
+```
+fn band(src: series number, len: number = 20) =>
+    sma(src, len)
+```
+
+### OS2017 A function with this name is already declared
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.1. Test `tests/errors/OS2017`.
+
+**Message.** `{name} is already declared as a function at line {line}.`
+
+- `{name}` is the function name.
+- `{line}` is the line of the first declaration.
+
+**Cause.** There is no overloading in version 1, so one name is one function. Two declarations would make the call site's meaning depend on argument types, which is exactly the kind of resolution a reader cannot do in their head.
+
+**Fix.** Rename one of them, or give the one function a default argument that covers both uses.
+
+Before:
+
+```
+fn band(src) => sma(src, 20)
+fn band(src, len) => sma(src, len)
+```
+
+After:
+
+```
+fn band(src, len = 20) => sma(src, len)
+```
+
+### OS2018 Duplicate parameter name
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS2018`.
+
+**Message.** `{name} appears twice in this parameter list.`
+
+- `{name}` is the repeated parameter name.
+
+**Cause.** Two parameters with one name make every use of that name inside the body ambiguous, and a named argument at the call site could not say which one it meant.
+
+**Fix.** Rename the second parameter, so every name in the list appears once.
+
+Before:
+
+```
+fn ratio(src, src) => src / src[1]
+```
+
+After:
+
+```
+fn ratio(src, len) => src / src[len]
+```
+
+---
+
+## 8.3 OS3xxx Arguments
+
+### OS3001 Wrong number of arguments
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3001`.
+
+**Message.** `{name} takes {expected} arguments and {found} were given.`
+
+- `{name}` is the function being called.
+- `{expected}` is the number of parameters, or the range when some have defaults.
+- `{found}` is the number of arguments at this call site.
+- `{signature}` is the function's full signature, parameter names and defaults included.
+
+**Cause.** A call site is checked against the declared parameter list. Parameters with defaults may be left out, and every parameter without one must be supplied.
+
+**Fix.** Pass the arguments the signature names: {signature}.
+
+Before:
+
+```
+e = ema(close)
+```
+
+After:
+
+```
+e = ema(close, 9)
+```
+
+### OS3002 Unknown named argument
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3002`.
+
+**Message.** `{name} has no argument called {argument}.`
+
+- `{name}` is the function being called.
+- `{argument}` is the named argument that does not exist.
+- `{names}` is every argument name the function accepts, in declaration order.
+- `{suggestion}` is the closest accepted name, by edit distance.
+
+**Cause.** Named arguments are matched against the parameter list by exact name. A name that is not on the list is a spelling that the call site and the function disagree about, and ignoring it would leave the argument silently unapplied.
+
+**Fix.** Use one of {names}; {suggestion} is the closest to what was written.
+
+Before:
+
+```
+plot(v, "V", colour = aqua)
+```
+
+After:
+
+```
+plot(v, "V", color = aqua)
+```
+
+### OS3003 This option must be a constant
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.2. Test `tests/errors/OS3003`.
+
+**Message.** `{option} is read once, before the first bar, so it cannot depend on bar data.`
+
+- `{option}` is the option that was given a bar-dependent value.
+
+**Cause.** The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built.
+
+**Fix.** Use a literal, or make it tunable with an input(): {option} = input(2, "{option}").
+
+Before:
+
+```
+study("Range", precision = round(close / 1000))
+```
+
+After:
+
+```
+study("Range", precision = input(2, "Precision"))
+```
+
+### OS3004 Argument is not a valid whole number
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 10.3. Test `tests/errors/OS3004`.
+
+**Message.** `{name}'s {argument} must be a whole number {range}; {found} was given.`
+
+- `{name}` is the function being called.
+- `{argument}` is the parameter name.
+- `{range}` is the accepted range, such as 1 or more.
+- `{found}` is the literal value that was written.
+
+**Cause.** A lookback length, an index and a loop step are counts of bars or of elements. A fractional value is rejected rather than truncated, because a length of 14.5 is a bug in the script and rounding it hides the bug. A step of 0 is rejected because it is the one loop that cannot finish.
+
+**Fix.** Pass a whole number inside {range}, and wrap a computed value in floor() or round().
+
+Before:
+
+```
+s = sma(close, len / 2)
+```
+
+After:
+
+```
+s = sma(close, floor(len / 2))
+```
+
+### OS3005 Positional argument after a named one
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3005`.
+
+**Message.** `A positional argument cannot follow a named one.`
+
+**Cause.** Once an argument is named, the position of the arguments after it no longer says which parameter they fill. The order is positional first, named afterwards, which keeps every call site readable without the signature in front of you.
+
+**Fix.** Name this argument too, or move it in front of the first named argument.
+
+Before:
+
+```
+b = band(close, len = 20, 3)
+```
+
+After:
+
+```
+b = band(close, len = 20, mult = 3)
+```
+
+### OS3006 This call must be at the top level
+
+Severity error. Stage checker. Since language version 1. Reference language.md 7.1, 15.3. Test `tests/errors/OS3006`.
+
+**Message.** `{name} defines part of the study's fixed shape and cannot appear inside {construct}.`
+
+- `{name}` is the call, one of plot, fill, level or table.
+- `{construct}` is the enclosing construct, such as an if block, a loop or a function body.
+
+**Cause.** The set of plotted columns, fills, levels and tables is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.
+
+**Fix.** Move the call to the top level and hide it per bar by passing none: plot(cond ? value : none, ...). Inside a request expression, read the value first and draw with it afterwards.
+
+Before:
+
+```
+if trending
+    plot(ema20, "EMA 20", aqua)
+```
+
+After:
+
+```
+plot(trending ? ema20 : none, "EMA 20", aqua)
+```
+
+### OS3007 input() must be at the top level
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS3007`.
+
+**Message.** `input() builds one row of the settings dialog, which is read once before the first bar.`
+
+**Cause.** The dialog exists before any bar runs, so every input has to be reachable without executing the script. An input inside a block would appear or vanish depending on the data, and a saved setting would have nothing to attach to.
+
+**Fix.** Move the input() to the top level and use the name it assigns inside the block.
+
+Before:
+
+```
+if useBand
+    len = input(20, "Length")
+```
+
+After:
+
+```
+len = input(20, "Length")
+if useBand
+    b = sma(close, len)
+```
+
+### OS3008 The value is not valid for this parameter
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS3008`.
+
+**Message.** `{argument} accepts {values}; {found} is not one of them.`
+
+- `{argument}` is the parameter, option or setting key.
+- `{values}` is the accepted values or the accepted form, written out.
+- `{found}` is the value that was written or that the host supplied.
+- `{suggestion}` is the accepted value closest to what was written.
+
+**Cause.** Some parameters take a value out of a fixed set, or in a fixed written form, rather than free text, because each one selects a different rule in the engine or the report. Two cases arrive here: a name that is not in the set, and a structured string that does not parse, a session window for instance. An unknown name has no rule to select, and defaulting quietly would change what the script does without saying so. The same failure in a setting the host supplied is OS6019, because there the value came from outside the source.
+
+**Fix.** Use one of {values}; {suggestion} is the closest to what was written.
+
+Before:
+
+```
+strategy("Breakout", qtyType = "shares")
+```
+
+After:
+
+```
+strategy("Breakout", qtyType = "units")
+```
+
+### OS3009 This option needs another option to be set
+
+Severity error. Stage checker. Since language version 1. Reference language.md 7.5, 13.2. Test `tests/errors/OS3009`.
+
+**Message.** `{option} = {value} requires {required}.`
+
+- `{option}` is the option that was set.
+- `{value}` is the value it was set to.
+- `{required}` is the option and value it depends on.
+
+**Cause.** A few options only mean something in combination. An alert that fires on every execution of a bar only has executions to fire on in a file that acts on unconfirmed bars. Accepting the option on its own would leave it doing nothing, silently, which is the worst of the three possible behaviours.
+
+**Fix.** Set {required} in the declaration, or choose a value of {option} that stands on its own.
+
+Before:
+
+```
+study("Ticks")
+
+if close > open
+    alert("Up", frequency = "everyUpdate")
+```
+
+After:
+
+```
+study("Ticks", onUnconfirmed = true)
+
+if close > open
+    alert("Up", frequency = "everyUpdate")
+```
+
+### OS3010 Two arguments that cannot both be given
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS3010`.
+
+**Message.** `{first} and {second} set the same thing two ways.`
+
+- `{first}` is the first of the two arguments.
+- `{second}` is the second of the two arguments.
+
+**Cause.** An exit level can be written as an absolute price or as a distance from the entry, and both at once would have to be reconciled. Every rule for reconciling them (the nearer one, the later one, the absolute one) surprises somebody, so the call is refused and the script says which it meant.
+
+**Fix.** Keep one of the two: an absolute price, or a distance from the entry.
+
+Before:
+
+```
+exit(limit = 105, profit = 5)
+```
+
+After:
+
+```
+exit(limit = 105)
+```
+
+### OS3011 Argument has the wrong type
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.2, 5.3. Test `tests/errors/OS3011`.
+
+**Message.** `{name}'s {argument} is {expected}; {found} was given.`
+
+- `{name}` is the function being called.
+- `{argument}` is the parameter name.
+- `{expected}` is the declared parameter type.
+- `{found}` is the type of the expression at the call site.
+
+**Cause.** Arguments are checked against the declared parameter types, with broadcast as the only widening: a plain value may be passed where a series is expected, and it is read as that same value on every bar. Nothing else converts on its own.
+
+**Fix.** Convert the value with text(), number() or bool(), or pass an expression of type {expected}.
+
+Before:
+
+```
+e = ema(close, "9")
+```
+
+After:
+
+```
+e = ema(close, 9)
+```
+
+### OS3012 A required argument is missing
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2, 13.2. Test `tests/errors/OS3012`.
+
+**Message.** `{name} requires {argument}, which has no default.`
+
+- `{name}` is the function being called.
+- `{argument}` is the parameter that was left out.
+- `{example}` is a filled-in call showing the argument in place.
+
+**Cause.** A parameter without a default has no value the engine could invent. The title of a study and the source of an indicator are the common cases.
+
+**Fix.** Pass {argument} at the call site, as the example shows: {example}.
+
+Before:
+
+```
+study(overlay = true)
+```
+
+After:
+
+```
+study("Range breakout", overlay = true)
+```
+
+### OS3013 Argument given twice
+
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3013`.
+
+**Message.** `{argument} is given twice at this call site.`
+
+- `{argument}` is the parameter that received two values.
+
+**Cause.** A named argument may not repeat one already filled by position, and may not appear twice. Either would leave the reader guessing which value wins.
+
+**Fix.** Delete one of the two, keeping the value that was meant.
+
+Before:
+
+```
+b = band(close, 50, len = 20)
+```
+
+After:
+
+```
+b = band(close, len = 20)
+```
+
+### OS3014 limits() is in the wrong place
+
+Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS3014`.
+
+**Message.** `limits() appears at most once, immediately after the declaration; this one is at line {line}.`
+
+- `{line}` is the line the limits() call was found on.
+
+**Cause.** The budgets apply to the whole run and are read before the first bar. One fixed position means a reader can see a script's budgets without searching the file, and two calls would need a rule for which one wins.
+
+**Fix.** Move the limits() line directly under study(...) or strategy(...), and merge two calls into one.
+
+Before:
+
+```
+study("Heavy")
+
+len = input(20, "Length")
+limits(loops = 50_000_000)
+```
+
+After:
+
+```
+study("Heavy")
+limits(loops = 50_000_000)
+
+len = input(20, "Length")
+```
+
+### OS3015 limits() takes literal numbers
+
+Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS3015`.
+
+**Message.** `limits() is read before the first bar, so {option} must be a literal number.`
+
+- `{option}` is the limits option that was given a computed value.
+
+**Cause.** The engine allocates against these budgets before it runs anything, so there is no bar on which a computed budget could be evaluated. An input() is not accepted here either, because a budget that a settings dialog can change is a budget a reader cannot see.
+
+**Fix.** Write the number: limits(loops = 50_000_000).
+
+Before:
+
+```
+limits(loops = maxBars * 1000)
+```
+
+After:
+
+```
+limits(loops = 50_000_000)
+```
+
+### OS3016 range must be a low and a high
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.2. Test `tests/errors/OS3016`.
+
+**Message.** `range is [{low}, {high}]; it takes two numbers and the first must be below the second.`
+
+- `{low}` is the first element as written.
+- `{high}` is the second element as written.
+
+**Cause.** The range option fixes the study pane's scale, so it is exactly two numbers in axis order. A reversed or single-element range has no scale to build.
+
+**Fix.** Write two numbers, lowest first: range = [0, 100].
+
+Before:
+
+```
+study("RSI", range = [100, 0])
+```
+
+After:
+
+```
+study("RSI", range = [0, 100])
+```
+
+### OS3017 Two of these share a title
+
+Severity error. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS3017`.
+
+**Message.** `{kind} titles must be unique in a file; {title} is also used at line {line}.`
+
+- `{kind}` is the thing being titled: plot, fill, level, input or table.
+- `{title}` is the repeated title, quoted.
+- `{line}` is the line of the first use of that title.
+
+**Cause.** The legend row, the settings dialog and the saved layout all key a column by its title, and an alert message names it. Two columns with one title would overwrite each other's saved settings.
+
+**Fix.** Rename one of them so each title appears once.
+
+Before:
+
+```
+plot(fast, "EMA", aqua)
+plot(slow, "EMA", orange)
+```
+
+After:
+
+```
+plot(fast, "EMA fast", aqua)
+plot(slow, "EMA slow", orange)
+```
+
+### OS3018 The default is not in the options list
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS3018`.
+
+**Message.** `This input's default {default} is not one of options {values}.`
+
+- `{default}` is the default value as written.
+- `{values}` is the options list as written.
+
+**Cause.** An input with options is a dropdown, and its default is the row that is selected when the dialog opens. A default outside the list leaves the dialog with nothing selected and the script with a value the user cannot reproduce.
+
+**Fix.** Add {default} to options, or make the default one of the listed values.
+
+Before:
+
+```
+mode = input("medium", "Mode", options = ["fast", "slow"])
+```
+
+After:
+
+```
+mode = input("fast", "Mode", options = ["fast", "slow"])
+```
+
+---
+
+## 8.4 OS4xxx Runtime
+
+### OS4001 History index is not usable
+
+Severity error. Stage engine. Since language version 1. Reference language.md 7.4. Test `tests/errors/OS4001`.
+
+**Message.** `[{index}] is not a whole number of bars at or above zero.`
+
+- `{index}` is the value the index expression produced on this bar.
+
+**Cause.** A history index counts bars back, so it is a whole number and it is never negative: reading the future is not available at any price. A negative literal is caught at compile time as OS3004; this is the computed case.
+
+**Fix.** Wrap the index in floor() or round(), and clamp a computed index with max(0, n).
+
+Before:
+
+```
+prev = close[len / 2]
+```
+
+After:
+
+```
+prev = close[floor(len / 2)]
+```
+
+### OS4002 History index is deeper than the retained depth
+
+Severity error. Stage engine. Since language version 1. Reference language.md 7.4, 10.7. Test `tests/errors/OS4002`.
+
+**Message.** `[{index}] reaches past the retained depth of {depth} bars.`
+
+- `{index}` is the index that was requested.
+- `{depth}` is the depth the host or the script set.
+- `{suggested}` is an adequate depth for this script, being the deepest index it uses.
+
+**Cause.** The value existed and the engine discarded it, which is a different situation from a value that never existed. Conflating the two would hide a real bug behind a plausible gap, so this is an error while a read past the start of history is simply absent.
+
+**Fix.** Raise the depth in one place: limits(history = {suggested}).
+
+Before:
+
+```
+study("Long lookback")
+
+old = close[5000]
+```
+
+After:
+
+```
+study("Long lookback")
+limits(history = 5001)
+
+old = close[5000]
+```
+
+### OS4003 A whole number was required here
+
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4003`.
+
+**Message.** `{name}'s {argument} was {found} on this bar; a whole number was required.`
+
+- `{name}` is the function being called.
+- `{argument}` is the parameter name.
+- `{found}` is the value that reached the call.
+
+**Cause.** An index, a digit count and a repeat count are whole numbers. Where the value is a literal the checker catches it as OS3004; where it is computed it arrives here, on the bar that produced it.
+
+**Fix.** Round the value before passing it: floor() towards zero, round() to nearest.
+
+Before:
+
+```
+mid = element(values, size(values) / 2)
+```
+
+After:
+
+```
+mid = element(values, floor(size(values) / 2))
+```
+
+### OS4004 Array index out of range
+
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4004`.
+
+**Message.** `Index {index} is outside {name}, which holds {size} elements.`
+
+- `{index}` is the index that was requested.
+- `{name}` is the array's name.
+- `{size}` is the array's element count on this bar.
+
+**Cause.** An array has an extent the script chose, so an index outside it is a mistake rather than a missing measurement. This is deliberately the opposite of the history operator, where reading past the start of history is absence.
+
+**Fix.** Guard the read with size({name}), and index from size({name}) - 1 for the last element.
+
+Before:
+
+```
+last = values[10]
+```
+
+After:
+
+```
+last = size(values) > 10 ? values[10] : none
+```
+
+### OS4005 The drawing object no longer exists
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4005`.
+
+**Message.** `This {kind} was deleted on bar {bar} and cannot be changed.`
+
+- `{kind}` is the object kind: line, label, box or polyline.
+- `{bar}` is the bar index the object was deleted on.
+
+**Cause.** A drawing object lives from the bar that created it until the bar that deletes it. A handle kept in a var outlives the object, so moving a deleted object is a script holding a stale handle, which is worth saying rather than ignoring.
+
+**Fix.** Set the handle to none when you delete the object, and test isNone(handle) before changing it.
+
+Before:
+
+```
+var top = none
+if newHigh
+    draw.delete(top)
+draw.setTo(top, time, high)
+```
+
+After:
+
+```
+var top = none
+if newHigh
+    draw.delete(top)
+    top = none
+if not isNone(top)
+    draw.setTo(top, time, high)
+```
+
+### OS4006 The array is empty
+
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4006`.
+
+**Message.** `{name} cannot take an element from an empty array.`
+
+- `{name}` is the call, one of pop, shift, min, max or avg.
+
+**Cause.** Removing or summarising an element of an empty array has no answer. Returning absence would let a script drain an array without noticing, which is the bug this catches.
+
+**Fix.** Test size(arr) > 0 before the call.
+
+Before:
+
+```
+oldest = shift(window)
+```
+
+After:
+
+```
+oldest = size(window) > 0 ? shift(window) : none
+```
+
+### OS4007 Slice range is invalid
+
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4007`.
+
+**Message.** `slice({from}, {to}) is not a range inside an array of {size} elements.`
+
+- `{from}` is the start index, inclusive.
+- `{to}` is the end index, exclusive.
+- `{size}` is the array's element count on this bar.
+
+**Cause.** A slice takes from inclusive and to exclusive, so a valid range satisfies 0 <= from <= to <= size. A reversed range is not read backwards, because a slice that silently reverses is a slice nobody can read.
+
+**Fix.** Clamp the bounds: from = max(0, from) and to = min(size(arr), to), with from at or below to.
+
+Before:
+
+```
+tail = slice(values, size(values), 0)
+```
+
+After:
+
+```
+tail = slice(values, max(0, size(values) - 10), size(values))
+```
+
+### OS4008 Table cell is outside the table
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS4008`.
+
+**Message.** `Cell ({row}, {column}) is outside a table of {rows} rows and {columns} columns.`
+
+- `{row}` is the row index that was written to.
+- `{column}` is the column index that was written to.
+- `{rows}` is the table's declared row count.
+- `{columns}` is the table's declared column count.
+
+**Cause.** A table's shape is declared once, with the study's fixed surface, so a write outside it has no cell to land in. Growing the table on demand would change the layout between bars and would make a saved layout meaningless.
+
+**Fix.** Declare the table with the shape the script writes: table("Summary", {rows}, {columns}).
+
+Before:
+
+```
+t = table("Summary", 2, 2)
+cell(t, 2, 0, "Total")
+```
+
+After:
+
+```
+t = table("Summary", 3, 2)
+cell(t, 2, 0, "Total")
+```
+
+### OS4009 Colour channel is out of range
+
+Severity error. Stage engine. Since language version 1. Reference language.md 3.8. Test `tests/errors/OS4009`.
+
+**Message.** `{name}'s {argument} is {found}; channels run 0 to 255 and alpha runs 0 to 1.`
+
+- `{name}` is the colour function: rgb, rgba or fade.
+- `{argument}` is the channel that was out of range.
+- `{found}` is the value that reached the call.
+
+**Cause.** A colour channel outside its range has no rendering, and clamping silently would make a study whose colours are a computation look right at the edges and wrong in between.
+
+**Fix.** Clamp the value where it is computed: rgb(min(255, max(0, r)), g, b).
+
+Before:
+
+```
+tint = rgb(255 * strength, 0, 0)
+```
+
+After:
+
+```
+tint = rgb(min(255, max(0, 255 * strength)), 0, 0)
+```
+
+### OS4010 Calendar field is out of range
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4010`.
+
+**Message.** `{field} is {found}; it runs {range}.`
+
+- `{field}` is the calendar field: year, month, day, hour, minute or second.
+- `{found}` is the value that reached the call.
+- `{range}` is the accepted range for that field.
+
+**Cause.** A date is built from fields that each have a range, and a month of 13 is a script bug rather than a date. Rolling over into the next year would turn an off-by-one into a silently wrong timestamp, which in a session test is a whole day of wrong signals.
+
+**Fix.** Pass a value inside {range}, carrying the overflow into the field above it as the example does.
+
+Before:
+
+```
+t = date.from(2026, month + 1, 1)
+```
+
+After:
+
+```
+t = date.from(2026 + floor(month / 12), mod(month, 12) + 1, 1)
+```
+
+### OS4011 String position is outside the string
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4011`.
+
+**Message.** `Position {index} is outside a string of {length} characters.`
+
+- `{index}` is the position that was requested.
+- `{length}` is the string's length in characters.
+
+**Cause.** A string position addresses an existing character, counted in Unicode code points. Returning an empty string instead would let a parsing loop run off the end and produce a plausible empty result.
+
+**Fix.** Guard with str.length(s), or clamp the position with min() before the call.
+
+Before:
+
+```
+c = str.substring(sym, 10, 11)
+```
+
+After:
+
+```
+c = str.length(sym) > 10 ? str.substring(sym, 10, 11) : ""
+```
+
+### OS4012 That value is not one of the accepted names
+
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4012`.
+
+**Message.** `{argument} accepts {values}; {found} was computed on this bar.`
+
+- `{argument}` is the parameter name.
+- `{values}` is every accepted value, quoted and comma separated.
+- `{found}` is the value that reached the call.
+
+**Cause.** The compile-time form of this is OS3008. Where the value is computed, the check happens on the bar that produced it, because a name that selects an engine rule cannot be guessed at and cannot be defaulted without changing what the script does.
+
+**Fix.** Produce the value from an input() with an options list, so only accepted names can reach the call.
+
+Before:
+
+```
+order = up ? "ascending" : "desc"
+sort(values, order)
+```
+
+After:
+
+```
+order = up ? "asc" : "desc"
+sort(values, order)
+```
+
+### OS4013 A loop bound is absent
+
+Severity error. Stage engine. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS4013`.
+
+**Message.** `This loop's {bound} is absent on this bar.`
+
+- `{bound}` is the bound that was absent: start, limit or step.
+
+**Cause.** A counted loop needs three numbers before it can begin. Absence propagates through arithmetic and comparison, but a loop cannot propagate it: it either runs or it does not. Treating an absent bound as zero iterations would skip work the script asked for and leave a plot that looks computed, so the bar stops instead.
+
+**Fix.** Give the bound a value with orElse(), or guard the loop with isNone() so a warmup bar skips it deliberately.
+
+Before:
+
+```
+for i = 0 to lookback
+    total += close[i]
+```
+
+After:
+
+```
+if not isNone(lookback)
+    for i = 0 to lookback
+        total += close[i]
+```
+
+---
+
+## 8.5 OS5xxx Limits
+
+### OS5001 Loop budget exhausted
+
+Severity error. Stage engine. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS5001`.
+
+**Message.** `This bar used its {budget} loop iterations, and the loop at line {line} was still running.`
+
+- `{budget}` is the per-bar iteration budget in force.
+- `{line}` is the line of the loop that was running when the budget ran out.
+- `{suggested}` is a budget that would have completed this bar, rounded up.
+
+**Cause.** Every iteration of every loop counts against one per-bar budget, so a script with one nested loop is treated like a script with ten sequential ones, and the budget resets each bar so a long dataset is not itself a reason to fail. The bar stops rather than breaking out of the loop, because a loop that ran two million times and then stopped produces a plausible wrong number, which is worse than no number.
+
+**Fix.** Fix the exit condition, or raise the budget in one line: limits(loops = {suggested}).
+
+Before:
+
+```
+while close[i] > close[i + 1]
+    total += close[i]
+```
+
+After:
+
+```
+while i < 500 and close[i] > close[i + 1]
+    total += close[i]
+    i += 1
+```
+
+### OS5002 The array is too large
+
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS5002`.
+
+**Message.** `An array holds at most {max} elements; {name} reached {size}.`
+
+- `{max}` is the element ceiling.
+- `{name}` is the array's name.
+- `{size}` is the size the array reached.
+
+**Cause.** The ceiling exists so that one script cannot exhaust a browser tab's memory and take the chart with it. It is not raised by limits() in version 1, because an array that large is almost always a window that is never trimmed.
+
+**Fix.** Drop the oldest element as you append: if size(arr) > 500, shift(arr).
+
+Before:
+
+```
+var window = [0.0]
+push(window, close)
+```
+
+After:
+
+```
+var window = [0.0]
+push(window, close)
+if size(window) > 500
+    shift(window)
+```
+
+### OS5003 The host refused this limits() value
+
+Severity error. Stage host. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS5003`.
+
+**Message.** `This host allows {option} up to {max}; the file asks for {found}.`
+
+- `{option}` is the limits option.
+- `{max}` is the host's ceiling.
+- `{found}` is the value the file asked for.
+
+**Cause.** A host that will not run a budget says so instead of quietly capping it, because a script that silently ran under a smaller budget would produce numbers its author never asked for and could not reproduce.
+
+**Fix.** Lower {option} to {max} or below, or run the file on a host that allows more.
+
+Before:
+
+```
+limits(loops = 500_000_000)
+```
+
+After:
+
+```
+limits(loops = 50_000_000)
+```
+
+### OS5004 The program needs more state regions than the engine allows
+
+Severity error. Stage checker. Since language version 1. Reference compiled-program.md, state regions. Test `tests/errors/OS5004`.
+
+**Message.** `This program needs {found} state regions and the engine allows {max}; {first} calls {second} on several paths.`
+
+- `{found}` is the number of state regions the compiler would allocate.
+- `{max}` is the engine's declared region count.
+- `{first}` is the outer function in the nesting that caused it.
+- `{second}` is the function it calls more than once.
+
+**Cause.** State is allocated per call path, which is what lets one function body serve many independent pieces of state. The number of paths grows multiplicatively when several functions each call the next more than once. The compiler reports it rather than emitting a program no engine will load.
+
+**Fix.** Call the inner function once at the top level, give its result a name, and pass that name down.
+
+Before:
+
+```
+fn inner(src) => ema(src, 20)
+fn outer(src) => inner(src) - inner(src[1])
+v = outer(close) + outer(hlc3)
+```
+
+After:
+
+```
+fn inner(src) => ema(src, 20)
+base = inner(close)
+v = base - base[1]
+```
+
+### OS5005 Nesting is too deep
+
+Severity error. Stage parser. Since language version 1. Reference language.md 19. Test `tests/errors/OS5005`.
+
+**Message.** `{construct} is nested {found} deep and the ceiling is {max}.`
+
+- `{construct}` is the construct that nested too deeply: an expression, a block or a call.
+- `{found}` is the nesting depth reached.
+- `{max}` is the nesting ceiling.
+
+**Cause.** The ceiling keeps the parser, the checker and the engine inside a bounded stack, so no input can stop a tab. It applies to source nesting at compile time and to call depth at run time, and it is far above anything a person writes by hand: generated source is the usual way to reach it.
+
+**Fix.** Flatten it: give the inner expression a name at the top level and use the name.
+
+Before:
+
+```
+z = a ? b ? c ? d ? 1 : 2 : 3 : 4 : 5
+```
+
+After:
+
+```
+inner = c ? (d ? 1 : 2) : 3
+z = a ? (b ? inner : 4) : 5
+```
+
+### OS5006 Too many outstanding data requests
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS5006`.
+
+**Message.** `This file makes {found} data requests and the host allows {max}.`
+
+- `{found}` is the number of distinct requests in the file.
+- `{max}` is the host's ceiling on concurrent requests.
+
+**Cause.** Each higher timeframe or other-instrument read is a separate series the host fetches and keeps in step with the chart. The ceiling is the host's, and it is reported rather than silently dropping the requests past it, because a dropped request is a plot that quietly turns absent.
+
+**Fix.** Keep one request per symbol and timeframe, reuse the name it assigns, and delete the requests whose results are unused.
+
+Before:
+
+```
+dayHigh = req.timeframe("1D", high)
+prevHigh = req.timeframe("1D", high)[1]
+weekHigh = req.timeframe("1W", high)
+```
+
+After:
+
+```
+dayHigh = req.timeframe("1D", high)
+prevHigh = dayHigh[1]
+weekHigh = req.timeframe("1W", high)
+```
+
+### OS5007 The bar took too long
+
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/errors/OS5007`.
+
+**Message.** `Bar {bar} ran for {ms} ms and the host allows {max} ms.`
+
+- `{bar}` is the bar index that exceeded the budget.
+- `{ms}` is the time the bar took.
+- `{max}` is the host's per-bar time budget.
+
+**Cause.** A server running many strategies gives each bar a wall-clock budget, so one script cannot starve the rest. Work that does not change from bar to bar is the usual cause: recomputing over the whole history on every bar turns a linear study into a quadratic one.
+
+**Fix.** Keep a running value in a var and update it per bar instead of recomputing over the whole history.
+
+Before:
+
+```
+total = 0.0
+for i = 0 to bar.index
+    total += close[i]
+```
+
+After:
+
+```
+var total = 0.0
+total += close
+```
+
+### OS5008 The string is too long
+
+Severity error. Stage engine. Since language version 1. Reference language.md 5.1. Test `tests/errors/OS5008`.
+
+**Message.** `A string holds at most {max} characters; this one reached {found}.`
+
+- `{max}` is the character ceiling.
+- `{found}` is the length that was reached.
+
+**Cause.** The ceiling catches the one shape that grows without bound by accident: text appended to a persistent string on every bar, which is a log that nothing ever trims.
+
+**Fix.** Keep the pieces in an array, trim it to the rows you display, and join only those.
+
+Before:
+
+```
+var log = ""
+log += text(close) + "\n"
+```
+
+After:
+
+```
+var log: array<string> = []
+push(log, text(close))
+if size(log) > 50
+    shift(log)
+```
+
+### OS5009 The program is too large
+
+Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS5009`.
+
+**Message.** `This file compiles to {found} instructions and the ceiling is {max}.`
+
+- `{found}` is the instruction count the compiler produced.
+- `{max}` is the instruction ceiling.
+
+**Cause.** The compiled program is held in memory per chart and per running strategy, so it has a size the host is willing to hold. A file at this size is nearly always repeated blocks that a function would collapse.
+
+**Fix.** Move the repeated block into a fn and call it, and delete branches the script no longer uses.
+
+Before:
+
+```
+a1 = sma(close, 10)
+a2 = sma(close, 20)
+a3 = sma(close, 30)
+```
+
+After:
+
+```
+fn avgOf(len) => sma(close, len)
+a1 = avgOf(10)
+a2 = avgOf(20)
+a3 = avgOf(30)
+```
+
+---
+
+## 8.6 OS6xxx Data
+
+### OS6001 Unknown timeframe
+
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6001`.
+
+**Message.** `{value} is not a timeframe.`
+
+- `{value}` is the string that was passed as a timeframe.
+
+**Cause.** A timeframe is a count and a unit, written as a string: m for minutes, h for hours, D for days, W for weeks and M for months. The unit letters are case sensitive, so "1M" is one month and "1m" is one minute. A bare number is read as minutes, because that is the form an interval input supplies, so "60" and "1h" are the same timeframe.
+
+**Fix.** Write a count and a unit, or a bare number of minutes: "5m", "1h", "1D", "1W", "60".
+
+Before:
+
+```
+d = req.timeframe("hourly", high)
+```
+
+After:
+
+```
+d = req.timeframe("1h", high)
+```
+
+### OS6002 The requested timeframe is lower than the chart's
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6002`.
+
+**Message.** `The chart is {chart} and the request asks for {requested}.`
+
+- `{chart}` is the chart's interval.
+- `{requested}` is the interval that was requested.
+
+**Cause.** Folding a lower timeframe into a higher bar needs data from inside the bar, which the chart was not given. Inventing it is the definition of a repainting study, so the request is refused rather than approximated.
+
+**Fix.** Request {chart} or higher, or change the chart's interval to the lower one and fold upwards instead.
+
+Before:
+
+```
+m5 = req.timeframe("5", close)
+```
+
+After:
+
+```
+h1 = req.timeframe("60", close)
+```
+
+### OS6003 A per-bar name inside a request expression
+
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6003`.
+
+**Message.** `{name} is computed on this chart's bars, so it has no meaning on the requested ones.`
+
+- `{name}` is the file-scope name that was read inside the expression.
+
+**Cause.** The expression passed to a request is evaluated on the requested instrument's bars, in its own time. A name from this file may be read there only when it is a compile-time constant: a literal, arithmetic over literals, or an input(). A value computed on this chart's bars has no counterpart on the requested ones, and there is no honest answer for what it would mean there.
+
+**Fix.** Move the calculation inside the request expression, or pass a constant: a literal or an input().
+
+Before:
+
+```
+m = sma(close, 20)
+d = req.timeframe("1D", close > m)
+```
+
+After:
+
+```
+d = req.timeframe("1D", close > sma(close, 20))
+```
+
+### OS6004 The library manifest disagrees with the program
+
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, the function table. Test `tests/errors/OS6004`.
+
+**Message.** `Entry {index} of the program names {name} with {arity} arguments; this engine's manifest has {manifest}.`
+
+- `{index}` is the entry's index in the program's function table.
+- `{name}` is the function name the program carries.
+- `{arity}` is the argument count the program carries.
+- `{manifest}` is what the engine's manifest says about that name.
+
+**Cause.** A compiled program carries its own function table, and the engine checks every entry against its manifest at load: the name must exist, the argument count must match, and the state and effect facts must agree. The entries carry facts the engine already knows precisely so that they can be disagreed with, which catches a program compiled against a different library before it computes a single wrong number.
+
+**Fix.** Recompile the script against this engine's library, or run the program on an engine with the library version it was compiled against.
+
+Before:
+
+```
+program: library 5, entry 12 name "stdev" arity 3
+engine:  library 4, entry "stdev" arity 2
+```
+
+After:
+
+```
+program: library 4, entry 12 name "stdev" arity 2
+engine:  library 4, entry "stdev" arity 2
+```
+
+### OS6005 Unknown timezone
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6005`.
+
+**Message.** `{value} is not a timezone this host knows.`
+
+- `{value}` is the timezone name that was given.
+
+**Cause.** Timezone names come from the host's timezone database, and an abbreviation is not one of them: several abbreviations mean two different offsets in different parts of the world, which is the kind of ambiguity a session test cannot carry.
+
+**Fix.** Use a full area and location name from the host's list, or leave the argument out to use the chart's own timezone.
+
+Before:
+
+```
+h = date.hour(time, "IST")
+```
+
+After:
+
+```
+h = date.hour(time, "Asia/Kolkata")
+```
+
+### OS6006 The engine lacks a capability the program requires
+
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, capability tags. Test `tests/errors/OS6006`.
+
+**Message.** `This program requires {tag} and this engine does not have it.`
+
+- `{tag}` is the first required capability tag the engine does not have.
+
+**Cause.** A compiled program lists the capability tags it needs, and the engine compares the list against its own at load. Tags are the real compatibility mechanism and the format version is the coarse one. Refusing at load is better than meeting an instruction the engine cannot execute halfway through a bar, with half a chart already drawn.
+
+**Fix.** Run the program on an engine that has {tag}, or remove the feature that needs it: the tag names it.
+
+Before:
+
+```
+program requires: core.1, arrays, orders
+engine has:       core.1, arrays
+```
+
+After:
+
+```
+program requires: core.1, arrays
+engine has:       core.1, arrays
+```
+
+### OS6007 Unknown symbol or exchange
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6007`.
+
+**Message.** `The host does not know {symbol} on {exchange}.`
+
+- `{symbol}` is the symbol that was requested.
+- `{exchange}` is the exchange that was requested, or the chart's when none was given.
+
+**Cause.** A symbol is resolved by the host against the instruments it can serve. An unknown one is reported rather than returning an empty series, because an empty series looks exactly like an instrument that did not trade.
+
+**Fix.** Correct the symbol, and name the exchange it trades on when it is not the chart's: req.symbol("SYMBOL", "1D", close, exchange = "EXCHANGE").
+
+Before:
+
+```
+other = req.symbol("SYMBL", "1D", close)
+```
+
+After:
+
+```
+other = req.symbol("SYMBOL", "1D", close, exchange = "EXCHANGE")
+```
+
+### OS6008 The request returned no bars
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6008`.
+
+**Message.** `{symbol} at {timeframe} returned no bars over the range this chart covers.`
+
+- `{symbol}` is the symbol that was requested.
+- `{timeframe}` is the interval that was requested.
+
+**Cause.** The host resolved the instrument and had nothing to send for the range. An instrument that had not listed yet, a contract that has expired and a range before the stored history begins all arrive here.
+
+**Fix.** Move the chart's range into the period the instrument traded, or request a symbol that covers it.
+
+Before:
+
+```
+fut = req.symbol("EXPIRED_CONTRACT", "1D", close)
+```
+
+After:
+
+```
+fut = req.symbol("CURRENT_CONTRACT", "1D", close)
+```
+
+### OS6009 The request failed
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6009`.
+
+**Message.** `The host could not fetch {symbol} at {timeframe}: {reason}.`
+
+- `{symbol}` is the symbol that was requested.
+- `{timeframe}` is the interval that was requested.
+- `{reason}` is the host's own description of the failure.
+
+**Cause.** The host reached its data source and the source refused or did not answer. A connection that is down, a subscription that does not cover the instrument and a rate limit all arrive here, carrying the reason the host gave.
+
+**Fix.** Act on {reason} in the host: it is a connection, permission or quota problem. Where the value can be derived from the chart's own bars, derive it and drop the request.
+
+Before:
+
+```
+dayHigh = req.timeframe("1D", high)
+```
+
+After:
+
+```
+var dayHigh = none
+if session.isFirstBar
+    dayHigh = high
+else
+    dayHigh = max(dayHigh, high)
+```
+
+### OS6010 The engine was given no bars
+
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/errors/OS6010`.
+
+**Message.** `There are no bars for {symbol} at {timeframe}, so the script cannot run.`
+
+- `{symbol}` is the chart's symbol.
+- `{timeframe}` is the chart's interval.
+
+**Cause.** The script is the body of the per-bar loop, and a loop over zero bars produces nothing to plot and nothing to report. Saying so is better than an empty pane, which looks like a script that computed nothing.
+
+**Fix.** Choose an instrument and interval that have history, or widen the chart's date range until bars exist.
+
+Before:
+
+```
+host input: symbol SYMBOL, interval 5, bars 0
+```
+
+After:
+
+```
+host input: symbol SYMBOL, interval 5, bars 1240
+```
+
+### OS6011 The bars are not in order
+
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/errors/OS6011`.
+
+**Message.** `Bar {index} is dated {time}, which is not after bar {previous}.`
+
+- `{index}` is the index of the offending bar.
+- `{time}` is that bar's timestamp.
+- `{previous}` is the index of the bar before it.
+
+**Cause.** Every engine assumes strictly increasing bar times: the history operator, warmup and every session test are defined against that order. Running on duplicated or reversed bars would make every one of those meaningless, quietly.
+
+**Fix.** Reload the history; if the same bar repeats, the feed is sending duplicates and the host has to sort and deduplicate the bars before the engine runs.
+
+Before:
+
+```
+host input:
+  bar 41  09:15
+  bar 42  09:15
+  bar 43  09:10
+```
+
+After:
+
+```
+host input:
+  bar 41  09:10
+  bar 42  09:15
+  bar 43  09:20
+```
+
+### OS6012 An instrument fact is not known
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6012`.
+
+**Message.** `The host did not supply {fact} for {symbol}.`
+
+- `{fact}` is the missing fact: tick size, lot size, session or timezone.
+- `{symbol}` is the instrument it is missing for.
+
+**Cause.** Tick size, lot size, the session and the timezone come from the host's instrument record, not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.
+
+**Fix.** Supply {fact} in the host's instrument record, or stop depending on it: round with a number the script chooses rather than chart.tickSize.
+
+Before:
+
+```
+qty = lots * chart.lotSize
+```
+
+After:
+
+```
+lotSize = input(1, "Lot size", min = 1)
+qty = lots * lotSize
+```
+
+### OS6013 The request changed after the first bar
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6013`.
+
+**Message.** `This request asked for {first} on bar 0 and for {found} on bar {bar}.`
+
+- `{first}` is the symbol and timeframe requested on the first bar.
+- `{found}` is the symbol and timeframe requested on this bar.
+- `{bar}` is the bar index where it changed.
+
+**Cause.** The host fetches a requested series once, keyed by symbol and timeframe, and keeps it in step with the chart. A request whose identity changes mid-run would need a second fetch on a bar that has already been drawn, so the identity is fixed before the run.
+
+**Fix.** Compute the symbol and the timeframe from literals or inputs, not from bar data.
+
+Before:
+
+```
+tf = close > open ? "60" : "1D"
+h = req.timeframe(tf, high)
+```
+
+After:
+
+```
+tf = input("60", "Higher timeframe", kind = "interval")
+h = req.timeframe(tf, high)
+```
+
+### OS6014 The feed does not offer this timeframe
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6014`.
+
+**Message.** `The host has no {timeframe} data for {symbol}; it offers {available}.`
+
+- `{timeframe}` is the interval that was requested.
+- `{symbol}` is the instrument it was requested for.
+- `{available}` is the intervals the host can serve for it.
+
+**Cause.** A timeframe can be well formed and still be one the feed does not store for this instrument. Building it from a lower one is the host's decision to offer or not, and the script is told which intervals exist rather than receiving a silently empty series.
+
+**Fix.** Request one of {available}, or derive the interval you want from a lower one the host does serve.
+
+Before:
+
+```
+r = req.timeframe("3", close)
+```
+
+After:
+
+```
+r = req.timeframe("5", close)
+```
+
+### OS6015 The requested timeframe does not fold into the chart's
+
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6015`.
+
+**Message.** `{requested} is not a whole multiple of {chart}.`
+
+- `{requested}` is the interval that was requested.
+- `{chart}` is the chart's interval.
+- `{suggestion}` is the nearest interval above the requested one that is a whole multiple of the chart's.
+
+**Cause.** An intraday request is folded by counting chart bars, so its interval must be a whole multiple of the chart's. Day, week and month requests are folded by the calendar and the session instead, so they are exempt from this rule.
+
+**Fix.** Request a multiple of {chart}, for example {suggestion}.
+
+Before:
+
+```
+r = req.timeframe("45", close)
+```
+
+After:
+
+```
+r = req.timeframe("60", close)
+```
+
+### OS6016 The compiled format version is not one this engine implements
+
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, loading a program. Test `tests/errors/OS6016`.
+
+**Message.** `This program is in compiled format {found} and this engine implements up to {max}.`
+
+- `{found}` is the format version the program declares.
+- `{max}` is the highest format version the engine implements.
+
+**Cause.** The compiled program is a versioned data format, and an engine refuses a format it cannot read rather than guessing at instructions it does not know. Refusing at load, with both numbers named, is the whole reason the version is carried.
+
+**Fix.** Run the program on an engine that implements format {found}, or recompile the source with a compiler that emits format {max}.
+
+Before:
+
+```
+program: compiled format 3
+engine:  compiled format 2
+```
+
+After:
+
+```
+program: compiled format 2
+engine:  compiled format 2
+```
+
+### OS6017 The program's language version is not one this engine implements
+
+Severity error. Stage host. Since language version 1. Reference language.md 4.1. Test `tests/errors/OS6017`.
+
+**Message.** `This program was compiled from language version {found}, and this engine implements {versions}.`
+
+- `{found}` is the language version the program declares.
+- `{versions}` is the language versions the engine implements.
+
+**Cause.** Every past front end is kept, so a program may name a language version older than the engine and still run exactly as it did. A version the engine does not have is one it cannot run correctly, and running it approximately would break the promise that a saved script keeps producing the same numbers.
+
+**Fix.** Upgrade the engine to one that implements language version {found}, or recompile the source against a version it has.
+
+Before:
+
+```
+program: language version 2
+engine:  language version 1
+```
+
+After:
+
+```
+program: language version 1
+engine:  language version 1
+```
+
+### OS6018 The compiled program is malformed
+
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, verification. Test `tests/errors/OS6018`.
+
+**Message.** `The program failed verification at instruction {index}: {reason}.`
+
+- `{index}` is the index of the first instruction that failed.
+- `{reason}` is what the verifier found wrong with it.
+
+**Cause.** An engine verifies a program before it runs it: the encoding parses, every jump lands inside the program, every slot is in range, and every instruction's operands are the shape the format requires. A program that fails is refused whole, because one that is verified as it goes can fail halfway through a bar with half a chart already drawn.
+
+**Fix.** Recompile the script from its source; a program that fails verification came from a broken compiler or was edited after it was written, and neither is repairable by hand.
+
+Before:
+
+```
+instruction 402: JUMP target 9911, program holds 812 instructions
+```
+
+After:
+
+```
+instruction 402: JUMP target 411, program holds 812 instructions
+```
+
+### OS6019 A host setting fails the input's validation
+
+Severity error. Stage host. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS6019`.
+
+**Message.** `The host supplied {value} for {key}, and {validation}.`
+
+- `{value}` is the value the host supplied.
+- `{key}` is the input's settings key.
+- `{validation}` is the rule it broke, such as the minimum being 1.
+
+**Cause.** An input validates exactly what the host supplies: the type, a number's min and max, and membership of an options list. A value that fails is refused and the program does not run, rather than falling back to the default, because a settings dialog that silently ignores what a user typed is worse than one that says the value is out of range.
+
+**Fix.** Correct the value in the settings dialog, or widen the input's own min, max or options so the value is allowed.
+
+Before:
+
+```
+input len: min 1, max 500
+host setting: len = 0
+```
+
+After:
+
+```
+input len: min 1, max 500
+host setting: len = 14
+```
+
+---
+
+## 8.7 OS7xxx Orders
+
+### OS7001 Only a strategy can do that
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.1, 13.3. Test `tests/errors/OS7001`.
+
+**Message.** `{name} is available only in a file declared with strategy().`
+
+- `{name}` is the order function or position name that was used.
+- `{line}` is the line of the study declaration.
+
+**Cause.** Order functions and the pos namespace need a position to act on and a report to write to, both of which a study does not have. The check is at compile time so a study can never place an order at all.
+
+**Fix.** Change study(...) on line {line} to strategy(...), or replace {name} with signal("...") to mark the bar without trading.
+
+Before:
+
+```
+study("EMA cross", overlay = true)
+
+if crossUp(fast, slow)
+    buy(qty = 1)
+```
+
+After:
+
+```
+strategy("EMA cross", overlay = true)
+
+if crossUp(fast, slow)
+    buy(qty = 1)
+```
+
+### OS7002 An order argument is absent
+
+Severity error. Stage engine. Since language version 1. Reference language.md 6.8. Test `tests/errors/OS7002`.
+
+**Message.** `{name}'s {argument} is absent on this bar.`
+
+- `{name}` is the order function that was called.
+- `{argument}` is the argument that was absent.
+
+**Cause.** An order is the one place in the language where doing nothing quietly is worse than stopping loudly, so an absent price or quantity is refused rather than defaulted. Warmup is the usual source: a stop computed from a window that has not filled yet.
+
+**Fix.** Guard the call with isNone({argument}), or supply a fallback with orElse() where one is genuinely correct.
+
+Before:
+
+```
+buy(qty = 1, stop = lowest(low, 20))
+```
+
+After:
+
+```
+s = lowest(low, 20)
+if not isNone(s)
+    buy(qty = 1, stop = s)
+```
+
+### OS7003 An order function inside a request expression
+
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7003`.
+
+**Message.** `{name} inside a request expression would place an order from another instrument's bars.`
+
+- `{name}` is the order function that was called inside the expression.
+
+**Cause.** A request expression is evaluated on the requested instrument's bars, in that instrument's time. An order placed there has no defined instrument, no defined moment and no defined price, and it would fire once per bar of a series the chart never shows.
+
+**Fix.** Read the value with the request, and place the order at the top level from the result.
+
+Before:
+
+```
+d = req.timeframe("1D", buy(qty = 1))
+```
+
+After:
+
+```
+up = req.timeframe("1D", close > ema(close, 20))
+if up
+    buy(qty = 1)
+```
+
+### OS7004 Order quantity is zero or negative
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7004`.
+
+**Message.** `{name} was given a quantity of {qty}.`
+
+- `{name}` is the order function that was called.
+- `{qty}` is the quantity that reached it.
+
+**Cause.** Direction is chosen by the function, not by the sign of the quantity, so a negative quantity is a calculation that went the wrong way rather than an order in the other direction. A quantity of zero is never what a script means.
+
+**Fix.** Pass a positive quantity, guard the call with a size test, and use sell() to go the other way.
+
+Before:
+
+```
+buy(qty = target - pos.size)
+```
+
+After:
+
+```
+delta = target - pos.size
+if delta > 0
+    buy(qty = delta)
+```
+
+### OS7005 Quantity is not a multiple of the lot size
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7005`.
+
+**Message.** `{symbol} trades in lots of {lot}, and {qty} is not a multiple of it.`
+
+- `{symbol}` is the instrument being traded.
+- `{lot}` is its lot size.
+- `{qty}` is the quantity that was passed.
+
+**Cause.** An exchange that trades in lots rejects anything else, so a backtest that filled such an order would report a trade that could not have happened. The engine refuses it for the same reason the exchange would.
+
+**Fix.** Size in lots: declare qtyType = "lots" and pass the lot count, or round a computed size with order.roundToLot().
+
+Before:
+
+```
+buy(qty = 100)
+```
+
+After:
+
+```
+strategy("Lots", qtyType = "lots")
+buy(qty = 2)
+```
+
+### OS7006 Price is not on a tick
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7006`.
+
+**Message.** `{symbol} ticks at {tick}, and {price} does not fall on one.`
+
+- `{symbol}` is the instrument being traded.
+- `{tick}` is its tick size.
+- `{price}` is the price that was passed.
+
+**Cause.** A limit or stop price between two ticks cannot exist at the exchange. Rounding it silently would move the order away from the level the script computed, and in a backtest that difference is free money or a free stop.
+
+**Fix.** Round to the tick before passing the price: round(price / chart.tickSize) * chart.tickSize.
+
+Before:
+
+```
+sell(qty = 1, limit = close * 1.013)
+```
+
+After:
+
+```
+target = round(close * 1.013 / chart.tickSize) * chart.tickSize
+sell(qty = 1, limit = target)
+```
+
+### OS7007 A resting order has no price
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7007`.
+
+**Message.** `A {type} order needs {argument}, and none was given.`
+
+- `{type}` is the order type that was named.
+- `{argument}` is the price argument that is missing.
+
+**Cause.** An order that rests in the book needs the level it rests at. Filling it in from the bar's close would make the order a market order wearing another name, and the report would show a fill the script never asked for.
+
+**Fix.** Pass {argument}, or leave the type as market and let the order fill at the next price.
+
+Before:
+
+```
+order.place("buy", 1, type = "limit")
+```
+
+After:
+
+```
+order.place("buy", 1, type = "limit", price = close - chart.tickSize)
+```
+
+### OS7008 The entry was refused by pyramiding
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7008`.
+
+**Message.** `This strategy allows {max} entries in one direction and already holds {found}.`
+
+- `{max}` is the pyramiding option in force.
+- `{found}` is the number of entries already open in that direction.
+
+**Cause.** Refusing rather than silently adding keeps a backtest from building a position the declaration forbade, which would report a return the stated rules never earned.
+
+**Fix.** Raise pyramiding in the declaration, or test pos.size before entering again.
+
+Before:
+
+```
+strategy("Add", pyramiding = 1)
+if signalUp
+    buy(qty = 1)
+```
+
+After:
+
+```
+strategy("Add", pyramiding = 1)
+if signalUp and pos.size == 0
+    buy(qty = 1)
+```
+
+### OS7009 Unknown order tag
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7009`.
+
+**Message.** `There is no working order tagged {tag}.`
+
+- `{tag}` is the tag that was passed.
+
+**Cause.** A tag names an order from the moment it is placed until it fills, is cancelled or expires. Acting on a tag that names nothing is a script that has lost track of its own orders, and ignoring the call would leave it believing an order exists that does not.
+
+**Fix.** Use the tag the order was placed with, and test order.working({tag}) before acting on it.
+
+Before:
+
+```
+buy(qty = 1, tag = "entry")
+order.bracket(tag = "entries", loss = 10)
+```
+
+After:
+
+```
+buy(qty = 1, tag = "entry")
+if order.working("entry")
+    order.bracket(tag = "entry", loss = 10)
+```
+
+### OS7010 A bracket price is on the wrong side of the entry
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7010`.
+
+**Message.** `A {side} entry at {entry} cannot take a {leg} at {price}.`
+
+- `{side}` is long or short.
+- `{entry}` is the position's average entry price.
+- `{leg}` is the bracket leg: stop or limit.
+- `{price}` is the price that was passed.
+
+**Cause.** A stop protects and a limit takes profit, so their sides are fixed by the direction of the position. A stop on the wrong side fills immediately, which in a backtest turns every trade into an instant loss that looks like a strategy result.
+
+**Fix.** Put the stop below a long entry and the limit above it, and swap the two for a short.
+
+Before:
+
+```
+buy(qty = 1)
+exit(limit = pos.avgPrice - atr, stop = pos.avgPrice + atr)
+```
+
+After:
+
+```
+buy(qty = 1)
+exit(limit = pos.avgPrice + atr, stop = pos.avgPrice - atr)
+```
+
+### OS7011 The order needs more capital than the strategy has
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7011`.
+
+**Message.** `This order needs {required} and the strategy has {available}.`
+
+- `{required}` is the capital the order would consume.
+- `{available}` is the capital the strategy has left.
+
+**Cause.** A backtest that can spend money it does not have reports a return nobody could have earned. The order is refused rather than filled on credit, and the report records the refusal so the equity curve stays honest.
+
+**Fix.** Size from equity with qtyType = "equityPercent", or test pos.equity before entering.
+
+Before:
+
+```
+buy(qty = 100)
+```
+
+After:
+
+```
+strategy("Sized", qtyType = "equityPercent")
+buy(qty = 10)
+```
+
+### OS7012 The instrument is outside its session
+
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7012`.
+
+**Message.** `{symbol} is outside its trading session at {time}.`
+
+- `{symbol}` is the instrument being traded.
+- `{time}` is the bar's timestamp.
+
+**Cause.** An order placed outside the session cannot be worked by the exchange. Holding it until the open would fill it at a price the script never saw, so it is refused and the script decides what to do at the open instead.
+
+**Fix.** Guard entries with session.isOpen, and set closeOnSessionEnd = true to flatten at the close.
+
+Before:
+
+```
+if crossUp(fast, slow)
+    buy(qty = 1)
+```
+
+After:
+
+```
+if crossUp(fast, slow) and session.isOpen
+    buy(qty = 1)
+```
+
+### OS7013 Two opposite orders on one bar
+
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7013`.
+
+**Message.** `{first} and {second} were both placed on bar {bar}.`
+
+- `{first}` is the first order call, with its line.
+- `{second}` is the second order call, with its line.
+- `{bar}` is the bar index.
+
+**Cause.** Which of the two the engine should honour has no defensible answer: source order is an accident of layout, and the last one wins is a rule that silently changes when someone reorders two blocks. Neither is placed, and the bar stops.
+
+**Fix.** Make the conditions exclusive with else if, or place the exit on this bar and the entry on the next.
+
+Before:
+
+```
+if crossUp(fast, slow)
+    buy(qty = 1)
+if rsi(close, 14) > 70
+    sell(qty = 1)
+```
+
+After:
+
+```
+if crossUp(fast, slow)
+    buy(qty = 1)
+else if rsi(close, 14) > 70
+    sell(qty = 1)
+```
+
+### OS7014 The destination rejected the order
+
+Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7014`.
+
+**Message.** `The order destination rejected {name}: {reason}.`
+
+- `{name}` is the order function that was called.
+- `{reason}` is the destination's own rejection text.
+
+**Cause.** The order left the engine well formed and the destination refused it. A product the account cannot trade, a margin shortfall and a symbol the account has no permission for all arrive here, carrying the destination's reason.
+
+**Fix.** Act on {reason}: it comes from the destination, not from the script, and the same order will be rejected again until the account or the order changes.
+
+Before:
+
+```
+strategy("Swing", product = "overnight")
+buy(qty = 1)
+```
+
+After:
+
+```
+strategy("Swing", product = "intraday")
+buy(qty = 1)
+```
+
+### OS7015 The strategy has no order destination
+
+Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7015`.
+
+**Message.** `This strategy placed an order and the host supplied no destination.`
+
+**Cause.** A strategy needs somewhere for orders to go: a paper engine, a backtest simulator or a broker connection. Running one with no destination would compute a position nothing ever took.
+
+**Fix.** Connect a destination in the host, or run the file as a study(): replace buy() with signal("BUY").
+
+Before:
+
+```
+strategy("EMA cross")
+if crossUp(fast, slow)
+    buy(qty = 1)
+```
+
+After:
+
+```
+study("EMA cross")
+if crossUp(fast, slow)
+    signal("BUY")
+```
+
+---
+
+## 8.8 OS8xxx Warnings
+
+### OS8001 A stateful call inside a branch
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 11.4. Test `tests/errors/OS8001`.
+
+**Message.** `{name} advances only on the bars where this branch runs, and is absent on the rest.`
+
+- `{name}` is the stateful call, such as ema, rma or a user function holding var.
+
+**Cause.** A call site that does not execute on a bar leaves its series absent for that bar and its state untouched. The alternatives are worse: forcing the call would execute code the script said to skip, and carrying the previous value forward would draw a flat line that looks like data. This is almost always a mistake rather than an intent.
+
+**Fix.** Compute it unconditionally at the top level and use the result inside the branch.
+
+Before:
+
+```
+if trending
+    e = ema(close, 20)
+    plot(e, "EMA", aqua)
+```
+
+After:
+
+```
+e = ema(close, 20)
+plot(trending ? e : none, "EMA", aqua)
+```
+
+### OS8002 A higher timeframe read with onUnconfirmed
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.5. Test `tests/errors/OS8002`.
+
+**Message.** `This file sets onUnconfirmed = true and reads {timeframe}; together they repaint.`
+
+- `{timeframe}` is the requested interval.
+
+**Cause.** A higher timeframe bar is incomplete until it closes, and acting on an unconfirmed bar acts on that incomplete value. The chart then redraws when the higher bar closes, and the backtest and the live run disagree on the same data.
+
+**Fix.** Drop onUnconfirmed = true, or guard every use of the read with bar.isConfirmed.
+
+Before:
+
+```
+strategy("HTF", onUnconfirmed = true)
+d = req.timeframe("1D", high)
+if close > d
+    buy(qty = 1)
+```
+
+After:
+
+```
+strategy("HTF")
+d = req.timeframe("1D", high)
+if close > d
+    buy(qty = 1)
+```
+
+### OS8003 No version declaration
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 4. Test `tests/errors/OS8003`. The editor can apply the fix.
+
+**Message.** `This file declares no language version; it was compiled as version {version}.`
+
+- `{version}` is the newest language version the compiler implements.
+
+**Cause.** A file that names its version is parsed by that version's front end for ever, and every past front end is kept. A file without one is parsed by the newest, which is the one thing that can change under it.
+
+**Fix.** Add version {version} as the first line of the file.
+
+Before:
+
+```
+study("EMA cross")
+```
+
+After:
+
+```
+version 1
+
+study("EMA cross")
+```
+
+### OS8004 A branch on an absent condition changes a value used later
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.6. Test `tests/errors/OS8004`.
+
+**Message.** `{condition} can be absent, and this block assigns {name}, which is read at line {line}.`
+
+- `{condition}` is the condition expression as written.
+- `{name}` is the name the block assigns.
+- `{line}` is the line outside the block that reads it.
+
+**Cause.** An absent condition takes the false branch, so during warmup the block does not run and the name keeps whatever it held before. Warmup bars sit off the left edge of the screen, which is why this shape silently changes an answer and nobody notices.
+
+**Fix.** Decide what warmup means: test isNone({condition}) explicitly, or give {name} a starting value above the if.
+
+Before:
+
+```
+if rsi(close, 14) > 70
+    zone = "high"
+plot(zone == "high" ? 1 : 0, "Zone", aqua)
+```
+
+After:
+
+```
+zone = "mid"
+if rsi(close, 14) > 70
+    zone = "high"
+plot(zone == "high" ? 1 : 0, "Zone", aqua)
+```
+
+### OS8005 A lookahead read
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.5. Test `tests/errors/OS8005`.
+
+**Message.** `This read uses {mode}, so the study shows values the bar it is drawn on could not have known.`
+
+- `{mode}` is the mode the read was given.
+
+**Cause.** A lookahead read takes a higher timeframe bar's final value on chart bars that fall before that bar closed. It is the strongest form of repainting there is, which is why it has to be written out in a word a reviewer sees on the line that causes it. The compiled study is also marked as repainting, so the host can say so.
+
+**Fix.** Drop the mode to take the default, which never repaints, unless the study is deliberately a study of what the higher bar went on to do.
+
+Before:
+
+```
+d = req.timeframe("1D", high, mode = "lookahead")
+```
+
+After:
+
+```
+d = req.timeframe("1D", high)
+```
+
+### OS8006 A session average on a session-length bar
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS8006`.
+
+**Message.** `A session anchored average resets each session, and each bar of {interval} is a whole session, so it equals its source.`
+
+- `{interval}` is the chart's interval.
+
+**Cause.** The average is a within-session measure: it accumulates from the session's first bar. On a daily or longer interval each bar is its own session, so the accumulation is one bar long and the result is that bar's own price. The plot carries no information and the legend suggests it does.
+
+**Fix.** Use an intraday interval for a session anchored average, or plot the source directly and delete the call.
+
+Before:
+
+```
+plot(vwap(), "Session average", aqua)
+```
+
+After:
+
+```
+plot(hlc3, "Typical price", aqua)
+```
+
+### OS8007 A plot sets the price pane's own formatting
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. Test `tests/errors/OS8007`.
+
+**Message.** `{title} sets {option} while drawing over the price pane, which reformats the instrument's own axis.`
+
+- `{title}` is the plot's title, quoted.
+- `{option}` is the option that was set, precision or format.
+
+**Cause.** precision and format on a plot apply to the price scale that plot maps to. Over the price pane that scale is the instrument's own, so the setting changes the axis every other series on that pane is read against, which is almost never what was meant.
+
+**Fix.** Set precision and format in the declaration, for the whole study, or drop them from a plot drawn over the price pane.
+
+Before:
+
+```
+study("Bands", overlay = true)
+plot(upper, "Upper", aqua, precision = 0)
+```
+
+After:
+
+```
+study("Bands", overlay = true, precision = 0)
+plot(upper, "Upper", aqua)
+```
+
+### OS8008 An alert with no id
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS8008`.
+
+**Message.** `This alert has no id, so its identity is derived from its position at line {line}.`
+
+- `{line}` is the line the alert is declared on.
+
+**Cause.** A user's alert subscription is keyed by the alert's id, and an id derived from a call's position changes the moment a line is inserted above it. The subscription then belongs to an alert that no longer exists, and it stops firing without telling anybody.
+
+**Fix.** Give the alert a stable id of your own: alert("text", id = "emaCross").
+
+Before:
+
+```
+if crossUp(fast, slow)
+    alert("EMA cross")
+```
+
+After:
+
+```
+if crossUp(fast, slow)
+    alert("EMA cross", id = "emaCross")
+```
+
+### OS8009 This plot can never draw
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.7. Test `tests/errors/OS8009`.
+
+**Message.** `{title} plots a value that is absent on every bar.`
+
+- `{title}` is the plot's title, quoted.
+
+**Cause.** A plot whose value is constantly none occupies a legend row, a settings group and an axis, and draws nothing. It is usually a placeholder that was left behind, or a name that was never assigned the value it was meant to hold.
+
+**Fix.** Plot the value that was meant, or delete the plot and its settings row.
+
+Before:
+
+```
+plot(none, "Reserved", aqua)
+```
+
+After:
+
+```
+plot(ema(close, 20), "EMA 20", aqua)
+```
+
+### OS8010 A name is never read
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 12.2. Test `tests/errors/OS8010`.
+
+**Message.** `{name} is assigned at line {line} and never read.`
+
+- `{name}` is the name that is never read.
+- `{line}` is the line of its assignment.
+
+**Cause.** The statement still runs on every bar, so an unread name costs time on fifty thousand bars and tells the next reader that something depends on it. It is usually the remains of a calculation that was replaced.
+
+**Fix.** Use the value, or delete the line.
+
+Before:
+
+```
+slow = ema(close, 21)
+plot(ema(close, 9), "Fast", aqua)
+```
+
+After:
+
+```
+plot(ema(close, 9), "Fast", aqua)
+```
+
+### OS8011 live var makes live and backtest differ
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.5, 8.2. Test `tests/errors/OS8011`.
+
+**Message.** `{name} is a live var, so it keeps its value across the updates of the moving bar.`
+
+- `{name}` is the name declared with live var.
+
+**Cause.** An ordinary var rolls back before each re-execution of the newest bar, which is what makes a live chart and a backtest of the same data agree. A live var opts out of that, so a script using one reports different numbers in the two places by design.
+
+**Fix.** Use var unless counting intrabar updates is the actual intent; keep live var only for that.
+
+Before:
+
+```
+live var count = 0
+count = count + 1
+plot(count, "Bars", aqua)
+```
+
+After:
+
+```
+var count = 0
+count = count + 1
+plot(count, "Bars", aqua)
+```
+
+### OS8012 An ordered comparison against none is always absent
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.4, 6.5. Test `tests/errors/OS8012`.
+
+**Message.** `This {op} has none on one side, so it is absent on every bar.`
+
+- `{op}` is the comparison operator that was written.
+
+**Cause.** Ordered comparison propagates absence, so a comparison against none can only ever be none, and a condition of none takes the false branch. The branch is therefore dead. Equality is the operator that answers this question.
+
+**Fix.** Test absence with isNone(x), or with x == none, both of which are always true or false.
+
+Before:
+
+```
+if value > none
+    signal("READY")
+```
+
+After:
+
+```
+if not isNone(value)
+    signal("READY")
+```
+
+### OS8013 Deprecated
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 4.1. Test `tests/errors/OS8013`. The editor can apply the fix.
+
+**Message.** `{name} is deprecated since language version {version}; {replacement} does the same thing.`
+
+- `{name}` is the deprecated function or option.
+- `{version}` is the language version that deprecated it.
+- `{replacement}` is the name or option that replaces it.
+
+**Cause.** A construct that turns out to be a mistake is never removed and never changes meaning, because a saved script must keep working. It warns instead, and it will still be there in version 9.
+
+**Fix.** Replace {name} with {replacement}; the two compute the same values.
+
+Before:
+
+```
+plot(oldName(close, 14), "Value", aqua)
+```
+
+After:
+
+```
+plot(newName(close, 14), "Value", aqua)
+```
+
+### OS8014 A persistent value holds a bar index
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.2. Test `tests/errors/OS8014`.
+
+**Message.** `{name} keeps a bar index across bars, and every index shifts when more history loads.`
+
+- `{name}` is the persistent name that holds bar.index.
+
+**Cause.** bar.index is a position in the data the engine was given, not an address. Loading more history renumbers every bar, so a stored index compared later is being compared against something that moved underneath it.
+
+**Fix.** Store time instead and compare timestamps; the bar's time does not move.
+
+Before:
+
+```
+var entryBar = none
+if enter
+    entryBar = bar.index
+```
+
+After:
+
+```
+var entryTime = none
+if enter
+    entryTime = time
+```
+
+### OS8015 This loop never runs
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS8015`.
+
+**Message.** `The loop starts at {start}, ends at {end} and steps {step}, so the body never runs.`
+
+- `{start}` is the start value.
+- `{end}` is the end value.
+- `{step}` is the step value.
+
+**Cause.** A descending range with a positive step is empty: the loop does not silently reverse, because a form that reverses itself is the only shape of for loop that can spin for ever by accident.
+
+**Fix.** Add step -1 to count down, or swap the bounds to count up.
+
+Before:
+
+```
+for i = 9 to 0
+    total += close[i]
+```
+
+After:
+
+```
+for i = 9 to 0 step -1
+    total += close[i]
+```
+
+### OS8016 Unreachable code
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 11.3. Test `tests/errors/OS8016`.
+
+**Message.** `Line {line} follows a return that always runs, so it never executes.`
+
+- `{line}` is the first unreachable line.
+
+**Cause.** A return exits the function immediately. Statements after one that always runs are dead, and the usual cause is an early exit that lost its if.
+
+**Fix.** Delete the unreachable lines, or move them above the return.
+
+Before:
+
+```
+fn pick(x) =>
+    return x
+    x * 2
+```
+
+After:
+
+```
+fn pick(x) =>
+    x
+```
+
+### OS8017 The condition is constant
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 10.2. Test `tests/errors/OS8017`.
+
+**Message.** `This condition is {value} on every bar.`
+
+- `{value}` is true or false, whichever it folds to.
+
+**Cause.** A condition built only from literals and constant options has one answer for the whole run, so one branch is dead. It is usually a test that was pinned during debugging and left behind.
+
+**Fix.** Restore the test that was meant, or delete the branch that never runs.
+
+Before:
+
+```
+if true
+    signal("BUY")
+```
+
+After:
+
+```
+if crossUp(fast, slow)
+    signal("BUY")
+```
+
+### OS8018 An input is never used
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS8018`.
+
+**Message.** `The input {title} is declared at line {line} and never read.`
+
+- `{title}` is the input's title, quoted.
+- `{line}` is the line it is declared on.
+
+**Cause.** The input still builds a row in the settings dialog, so a reader can change it and nothing happens, which is worse than the setting not being there at all.
+
+**Fix.** Use the name the input assigns, or delete the input() and its dialog row.
+
+Before:
+
+```
+len = input(20, "Length")
+plot(ema(close, 9), "EMA", aqua)
+```
+
+After:
+
+```
+len = input(20, "Length")
+plot(ema(close, len), "EMA", aqua)
+```
+
+---
