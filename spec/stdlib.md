@@ -189,6 +189,7 @@ Available as bare names in every script, one value per bar, with history through
 | `hlc3` | `series number` | bar 0 | `(high + low + close) / 3`, the typical price |
 | `ohlc4` | `series number` | bar 0 | `(open + high + low + close) / 4`, the average price |
 | `hlcc4` | `series number` | bar 0 | `(high + low + close + close) / 4`, close-weighted average |
+| `oi` | `series number` | bar 0 | Contracts outstanding at the end of the bar, absent where the host supplies none |
 | `time` | `series number` | bar 0 | The bar's opening instant, UTC milliseconds |
 | `timeClose` (planned) | `series number` | bar 0 | The instant the bar's interval ends |
 
@@ -196,6 +197,25 @@ Available as bare names in every script, one value per bar, with history through
 is a real reading that means nobody traded, and an index that never reports
 volume at all is a different fact; conflating them would make a volume study
 silently draw a flat line. Test with `chart.hasVolume` before branching on it.
+
+`oi` follows the same absence rule and `chart.hasOpenInterest` is its test. A cash
+instrument has no open interest at all, while zero is a real reading on a contract
+nobody is holding.
+
+**`oi` is a level and `volume` is a flow, and every rule about folding bars
+follows from that.** Volume is quantity traded *during* a bar, so a coarser bar's
+volume is the sum of the bars inside it. Open interest is a position *as at* the
+bar, so a coarser bar's is the **last** of them, never the sum. An engine that
+adds five one-minute readings together produces a number five times too large that
+still looks entirely plausible on a chart, which is the worst kind of defect: no
+exception, no visible break, just a wrong number somebody trades on. The same
+distinction governs `req.timeframe` (section 15) and any host that builds bars
+from ticks.
+
+Open interest is what makes a position reading of a derivative possible at all:
+price rising with open interest rising is new money taking a side, and price
+rising with open interest falling is an old position being closed. Neither is
+expressible from price and volume alone.
 
 ### 3.2 `close` is the one name with two roles
 
@@ -247,6 +267,7 @@ carry no history.
 | `chart.currency` | `string` | n/a | Currency label for money in a report |
 | `chart.instrumentType` | `string` | n/a | `"equity"`, `"future"`, `"option"`, `"index"`, `"currency"`, `"commodity"` or `"other"` |
 | `chart.hasVolume` | `bool` | n/a | The host supplies volume for this instrument |
+| `chart.hasOpenInterest` | `bool` | n/a | The host supplies open interest for this instrument |
 | `chart.now()` | `number` | n/a | The chart's wall clock, UTC milliseconds |
 | `chart.isReplay` (planned) | `bool` | n/a | The bars are being replayed rather than loaded whole |
 | `chart.expiry` (planned) | `number` | n/a | Expiry instant of a derivative instrument |

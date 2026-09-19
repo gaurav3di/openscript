@@ -54,6 +54,7 @@ The prices and quantities of the bar being executed. Every one of these is a
 | `low` | `series number` | Yes | The bar's lowest traded price |
 | `close` | `series number` | Yes | The bar's closing price, and the last traded price on a bar still forming |
 | `volume` | `series number` | Yes | Quantity traded in the bar, absent where the host supplies none |
+| `oi` | `series number` | Yes | Contracts outstanding at the end of the bar, absent where the host supplies none |
 | `time` | `series number` | Yes | The instant the bar opened, UTC milliseconds |
 | `timeClose` | `series number` | Yes | The instant the bar's interval ends. Planned, not in the first release |
 

@@ -551,6 +551,8 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Built-in series | `open`, `high`, `low`, `close`, `volume` and `time`, bare in every script with history through `[]` | `specified` | `language.md` 15.1, `stdlib.md` 3.1 | `bar/built-in-series` |
 | Derived price series | `hl2`, `hlc3`, `ohlc4`, `hlcc4`, each with its formula written down | `specified` | `language.md` 15.1, `stdlib.md` 3.1 | `bar/derived-series` |
 | Volume absent, never zero | An instrument the host has no volume for gives absence, because zero is a real reading that means nobody traded | `specified` | `stdlib.md` 3.1 | `bar/volume-absent` |
+| Open interest | `oi`, bare like `volume`, absent where the host supplies none, tested with `chart.hasOpenInterest` | `specified` | `stdlib.md` 3.1 | `bar/open-interest` |
+| Open interest is a level | A coarser bar takes the last reading and never the sum, unlike volume, because it is a position as at the bar rather than a quantity traded during it | `specified` | `stdlib.md` 3.1 | `bar/open-interest-folds-last` |
 | `close` has two roles | `close` bare is the price and `close(...)` is the order function, told apart by syntax; in a study file the call is OS7001 | `specified` | `stdlib.md` 3.2, `errors.md` OS7001 | `bar/close-two-roles` |
 | `chart.symbol`, `chart.exchange` | The instrument being charted | `specified` | `stdlib.md` 3.4 | `chart/instrument-identity` |
 | `chart.interval` and friends | The canonical interval string, `chart.intervalMinutes` and `chart.isIntraday` | `specified` | `stdlib.md` 3.4, `stdlib.md` 15.2 | `chart/interval` |

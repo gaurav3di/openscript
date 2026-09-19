@@ -137,6 +137,7 @@ an order on bar four thousand, is a failure with a drawn chart behind it.
 | `time` | number | Every bar | The bar's **open** instant, whole milliseconds since the Unix epoch, UTC |
 | `open`, `high`, `low`, `close` | number | Every bar | The bar's prices. A price the host does not have is absent, never carried forward and never zero |
 | `volume` | number | Only where the host has one | Quantity traded during the bar. Absent and zero are different facts, section 3.3 |
+| `oi` | number | Only where the host has one | Contracts outstanding as at the bar. A level, not a flow: a coarser bar takes the last, never the sum |
 
 `time` is the open instant and not the close instant, because the open is the
 instant a bar can be identified by while it is still forming, and a bar still
