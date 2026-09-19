@@ -1,0 +1,301 @@
+{
+  "note": "Every enumerated value set that may appear in more than one file, each with the reason. An entry is either vocabulary, which recurs in prose by its nature, or a duplication that has not been given a home yet. The second kind is debt: this list only shrinks, and a set not listed here fails the build the moment it is written out twice.",
+  "exceptions": [
+    {
+      "set": "above|at|below|price",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "above|below|price",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "above|below|price|shape",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "alert|background|barColor|cell|clear|print|signal",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "alert|background|signal",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "and|not|or",
+      "reason": "The logical operators. Prose about them is not a value set."
+    },
+    {
+      "set": "aqua|black|blue|brown",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "area|histogram|line|lineWithMarkers|step",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "arrowDown|arrowUp|circle|cross|diamond|flag|label|shape|square|triangleDown|triangleUp",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "arrowDown|arrowUp|circle|triangleDown|triangleUp",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "at|color|shape",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "avgSkip|countPresent|sumSkip",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "avg|max|min|pop|shift",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "avg|max|min|stdev|sum",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "book.lockProfit|book.stop|book.target",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "bool|closeOnSessionEnd|false",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "bool|color|number|string",
+      "reason": "Type names. Naming the types is not enumerating an argument."
+    },
+    {
+      "set": "bool|false|overlay|true",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "bool|false|true",
+      "reason": "The bool type and its two literals."
+    },
+    {
+      "set": "bool|number|text",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "both|long|short",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "bottomLeft|bottomRight|topLeft|topRight",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "box|label|line|polyline",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "buy|sell|stop",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "call|put|right",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "case|else|for|if|while",
+      "reason": "Control-flow keywords."
+    },
+    {
+      "set": "cash|equityPercent|lots|qtyType|string|units",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "chart.expiry|chart.optionType|chart.strike",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "chart|core|strategy",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "check|lex|parse",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "close|fillOn|nextOpen|string",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "close|high|hl2|hlc3|low|ohlc4|open|volume",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "close|high|low|open",
+      "reason": "Bar fields. Every page that teaches bars names them."
+    },
+    {
+      "set": "close|high|low|open|time|volume",
+      "reason": "Bar fields, as above."
+    },
+    {
+      "set": "close|high|low|volume",
+      "reason": "Bar fields, as above."
+    },
+    {
+      "set": "close|hl2|hlc3|low|ohlc4|volume",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "commissionType|perTrade|perUnit|percent|string",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "commodity|currency|equity|future|index|option|other",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "confirmed|developing|lookahead",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "confirmed|developing|lookahead|mode|string",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "cross|diamond|flag|square",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "dashed|dotted|solid",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "draw.box|draw.label|draw.line|draw.polyline",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "ema|hma|rma|sma|vwma|wma",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "ema|hma|rma|sma|wma",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "everyUpdate|once|oncePerBar",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "exchange|name|product|qty|side",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "false|none|true",
+      "reason": "Literals."
+    },
+    {
+      "set": "fast|medium|slow",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|input|level|plot|table",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|leg.fixed|leg.relative|level|plotCandles|table",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|level|plot",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|level|plot|plotCandles",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|level|plot|plotCandles|table",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|level|plot|table",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fill|plot|plotCandles",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "format|percent|price|string|volume",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "format|percent|price|volume",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "fuchsia|gray|green|lime",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "hl2|hlc3|hlcc4|ohlc4",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "insert|push|set|unshift",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "interval|price|session|symbol|time",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "intraday|overnight|product|string",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "left|none|right",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "left|none|right|scale|string",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "leg.stop|leg.target|leg.trail",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "maroon|navy|olive|orange",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "max|min|step",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "percent|price|volume",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "pink|purple|red|silver",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "pos.equity|pos.netProfit|pos.tradeCount",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "pos.isFlat|pos.isLong|pos.isShort",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "short|string|title",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "teal|white|yellow",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    }
+  ]
+}

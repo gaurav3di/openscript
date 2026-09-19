@@ -42,3 +42,7 @@ needs an answer. These are the answers.
 Where none of those settles it, the home register in `decisions.md` names the
 document that owns the fact, and every other document cites that one rather than
 restating it.
+
+Values: `"alpha"`, `"beta"`, `"gamma"`.
+
+One of `"alpha"`, `"beta"`, `"gamma"`.

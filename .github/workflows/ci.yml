@@ -51,6 +51,17 @@ jobs:
       - name: Each piece can still be taken without the others
         run: node scripts/check-layering.mjs
 
+  duplication:
+    name: duplication check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: No value set is written out in two files
+        run: node scripts/check-duplication.mjs
+
   build:
     name: build and test
     runs-on: ubuntu-latest
