@@ -45,6 +45,7 @@ consumer needs in order to read the entries at all; `entries` is the catalogue.
 | `placeholderSyntax` | string | Always `{name}`. Stated so a consumer does not infer it from examples |
 | `severities` | object | Each severity and what it does to the run |
 | `stages` | object | Each stage and where in the pipeline it sits |
+| `stageLabels` | object | The word each stage is printed as in part 8 |
 | `ranges` | array | One per thousand block: prefix, kind, what it covers, its severity |
 | `entries` | array | The catalogue, ascending by code |
 
@@ -319,6 +320,11 @@ Entries are grouped by range and ascending by code. Each one carries its
 severity, the stage that raises it, the language version it appeared in, the
 sections of `language.md` that define the rule, and the test that produces it.
 
+A section prints the stage's label from `stageLabels` rather than the token the
+entry carries: `lex` is printed as lexer, `parse` as parser, `check` as checker,
+`runtime` as engine, and `host` as host. The entries themselves carry the token,
+and it is the token a consumer reads.
+
 ## 8.1 OS1xxx Syntax
 
 ### OS1001 Unexpected character
@@ -539,7 +545,7 @@ Severity error. Stage parser. Since language version 1. Reference language.md 10
 Before:
 
 ```
-fn firstAbove(values, level) =>
+fn firstAbove(values, mark) =>
     if size(values) == 0
         break
     values[0]
@@ -548,7 +554,7 @@ fn firstAbove(values, level) =>
 After:
 
 ```
-fn firstAbove(values, level) =>
+fn firstAbove(values, mark) =>
     if size(values) == 0
         return none
     values[0]
@@ -595,17 +601,17 @@ Severity error. Stage parser. Since language version 1. Reference language.md 8.
 Before:
 
 ```
-var highest
-if high > orElse(highest, high)
-    highest = high
+var runningHigh
+if high > orElse(runningHigh, high)
+    runningHigh = high
 ```
 
 After:
 
 ```
-var highest = none
-if isNone(highest) or high > highest
-    highest = high
+var runningHigh = none
+if isNone(runningHigh) or high > runningHigh
+    runningHigh = high
 ```
 
 ### OS1012 Bracket is never closed
@@ -969,7 +975,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 - `{leftType}` is the type of the left operand or of the name's first assignment.
 - `{rightType}` is the type of the right operand or of the value being assigned.
 
-**Cause.** There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money. A declaration handle arrives here as well: plot(), plotCandles(), fill() and level() return the compile-time half of a declaration (language.md 5.4), so a handle in a position that requires a value has nothing to give, and the message names its type as plot, fill or level.
+**Cause.** There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. A first assignment of none fixes no type, because none is a member of every type; the type comes from the first assignment that gives a definite one, and this code names the second definite type rather than the first. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money. A declaration handle arrives here as well: plot(), plotCandles(), fill() and level() return the compile-time half of a declaration (language.md 5.4), so a handle in a position that requires a value has nothing to give, and the message names its type as plot, fill or level.
 
 **Fix.** Convert explicitly: text(x) for a string, number(s) for a number, bool(x) for a bool, or use a separate name for the second value. A plot, fill or level handle converts to nothing: leave it named at the top level, pass it to fill(), and use draw.line() or draw.box() where the script needs something it can keep.
 
@@ -1038,10 +1044,10 @@ After:
 
 ```
 fn total(n) =>
-    sum = 0.0
+    runningTotal = 0.0
     for i = 0 to n
-        sum += close[i]
-    sum
+        runningTotal += close[i]
+    runningTotal
 ```
 
 ### OS2006 Assignment to a loop variable
@@ -1468,13 +1474,13 @@ plot(v, "V", color = aqua)
 
 ### OS3003 This option must be a constant
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.2. Test `tests/errors/OS3003`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. Test `tests/errors/OS3003`.
 
 **Message.** `{option} is read once, before the first bar, so it cannot depend on bar data.`
 
 - `{option}` is the option that was given a bar-dependent value.
 
-**Cause.** The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built.
+**Cause.** The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built. The rule covers more than the declaration's own options: every argument that lands in a declaration fixed before bar 0 arrives here too, signal's at, shape and color, table's position, rows and cols, and a plot's style arguments among them. An input() counts as a constant for this purpose, because the engine resolves inputs at load and substitutes the resolved value before bar 0 runs.
 
 **Fix.** Use a literal, or make it tunable with an input(): {option} = input(2, "{option}").
 
@@ -2259,15 +2265,15 @@ Severity error. Stage engine. Since language version 1. Reference language.md 14
 Before:
 
 ```
-order = up ? "ascending" : "desc"
-sort(values, order)
+sortOrder = up ? "ascending" : "desc"
+sort(values, sortOrder)
 ```
 
 After:
 
 ```
-order = up ? "asc" : "desc"
-sort(values, order)
+sortOrder = up ? "asc" : "desc"
+sort(values, sortOrder)
 ```
 
 ### OS4013 A loop bound is absent
@@ -2518,17 +2524,17 @@ Severity error. Stage engine. Since language version 1. Reference language.md 5.
 Before:
 
 ```
-var log = ""
-log += text(close) + "\n"
+var logLines = ""
+logLines += text(close) + "\n"
 ```
 
 After:
 
 ```
-var log: array<string> = []
-push(log, text(close))
-if size(log) > 50
-    shift(log)
+var logLines: array<string> = []
+push(logLines, text(close))
+if size(logLines) > 50
+    shift(logLines)
 ```
 
 ### OS5009 The program is too large
@@ -3050,7 +3056,7 @@ Severity error. Stage host. Since language version 1. Reference language.md 13.4
 - `{key}` is the input's settings key.
 - `{validation}` is the rule it broke, such as the minimum being 1.
 
-**Cause.** An input validates exactly what the host supplies: the type, a number's min and max, and membership of an options list. A value that fails is refused and the program does not run, rather than falling back to the default, because a settings dialog that silently ignores what a user typed is worse than one that says the value is out of range.
+**Cause.** An input validates exactly what the host supplies: the type, a number's min and max, and membership of an options list. A value that fails is refused and the program does not run, rather than falling back to the default, because a settings dialog that silently ignores what a user typed is worse than one that says the value is out of range. A declaration field that the compiled program carries as a reference to an input arrives here on the same ground: the engine resolves inputs at load and substitutes the value before it builds the descriptor, so a resolved value the field refuses is a setting from outside the source that the program cannot run with.
 
 **Fix.** Correct the value in the settings dialog, or widen the input's own min, max or options so the value is allowed.
 
@@ -3769,17 +3775,17 @@ Severity warning. Stage checker. Since language version 1. Reference language.md
 Before:
 
 ```
-live var count = 0
-count = count + 1
-plot(count, "Bars", aqua)
+live var barCount = 0
+barCount = barCount + 1
+plot(barCount, "Bars", aqua)
 ```
 
 After:
 
 ```
-var count = 0
-count = count + 1
-plot(count, "Bars", aqua)
+var barCount = 0
+barCount = barCount + 1
+plot(barCount, "Bars", aqua)
 ```
 
 ### OS8012 An ordered comparison against none is always absent
@@ -3872,7 +3878,7 @@ Severity warning. Stage checker. Since language version 1. Reference language.md
 - `{end}` is the end value.
 - `{step}` is the step value.
 
-**Cause.** A descending range with a positive step is empty: the loop does not silently reverse, because a form that reverses itself is the only shape of for loop that can spin for ever by accident.
+**Cause.** A descending range with a positive step is empty, and so is an ascending range with a negative step: the loop does not silently reverse in either direction, because a form that reverses itself is the only shape of for loop that can spin for ever by accident.
 
 **Fix.** Add step -1 to count down, or swap the bounds to count up.
 

@@ -37,7 +37,7 @@ if started
     squareVolume += src * src * volume
     totalVolume  += volume
 
-// vwap and variance are library names (stdlib 6 and 7), and assigning to a
+// variance and vwap are library names (stdlib 6 and 7), and assigning to a
 // built-in is OS2002, so the two readings computed here carry their own names.
 ready     = started and totalVolume > 0
 vwapValue = ready ? priceVolume / totalVolume : none

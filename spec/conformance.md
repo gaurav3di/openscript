@@ -60,7 +60,7 @@ cases/
 | `bars.csv` | for an engine case | The input bars, in full |
 | `expected.csv` | for a columnar assertion | One column per asserted output channel, one row per bar |
 | `expected.json` | for a non-columnar assertion | Diagnostics, drawings, table contents, orders, trades, log lines |
-| `instrument.json` | no | Instrument facts: symbol, exchange, tick size, lot size, session, timezone. Defaults documented in section 3 |
+| `instrument.json` | no | Instrument facts: the ten a host supplies (`compiled-program.md` 5.2), plus the session. Defaults documented in section 3 |
 | `settings.json` | no | Values for the script's inputs. Absent means every input takes its declared default |
 | `bars.<name>.csv` | no | A secondary bar series, for a higher timeframe or other instrument read |
 | `ticks.csv` | no | Intrabar updates, for a case that tests the moving bar |
@@ -149,9 +149,18 @@ a case testing something else is not accidentally testing a session rule:
   "timezone": "UTC",
   "tickSize": 0.01,
   "lotSize": 1,
+  "hasVolume": true,
   "session": { "start": "00:00", "end": "24:00", "days": [1, 2, 3, 4, 5, 6, 7] }
 }
 ```
+
+A fact the file does not state is absent, which is what a host that does not state
+it produces (`compiled-program.md` 5.2), so `chart.pointValue`, `chart.currency`
+and `chart.instrumentType` are absent in a case that says nothing about them. The
+volume flag is the exception the same section makes: a host must state it, so the
+default set states it, and `true` is the value that matches the default bars,
+which carry a volume column. A case about an instrument with no volume sets it to
+`false`.
 
 A case that is about sessions, timezones or instrument facts says so in
 `instrument.json` and in its `notes.md`.
@@ -217,7 +226,8 @@ bar,ema20,signal
   binary64 value recorded. Nothing is rounded for readability.
 - A bool is `true` or `false`. A string is written as written, with a comma,
   quote or newline escaped by the usual quoting rules. A colour is written
-  `#rrggbbaa`, always eight hex digits, always lower case.
+  `#rrggbbaa`, always eight hex digits, always lower case, after the alpha
+  conversion of `compiled-program.md` 3.1.
 
 ### `expected.json`
 
@@ -359,7 +369,7 @@ A case that needs slack declares it and says why:
 | Absence | Present or absent, on exactly the same bars. Never subject to tolerance |
 | Bool | Exactly |
 | String | As an exact sequence of Unicode code points. No normalisation, no trimming, no case folding |
-| Colour | Four integer channels 0 to 255, each exactly. A colour is stored as `#rrggbbaa` so there is one spelling of any colour |
+| Colour | Four integer channels 0 to 255, each exactly, after the alpha has been converted to a byte by the rule in `compiled-program.md` 3.1. A colour is stored as `#rrggbbaa` so there is one spelling of any colour |
 | Time | An exact integer in UTC milliseconds |
 | Event channel | Fired or not fired on each bar, and the payload compared field by field |
 | Ordered list | Length first, then element by element at the same index. A length mismatch fails before any element is compared, and the report names the first index that differs |

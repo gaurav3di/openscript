@@ -272,7 +272,8 @@ noise. The names are ordinary globals, so the standard library can add more
 without a grammar change.
 
 Colours are also produced by functions: `rgb(r, g, b)`, `rgba(r, g, b, a)` with
-`a` from 0 to 1, and `fade(color, percent)` which lowers a colour's alpha.
+`a` from 0 to 1, and `fade(color, percent)` which sets a colour's alpha from a
+percentage of transparency.
 
 ```
 plot(signal, "Signal", rgb(255, 136, 0))
@@ -307,7 +308,7 @@ because its only content is a comment, is not a line for any of these rules.
 if close > open
     body = close - open
     signal("UP")
-low = 0                 // outside the block: same indentation as `if`
+base = 0                // outside the block: same indentation as `if`
 ```
 
 Rules, all mechanical:
@@ -341,7 +342,7 @@ if close > open
     // Still the same block: the blank line above and this comment carry no
     // indentation, so neither one ends it.
     signal("UP")
-low = 0
+base = 0
 ```
 
 The one header with a form that fits on its own line is `fn`, which writes its
@@ -351,7 +352,7 @@ body with, since `;` does not exist (OS1007), so a body of one statement is
 written on the next line and indented like any other.
 
 ```
-fn change(src) => src - src[1]      // the single-line form, no block
+fn barChange(src) => src - src[1]   // the single-line form, no block
 
 if crossUp(fast, slow)              // one statement, still its own block
     signal("BUY")
@@ -535,8 +536,8 @@ expression's per-bar values for that call site, so `[]` inside the function read
 real history:
 
 ```
-fn change(src) => src - src[1]
-plot(change(hlc3), "Change", aqua)  // hlc3's history is retained for this call
+fn barChange(src) => src - src[1]
+plot(barChange(hlc3), "Change", aqua)  // hlc3's history is retained for this call
 ```
 
 ### 5.3 Conversion and coercion
@@ -767,11 +768,17 @@ short-circuit: an operand is evaluated only if it can change the result.
 | `true` | `false` | `false` | `true` |
 | `true` | `none` | `none` | `true` |
 | `false` | any | `false` | `b` |
-| `none` | `true` | `none` | `none` |
+| `none` | `true` | `none` | `true` |
 | `none` | `false` | `false` | `none` |
 | `none` | `none` | `none` | `none` |
 
 `not none` is `none`.
+
+Both operators are commutative: `a and b` is `b and a` and `a or b` is `b or a`
+for every pair of values in the table, so De Morgan's laws hold for absent
+operands as well as present ones. Absence is absorbed exactly when the other
+operand decides the answer on its own, which is a `false` under `and` and a `true`
+under `or`; everywhere else the unknown operand makes the result unknown.
 
 **A condition that evaluates to `none` takes the false branch.** This applies to
 `if`, `while`, the ternary, a `switch` condition arm and an alert condition.
@@ -836,8 +843,9 @@ n = bar.index           // runs on bar 0, then bar 1, then bar 2, ...
 plot(n, "Bar index")
 ```
 
-Statements that build the chart's fixed surface (`plot`, `fill`, `level`, `input`,
-the declaration itself) are read once, when the program is compiled, even though
+Statements that build the chart's fixed surface (`plot`, `plotCandles`, `fill`,
+`level`, `table`, `input`, the declaration itself) are read once, when the program
+is compiled, even though
 they sit in the per-bar body. Their **arguments** are still evaluated every bar,
 which is how a plot gets a new value per bar. This is why those statements must
 appear at the top level: the set of plotted columns, levels and settings must be
@@ -873,6 +881,13 @@ The `bar` namespace:
 | `bar.isRealtime` | `series bool` | A live feed is driving updates |
 | `bar.isNew` | `series bool` | The last update appended a bar rather than replacing one |
 | `bar.updates` | `series number` | How many times this bar has been executed |
+
+The host states four of these facts about the execution, `bar.isNew`,
+`bar.isConfirmed`, `bar.isRealtime` and `bar.updates`, and the engine derives the
+other four from the dataset and this bar's position in it: `bar.index` is the
+position, `bar.count` is `bar.index + 1`, `bar.isFirst` is `bar.index == 0`, and
+`bar.isLast` is true when `bar.index` is the greatest index the host has supplied
+(`compiled-program.md` section 5.2).
 
 `bar.isConfirmed` is `true` for every historical bar and for the newest bar once
 its interval has elapsed. It is the flag a script uses to refuse to act on a bar
@@ -944,9 +959,9 @@ answer as executing it once: the script is idempotent in the bar.
 
 ```
 study("Rollback")
-var count = 0
-count = count + 1
-plot(count, "Bars")     // counts bars, not ticks, even on a live chart
+var barCount = 0
+barCount = barCount + 1
+plot(barCount, "Bars")  // counts bars, not ticks, even on a live chart
 ```
 
 Without rollback that counter would climb by one per tick and the same script
@@ -1008,11 +1023,11 @@ is still readable through `[]`, but it is not the starting point for this bar's
 computation.
 
 ```
-count = count + 1       // OS2001: count is not defined yet on this bar
-count = count[1] + 1    // legal, but none on bar 0, and none forever after
+barCount = barCount + 1     // OS2001: barCount is not defined yet on this bar
+barCount = barCount[1] + 1  // legal, but none on bar 0, and none forever after
 ```
 
-The second line shows why `var` exists: `count[1]` is `none` on bar 0, the
+The second line shows why `var` exists: `barCount[1]` is `none` on bar 0, the
 addition propagates absence, and the series is absent on every bar thereafter. A
 per-bar language needs a way to say "keep this".
 
@@ -1023,12 +1038,12 @@ the declaration is reached, and then keeps whatever value it holds from bar to
 bar.
 
 ```
-var count = 0
-count = count + 1       // 1, 2, 3, ...
+var barCount = 0
+barCount = barCount + 1     // 1, 2, 3, ...
 
-var highest = none
-if isNone(highest) or high > highest
-    highest = high
+var runningHigh = none
+if isNone(runningHigh) or high > runningHigh
+    runningHigh = high
 ```
 
 Details, all of them decided rather than incidental:
@@ -1041,8 +1056,8 @@ Details, all of them decided rather than incidental:
   and scope are separate questions: `var` says how long the value lives, the
   block says where the name can be seen.
 - `var` obeys the rollback rule of section 7.5.
-- The declaration and the assignment are one statement. `var count` without an
-  initialiser is OS1011; the fix names `var count = none`.
+- The declaration and the assignment are one statement. `var barCount` without an
+  initialiser is OS1011; the fix names `var barCount = none`.
 
 `live var` is identical except that it does not roll back, so it survives
 re-execution of the moving bar. It exists for one purpose, counting or
@@ -1142,6 +1157,10 @@ language that places orders.
 
 `and`, `or`, `not`, with the three-valued table of section 6.6. `and` and `or`
 short-circuit: the right operand is evaluated only when it can change the answer.
+`or` therefore evaluates its right operand when the left operand is absent,
+because a `true` on the right decides the answer by itself, and `and` evaluates
+its right operand for the mirror reason, because a `false` on the right decides
+it.
 
 Short-circuiting interacts with stateful calls. If the right operand contains a
 call that holds per-bar state and it is not evaluated on some bar, that call's
@@ -1204,6 +1223,22 @@ len = 14
 len = "fourteen"        // OS2003
 ```
 
+**`none` is not a type-fixing value.** `none` is a member of every type
+(section 6), so a first assignment of `none` carries no type information and
+there is nothing for the rule above to fix. The type comes from the first
+assignment in source order that gives the name a value of a definite type. Every
+assignment after that one must be that type or `none`, and a second definite type
+is OS2003 exactly as it is anywhere else. A name that is never given a definite
+type is of type `none`: it is absent on every bar of the run, and it is legal
+wherever `none` is legal, so it plots a gap, compares with `==` and propagates
+through arithmetic. The language takes a type from elsewhere in the same way for
+a ternary arm that is `none` and for an empty array literal (section 14.1).
+
+```
+var stop = none
+stop = lo               // the type is fixed here, by the first definite value
+```
+
 ### 10.2 if and else
 
 ```
@@ -1251,10 +1286,15 @@ for price in prices         // over an array's elements
     total += price
 ```
 
-`step` defaults to `1`. If the end is below the start and the step is positive, the
-body does not run at all; it does not silently reverse. A step of `0` is OS3004.
-Making a descending loop say `step -1` costs one word and removes the only shape
-of `for` loop that can spin forever by accident.
+`step` defaults to `1`. If the end is below the start and the step is positive, or
+the end is above the start and the step is negative, the body does not run at all;
+the range is never silently reversed in either direction. A step of `0` is OS3004.
+An absent start, end or step is OS4013 and stops the bar rather than running the
+loop zero times, because a loop that quietly does nothing during warmup leaves a
+plot that looks computed. Making a descending loop say `step -1` costs one word and
+removes the only shape of `for` loop that can spin forever by accident.
+`compiled-program.md` section 4.8 carries the compiled form, where `FOR_INIT` makes
+both of these decisions.
 
 The loop variable is scoped to the loop and may not be assigned in the body
 (OS2006). To leave early, use `break`.
@@ -1453,7 +1493,7 @@ two independent pieces of state. This is the rule that makes a stateful helper
 reusable at all.
 
 ```
-fn barsSince(cond) =>
+fn sinceTrue(cond) =>
     var n = none
     if cond
         n = 0
@@ -1461,8 +1501,8 @@ fn barsSince(cond) =>
         n = n + 1
     n
 
-sinceUp   = barsSince(close > open)     // its own counter
-sinceHigh = barsSince(high > high[1])   // a separate counter
+sinceUp   = sinceTrue(close > open)     // its own counter
+sinceHigh = sinceTrue(high > high[1])   // a separate counter
 ```
 
 The consequences, all stated rather than discovered:
@@ -1717,7 +1757,9 @@ and never a `series`.
 An empty literal takes its element type from an annotation when there is one, and
 otherwise from the first call in the file, in source order, that puts an element
 into it: `push`, `unshift`, `insert` or `set`. With neither, the element type is
-unknown and the literal is OS2015.
+unknown and the literal is OS2015. A name initialised to `none` takes its type
+the same way, from the first assignment that gives it a definite one
+(section 10.1).
 
 An array value is a reference. Assigning one name to another gives two names for
 one array; `copy(arr)` makes an independent one. This is stated because the
@@ -1815,7 +1857,7 @@ and keeps autocomplete useful.
 | Namespace | Holds |
 |---|---|
 | `bar` | Per-bar facts, section 7.2 |
-| `chart` | Symbol, exchange, interval, timezone, tick size, lot size, `chart.now()` |
+| `chart` | Symbol, exchange, interval, timezone, tick size, lot size, point value, currency, instrument type, whether the instrument has volume, and `chart.now()` |
 | `session` | Session start and end tests, the day's first and last bar |
 | `date` | Calendar fields and construction from a timestamp |
 | `str` | String operations beyond concatenation |
@@ -1838,11 +1880,11 @@ hi = req.timeframe("1D", high)
 ### 15.3 Drawing surfaces
 
 Top level only, because they declare the fixed shape of the study: `plot`,
-`fill`, `level` and `table` (OS3006), and `input` (OS3007).
+`plotCandles`, `fill`, `level` and `table` (OS3006), and `input` (OS3007).
 
 Anywhere, because they are per-bar events or per-bar paint: `signal`, `alert`,
-`background`, `barColor`, `cell`, `print`, the `draw` namespace, and every order
-function.
+`background`, `barColor`, `cell`, `clear`, `print`, the `draw` namespace, and
+every order function.
 
 ```
 upper = plot(hi, "Upper", color = aqua, width = 2, style = "line")
@@ -1980,6 +2022,12 @@ section that explains it.
     `step = 0.02` are labels, not names, and a label is never looked up in a
     scope. It is still not legal as a variable or as a parameter of a user
     function. (Section 3.4.)
+
+21. **`and` and `or` are three-valued and commutative.** `none` means unknown,
+    and an operand is evaluated whenever it can still decide the answer, so
+    `none or true` is `true` and `none and false` is `false`, while
+    `none or false` and `none and true` are both `none`. Writing the two operands
+    the other way round never changes an answer. (Section 6.6.)
 
 ---
 

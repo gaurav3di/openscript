@@ -14,6 +14,13 @@
     "runtime": "Executing a bar.",
     "host": "The host answering the engine: data, limits and order destinations."
   },
+  "stageLabels": {
+    "lex": "lexer",
+    "parse": "parser",
+    "check": "checker",
+    "runtime": "engine",
+    "host": "host"
+  },
   "ranges": [
     {
       "prefix": "OS1",
@@ -245,8 +252,8 @@
       "fix": "Move it inside the loop body, or write return to leave a function early.",
       "autofix": false,
       "example": {
-        "before": "fn firstAbove(values, level) =>\n    if size(values) == 0\n        break\n    values[0]",
-        "after": "fn firstAbove(values, level) =>\n    if size(values) == 0\n        return none\n    values[0]"
+        "before": "fn firstAbove(values, mark) =>\n    if size(values) == 0\n        break\n    values[0]",
+        "after": "fn firstAbove(values, mark) =>\n    if size(values) == 0\n        return none\n    values[0]"
       },
       "spec": "language.md 10.5",
       "refines": null,
@@ -287,8 +294,8 @@
       "fix": "Give it a starting value; var {name} = none is the empty start.",
       "autofix": true,
       "example": {
-        "before": "var highest\nif high > orElse(highest, high)\n    highest = high",
-        "after": "var highest = none\nif isNone(highest) or high > highest\n    highest = high"
+        "before": "var runningHigh\nif high > orElse(runningHigh, high)\n    runningHigh = high",
+        "after": "var runningHigh = none\nif isNone(runningHigh) or high > runningHigh\n    runningHigh = high"
       },
       "spec": "language.md 8.2",
       "refines": null,
@@ -584,7 +591,7 @@
         "leftType": "the type of the left operand or of the name's first assignment",
         "rightType": "the type of the right operand or of the value being assigned"
       },
-      "cause": "There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money. A declaration handle arrives here as well: plot(), plotCandles(), fill() and level() return the compile-time half of a declaration (language.md 5.4), so a handle in a position that requires a value has nothing to give, and the message names its type as plot, fill or level.",
+      "cause": "There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. A first assignment of none fixes no type, because none is a member of every type; the type comes from the first assignment that gives a definite one, and this code names the second definite type rather than the first. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money. A declaration handle arrives here as well: plot(), plotCandles(), fill() and level() return the compile-time half of a declaration (language.md 5.4), so a handle in a position that requires a value has nothing to give, and the message names its type as plot, fill or level.",
       "fix": "Convert explicitly: text(x) for a string, number(s) for a number, bool(x) for a bool, or use a separate name for the second value. A plot, fill or level handle converts to nothing: leave it named at the top level, pass it to fill(), and use draw.line() or draw.box() where the script needs something it can keep.",
       "autofix": false,
       "example": {
@@ -632,7 +639,7 @@
       "autofix": false,
       "example": {
         "before": "fn total(n) =>\n    if n <= 0\n        return 0\n    close[n] + total(n - 1)",
-        "after": "fn total(n) =>\n    sum = 0.0\n    for i = 0 to n\n        sum += close[i]\n    sum"
+        "after": "fn total(n) =>\n    runningTotal = 0.0\n    for i = 0 to n\n        runningTotal += close[i]\n    runningTotal"
       },
       "spec": "language.md 11.4",
       "refines": null,
@@ -996,14 +1003,14 @@
       "placeholders": {
         "option": "the option that was given a bar-dependent value"
       },
-      "cause": "The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built.",
+      "cause": "The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built. The rule covers more than the declaration's own options: every argument that lands in a declaration fixed before bar 0 arrives here too, signal's at, shape and color, table's position, rows and cols, and a plot's style arguments among them. An input() counts as a constant for this purpose, because the engine resolves inputs at load and substitutes the resolved value before bar 0 runs.",
       "fix": "Use a literal, or make it tunable with an input(): {option} = input(2, \"{option}\").",
       "autofix": false,
       "example": {
         "before": "study(\"Range\", precision = round(close / 1000))",
         "after": "study(\"Range\", precision = input(2, \"Precision\"))"
       },
-      "spec": "language.md 13.2",
+      "spec": "language.md 13.2, 15.3",
       "refines": null,
       "test": "tests/errors/OS3003"
     },
@@ -1647,8 +1654,8 @@
       "fix": "Produce the value from an input() with an options list, so only accepted names can reach the call.",
       "autofix": false,
       "example": {
-        "before": "order = up ? \"ascending\" : \"desc\"\nsort(values, order)",
-        "after": "order = up ? \"asc\" : \"desc\"\nsort(values, order)"
+        "before": "sortOrder = up ? \"ascending\" : \"desc\"\nsort(values, sortOrder)",
+        "after": "sortOrder = up ? \"asc\" : \"desc\"\nsort(values, sortOrder)"
       },
       "spec": "language.md 14.1",
       "refines": null,
@@ -1851,8 +1858,8 @@
       "fix": "Keep the pieces in an array, trim it to the rows you display, and join only those.",
       "autofix": false,
       "example": {
-        "before": "var log = \"\"\nlog += text(close) + \"\\n\"",
-        "after": "var log: array<string> = []\npush(log, text(close))\nif size(log) > 50\n    shift(log)"
+        "before": "var logLines = \"\"\nlogLines += text(close) + \"\\n\"",
+        "after": "var logLines: array<string> = []\npush(logLines, text(close))\nif size(logLines) > 50\n    shift(logLines)"
       },
       "spec": "language.md 5.1",
       "refines": null,
@@ -2291,7 +2298,7 @@
         "key": "the input's settings key",
         "validation": "the rule it broke, such as the minimum being 1"
       },
-      "cause": "An input validates exactly what the host supplies: the type, a number's min and max, and membership of an options list. A value that fails is refused and the program does not run, rather than falling back to the default, because a settings dialog that silently ignores what a user typed is worse than one that says the value is out of range.",
+      "cause": "An input validates exactly what the host supplies: the type, a number's min and max, and membership of an options list. A value that fails is refused and the program does not run, rather than falling back to the default, because a settings dialog that silently ignores what a user typed is worse than one that says the value is out of range. A declaration field that the compiled program carries as a reference to an input arrives here on the same ground: the engine resolves inputs at load and substitutes the value before it builds the descriptor, so a resolved value the field refuses is a setting from outside the source that the program cannot run with.",
       "fix": "Correct the value in the settings dialog, or widen the input's own min, max or options so the value is allowed.",
       "autofix": false,
       "example": {
@@ -2860,8 +2867,8 @@
       "fix": "Use var unless counting intrabar updates is the actual intent; keep live var only for that.",
       "autofix": false,
       "example": {
-        "before": "live var count = 0\ncount = count + 1\nplot(count, \"Bars\", aqua)",
-        "after": "var count = 0\ncount = count + 1\nplot(count, \"Bars\", aqua)"
+        "before": "live var barCount = 0\nbarCount = barCount + 1\nplot(barCount, \"Bars\", aqua)",
+        "after": "var barCount = 0\nbarCount = barCount + 1\nplot(barCount, \"Bars\", aqua)"
       },
       "spec": "language.md 7.5, 8.2",
       "refines": null,
@@ -2944,7 +2951,7 @@
         "end": "the end value",
         "step": "the step value"
       },
-      "cause": "A descending range with a positive step is empty: the loop does not silently reverse, because a form that reverses itself is the only shape of for loop that can spin for ever by accident.",
+      "cause": "A descending range with a positive step is empty, and so is an ascending range with a negative step: the loop does not silently reverse in either direction, because a form that reverses itself is the only shape of for loop that can spin for ever by accident.",
       "fix": "Add step -1 to count down, or swap the bounds to count up.",
       "autofix": false,
       "example": {

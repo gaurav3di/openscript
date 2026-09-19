@@ -28,16 +28,13 @@ const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '
 /**
  * Where examples are read from.
  *
- * `spec/` is deliberately absent. Its own examples in sections 5.2 and 8.2
- * declare `change`, `count` and `highest`, all three of which it defines as
- * library functions in `stdlib.md` section 9, so turning this check on over the
- * specification would fail the build on a defect that belongs to the
- * specification and is tracked in `issues/0001-spec-examples-shadow-builtins.md`.
- * Editing those examples quietly, to make a check pass, would hide the
- * disagreement rather than settle it. When the issue closes, delete this
- * comment and add 'spec' to the list.
+ * `spec/` was held out of this list while its own examples declared names the
+ * library owns, on the grounds that editing them quietly to make a check pass
+ * would hide the disagreement rather than settle it. Those names have since been
+ * renamed, so the specification is checked like everything else. A document that
+ * exempts itself from its own rules is the document nobody can trust.
  */
-const SOURCES = ['docs', 'examples'];
+const SOURCES = ['docs', 'examples', 'spec'];
 const SCRIPT_EXT = /\.oscript$/i;
 
 // ---------------------------------------------------------------------------

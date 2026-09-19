@@ -29,7 +29,7 @@ down = crossDown(fast, slow)
 // declaration handles those two names hold, never the series the columns were
 // computed from: a band is a field of the chart descriptor holding two plot
 // keys, so there is nothing for a bare expression to compile into and an
-// expression in either position is OS3011.
+// expression in either position is OS3020.
 fastPlot = plot(fast, "Fast", aqua, width = 2)
 slowPlot = plot(slow, "Slow", orange, width = 2)
 

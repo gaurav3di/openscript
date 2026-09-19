@@ -201,7 +201,7 @@ the answer now lives, and the scripts have been brought to it.
 - **`fill` names two plots, not two expressions.** `language.md` sections 5.4
   and 15.3 and `stdlib.md` section 14.2. A band is a field of the chart
   descriptor holding two plot keys, so there is no key for a column that was
-  never declared and an expression in either position is OS3011. Scripts 1, 2,
+  never declared and an expression in either position is OS3020. Scripts 1, 2,
   3, 5 and 11 name their two edge plots and pass the names. Script 5 switches
   its shading off with `opacity = 0` rather than a colour of `none`, because an
   absent colour reads as "no colour was given" and would still shade.
@@ -210,7 +210,7 @@ the answer now lives, and the scripts have been brought to it.
   list and is never looked up in any scope, so a reserved word is legal as one
   and OS1019 does not fire on it. Section 19's grammar admits `RESERVED` where a
   label goes. A parameter of a user function is still an ordinary identifier, so
-  `fn f(color = red)` is OS1019. Scripts 4, 8 and 9 write `color =` on that
+  `fn f(color = red)` is OS1019. Scripts 4 and 9 write `color =` on that
   rule, and every input in the folder writes `min =` and `max =` on it too.
 - **Drawing objects and tables have no type.** `language.md` section 5.4 splits
   the two kinds that were one word. `line`, `label`, `box`, `polyline` and
@@ -222,15 +222,16 @@ the answer now lives, and the scripts have been brought to it.
   gives an empty literal its element type from an annotation or from the first
   `push`, `unshift`, `insert` or `set`, which is what script 9's five untyped
   `[]` declarations rely on.
-- **The two placement lists disagree.** `language.md` section 15.3 and
-  `stdlib.md` section 14.1 now carry the same two sets: `plot`, `fill`, `level`
-  and `table` are top level only under OS3006 and `input` under OS3007;
-  `signal`, `alert`, `background`, `barColor`, `cell`, `print`, the `draw`
-  namespace and every order function may appear anywhere. Script 8 writes `cell`
-  inside an `if` on the strength of both documents rather than one.
-  `plotCandles` and `clear` are still placed by prose rather than by either list
-  (`language.md` section 5.4 and `stdlib.md` section 14.3), and no script here
-  calls them.
+- **The placement lists disagree.** `language.md` section 15.3,
+  `stdlib.md` section 14.1 and `errors.md` OS3006 now carry the same two sets:
+  `plot`, `plotCandles`, `fill`, `level` and `table` are top level only under
+  OS3006 and `input` under OS3007; `signal`, `alert`, `background`,
+  `barColor`, `cell`, `clear`, `print`, the `draw` namespace and every order
+  function may appear anywhere. Script 8 writes `cell` inside an `if` on the
+  strength of all three rather than one. `plotCandles` is top level only because
+  it declares a column and returns a plot handle, and `clear` is on the anywhere
+  list in both its forms, the grid one and the array one; no script here calls
+  either.
 - **A blank line inside a block is undefined.** `language.md` section 3.10: a
   blank line and a comment only line carry no token and no indentation at all,
   so they never open a block, never close one, are never OS1003, accept any

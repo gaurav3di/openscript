@@ -195,6 +195,19 @@ left out. An engine therefore never needs a table of defaults, and a default tha
 changes in a later language version cannot silently change an old program, because
 the old program carries the old value in writing.
 
+**An option a script wrote with an `input()` is carried as a reference.** A field
+may hold the object `{ "input": "<key>" }` in place of a literal value, naming an
+entry of `inputs[]` by its `key`. Every field of `meta`, every field of
+`meta.strategy` and every field of every declaration in `outputs` may hold the
+form, except `kind`, which is what decides how the rest of an object is read. The
+engine resolves inputs once at load, in the order of section 2.6, and substitutes
+each resolved value for its reference before it builds the descriptor, so a
+reference is gone before bar 0 and nothing is resolved per bar. Section 3.5 is
+where a reference is checked. This is how a tunable precision, a tunable table
+corner and a tunable plot colour reach a declaration that is otherwise fixed
+before the first bar: `language.md` section 13.2 permits it, and it is the fix
+OS3003 names for an option that would otherwise depend on a bar.
+
 ### 2.4 limits
 
 ```json
@@ -270,6 +283,17 @@ start of every bar (section 5.1).
 | `tooltip` | string? | Help text for the row |
 | `slot` | number | The frame slot this input is written into |
 
+**A `"source"` input's default names a series rather than holding one.** It is
+written `["s", "<field>"]`, in the same `[tag, value]` form as every other
+default, and the string is one of the eight built-in series a source input may
+select: `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4` and `volume`. The
+`kind` field is what says the string names a series rather than holding one, so
+the constant pool needs no tag of its own for a series (section 2.9). The engine
+resolves the name to the matching `"bar"` register and
+writes that register's value for the bar being executed into the input's slot at
+step 5 of every bar (section 5.1); where the program reads the input's history it
+reads a `"computed"` register, like any other top-level name.
+
 The host supplies a settings object keyed by `key`. For each input the engine
 resolves the effective value as: the host's value when the host supplies one and it
 passes validation, otherwise `default`. Validation is exact: wrong type, a number
@@ -322,9 +346,9 @@ a settings dialog and a pane have to exist before the first bar runs
 |---|---|---|
 | `key` | string | Stable identity, unique within the program |
 | `title` | string | Legend title |
-| `type` | string | `"line"`, `"step"`, `"area"`, `"histogram"`, `"column"` or `"line-markers"` |
+| `type` | string | `"line"`, `"step"`, `"area"`, `"histogram"`, `"column"` or `"lineWithMarkers"` |
 | `channel` | number | The channel carrying its value |
-| `color` | color | Default colour |
+| `color` | color? | Default colour, or null when the script named none, in which case the host assigns one from its own palette |
 | `colorChannel` | number? | A channel carrying a per-bar colour, when the call's colour argument is not constant |
 | `width` | number | Line thickness |
 | `lineStyle` | string | `"solid"`, `"dashed"` or `"dotted"` |
@@ -375,8 +399,8 @@ One entry per `signal()` call site.
 |---|---|---|
 | `key` | string | Stable identity |
 | `channel` | number | The channel carrying the marker text, `defer` true |
-| `position` | string | `"above"`, `"below"` or `"at"` |
-| `shape` | string | `"label"`, `"arrowUp"`, `"arrowDown"`, `"circle"` or `"square"` |
+| `position` | string | `"above"`, `"below"` or `"price"` |
+| `shape` | string | `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"` or `"flag"` |
 | `color` | color? | Plate colour |
 | `textColor` | color? | Text colour |
 
@@ -401,6 +425,10 @@ grid of two hundred cells would otherwise need two hundred channels, and almost 
 of them would be absent on almost every bar. The cell buffer is an output buffer
 cleared at the start of each execution of a bar and committed with the rest
 (section 5.1).
+
+A declaration field that a script wrote from an `input()` carries the reference
+form of section 2.3 rather than a literal value, until the engine resolves inputs
+at load; `tables[].position` and `plots[].color` are the two a script reaches for.
 
 **`alerts[]`**
 
@@ -482,7 +510,8 @@ code runs. The fields and their exact definitions:
 | `hlcc4` | `(high + low + close + close) / 4` |
 | `bar.index` | Zero based position in the dataset |
 | `bar.count` | `bar.index + 1` |
-| `bar.isFirst`, `bar.isLast`, `bar.isConfirmed`, `bar.isRealtime`, `bar.isNew` | Booleans the host states |
+| `bar.isConfirmed`, `bar.isRealtime`, `bar.isNew` | Booleans the host states for this execution |
+| `bar.isFirst`, `bar.isLast` | Derived by the engine: `bar.index == 0`, and `bar.index` is the greatest index the host has supplied |
 | `bar.updates` | How many times this bar has been executed, counting from 1 |
 
 The derived fields are written as expressions because their order of operations is
@@ -713,6 +742,18 @@ Rules that hold everywhere and are not repeated at each instruction:
   past a surrogate pair as one element, or two engines will disagree about the
   length of a string holding a symbol outside the basic plane and about every
   substring taken after one.
+- **A colour's channels are whole numbers and its alpha is not.** Red, green and
+  blue are whole numbers from 0 to 255 in every colour the machine holds, not only
+  in a literal, because every library call that computes a colour rounds the three
+  channels before returning with the language's own rounding, halves away from
+  zero (`stdlib.md` section 11.2). Alpha stays a binary64 number from 0 to 1. At
+  the contract boundary the alpha becomes a byte as `round(alpha * 255)`, the same
+  rounding, and that byte is the `aa` of the `#rrggbbaa` spelling the conformance
+  suite compares (`conformance.md` section 6). **The conversion is one way and is
+  not a round trip**: `#ff880080` parses to 128 divided by 255, while an alpha of
+  0.12 serialises to `1f`, which reads back as a different number. Nothing in the
+  language observes the difference, because a script reads alpha with `alpha()`
+  from the machine value and never from the wire form.
 - **A reference is opaque.** Equality on two references is identity
   (`language.md` section 9.3). A reference is never a number and never converts to
   one.
@@ -803,9 +844,11 @@ Before executing a single bar, an engine **must** verify the program. Verificati
 is not optional and not a debug mode: an engine that skips it can be handed a
 malformed instruction list and will read past the end of an array or execute a jump
 into the middle of an expression. A program that fails verification is refused with
-OS6018, naming the first instruction index that failed and why.
+OS6018, naming what failed and why: the first instruction index, or the field where
+the failure is not in an instruction list.
 
-Every check below is decidable from the program alone:
+Every check below is decidable from the program alone, with the one exception
+check 10 names:
 
 1. **Structure.** Every required field is present and of the declared type. Every
    index into a table is in range: constant pool, slots, cells, states, registers,
@@ -831,6 +874,14 @@ Every check below is decidable from the program alone:
    instruction used is covered by a tag the program declared.
 9. **Library.** Every `lib.functions` entry matches the manifest for
    `openscript.language`, in name, arity, `state` and `effect`.
+10. **Input references.** Every `{ "input": "<key>" }` reference (section 2.3)
+    names an input declared in `inputs[]`, and the value that input resolves to is
+    admissible in the field holding it. A key no input declares is OS6018, naming
+    the field. A resolved value the field refuses is OS6019, naming the field and
+    the value, because that value came from the host's settings rather than from
+    the program. The key half is decidable from the program alone; the value half
+    runs at load with the settings in hand, before step 1 of bar 0, and is the same
+    validation section 2.6 applies to every input value.
 
 A verified program cannot underflow the stack, cannot jump out of bounds, cannot
 address a slot that does not exist and cannot loop without charging the budget.
@@ -841,11 +892,11 @@ kind of failure a user should ever see.
 
 ## 4. The instruction set
 
-Forty instructions. The set is deliberately small and deliberately dull: there is
-one way to do each thing, no instruction is a shorthand for two others, and nothing
-in it is clever. An engine's dispatch loop is a switch with forty arms, and a new
-one cannot be added without a major format bump (section 9), so the number is a
-promise rather than a measurement.
+Forty-one instructions. The set is deliberately small and deliberately dull: there
+is one way to do each thing, no instruction is a shorthand for two others, and
+nothing in it is clever. An engine's dispatch loop is a switch with forty-one arms,
+and a new one cannot be added without a major format bump (section 9), so the
+number is a promise rather than a measurement.
 
 **Operand names** are used consistently throughout:
 
@@ -1096,9 +1147,13 @@ comparison is not.
 | `NOT` | | `a -> v` | `true` becomes `false`, `false` becomes `true`, absent stays absent |
 | `AND` | | `a b -> v` | The three-valued conjunction below |
 | `AND_SHORT` | `t` | `a -> a` | If the top value is `false`, jump to `t` leaving it in place |
-| `OR_SHORT` | `t` | `a -> a` | If the top value is `true` or absent, jump to `t` leaving it in place |
+| `OR` | | `a b -> v` | The three-valued disjunction below |
+| `OR_SHORT` | `t` | `a -> a` | If the top value is `true`, jump to `t` leaving it in place |
 
-The conjunction `AND` implements, from `language.md` section 6.6:
+`AND` implements the three-valued conjunction of `language.md` section 6.6, and
+`OR` the disjunction beside it. Each table holds only the cases its short-circuit
+leaves to it: `AND_SHORT` has already decided a `false` left operand, and
+`OR_SHORT` a `true` one.
 
 | `a` | `b` | `a and b` |
 |---|---|---|
@@ -1107,6 +1162,15 @@ The conjunction `AND` implements, from `language.md` section 6.6:
 | `true` | absent | absent |
 | absent | `true` | absent |
 | absent | `false` | `false` |
+| absent | absent | absent |
+
+| `a` | `b` | `a or b` |
+|---|---|---|
+| `false` | `true` | `true` |
+| `false` | `false` | `false` |
+| `false` | absent | absent |
+| absent | `true` | `true` |
+| absent | `false` | absent |
 | absent | absent | absent |
 
 ```
@@ -1119,9 +1183,9 @@ The conjunction `AND` implements, from `language.md` section 6.6:
 
 // a or b
  0 <a>
- 1 ["OR_SHORT", 4]       // a is true or absent: a is the answer
- 2 ["POP"]               // a is false: the answer is b
- 3 <b>
+ 1 ["OR_SHORT", 4]       // a is true: the answer is true, and b is not evaluated
+ 2 <b>
+ 3 ["OR"]
  4 ...
 
 // not ready
@@ -1129,14 +1193,15 @@ The conjunction `AND` implements, from `language.md` section 6.6:
 ["NOT"]
 ```
 
-There is no `OR` instruction, and the asymmetry is the truth table's, not a
-preference. `or` short-circuits when its left operand is `true` **and** when it is
-absent, because absent on the left makes the result absent whatever `b` is, so `b`
-cannot change the answer and `language.md` section 9.4 says it must therefore not
-be evaluated. That leaves `false` as the only case that reaches the right operand,
-and in that case the answer is simply `b`, so nothing needs combining. `and` is not
-so lucky: absent on the left still lets a `false` on the right decide, so the right
-operand runs and `AND` combines the two.
+The two operators are symmetric, and their instruction pairs are mirror images.
+Each short-circuits on the one value that decides the answer by itself, `false`
+for `and` and `true` for `or`, and leaves that value on the stack as the result.
+Absence on the left short-circuits neither of them, because the other side can
+still decide: a `false` on the right of an `and` and a `true` on the right of an
+`or` fix the answer whatever the absent operand would have held. So the right
+operand runs and the combining instruction takes both values, which is what
+`language.md` section 9.4 requires and what makes both operators commutative
+(`language.md` section 6.6).
 
 Whether the right operand runs is observable, not a detail: a stateful call that
 does not execute does not advance its state and leaves its series absent for the
@@ -1270,12 +1335,12 @@ size, which is a library call the compiler can emit in one line:
  6 ["LOAD", 6]
  7 ["LOAD", 5]
  8 ["LT"]
- 9 ["JUMP_FALSE", 24]
+ 9 ["JUMP_FALSE", 25]
 10 ["LOAD", 6]
 11 ["LOAD", 0]
 12 ["CALL_LIB", 1, 1, -1]  // size again: the array may have shrunk
 13 ["LT"]
-14 ["JUMP_FALSE", 24]
+14 ["JUMP_FALSE", 25]
 15 ["LOAD", 0]
 16 ["LOAD", 6]
 17 ["ELEM"]
@@ -1432,7 +1497,7 @@ definite failure instead of an accidental one.
 
 ### 4.13 The whole set
 
-Forty instructions, with their stack effect as a signed depth change.
+Forty-one instructions, with their stack effect as a signed depth change.
 
 | Opcode | Operands | Depth | Group |
 |---|---|---|---|
@@ -1462,6 +1527,7 @@ Forty instructions, with their stack effect as a signed depth change.
 | `NE` | | `-1` | Comparison |
 | `NOT` | | `0` | Logic |
 | `AND` | | `-1` | Logic |
+| `OR` | | `-1` | Logic |
 | `AND_SHORT` | `t` | `0` | Logic |
 | `OR_SHORT` | `t` | `0` | Logic |
 | `JUMP` | `t` | `0` | Control |
@@ -1515,6 +1581,12 @@ else in this document is a detail of one of them.
 11. **Checkpoint.** If the engine is moving on to the next bar, take a checkpoint
     (section 6.1).
 
+Input resolution, and the substitution of every `{ "input": ... }` reference
+(section 2.3) with the value it resolves to, happen once at load, before step 1 of
+bar 0, so the declaration in `outputs` and the descriptor built from it exist
+before the first bar runs. Step 5 writes the already resolved values into slots and
+resolves nothing.
+
 Steps 1 and 2 are what make a still-moving bar idempotent. Steps 8 and 9 are what
 separate what a script may do on a moving bar from what it may not: the drawing is
 recomputed from scratch on every update and published every time, while a signal,
@@ -1534,11 +1606,19 @@ An engine reads all of this from the host and none of it from anywhere else:
 | The bars: open, high, low, close, volume, time | Step 4 |
 | Bar state: is this bar new, confirmed, realtime, and the update count | Step 4 and step 9 |
 | Settings, keyed by input `key` | Step 5 |
-| Instrument facts: symbol, exchange, interval, timezone, tick size, lot size | The `chart` library namespace |
+| Instrument facts: symbol, exchange, interval, timezone, tick size, lot size, point value, currency, instrument type, and whether the instrument has volume | The `chart` library namespace |
 | The chart clock, for `chart.now()` | The `chart` library namespace |
 | More bars, on request | The `req` library namespace |
 | A drawing surface | Steps 8 and 9 |
 | An order route | Step 9 |
+
+`chart.intervalMinutes` and `chart.isIntraday` are not on that list because the
+engine derives them from the interval string rather than reading them, which keeps
+them from disagreeing with the interval they describe. Every supplied instrument
+fact is absent when the host does not state it, on the same ground as an unknown
+tick size, except the volume flag: the host must state that one, because an
+instrument that has no volume and a bar whose volume nobody supplied are different
+facts and no derivation tells them apart.
 
 An engine must not adjust, round, resample, deduplicate or reorder the bars it is
 given. If two engines are handed the same bars they compute the same numbers, and
@@ -1921,7 +2001,7 @@ Codes this document introduces, to be carried in the catalogue:
 | OS6016 | The compiled format version is not one this engine implements |
 | OS6017 | The program's language version is not one this engine implements |
 | OS6018 | The compiled program is malformed or fails verification |
-| OS6019 | A host setting fails an input's declared validation |
+| OS6019 | A host setting fails an input's declared validation, or fails the declaration field an `{ "input": ... }` reference put it in |
 
 A load-time refusal carries no line, because the failure is in the program rather
 than in the source; it carries the instruction index and the field instead. An
@@ -2020,7 +2100,7 @@ the manifest's, and section 8.3 is why it is written down.
   },
   "inputs": [
     {
-      "key": "len", "kind": "number", "label": "Length", "default": 2,
+      "key": "len", "kind": "number", "label": "Length", "default": ["n", 2],
       "min": null, "max": null, "step": null, "options": null,
       "group": "", "tooltip": null, "slot": 0
     }
@@ -2240,7 +2320,8 @@ following hold, and the conformance suite tests each one.
 
 **The machine**
 
-- [ ] Implements all forty instructions of section 4, with the stated stack effect.
+- [ ] Implements all forty-one instructions of section 4, with the stated stack
+  effect.
 - [ ] Implements six value tags, with absence as its own tag and never a number.
 - [ ] Keeps numbers finite, normalises negative zero, and measures strings in code
       points.

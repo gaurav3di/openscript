@@ -222,8 +222,9 @@ catalogue is complete.
 | `bar.updates` | `series number` | bar 0 | How many times this bar has been executed |
 
 These land in the contract's calculation context rather than in any drawn field:
-the host supplies the same four facts (new, confirmed, realtime, last index) and
-the engine exposes them under these names.
+the host supplies four facts about the execution (new, confirmed, realtime and
+the update count) and the engine derives the other four from the dataset and the
+bar's position in it (`compiled-program.md` section 5.2).
 
 ### 3.4 The `chart` namespace
 
@@ -253,9 +254,14 @@ carry no history.
 
 `chart.tickSize` is `none` rather than a guessed `0.01` when the host has not
 supplied it, because a script sizing a stop in ticks has to be able to tell "one
-paisa" from "nobody said". `chart.now()` is the only reading of a clock available
-during a bar, and the conformance suite fixes its value, so a script that uses it
-is still reproducible.
+paisa" from "nobody said". The host's instrument record supplies ten facts,
+symbol, exchange, interval, timezone, tick size, lot size, point value, currency,
+instrument type and whether the instrument has volume, and the engine derives
+`chart.intervalMinutes` and `chart.isIntraday` from the interval string rather
+than reading them from the host (`compiled-program.md` section 5.2).
+`chart.now()` is the only reading of a clock available during a bar, and the
+conformance suite fixes its value, so a script that uses it is still
+reproducible.
 
 **Count: 36 entries, of which 5 are planned.**
 
@@ -611,11 +617,30 @@ so a study looks the same on every engine.
 | `hsl(h, s, l)` (planned) | `color` | Hue, saturation, lightness construction |
 | `gradient(value, from, to, colorFrom, colorTo)` (planned) | `color` | Position a value between two colours |
 
+**Every call that computes a colour rounds red, green and blue to a whole number
+before it returns**, with the language's own rounding, halves away from zero, the
+`round` of section 8.1. `mix` is the call that produces fractional channels, so
+`mix` is where the rule bites: `mix(a, b, weight)` rounds each of the three
+channels before returning, and the value model's invariant, whole channels and a
+binary64 alpha from 0 to 1, then holds of every colour and not only of a literal
+(`compiled-program.md` section 3.1). Alpha is not rounded here.
+
+**At the contract boundary the alpha becomes a byte as `round(alpha * 255)`**,
+the same rounding, and that byte is the `aa` of the `#rrggbbaa` spelling the
+conformance suite compares. The conversion is one way and is not a round trip:
+`fade(aqua, 88)` is an alpha of 0.12, which serialises as `round(0.12 * 255)`,
+that is 31, written `1f`, and `1f` read back is 31 divided by 255, which is not
+0.12. Nothing in the language observes the difference, because a script reads
+alpha with `alpha()` from the machine value and never from the wire form.
+
 `fade` takes transparency, not opacity, and the argument is a percentage. Both
 choices follow the way a chart's own style controls are labelled, and the entry
 says so here because the two conventions are opposites and a script that guesses
 wrong draws something invisible. `withAlpha` exists for the other convention and
-takes 0 to 1.
+takes 0 to 1. `fade(c, p)` is `withAlpha(c, (100 - p) / 100)` exactly, which sets
+the alpha rather than scaling it, whatever alpha `c` already carried, so nesting
+two fades replaces the inner call's alpha with the outer one's and
+`fade(fade(aqua, 50), 50)` is `fade(aqua, 50)`.
 
 A channel argument outside its range is OS3004, not a clamp, because a colour
 computed from data and landing at 300 is a bug in the computation.
@@ -745,16 +770,16 @@ tf    = input("60",   "Higher timeframe", kind = "interval")
 | Call | Returns | Lands in | For |
 |---|---|---|---|
 | `input(n: number, title, min = none, max = none, step = none, ...)` | `number` | a `number` input | A length, a multiplier, a threshold |
-| `input(b: bool, title, ...)` | `bool` | a `boolean` input | A switch for an optional part of the study |
-| `input(s: string, title, ...)` | `string` | a `text` input | Free text: a label, a note on a drawing |
+| `input(b: bool, title, ...)` | `bool` | a `bool` input | A switch for an optional part of the study |
+| `input(s: string, title, ...)` | `string` | a `string` input | Free text: a label, a note on a drawing |
 | `input(s: string, title, options = [...], ...)` | `string` | a `select` input | A choice from a fixed list, rendered as a menu |
 | `input(c: color, title, ...)` | `color` | a `color` input | A colour the user can restyle without editing the script |
 | `input(src: series, title, ...)` | `series number` | a `source` input | Which price the study reads: one of `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4`, `volume` |
 | `input(s: string, title, kind = "interval", ...)` | `string` | an `interval` input | A timeframe code, rendered as a menu over the intervals the host can serve |
 | `input(s: string, title, kind = "time", ...)` | `number` | a `time` input | An instant the user picks by date, for an anchor |
-| `input(s: string, title, kind = "symbol", ...)` (planned) | `string` | a `text` input | Another instrument, rendered as a picker |
+| `input(s: string, title, kind = "symbol", ...)` (planned) | `string` | a `string` input | Another instrument, rendered as a picker |
 | `input(n: number, title, kind = "price", ...)` (planned) | `number` | a `number` input | A price the user sets by clicking the chart |
-| `input(s: string, title, kind = "session", ...)` (planned) | `string` | a `text` input | A session window, rendered as two clock fields |
+| `input(s: string, title, kind = "session", ...)` (planned) | `string` | a `string` input | A session window, rendered as two clock fields |
 
 ### 13.2 Arguments every kind accepts
 
@@ -802,16 +827,16 @@ are planned.**
 
 ### 14.1 What may appear where
 
-`plot`, `fill`, `level` and `table` are top level only (OS3006), and `input` is
-top level only under a code of its own (OS3007). They declare the fixed shape of
-the study: the set of columns, bands, levels and grids must be known before bar 0
-so the legend, the axis and the settings dialog can exist. Hide one on a bar by
-giving it `none`, never by wrapping it in an `if`.
+`plot`, `plotCandles`, `fill`, `level` and `table` are top level only (OS3006),
+and `input` is top level only under a code of its own (OS3007). They declare the
+fixed shape of the study: the set of columns, bands, levels and grids must be
+known before bar 0 so the legend, the axis and the settings dialog can exist.
+Hide one on a bar by giving it `none`, never by wrapping it in an `if`.
 
-`signal`, `alert`, `barColor`, `background`, `cell`, `print`, the whole `draw`
-namespace and every order function of section 17 may appear anywhere, because
-they are per-bar events, per-bar paint or per-bar decisions. This is the same
-split as `language.md` section 15.3, stated with both lists complete.
+`signal`, `alert`, `barColor`, `background`, `cell`, `clear`, `print`, the whole
+`draw` namespace and every order function of section 17 may appear anywhere,
+because they are per-bar events, per-bar paint or per-bar decisions. This is the
+same split as `language.md` section 15.3, stated with both lists complete.
 
 The two lists are not two halves of one idea. `plot`, `plotCandles`, `fill` and
 `level` return a **declaration handle**, a compile-time value; `table()` returns
@@ -827,7 +852,7 @@ in an array and passed to a function.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `plot(value, title, color = ..., width = 1.5, style = "line", offset = 0, overlay = none, precision = none, format = none, scale = "right")` | `plot` | one entry of the contract's plotted columns | Draw a column of numbers |
+| `plot(value, title, color = none, width = 1.5, style = "line", offset = 0, overlay = none, precision = none, format = none, scale = "right")` | `plot` | one entry of the contract's plotted columns | Draw a column of numbers |
 | `plotCandles(open, high, low, close, title, colorUp = lime, colorDown = red, wickColor = none, borderColor = none)` | `plot` | a plotted column with its four named source columns | Draw bar-shaped output: a smoothed or higher timeframe candle |
 | `fill(plotA, plotB, color = none, colorUp = none, colorDown = none, opacity = 1, overlay = none)` | `fill` | one entry of the contract's shaded bands | Shade the region between two declared plots |
 | `level(price, title = "", color = gray, style = "dashed", width = 1)` | `level` | one entry of the contract's horizontal levels | A fixed reference line in the study's pane |
@@ -837,7 +862,7 @@ declared columns the band is drawn between. The compiled program carries them as
 the two plot keys of `outputs.fills[].between` (`compiled-program.md` section
 2.8), and the chart's own band spec holds the same pair of keys, so there is
 nothing in the contract for a bare expression to become and a script cannot shade
-between a column it never declared. An expression in either position is OS3011,
+between a column it never declared. An expression in either position is OS3020,
 with the fix naming the plot to declare.
 
 ```
@@ -889,6 +914,13 @@ a different function.
 plot(macdHist, "Histogram", color = macdHist > 0 ? lime : red, style = "histogram")
 ```
 
+An omitted colour is the same thing as an explicit `none`, and it leaves the
+plot's colour to the host: the compiled program carries null in that plot's
+`color` field (`compiled-program.md` section 2.8) and the host assigns one from
+the same palette it already uses to fill the generated style row of section 13.4.
+That is why the default is `none` rather than a named colour, which would draw
+every undecorated column of a three plot study in one colour.
+
 `level(price, ...)` takes a value that may be data-derived, such as the previous
 day's high, because the contract recomputes levels after every calculation.
 
@@ -905,7 +937,7 @@ warning OS8007 when a script does it.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `signal(text, color = none, at = "auto", shape = "label", size = "normal")` | nothing | one entry of the contract's markers | A named marker on this bar |
+| `signal(text, color = none, at = "above", shape = "label")` | nothing | one entry of the contract's markers | A named marker on this bar |
 | `barColor(color)` | nothing | the contract's price bar colours | Recolour the instrument's own candles on this bar |
 | `background(color)` | nothing | the contract's pane background | Shade the whole height of this bar's column behind everything else |
 | `table(title, rows, cols, position = "topRight", textColor = none, bgColor = none, borderWidth = 0)` | `table` | the contract's summary grid | Declare a grid pinned to a corner of the pane |
@@ -914,11 +946,13 @@ warning OS8007 when a script does it.
 | `print(value)` | nothing | nothing drawn | Write a value to the script's log with the bar's time |
 
 `signal` is the whole of shape plotting, as `language.md` section 15.3 states.
-`at` takes `"auto"`, `"above"`, `"below"` or `"price"`, and `shape` takes
-`"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`,
-`"circle"`, `"square"`, `"diamond"`, `"cross"` and `"flag"`. With `at = "auto"`
-the marker sits above the bar when its text suggests a sell and below when it
-suggests a buy, and above otherwise; a script that cares says which.
+`at` takes `"above"`, `"below"` or `"price"`, and `shape` takes `"label"`,
+`"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`,
+`"square"`, `"diamond"`, `"cross"` and `"flag"`. `at`, `shape` and `color` are
+part of the marker's declaration and are fixed before bar 0, so each must be a
+compile-time constant, a literal or an `input()`; a bar-dependent one is OS3003.
+Only the text is read per bar. The compiled field carries the same three
+spellings (`compiled-program.md` section 2.8).
 
 `signal` does not fire on a bar that is still moving unless the declaration sets
 `onUnconfirmed = true` (`language.md` section 7.5).
@@ -1305,7 +1339,7 @@ lands in. The field names are the contract's own.
 | `alert(...)` | one watched condition, with its id, title, message and predicate |
 | `req.timeframe(...)` | folding of the chart's own bars, inside the calculation |
 | `req.symbol(...)` | the request for another instrument's bars, the attach lifecycle that holds the answer, and the data status the host shows |
-| `bar.isNew`, `bar.isConfirmed`, `bar.isRealtime`, `bar.isLast` | the calculation context's bar state |
+| `bar.isNew`, `bar.isConfirmed`, `bar.isRealtime`, `bar.updates` | the calculation context's bar state |
 | `chart.timezone`, `chart.now()`, `chart.tickSize`, `chart.symbol`, `chart.interval` | the calculation context's chart facts |
 | every calculation in sections 4 to 11 | the computed values, one column per plot, aligned to the bars, absent where the warmup says |
 | every order function in section 17 | no contract field; the host's order interface |
