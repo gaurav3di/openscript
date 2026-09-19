@@ -1,0 +1,23 @@
+{
+  "name": "openscript-lang",
+  "version": "0.0.0",
+  "description": "An open trading language. Write a study or a strategy once, plot it, backtest it, trade it.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "private": true,
+  "scripts": {
+    "check:names": "node scripts/check-names.mjs",
+    "test": "node scripts/check-names.mjs"
+  },
+  "keywords": [
+    "trading",
+    "language",
+    "compiler",
+    "indicators",
+    "backtesting",
+    "technical-analysis"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
