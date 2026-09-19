@@ -8,31 +8,44 @@ real account.
 ## Three destinations, one program
 
 A compiled program does not know where its orders go. The same instruction list
-that a backtest runs is the one paper runs and the one a broker connection runs.
+that a backtest runs is the one paper runs and the one a live connection runs.
 What differs is the destination attached to it.
 
 | Destination | Bars arrive | Orders go to | Money |
 |---|---|---|---|
 | Backtest simulator | All at once, all confirmed | A fill model over the bars | None |
 | Paper | In real time, the newest bar still moving | A simulated account | None |
-| Live | In real time, the newest bar still moving | The broker, through the host | Yours |
+| Live | In real time, the newest bar still moving | A real destination, through the host | Yours |
 
 That separation is the reason the numbers can be trusted. The chart shows what
-happened, the broker decides what happens, and nothing in the language reaches
-across. A strategy that placed an order and found no destination at all is
+happened, the destination decides what happens, and nothing in the language
+reaches across. A strategy that placed an order and found no destination at all is
 OS7015, which says so rather than computing a position nothing ever took.
 
-## Paper is the default, and arming is a separate act
+## Paper is the default, and nothing in a script can change that
 
-A strategy that starts runs on paper. Live is not a setting buried in the
-declaration and not an argument on an order: it is a separate, deliberate action
-in the host, taken on a strategy that is already running well.
+**A strategy is born unable to trade for real.** A new strategy sends its orders
+to the paper destination, and so does a strategy whose source has just been
+edited: an edit returns it to paper, and arming it again is a fresh decision.
+
+Arming is a separate, deliberate act performed on that one strategy in the host,
+and **nothing in a script can perform it**. There is no call, no declaration
+option and no input that arms anything, and there is no combination of them that
+adds up to one. Live is not a setting buried in the declaration and not an
+argument on an order.
 
 The reason is the asymmetry of the mistake. A live strategy running by accident
 costs money and takes orders you did not choose to place. A paper strategy
 running by accident costs a log file. When one direction of a mistake is
 expensive and the other is free, the default belongs at the free end, and the
-expensive direction gets a door you have to open with your hand on the handle.
+expensive direction gets a door you have to open with your hand on the handle. A
+misconfigured script found after the fact cannot have been placing real orders,
+which is the only guarantee worth having here.
+
+**There is also no call that reports it.** A script cannot ask whether it is
+armed, so it cannot behave differently when it is. That is not an omission: a
+strategy that took a different branch once armed would be a strategy nobody had
+ever tested, and the paper run would stop being evidence about the live run.
 
 Nothing in the source distinguishes the two. The same file, the same revision
 and the same inputs run on paper and live, which is what makes a paper run
@@ -50,10 +63,16 @@ These are the same in paper as in live, to the last decimal:
   the rollback rule that makes it idempotent.
 - Which bar an order is decided on, and the deferral of orders, signals and
   alerts to the confirmation of that bar.
-- Position accounting: `pos.size`, `pos.avgPrice`, `pos.barsHeld`,
-  `pos.entries`, and the one-net-position model.
+- Position accounting: `pos.size`, `pos.avgPrice`, `pos.barsHeld`, `pos.entries`,
+  one position per leg, folded from this strategy's own settled fills and from
+  nothing else.
+- The ledger and the fold: one row per order, cumulative frames rather than
+  deltas, a repeated frame folding to no change.
+- Which contract each leg resolved to. A relative contract resolves once, before
+  bar 0, on paper exactly as it does live.
 - The cost model you declared: slippage in ticks, commission, lot rounding.
-- Bracket logic, as the engine expresses it.
+- The risk rules and the order they are evaluated in, and the named events they
+  emit.
 
 If a paper run and a live run disagree about any of the above, that is a defect,
 not a market effect.
@@ -151,22 +170,35 @@ read in the file, because that combination is where repainting comes from.
 | The compiled program | The same | The same |
 | Bars | The host's feed | The same feed |
 | Warmup | From loaded history | The same |
-| Orders | Simulated account | The broker, through the host |
-| Rejections | Rare, model-shaped | Real, with the destination's reason |
+| Orders | Simulated account | A real destination, through the host |
+| Rejections | Rare, model-shaped | Real, with the destination's own reason |
 | Fill price | Your slippage model | The market |
-| `pos.size` | Simulated fills | Real fills |
-| `pos.equity` | Declared capital plus profit | Still declared capital plus profit, not the account balance |
+| `pos.size` | Simulated fills, folded from the ledger | Real fills, folded from the same ledger |
+| `pos.equity` | Declared capital plus this strategy's profit | The same, and still not the account balance |
+| `pos.isShared` | Whatever the simulated account holds | True whenever something else is in that contract |
 | Logs | Per script | Per script |
 | Stopping it | Stops the script | Stops the script, not the position |
 
-Two rows need saying out loud.
+Three rows need saying out loud.
 
-**`pos.equity` is the strategy's own ledger.** It starts at the `capital` you
-declared and moves with this strategy's realised and unrealised profit. It is
+**`pos.equity` comes from the strategy's own books.** It starts at the `capital`
+you declared and moves with this strategy's realised and unrealised profit. It is
 not your account balance, it does not know about your other strategies, and it
-does not know about the margin the broker is holding. Sizing from it live means
+does not know about the margin the account is carrying. Sizing from it live means
 sizing from a number that agrees with your account only if this strategy is the
 only thing in it.
+
+**`pos.size` is the same number live as on paper, and for the same reason.** Both
+are folded from this strategy's own settled fills. The strategy never reads an
+account position row and never sends an order computed as a difference against
+one, so the arrival of real money changes where the fills come from and nothing
+about how they are counted.
+
+**`pos.isShared` is the one thing the language will tell you about the account.**
+It says that the account's position in a contract this strategy holds is larger
+than the strategy's own. It is a boolean, there is no call that turns it into a
+quantity, and live is where it earns its place: put it on a panel and it tells you
+the day somebody else started trading your contract.
 
 **Stopping a strategy stops the script, not the position.** That is a large
 enough topic to have its own section on the scheduling page.
@@ -177,11 +209,17 @@ A strategy starts flat. It does not look at the account and adopt whatever is
 there, and it does not resume the position it held before it was stopped.
 
 This is the right default, and it is worth knowing why before it surprises you.
-A position at the broker has no entry logic attached to it. The script's stop,
-its target and its bar count since entry all describe a trade the current
-process never took. Adopting the position would mean managing a trade with rules
-that were never applied to its entry, which is worse than either flattening it
-or managing it by hand.
+It is the same rule that runs through the whole order model: a strategy's
+position is folded from the strategy's own settled fills, and an account position
+row belongs to whoever traded it, which may be you by hand, another strategy, or
+an earlier run of this one. There is no honest way to divide it, so the language
+does not try.
+
+There is a second reason, and it is the practical one. A position in the account
+has no entry logic attached to it. The script's stop, its target and its bar count
+since entry all describe a trade the current process never took. Adopting the
+position would mean managing a trade with rules that were never applied to its
+entry, which is worse than either flattening it or managing it by hand.
 
 The consequence is a rule: if a strategy is holding a position, do not restart
 it without deciding what happens to that position first. The options are to
@@ -245,7 +283,8 @@ number a risk limit is actually about.
 ## The live state panel
 
 Live, the question is never what the equity curve looked like. It is what the
-strategy thinks it is holding right now, and whether it agrees with the broker.
+strategy's own books say it is holding right now, and whether they agree with the
+account.
 
 ```
 version 1
@@ -263,7 +302,7 @@ if crossUp(fast, slow) and session.isOpen and pos.isFlat
 if pos.isLong and crossDown(fast, slow)
     close()
 
-panel = table("Live state", 5, 2, position = "topRight", textColor = silver)
+panel = table("Live state", 6, 2, position = "topRight", textColor = silver)
 
 // Only the newest bar, and the rollback rule makes that safe on a live feed:
 // the bar re-executes on every update and rewrites the same cells.
@@ -276,13 +315,18 @@ if bar.isLast
     cell(panel, 2, 1, pos.isFlat ? "flat" : text(pos.openProfit, 0))
     cell(panel, 3, 0, "Working orders")
     cell(panel, 3, 1, text(order.pending))
-    cell(panel, 4, 0, "This bar")
-    cell(panel, 4, 1, bar.isConfirmed ? "confirmed" : "still moving")
+    cell(panel, 4, 0, "Shared with the account")
+    cell(panel, 4, 1, pos.isShared ? "yes" : "no",
+         textColor = pos.isShared ? red : silver)
+    cell(panel, 5, 0, "This bar")
+    cell(panel, 5, 1, bar.isConfirmed ? "confirmed" : "still moving")
 ```
 
-Compare those five values against the broker's own position screen once a day.
-They should match, and the day they do not is the day you want to find out from
-a panel rather than from a statement.
+Compare those six values against the account's own position screen once a day.
+The first four describe the strategy's own books and the fifth admits when the
+account holds more than they do. They should agree, allowing for what the fifth
+row says, and the day they do not agree for any other reason is the day you want
+to find out from a panel rather than from a statement.
 
 ## Pre-flight checklist
 
@@ -306,55 +350,68 @@ of them is a matter of opinion.
 6. Entries are guarded by `session.isOpen`, so an order cannot be refused with
    OS7012 for arriving outside the session.
 7. There is an exit for every entry, and at least one exit that does not depend
-   on a signal: a stop, a clock, or `closeOnSessionEnd = true`.
+   on a signal: a stop level, a clock rule such as `book.exitAt`, or
+   `closeOnSessionEnd = true`.
 8. The size is computed, clamped and rounded to a whole lot, and the path where
    the size ends up absent refuses the trade rather than sending it.
+9. Every leg the file declares is declared at the top level with compile-time
+   arguments, and you have read back what a relative one resolved to, with
+   `leg.symbol(name)`, rather than assuming it. It resolves once, before bar 0,
+   and the run keeps that identity for every later action.
+10. The risk rules you meant are set: per leg a stop and, where you want one, a
+    target and a trail with its arming distance; per strategy a combined stop only
+    if the file enters as a unit; per session an exit time, an expiry square off
+    and a daily loss limit.
 
 **The numbers**
 
-9. A backtest over a range covering more than one regime, with at least a
-   hundred closed trades.
-10. The cost model is set: slippage, commission and commission type, product,
+11. A backtest over a range covering more than one regime, with at least a
+    hundred closed trades.
+12. The cost model is set: slippage, commission and commission type, product,
     quantity type.
-11. The result survives double the slippage.
-12. The average trade is comfortably larger than the round-trip cost.
-13. Maximum drawdown is measured bar by bar, and you have decided that you can
+13. The result survives double the slippage.
+14. The average trade is comfortably larger than the round-trip cost.
+15. Maximum drawdown is measured bar by bar, and you have decided that you can
     sit through one that size.
-14. You have run the strategy on paper, in real time, for long enough to see it
+16. You have run the strategy on paper, in real time, for long enough to see it
     trade: at least a week, and at least twenty fills.
-15. The paper trade list and the backtest trade list over the same days agree
+17. The paper trade list and the backtest trade list over the same days agree
     except for fill prices. A difference in which trades were taken is a bug to
     find before arming.
+18. You have read the named events from the paper run and each square off was
+    caused by the rule you expected, not by a rule you forgot you had set.
 
 **The account and the destination**
 
-16. The instrument is one the account is permitted to trade, at the product type
+19. The instrument is one the account is permitted to trade, at the product type
     the declaration names.
-17. The lot size and tick size the host reports are the instrument's real ones.
+20. The lot size and tick size the host reports are the instrument's real ones.
     `chart.lotSize` and `chart.tickSize` are absent when the host has not said,
     and a script sizing from an absent lot size will refuse to trade.
-18. There is enough free margin for the size at the worst point of the backtest,
+21. There is enough free margin for the size at the worst point of the backtest,
     not the average point.
-19. The account has no manual position in the same instrument, or you have
-    decided how the two will be told apart.
-20. You know how to flatten manually, from the broker's own screen, without the
-    strategy.
+22. Nothing else is trading the same contract: no manual position, no second
+    strategy, no second copy of this one. If something is, you have decided how
+    the two will be told apart, and you know that `pos.isShared` is all the
+    language will say about it.
+23. You know how to flatten manually, from the destination's own screen, without
+    the strategy.
 
 **The operations**
 
-21. The strategy's start and stop times are set, on the right exchange calendar.
-22. Logs are being written somewhere you can read them while it runs.
-23. You know what happens if the process restarts mid-session, and you have
+24. The strategy's start and stop times are set, on the right exchange calendar.
+25. Logs are being written somewhere you can read them while it runs.
+26. You know what happens if the process restarts mid-session, and you have
     accepted that answer.
-24. The first live day is on the smallest size the instrument allows.
-25. Somebody is watching for the first session. Not the whole quarter, the first
+27. The first live day is on the smallest size the instrument allows.
+28. Somebody is watching for the first session. Not the whole quarter, the first
     session.
 
 ## Errors you will meet live and not on paper
 
 | Code | Means | First thing to check |
 |---|---|---|
-| OS7014 | The destination rejected the order, with its reason | The reason text. It is the broker's, not the script's |
+| OS7014 | The destination rejected the order, with its reason | The reason text, which `order.rejection(tag)` reads back. It is the destination's own words, not the script's |
 | OS7011 | The order needs more capital than the strategy has | Size, and the declared capital |
 | OS7012 | The instrument is outside its trading session | The session guard on the entry |
 | OS7005 | Quantity is not a multiple of the lot size | `order.roundToLot` on the computed size |
@@ -371,10 +428,14 @@ and one you find in a statement.
 - [backtesting.md](./backtesting.md) for the run that comes before a paper run
 - [reading-a-report.md](./reading-a-report.md) for judging that run honestly
 - [scheduling.md](./scheduling.md) for start times, holidays, restarts and logs
+- [../strategies/reading-the-books.md](../strategies/reading-the-books.md) for the
+  books you reconcile against the account
+- [../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md) for
+  the risk rules and the events they emit
 - [../README.md](../README.md) for the documentation index
 - [../../spec/language.md](../../spec/language.md) for the moving bar, the
   rollback rule and `onUnconfirmed`
-- [../../spec/stdlib.md](../../spec/stdlib.md) for the order and position
-  namespaces
+- [../../spec/stdlib.md](../../spec/stdlib.md) section 17 for the order, leg,
+  position and book namespaces, and for arming
 - [../../examples/README.md](../../examples/README.md) for the three worked
   strategies

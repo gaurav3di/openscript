@@ -28,7 +28,7 @@ with a label instead of a signal is work you have taken on for nothing.
 ## signal: a named marker on this bar
 
 ```
-signal(text, color = none, at = "auto", shape = "label", size = "normal")
+signal(text, color = none, at = "above", shape = "label")
 ```
 
 `signal` is the whole of shape plotting. There is no separate call that plots a
@@ -42,15 +42,18 @@ result is a line of code that cannot be read without the reference open.
 |---|---|---|
 | `text` | `string` | The marker's label and its payload. No text written on a bar means no marker on that bar |
 | `color` | `color` | The plate colour. Absent means the host's default for a marker |
-| `at` | `"auto"`, `"above"`, `"below"`, `"price"` | Where the marker sits relative to the bar |
+| `at` | `"above"`, `"below"`, `"price"` | Where the marker sits relative to the bar. `"above"` is the default |
 | `shape` | `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"`, `"flag"` | The mark itself |
-| `size` | a named size | `"normal"` unless the host offers others |
 
-With `at = "auto"` the marker sits above the bar when its text suggests a sell,
-below when it suggests a buy, and above otherwise. That default is a
-convenience for the common case and nothing more: **a script that cares says
-which side it wants**, because the auto rule reads your text and your text may
-not say what you think it says.
+**Say where the marker goes.** `at` defaults to `"above"`, so a call that names
+no side sits above the bar whatever its text says. There is no value that picks
+the side by reading the marker's own text, because a marker whose position
+depends on its own text reads differently on two engines.
+
+`at`, `shape` and `color` are part of the marker's declaration, which is fixed
+before the first bar runs, so each must be a compile-time constant: a literal or
+an `input()`. A value that changes from bar to bar is OS3003. Only the `text` is
+read per bar.
 
 ```
 version 1
@@ -312,7 +315,7 @@ number of lines to write. That is [tables.md](./tables.md).
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| A marker on the wrong side of the bar | `at = "auto"` inferring from the text | State `at = "above"` or `at = "below"` |
+| A marker on the wrong side of the bar | `at` was not passed, so the marker took the default `"above"` | State `at = "above"`, `at = "below"` or `at = "price"` on every call |
 | The marker says `RSI none` on early bars | `text()` of an absent value is the string `"none"` | Guard with `isNone` and say "warming up" |
 | A marker appears and disappears during a bar | `onUnconfirmed = true` in the declaration | Remove it, or guard with `bar.isConfirmed` |
 | One mark from a loop that should mark several | One call site emits one marker per bar | Draw an object per element instead |

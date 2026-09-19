@@ -2,7 +2,8 @@
 
 By the end of this page you will be able to turn a study that marks a signal into
 a strategy that takes a position, and to describe exactly what happens, in what
-order, on every bar that strategy runs on.
+order, on every bar that strategy runs on: your own statements, then the fills
+that have settled, then the risk rules the engine evaluates on top of them.
 
 ## One declaration is the whole difference
 
@@ -70,6 +71,40 @@ on purpose. `fillOn` defaults to `"nextOpen"` because a decision made from a bar
 close cannot be filled at that same close in the real market. `pyramiding`
 defaults to `1` because a script that adds to a position by accident reports a
 return the stated rules never earned.
+
+## A strategy keeps its own books
+
+Before any of the calls, one rule, because everything else on these pages follows
+from it.
+
+**A strategy keeps its own order and fill ledger, and never places an order that
+computes a delta against the account's position.** Every order states its own side
+and its own quantity outright, and every position and profit figure the language
+reports is folded from this strategy's own settled fills.
+
+The failure that rule prevents is silent, which is why it is a rule and not a
+default. An account position is held per contract, not per strategy. A trade you
+placed by hand, a second strategy on the same contract, or this same script started
+twice all land in that one row. An order that read the row and sent the difference
+would be computing against somebody else's trade: two such strategies would each
+keep undoing the other for the rest of the session, and neither would be wrong from
+where it was standing. With a manual position in the way, a strategy would instead
+see its target already met, never enter, report no trade, and leave a stop resting
+against a position that is not its own.
+
+Three consequences you will meet on the next few pages:
+
+- A strategy holds **one position per leg**, where a leg is one contract it
+  trades, and no order crosses zero.
+- Profit and loss comes from the strategy's own fills. `pos.netProfit`,
+  `pos.openProfit` and `pos.equity` are sums over them, not readings of an account.
+- Where the account holds a position in a contract this strategy also holds,
+  `pos.isShared` says so. No call returns the account's quantity as a number,
+  because a script that could read it would compute against it.
+
+[reading-the-books.md](./reading-the-books.md) is the page that shows how to read
+those books from a script, and why one fill can be reported twice without being
+counted twice.
 
 ## Plotting a signal is not taking a position
 
@@ -168,13 +203,19 @@ For a strategy, one execution of one bar goes like this:
 | Step | What happens |
 |---|---|
 | 1 | The engine takes the bar from the host and fills `open`, `high`, `low`, `close`, `volume`, `time` and the `bar` facts |
-| 2 | Every fill that the fill rule says happens on this bar has already been applied, so `pos.size`, `pos.avgPrice` and the rest describe what is actually held right now |
+| 2 | Every frame the destination has sent has been folded into the strategy's ledger, and every fill that settled is part of the position, so `pos.size`, `pos.avgPrice` and the rest describe what is actually held right now |
 | 3 | Inputs are read from the settings dialog |
 | 4 | The script runs, top to bottom, once |
 | 5 | Every plot, fill, level, table cell and drawing is published, whether the bar is confirmed or not |
-| 6 | If the bar is confirmed, every marker, alert and order the script asked for is applied. If it is not confirmed, they are discarded |
+| 6 | The risk rules are evaluated, in the fixed order given in [exits-and-brackets.md](./exits-and-brackets.md): the session limits first, then the combined rules, then each leg's own stop, target and trail |
+| 7 | If the bar is confirmed, every marker, alert and order the script or a rule asked for is applied. If it is not confirmed, they are discarded |
 
-Step 6 is the one that surprises people, so it is worth being exact about it. When
+Step 2 is where the ledger does its quiet work. Frames from a destination are
+cumulative rather than deltas, and they repeat, so the fold is what stops one fill
+from being counted twice. Nothing about that reaches your script except the
+guarantee that the position it reads is right.
+
+Step 7 is the one that surprises people, so it is worth being exact about it. When
 `buy(qty = 1)` executes, nothing is sent. The call records what it was asked to
 do, and the record is applied at the end of the bar, only if the bar is confirmed.
 On a bar that is still moving, the record is thrown away and rebuilt from scratch
@@ -240,7 +281,7 @@ is not.
 |---|---|---|
 | Warmup | `not isNone(x)` | A window that has not filled is absent, and an order given an absent price or quantity is refused (OS7002) |
 | Position | `pos.isFlat`, `pos.isLong` | Entering again on every bar the condition stays true is how a one-lot idea becomes a forty-lot position |
-| Exclusivity | `else if` | Two opposite orders on one bar is OS7013 |
+| Exclusivity | `else if` | Two opposite orders on one leg on one bar is OS7013 |
 | Session | `session.isOpen` | An order outside the session cannot be worked by the exchange (OS7012) |
 
 ```
@@ -269,18 +310,58 @@ plot(breakoutLevel, "Breakout level", aqua, style = "step")
 ## One file, three places it runs
 
 The same compiled strategy runs in a backtest over stored bars, on paper against
-live bars, and against a real order route, and the numbers do not change between
-them. What changes is where the orders go. Orders reach the host's order
+live bars, and against a real order destination, and the numbers do not change
+between them. What changes is where the orders go. Orders reach the host's order
 interface, on paper by default; nothing about them is part of the chart. What
-reaches the chart is their consequence: each fill becomes one marker, and a
-strategy that wants its stop or its target drawn plots it like any other value.
+reaches the chart is their consequence: each settled fill becomes one marker, and a
+strategy that wants its stop or its target drawn plots it like any other value. The
+named events the risk rules emit reach the run's record and the host's log rather
+than the chart.
 
 That separation is deliberate, and it is the shortest statement of the whole
-model: the chart shows what happened, the broker decides what happens.
+model: the chart shows what happened, the destination decides what happens.
 
 A strategy with no order destination configured is not run silently. The host
 reports OS7015, and the stated fix is the honest one: connect a destination, or
 run the file as a `study()` with `signal("BUY")` in place of `buy()`.
+
+## A strategy cannot trade for real until it is armed
+
+**A strategy is born unable to trade for real.** A new strategy, and a strategy
+whose source has just been edited, sends its orders to the paper destination.
+Arming it is a separate, deliberate act performed on that one strategy in the host,
+and **nothing in a script can perform it**. There is no call, no declaration option
+and no input that arms anything, and there is no combination of them that adds up
+to one.
+
+The reason is the asymmetry of the mistake. A live strategy running by accident
+costs money and takes orders nobody chose to place. A paper strategy running by
+accident costs a log file. When one direction of a mistake is expensive and the
+other is free, the default belongs at the free end, and the expensive direction
+gets a door you have to open with your hand on the handle. A misconfigured script
+found after the fact cannot have been placing real orders, which is the only
+guarantee worth having here.
+
+There is also no call that reports it. A script cannot know whether it is armed, so
+it cannot behave differently when it is, and the run that was tested on paper is
+the run that goes to market. A strategy that behaved differently once armed would
+be a strategy nobody had ever tested.
+
+## Two shapes, chosen by which calls you use
+
+A strategy takes one of two shapes, and the shape decides what a combined stop
+could even mean.
+
+| Shape | Entered with | Suits |
+|---|---|---|
+| As a unit | `book.enter`, `book.exit` | A multi-leg position whose legs only make sense together |
+| Per leg | `leg.enter`, `leg.exit`, and their short spellings `buy`, `sell`, `close` | Legs that open and close on their own signals |
+
+Every script on this page is the per-leg shape, because `buy` and `close` are that
+shape written the short way. The choice matters as soon as a second leg appears,
+and [exits-and-brackets.md](./exits-and-brackets.md) is where it is worked through,
+along with why the combined rules belong to the first shape and are refused in the
+second.
 
 ## Mistakes that look like results
 
@@ -294,10 +375,12 @@ run the file as a `study()` with `signal("BUY")` in place of `buy()`.
 
 ## See also
 
-- [orders.md](./orders.md) for entering, exiting, reversing and cancelling
+- [orders.md](./orders.md) for legs, entering, exiting, reversing and cancelling
+- [reading-the-books.md](./reading-the-books.md) for the strategy's own orders, fills and positions
 - [position-and-sizing.md](./position-and-sizing.md) for what the strategy can read about itself, and how big to trade
-- [exits-and-brackets.md](./exits-and-brackets.md) for stops, targets and time exits
+- [exits-and-brackets.md](./exits-and-brackets.md) for stops, targets, trails, the combined rules and the session rules
 - [costs-and-fills.md](./costs-and-fills.md) for where a fill is assumed and what it really costs
+- [../running/paper-and-live.md](../running/paper-and-live.md) for what arming changes, and what it does not
 - [../../spec/language.md](../../spec/language.md) for the declaration and the per-bar execution model
 - [../../spec/stdlib.md](../../spec/stdlib.md) for every callable function and its warmup
 - [../../examples/10-strategy-ema-cross.oscript](../../examples/10-strategy-ema-cross.oscript) for a complete worked strategy

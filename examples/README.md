@@ -71,7 +71,9 @@ session that runs past midnight is one session and two dates, and the window is
 measured in milliseconds since the open so the script says the same thing in
 every timezone. Its shading switch is an `opacity` of zero rather than a colour
 of `none`, because `fill` reads an absent colour as no colour given and falls
-back to a default band.
+back to a default band. The switch is a number input passed straight into the
+field, because a declaration field fixed before bar 0 holds a value or a bare
+`input()` and not an expression over one.
 
 **6. Combined premium.** Two instruments that are not on the chart, added
 together. The important line is the addition: if one leg has no bar at this time
@@ -159,6 +161,16 @@ answer is how a reader tells a decision from an omission.
    next bar opens, and a projected box is looked at exactly there.
    `session.nextOpen` is the missing piece and is marked planned in section 12.4.
 
+4. **A declaration field fixed before bar 0 takes one input and not an
+   expression over one.** `language.md` section 13.2 admits a literal,
+   arithmetic over literals or an `input()`, and `compiled-program.md` section
+   2.3 carries either a literal or a reference to one input, so
+   `opacity = shade ? 1 : 0` has no form to take even though a reader would
+   expect it to work. Script 5 was written that way and has been changed to a
+   number input passed straight in, which says the same thing inside the rules.
+   Whether the language should grow a fourth form, an expression over inputs
+   folded at load, is `issues/0003` and is not decided here.
+
 ### Answered since
 
 Each of these was a hole when the twelve were drafted. The section named is where
@@ -205,6 +217,16 @@ the answer now lives, and the scripts have been brought to it.
   3, 5 and 11 name their two edge plots and pass the names. Script 5 switches
   its shading off with `opacity = 0` rather than a colour of `none`, because an
   absent colour reads as "no colour was given" and would still shade.
+- **A fixed declaration field holds a value or one input, never an expression
+  over one.** `language.md` section 13.2 and `compiled-program.md` sections 2.3
+  and 3.5: such a field is settled before bar 0, so the compiled program carries
+  either a literal or the reference `{ "input": "<key>" }`, resolved once at
+  load. Check 10 of section 3.5 refuses a key no input declares with OS6018 and a
+  resolved value the field will not take with OS6019. Script 8 passes a select
+  input as a table's `position` on that rule, and script 5 declares its shading
+  opacity as a number input rather than deriving one from a switch, because a
+  bool does not fit a field that takes a number 0 to 1. `issues/0003` is the
+  argument for a fourth form and against it.
 - **`color` is a reserved word and also an argument name.** `language.md`
   section 3.4: a named argument label is matched against the callee's parameter
   list and is never looked up in any scope, so a reserved word is legal as one
@@ -248,6 +270,7 @@ the answer now lives, and the scripts have been brought to it.
   into the watched condition's predicate. Script 6 was written the other way and
   has been corrected.
 
-None of these required a change to the shape of the language. The three still
-owed are missing surface, and the fifteen answered were missing decisions that
-have since been made, which is the result this gate was looking for.
+Three of the four still owed are missing surface and required no change to the
+shape of the language; the fourth asks for a form the language does not have, and
+is filed rather than taken. The sixteen answered were missing decisions that have
+since been made, which is the result this gate was looking for.

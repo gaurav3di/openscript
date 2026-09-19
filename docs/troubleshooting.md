@@ -285,12 +285,14 @@ id, and remember that history fires nothing. See [alerts.md](./alerts.md).
 
 ### 19. My marker sits on the wrong side of the bar
 
-**Cause.** `signal(..., at = "auto")` places the marker above the bar when its
-text suggests a sell and below when it suggests a buy, and above otherwise. If
-your text is not one of those, "auto" is guessing.
+**Cause.** The call did not say where the marker goes, so it took the default,
+`at = "above"`. A marker's side is never inferred from what the marker says: a
+marker whose position depends on its own text reads differently on two engines.
 
 **Fix.** Say which: `at = "above"`, `"below"` or `"price"`, and pick a `shape`
-rather than accepting the default label.
+rather than accepting the default label. The value has to be a literal or an
+`input()`, because the marker's declaration is fixed before bar 0; a per-bar one
+is OS3003.
 
 ## Higher timeframe and other instruments
 

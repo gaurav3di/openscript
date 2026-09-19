@@ -158,26 +158,42 @@ bar of every chart. Guard it with `bar.isFirst`.
 | `true` | `false` | `false` | `true` |
 | `true` | `none` | `none` | `true` |
 | `false` | any | `false` | `b` |
-| `none` | `true` | `none` | `none` |
+| `none` | `true` | `none` | `true` |
 | `none` | `false` | `false` | `none` |
 | `none` | `none` | `none` | `none` |
 
 `not none` is `none`.
 
-Read the `or` rows carefully, because they are the ones people assume. **An
-absent left operand of `or` makes the whole expression absent, whatever is on
-the right.** So `x > 5 or isNone(x)` is absent when `x` is absent, and the branch
-is skipped. Written the other way round, `isNone(x) or x > 5`, the left operand
-is total, it is true when `x` is absent, and the expression is true.
+One sentence generates every row: **absence is absorbed exactly when the other
+operand decides the answer on its own.** Under `and` that is a `false`, under
+`or` it is a `true`. Everywhere else the unknown operand leaves the result
+unknown, because the answer really does depend on a value nobody has.
 
-The order of the two operands is the difference between a guard that works and a
-guard that does nothing. Two shapes are safe, and they are worth learning as
-idioms:
+**Both operators are commutative.** `a or b` is `b or a` and `a and b` is
+`b and a`, for every pair in the table, absent operands included, so operand
+order never changes the answer. Each of these pairs is one value on every bar:
 
 ```
-if not isNone(x) and x > 5      // "present and above five"
 if isNone(x) or x > 5           // "absent or above five"
+if x > 5 or isNone(x)           // the same answer, on every bar
+
+if not isNone(x) and x > 5      // "present and above five"
+if x > 5 and not isNone(x)      // the same answer, on every bar
 ```
+
+That matters more than it looks. The two lines of each pair read as the same
+English sentence, and a guard that worked or failed depending on a word order
+the reader cannot hear is the kind of bug nobody finds by re-reading the source.
+It also means De Morgan's laws hold with absent operands: `not (a and b)` is
+`not a or not b` for every combination of `true`, `false` and `none`.
+
+What operand order still decides is which operand runs. The right operand of
+`or` is skipped only when the left one is `true`, and the right operand of `and`
+only when the left one is `false`. An absent left operand skips nothing, because
+the right operand can still settle the answer on its own. So order is worth a
+thought for two reasons, neither of them correctness: a stateful call on the
+right does not advance on the bars where it is skipped (mistake 6 below), and a
+cheap test on the left saves the work of an expensive one.
 
 ## Rule 5: an absent condition takes the false branch
 
@@ -349,15 +365,18 @@ trail = close[1] > orElse(prev, raw) ? max(raw, orElse(prev, raw)) : raw
 plot(trail, "Trailing stop", lime, width = 2)
 ```
 
-### 3. Guarding in the wrong order
+### 3. Guarding with the wrong operator
 
 ```
-if x > 5 or isNone(x)           // absent when x is absent, so the guard does nothing
-if isNone(x) or x > 5           // correct
+if isNone(x) and x > 5          // never true, whether x is present or absent
+if not isNone(x) or x > 5       // true on every bar, so it guards nothing
 ```
 
-An absent left operand of `or` makes the result absent whatever is on the right.
-Put the total test first.
+The two that work are `not isNone(x) and x > 5`, "present and above five", and
+`isNone(x) or x > 5`, "absent or above five". Operand order is not what breaks
+the two above: both operators are commutative, so writing either of them the
+other way round gives the same wrong answer. It is the operator that has to
+match the sentence you meant.
 
 ### 4. Replacing a price with zero
 
@@ -490,7 +509,9 @@ which looks like data and is not. Plot the value itself and let the gap show.
 
 - Assume every library value is absent until its warmup is over, and look up the
   warmup rather than guessing it.
-- Write a guard as `not isNone(x) and ...`, with the total test on the left.
+- Write a guard as `not isNone(x) and ...` or `isNone(x) or ...`, and check the
+  operator rather than the operand order: both operators are commutative, so the
+  side a test sits on never changes the answer.
 - Give a name a starting value above any `if` that assigns to it.
 - Never fall back to zero for a price, a quantity or a level. Fall back only to a
   value that is genuinely the answer.

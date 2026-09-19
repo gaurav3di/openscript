@@ -7,7 +7,11 @@ money you are prepared to lose, or by how much the instrument moves.
 ## What the strategy can read about itself
 
 The `pos` namespace answers two different questions: what is held right now, and
-how the run has gone so far. Every entry is a per-bar fact.
+how the run has gone so far. Every entry is a per-bar fact, and every one of them
+is folded from **this strategy's own settled fills**. None of them is read from an
+account position row, for the reason [overview.md](./overview.md) gives: an account
+position is held per contract and can belong to more than one owner, so a figure
+taken from it would be a figure about somebody else's trade as much as your own.
 
 | Call | Returns | When flat | Means |
 |---|---|---|---|
@@ -23,11 +27,22 @@ how the run has gone so far. Every entry is a per-bar fact.
 | `pos.openProfitPercent` | `series number` | absent | The same as a percentage of the position's cost |
 | `pos.maxProfit` | `series number` | absent | Best unrealised profit this position has seen |
 | `pos.maxLoss` | `series number` | absent | Worst unrealised loss this position has seen |
+| `pos.isShared` | `series bool` | either | The account holds a position in a contract this strategy also holds |
 | `pos.equity` | `series number` | a number | Starting capital plus realised and unrealised profit |
 | `pos.netProfit` | `series number` | a number | Realised profit since the run began |
 | `pos.tradeCount` | `series number` | a number | Closed trades so far |
 
-Three rules about this table matter more than the table.
+The first twelve describe one position, so they read the file's only leg. **In a
+file that declares more than one leg they are refused at compile time**, and each
+leg is read by name instead with `leg.size(name)`, `leg.avgPrice(name)` and their
+siblings. Adding a quantity of one contract to a quantity of another produces a
+number that is not a position in anything, and averaging two average prices
+produces a price at which nothing traded, so the language declines to invent an
+answer. `pos.equity`, `pos.netProfit`, `pos.tradeCount` and `pos.isShared` are
+money, counts and a fact, which do add across legs, so they read the whole strategy
+in every file.
+
+Four rules about this table matter more than the table.
 
 **`pos.avgPrice` is absent while flat, and `pos.size` is zero while flat.** These
 look inconsistent and are not. Zero is the true size of a flat position, so a
@@ -36,7 +51,7 @@ price, and a script comparing `close > pos.avgPrice` while flat would take a
 branch that looks correct and means nothing. Absence propagates through that
 comparison, the branch is not taken, and the mistake cannot happen.
 
-**Every one of these reflects fills, not intentions.** An order placed on this bar
+**Every one of these reflects settled fills, not intentions.** An order placed on this bar
 and filled at the next bar's open does not change anything in this table until
 that fill happens. A resting limit order changes nothing at all until it fills.
 This is the single most common source of a strategy that enters twice: the
@@ -52,6 +67,14 @@ if signalUp and pos.isFlat and order.pending == 0
 **`pos.openProfit` is marked to this bar's close.** Not to a bid, not to an ask,
 not to the last trade. Version 1 has one mark and says which one it is, so two
 engines cannot disagree about an equity curve.
+
+**`pos.isShared` is a boolean and stays one.** It says that the account's position
+in this contract is larger than the strategy's own, which is a fact a dashboard
+should show and a trader should know. There is no call that turns it into a number,
+because a script that could read the account's quantity would size against it, and
+sizing against a quantity that belongs partly to somebody else is the failure the
+whole model exists to prevent. Treat it as a prompt to go and find out who else is
+trading that contract, not as an input to a formula.
 
 Here is a panel that puts the whole position on the chart. A strategy whose state
 is visible is a strategy you can debug without a print log.
@@ -394,13 +417,16 @@ backtest does.
 | Size explodes on quiet days | Risk sizing with no cap as the stop distance shrinks | Cap against equity |
 | Size is absent and orders are refused | `atr` or the stop is still warming up | Test with `isNone` and skip the bar |
 | Risk per trade is right, total risk is not | Several correlated positions sized independently | Budget risk across the portfolio, not per script |
+| The size is right and the account holds twice it | Something else is trading the same contract | `pos.isShared`; the language never divides a shared position |
+| `pos.avgPrice` will not compile | The file declares more than one leg | Read `leg.avgPrice(name)`, one leg at a time |
 | Derivative sized as if one point were one unit of money | `chart.pointValue` left out of the arithmetic | Multiply by `orElse(chart.pointValue, 1)` |
 
 ## See also
 
 - [overview.md](./overview.md) for what a strategy is and the loop it runs in
-- [orders.md](./orders.md) for the calls that consume these quantities
+- [orders.md](./orders.md) for the calls that consume these quantities, and for legs
+- [reading-the-books.md](./reading-the-books.md) for where every figure in the `pos` table comes from
 - [exits-and-brackets.md](./exits-and-brackets.md) for the stop that this sizing is measured against
 - [costs-and-fills.md](./costs-and-fills.md) for why the fill price is not the price you sized from
-- [../../spec/stdlib.md](../../spec/stdlib.md) for the `pos` and `order` namespaces in full
+- [../../spec/stdlib.md](../../spec/stdlib.md) sections 17.3 to 17.6 for the `pos`, `order` and `leg` namespaces in full
 - [../../examples/10-strategy-ema-cross.oscript](../../examples/10-strategy-ema-cross.oscript) for risk sizing worked end to end

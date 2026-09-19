@@ -5,23 +5,38 @@ actually measuring, which numbers flatter a strategy while saying nothing, and
 how to decide whether the difference between two runs is a real improvement or
 noise.
 
-## A report is one list and one curve
+## A report is one list, one curve and a record of what fired
 
-Everything in a report comes from two things: the trade list and the equity
-curve. The trade list is the record of what was entered, at what price, when it
-closed and for how much. The equity curve is the run's account value marked at
-every bar's close. Every headline number is derived from one or both, and every
+Everything in a report comes from three things: the trade list, the equity curve
+and the run's record of named events. The trade list is the record of what was
+entered, at what price, when it closed and for how much. The equity curve is the
+run's value marked at every bar's close. The event record says which rule caused
+each transition. Every headline number is derived from the first two, and every
 one of them throws information away in the process.
 
-So read in this order: the curve, then the distribution of trades, then the
-summary numbers, and never the other way round. The summary is what a strategy
-says about itself. The curve and the list are what it did.
+**All three come from the strategy's own order and fill ledger.** Not from an
+account position row: an account position is held per contract and can have more
+than one owner, so a report built from it would be a report about somebody else's
+trades as much as your own. Every number below is a sum over the fills this
+strategy actually got.
+
+So read in this order: the curve, then the distribution of trades, then the events
+that closed them, then the summary numbers, and never the other way round. The
+summary is what a strategy says about itself. The curve, the list and the events
+are what it did.
 
 ## The equity curve
 
-Equity is starting capital plus realised profit plus unrealised profit, marked
-to each bar's close. The language exposes the same quantity to the script as
-`pos.equity`, so a strategy can plot the curve the report draws.
+Equity is starting capital plus realised profit plus unrealised profit, all of it
+folded from this strategy's own settled fills, marked to each bar's close. The
+language exposes the same quantity to the script as `pos.equity`, so a strategy
+can plot the curve the report draws.
+
+It is worth saying what that curve is not. It is not the account's value. It
+starts at the `capital` the declaration named, it counts only this strategy's
+fills, and it knows nothing about your other strategies or the margin the account
+is carrying. Two strategies on one contract produce two honest equity curves that
+do not add up to the account, and neither of them is wrong.
 
 Two properties are easy to miss.
 
@@ -231,6 +246,37 @@ if bar.isLast
     cell(panel, 3, 1, text(pos.equity, 0))
 ```
 
+## Which rule closed each trade
+
+The trade list says a trade closed. The event record says what closed it, by name,
+with the rule's own level and the value that crossed it. Sorting the closed trades
+by the event that ended them is one of the fastest reads in the whole report,
+because the shape of that distribution is a statement about the strategy that no
+summary number carries.
+
+| What you find | What it usually means |
+|---|---|
+| Almost every trade ends in `legTargetHit` | The target is too close. Look at what the winners gave up after the exit |
+| Almost every trade ends in `legStopHit` | The stop is inside the instrument's normal noise |
+| A large share end in `exitTimeSquareOff` or `sessionEndSquareOff` | The idea has no exit of its own and the clock is doing the work |
+| `dailyLossHit` appears at all | Read those days separately. The limit fired, so the rest of each of those days is not evidence about the rules |
+| `combinedStopHit` with no `legStopHit` anywhere | Correct for a strategy that enters as a unit: the book rule takes the position off before the leg rules are reached |
+| `trailArmed` far more often than `trailAdvanced` | The trail arms and the trade turns. The arming distance is too small for the instrument |
+| `lockProfitTriggered` on the best days | The floor is taking trades off while they are still working. Widen the step, or the advance |
+
+Two cautions about reading it.
+
+**An event is a record, not a value.** No call reads one, so a script cannot branch
+on its own stop having fired. That is deliberate: a script that did would be
+deciding twice what the rule already decided once, and the second decision would
+be the one nobody tested. The events are there for you and for the report.
+
+**A square off ends the sequence for that bar.** The rules are evaluated in a fixed
+order, and a rule that takes the book off means the rules below it emit nothing. So
+the absence of a `legStopHit` on the bar a `combinedStopHit` fired is not a missing
+leg stop, it is the order of evaluation working. Read the list of events on one bar
+as a sequence that stopped, not as a set.
+
 ## Numbers that flatter a strategy while meaning nothing
 
 | Number | What it hides | Read it next to |
@@ -391,6 +437,10 @@ tests honestly and raise the bar as the count rises.
 - [backtesting.md](./backtesting.md) for producing the run this page reads
 - [paper-and-live.md](./paper-and-live.md) for what a report does not predict
 - [scheduling.md](./scheduling.md) for running strategies day after day
+- [../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md) for
+  every named event and the order the rules are evaluated in
+- [../strategies/reading-the-books.md](../strategies/reading-the-books.md) for the
+  ledger every number here is folded from
 - [../README.md](../README.md) for the documentation index
 - [../../spec/stdlib.md](../../spec/stdlib.md) for the `pos` namespace and what
   each field is marked to

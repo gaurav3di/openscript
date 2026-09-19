@@ -768,8 +768,8 @@
       "fix": "Write the test out: {name} > 0 for a count, isNone({name}) for absence, {name} != \"\" for a string.",
       "autofix": false,
       "example": {
-        "before": "if count\n    signal(\"SEEN\")",
-        "after": "if count > 0\n    signal(\"SEEN\")"
+        "before": "if hitCount\n    signal(\"SEEN\")",
+        "after": "if hitCount > 0\n    signal(\"SEEN\")"
       },
       "spec": "language.md 5.3, 10.2",
       "refines": "OS2003",
@@ -2270,19 +2270,19 @@
       "severity": "error",
       "stage": "host",
       "since": 1,
-      "message": "The program failed verification at instruction {index}: {reason}.",
+      "message": "The program failed verification at {location}: {reason}.",
       "placeholders": {
-        "index": "the index of the first instruction that failed",
-        "reason": "what the verifier found wrong with it"
+        "location": "where the failure is: the word instruction followed by the index of the first instruction that failed, or, when the failure is not in an instruction list, the path of the field that failed, such as outputs[3].color",
+        "reason": "what the verifier found wrong there"
       },
-      "cause": "An engine verifies a program before it runs it: the encoding parses, every jump lands inside the program, every slot is in range, and every instruction's operands are the shape the format requires. A program that fails is refused whole, because one that is verified as it goes can fail halfway through a bar with half a chart already drawn.",
+      "cause": "An engine verifies a program before it runs it: the encoding parses, every jump lands inside the program, every slot is in range, and every instruction's operands are the shape the format requires. A program that fails is refused whole, because one that is verified as it goes can fail halfway through a bar with half a chart already drawn. Not every check is about an instruction: the structure checks read the program's own fields, and the input-reference check fails on a declaration field that names an input the program never declares, so a failure is located either at the first instruction that failed or at the field holding it, and the message carries whichever of the two applies.",
       "fix": "Recompile the script from its source; a program that fails verification came from a broken compiler or was edited after it was written, and neither is repairable by hand.",
       "autofix": false,
       "example": {
         "before": "instruction 402: JUMP target 9911, program holds 812 instructions",
         "after": "instruction 402: JUMP target 411, program holds 812 instructions"
       },
-      "spec": "compiled-program.md, verification",
+      "spec": "compiled-program.md 3.5, 9.4",
       "refines": null,
       "test": "tests/errors/OS6018"
     },
@@ -2524,8 +2524,8 @@
       "fix": "Put the stop below a long entry and the limit above it, and swap the two for a short.",
       "autofix": false,
       "example": {
-        "before": "buy(qty = 1)\nexit(limit = pos.avgPrice - atr, stop = pos.avgPrice + atr)",
-        "after": "buy(qty = 1)\nexit(limit = pos.avgPrice + atr, stop = pos.avgPrice - atr)"
+        "before": "buy(qty = 1)\nexit(limit = pos.avgPrice - atrValue, stop = pos.avgPrice + atrValue)",
+        "after": "buy(qty = 1)\nexit(limit = pos.avgPrice + atrValue, stop = pos.avgPrice - atrValue)"
       },
       "spec": "language.md 13.3",
       "refines": null,

@@ -346,7 +346,7 @@ a settings dialog and a pane have to exist before the first bar runs
 |---|---|---|
 | `key` | string | Stable identity, unique within the program |
 | `title` | string | Legend title |
-| `type` | string | `"line"`, `"step"`, `"area"`, `"histogram"`, `"column"` or `"lineWithMarkers"` |
+| `type` | string | `"line"`, `"step"`, `"area"`, `"histogram"`, `"column"`, `"lineWithMarkers"` or `"candle"` |
 | `channel` | number | The channel carrying its value |
 | `color` | color? | Default colour, or null when the script named none, in which case the host assigns one from its own palette |
 | `colorChannel` | number? | A channel carrying a per-bar colour, when the call's colour argument is not constant |
@@ -355,13 +355,58 @@ a settings dialog and a pane have to exist before the first bar runs
 | `offset` | number | Bars to shift the drawn column right, negative for left |
 | `overlay` | bool? | Force this one plot onto the price pane |
 | `scale` | string? | `"right"`, `"left"` or `"none"` |
-| `priceFormat` | string? | Axis formatting for the scale this plot maps to |
-| `ohlc` | object? | Four plot keys drawn as bar-shaped elements |
+| `precision` | number? | Decimals on the scale this plot maps to, or null when the script named none |
+| `priceFormat` | string? | `"price"`, `"percent"` or `"volume"` for the scale this plot maps to, or null when the script named none |
+| `ohlc` | object? | The channels and colours of a candle, in the shape below; null for every other type |
 
 A plot's colour argument is constant in almost every script, so the common case is
 a declaration and no per-bar cost. When it is not constant the compiler allocates a
 second channel and emits it beside the value, which is how a script paints a
 histogram by sign without a second plot.
+
+`precision` and `priceFormat` are the plot's own `precision` and `format`
+arguments, which set the formatting of the price scale this plot maps to rather
+than the study's own (`stdlib.md` section 14.2). They are two fields because they
+are two arguments of two types, exactly as they are two fields of `meta`, and a
+plot that named neither carries null in both and leaves that scale formatted as
+the pane already formats it.
+
+**A candle is one plot.** The six styles of `stdlib.md` section 14.2 are the whole
+of what a `style` argument may name; `"candle"` is the seventh value of this field
+and no style names it, because it is written by a `plotCandles()` call site and by
+nothing else. Its entry is the only one that carries `ohlc`, which is null for
+every other type. One call site is one entry, with one key and one legend row:
+four declared plots with one of them nominated as the candle's identity would put
+four rows in a legend for one column and would need a flag to hide three of them.
+The entry's `channel` is the same channel as `ohlc.close`, which is what makes a
+band drawn to the handle follow the close column (`stdlib.md` section 14.2).
+`color` and `colorChannel` are null on a candle, because its colours are the four
+below, and `width` and `lineStyle` describe its border and take a plot's own
+defaults, since `plotCandles` has no argument for either.
+
+| Field of `ohlc` | Type | Means |
+|---|---|---|
+| `open`, `high`, `low`, `close` | number | The four channels carrying the four values, one per bar; `close` is the entry's own `channel` |
+| `colorUp` | color? | Body, border and wick where `close` is at or above `open` |
+| `colorDown` | color? | The same where `close` is below `open` |
+| `wickColor` | color? | The wick alone, overriding the body colour |
+| `borderColor` | color? | The border alone, overriding the body colour |
+| `colorUpChannel` | number? | A channel carrying `colorUp` per bar, when that argument is not constant |
+| `colorDownChannel` | number? | The same for `colorDown` |
+| `wickColorChannel` | number? | The same for `wickColor` |
+| `borderColorChannel` | number? | The same for `borderColor` |
+
+These are the four colour arguments of `plotCandles` (`stdlib.md` section 14.2),
+each beside the channel that carries it when a script passes a series colour
+instead of a constant, which is the same pair `color` and `colorChannel` make for
+every other plot. The wick and border channels are the split colour callback
+`stdlib.md` section 18 names. A colour field is null when its own channel holds
+the value; `wickColor` and `borderColor` are also null when the script overrode
+neither, and a null override means that part of the candle takes the body's colour
+for the bar. That is the opposite of a null `color` on a line plot, and
+deliberately so: the host may pick an undecorated line's colour because nothing
+else depends on it, while a wick the host coloured independently of the body it
+grows out of would draw a different candle on every chart.
 
 **`fills[]`**
 
@@ -374,6 +419,15 @@ histogram by sign without a second plot.
 | `colorDownChannel` | number? | Per-bar colour |
 | `opacity` | number | 0 to 1 |
 | `overlay` | bool? | Draw on the price pane |
+
+`fill`'s own `color` argument has no field here and needs none. It sets both sides
+of the band, and giving it together with `colorUp` or `colorDown` is OS3010
+(`stdlib.md` section 14.2), so the compiler writes that one colour into both
+fields and an engine reads one representation of a band rather than two. A script
+that named no colour at all leaves both null, and the host draws the band in the
+first plot's colour faded to twelve percent: the compiler cannot fold that default
+away, because that plot's own `color` may be null and taken from the host's
+palette.
 
 **`levels[]`**
 
@@ -414,17 +468,34 @@ marker.
 | Field | Type | Means |
 |---|---|---|
 | `key` | string | Stable identity |
+| `title` | string | Legend and settings name for the grid |
 | `slot` | number | The frame slot holding the table handle |
 | `position` | string | `"topLeft"`, `"topRight"`, `"bottomLeft"` or `"bottomRight"` |
 | `rows` | number | Row count |
 | `cols` | number | Column count |
-| `options` | object | Text size, colours, borders |
+| `options` | object | The declared style: `textColor`, `bgColor` and `borderWidth` |
 
 A table's cells are written by library calls against the handle, not by channels: a
 grid of two hundred cells would otherwise need two hundred channels, and almost all
 of them would be absent on almost every bar. The cell buffer is an output buffer
 cleared at the start of each execution of a bar and committed with the rest
 (section 5.1).
+
+One committed cell carries its row, its column, its text, and the three style
+arguments `cell()` takes: `textColor`, `bgColor` and `align`. That buffer is per
+bar rather than declared, so none of it appears in `outputs`; what `outputs`
+declares is the grid the cells are written into.
+
+A grid carries a `title` beside its `key` for the same reason a plot and an alert
+do. It is `table()`'s first positional argument and has no default (`stdlib.md`
+section 14.3), and a host given no name for a grid has no row to put in a legend
+and no heading to put over its settings.
+
+`options` holds exactly the three style arguments `table()` takes: `textColor` and
+`bgColor`, each a colour or null, and `borderWidth`, a number. There is no text
+size in it, because no call in the library writes one, and a field for a value no
+script can express is a field no engine can fill; a later language version may add
+the argument and the field together (section 9.2).
 
 A declaration field that a script wrote from an `input()` carries the reference
 form of section 2.3 rather than a literal value, until the engine resolves inputs
@@ -438,6 +509,15 @@ at load; `tables[].position` and `plots[].color` are the two a script reaches fo
 | `title` | string | Short label |
 | `condChannel` | number | Boolean channel, `defer` true |
 | `messageChannel` | number? | String channel for the message, `defer` true |
+| `frequency` | string | `"oncePerBar"`, `"once"` or `"everyUpdate"` |
+
+`frequency` sits beside the key and the title because nothing else in the program
+implies it, and two engines that guessed would fire different numbers of alerts
+from one program. `"oncePerBar"` is at most one alert for a bar, `"once"` is the
+first firing only, for the life of this study instance, and `"everyUpdate"` is one
+per execution of the bar, which is why it needs `meta.onUnconfirmed` true and is
+OS3009 without it (`stdlib.md` section 16.2). The compiler writes the effective
+value, the default included, as it does for every option of `meta`.
 
 **`barColor`** and **`background`** are each either `null` or
 `{ "channel": n }`. There is one of each per program. A script with three
@@ -845,7 +925,16 @@ is not optional and not a debug mode: an engine that skips it can be handed a
 malformed instruction list and will read past the end of an array or execute a jump
 into the middle of an expression. A program that fails verification is refused with
 OS6018, naming what failed and why: the first instruction index, or the field where
-the failure is not in an instruction list.
+the failure is not in an instruction list. One code covers every such failure, and
+its message carries one location placeholder holding whichever location the
+failure has: the instruction index, the field's path, or, for a program that did
+not parse at all (section 9.4, step 1), where the encoding stopped being readable.
+These are not separate codes because they are not separate fixes. A malformed
+instruction list, an unreadable encoding and an `{ "input": "<key>" }` reference
+naming an input that was never declared are all defects of the compiler that wrote
+the program, and none of them is repairable by hand. The one load failure that is
+repairable by hand has a code of its own already: OS6019, a settings value the
+user who typed it can correct.
 
 Every check below is decidable from the program alone, with the one exception
 check 10 names:
@@ -1955,7 +2044,7 @@ At load, in this order, stopping at the first failure:
    instruction count, OS5004 for the state region count, OS5005 for the call
    depth, each naming the limit and the program's value.
 8. Verify the program (section 3.5). Refuse with OS6018, naming the instruction
-   index.
+   index, or the field where the failure is not in an instruction list.
 
 Every refusal names what is missing and what would fix it. "This program is too
 new" is not a message an engine is allowed to stop at.
@@ -2004,10 +2093,11 @@ Codes this document introduces, to be carried in the catalogue:
 | OS6019 | A host setting fails an input's declared validation, or fails the declaration field an `{ "input": ... }` reference put it in |
 
 A load-time refusal carries no line, because the failure is in the program rather
-than in the source; it carries the instruction index and the field instead. An
-error raised during execution carries the line and column from `debug.pos` for the
-instruction that raised it, and for OS5001 the line of the loop rather than the
-line of whatever was executing.
+than in the source; it carries the instruction index, or the field where the
+failure is not in an instruction list, which is the one location its message
+names (section 3.5). An error raised during execution carries the line and column
+from `debug.pos` for the instruction that raised it, and for OS5001 the line of
+the loop rather than the line of whatever was executing.
 
 ---
 
@@ -2115,7 +2205,8 @@ the manifest's, and section 8.3 is why it is written down.
         "key": "p0", "title": "Mean", "type": "line", "channel": 0,
         "color": [0, 255, 255, 1], "colorChannel": null,
         "width": 1.5, "lineStyle": "solid", "offset": 0,
-        "overlay": null, "scale": null, "priceFormat": null, "ohlc": null
+        "overlay": null, "scale": null,
+        "precision": null, "priceFormat": null, "ohlc": null
       }
     ],
     "fills": [],

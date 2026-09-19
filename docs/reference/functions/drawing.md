@@ -129,12 +129,11 @@ choice when the line is a measurement.
 
 ## 2. Markers, paint, panels and the log
 
-### `signal(text, color = none, at = "auto", shape = "label", size = "normal")`
+### `signal(text, color = none, at = "above", shape = "label")`
 
 A named marker on this bar.
 Parameters: `text` `string` required; `color` `color` default `none`; `at`
-`string` default `"auto"`; `shape` `string` default `"label"`; `size` `string`
-default `"normal"`.
+`string` default `"above"`; `shape` `string` default `"label"`.
 Returns nothing.
 
 ```
@@ -144,17 +143,20 @@ if crossUp(fast, slow)
 
 `signal` is the whole of shape plotting: one call, one named marker on the bar,
 in place of a plot call with six positional arguments choosing a shape, a
-location, a size and an offset.
+location and an offset.
 
 | Argument | Accepts |
 |---|---|
-| `at` | `"auto"`, `"above"`, `"below"`, `"price"` |
+| `at` | `"above"` (the default), `"below"`, `"price"` |
 | `shape` | `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"`, `"flag"` |
-| `size` | `"normal"` and the other sizes the host offers |
 
-With `at = "auto"` the marker sits above the bar when its text suggests a sell,
-below when it suggests a buy, and above otherwise. A script that cares says
-which rather than relying on that reading.
+Say where the marker goes. A call that names no `at` sits above the bar whatever
+its text says, and no value places it by reading that text, because a marker
+whose position depends on its own text reads differently on two engines.
+
+`at`, `shape` and `color` are part of the marker's declaration, which is fixed
+before bar 0, so each must be a compile-time constant: a literal or an
+`input()`. A bar-dependent one is OS3003. Only the `text` is read per bar.
 
 A signal does not fire on a bar that is still moving unless the declaration sets
 `onUnconfirmed = true`. The deferred call fires when the bar closes, and if the

@@ -1198,14 +1198,14 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 Before:
 
 ```
-if count
+if hitCount
     signal("SEEN")
 ```
 
 After:
 
 ```
-if count > 0
+if hitCount > 0
     signal("SEEN")
 ```
 
@@ -3023,14 +3023,14 @@ engine:  language version 1
 
 ### OS6018 The compiled program is malformed
 
-Severity error. Stage host. Since language version 1. Reference compiled-program.md, verification. Test `tests/errors/OS6018`.
+Severity error. Stage host. Since language version 1. Reference compiled-program.md 3.5, 9.4. Test `tests/errors/OS6018`.
 
-**Message.** `The program failed verification at instruction {index}: {reason}.`
+**Message.** `The program failed verification at {location}: {reason}.`
 
-- `{index}` is the index of the first instruction that failed.
-- `{reason}` is what the verifier found wrong with it.
+- `{location}` is where the failure is: the word instruction followed by the index of the first instruction that failed, or, when the failure is not in an instruction list, the path of the field that failed, such as outputs[3].color.
+- `{reason}` is what the verifier found wrong there.
 
-**Cause.** An engine verifies a program before it runs it: the encoding parses, every jump lands inside the program, every slot is in range, and every instruction's operands are the shape the format requires. A program that fails is refused whole, because one that is verified as it goes can fail halfway through a bar with half a chart already drawn.
+**Cause.** An engine verifies a program before it runs it: the encoding parses, every jump lands inside the program, every slot is in range, and every instruction's operands are the shape the format requires. A program that fails is refused whole, because one that is verified as it goes can fail halfway through a bar with half a chart already drawn. Not every check is about an instruction: the structure checks read the program's own fields, and the input-reference check fails on a declaration field that names an input the program never declares, so a failure is located either at the first instruction that failed or at the field holding it, and the message carries whichever of the two applies.
 
 **Fix.** Recompile the script from its source; a program that fails verification came from a broken compiler or was edited after it was written, and neither is repairable by hand.
 
@@ -3343,14 +3343,14 @@ Before:
 
 ```
 buy(qty = 1)
-exit(limit = pos.avgPrice - atr, stop = pos.avgPrice + atr)
+exit(limit = pos.avgPrice - atrValue, stop = pos.avgPrice + atrValue)
 ```
 
 After:
 
 ```
 buy(qty = 1)
-exit(limit = pos.avgPrice + atr, stop = pos.avgPrice - atr)
+exit(limit = pos.avgPrice + atrValue, stop = pos.avgPrice - atrValue)
 ```
 
 ### OS7011 The order needs more capital than the strategy has

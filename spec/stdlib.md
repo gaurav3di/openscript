@@ -30,7 +30,7 @@ about a function, this one wins. Error codes quoted here are defined in
 14. [Drawing and output](#14-drawing-and-output)
 15. [Higher timeframe and other instrument reads](#15-higher-timeframe-and-other-instrument-reads)
 16. [Alerts](#16-alerts)
-17. [Orders and position](#17-orders-and-position)
+17. [Orders, legs and strategy risk](#17-orders-legs-and-strategy-risk)
 18. [The chart contract map](#18-the-chart-contract-map)
 19. [What is deliberately not here](#19-what-is-deliberately-not-here)
 
@@ -72,8 +72,9 @@ saying it is planned, not a message saying the name does not exist.
 
 Everyday functions are bare, as `language.md` section 15.2 requires:
 `ema(close, 9)`, `highest(high, 20)`, `plot(x, "X", aqua)`. The namespaces
-`bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`, `draw` and
-`req` hold the long tail. A function is bare when a script that does nothing
+`bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`, `leg`, `book`,
+`draw` and `req` hold the long tail. `leg` and `book` exist only in a
+`strategy()` file, section 17. A function is bare when a script that does nothing
 unusual reaches for it on most days, and namespaced otherwise. There is no third
 rule, and the split is settled per function here rather than left to taste.
 
@@ -91,11 +92,12 @@ sum(prices)             // array<number> -> number, the whole array
 sum(close, 20)          // series, length -> series number, a 20 bar window
 ```
 
-A call that matches no signature is OS3001 when the arity is wrong and OS2003
-when an argument's type is wrong, and the message lists every signature the name
-has. Overloading is allowed because `min(a, b)` and `min(arr)` are the same idea
-and two names for one idea is worse than one name with two shapes; it is limited
-to arity and type so the resolution is mechanical and a reader can do it by eye.
+A call that matches no signature is OS3001 when the arity is wrong and OS3011
+when an argument's type is wrong. OS3001 names the signature the call was checked
+against; OS3011 names the argument and the type it wanted. Overloading is allowed
+because `min(a, b)` and `min(arr)` are the same idea and two names for one idea
+is worse than one name with two shapes; it is limited to arity and type so the
+resolution is mechanical and a reader can do it by eye.
 
 ### 2.3 Functions with more than one output
 
@@ -833,8 +835,14 @@ fixed shape of the study: the set of columns, bands, levels and grids must be
 known before bar 0 so the legend, the axis and the settings dialog can exist.
 Hide one on a bar by giving it `none`, never by wrapping it in an `if`.
 
+A `strategy()` file adds two more to that list under the same code: `leg.fixed`
+and `leg.relative` of section 17.6. The set of contracts a strategy trades is
+part of its fixed shape, it is resolved before bar 0, and a leg that existed on
+some bars and not others would leave the run's record with nothing to key on.
+
 `signal`, `alert`, `barColor`, `background`, `cell`, `clear`, `print`, the whole
-`draw` namespace and every order function of section 17 may appear anywhere,
+`draw` namespace and every order function, level and event of section 17 may
+appear anywhere,
 because they are per-bar events, per-bar paint or per-bar decisions. This is the
 same split as `language.md` section 15.3, stated with both lists complete.
 
@@ -1083,11 +1091,15 @@ other two must be written out. That is the whole mechanism: a script that
 repaints says so on the line that causes it, in a word a reader will see during
 review, and a script that says nothing cannot repaint.
 
-The compiler emits warning OS8002 on a `"developing"` read and warning OS8005 on
-a `"lookahead"` read, each naming the line and what the study will now do. A
-`"lookahead"` read also marks the compiled study as repainting, and the host
-shows that mark in the legend, because a warning in an editor nobody opens again
-is not a disclosure.
+The compiler emits warning OS8005 on a `"lookahead"` read, naming the line and
+what the study will now do, and warning OS8002 on a higher timeframe read in a
+file that also sets `onUnconfirmed = true`, whatever the read's mode, because
+that pair repaints the confirmed history as well. A `"lookahead"` read also marks
+the compiled study as repainting, and the host shows that mark in the legend,
+because a warning in an editor nobody opens again is not a disclosure. A
+`"developing"` read carries no warning of its own in language version 1: the mode
+word on the line is its disclosure, which is the whole reason it has to be
+written out.
 
 `"lookahead"` exists at all because drawing the completed higher timeframe candle
 across history is a legitimate picture, and a language that refused it would push
@@ -1120,10 +1132,17 @@ are OS3006.
 A `req.symbol` read cannot complete until the host supplies the other
 instrument's bars, which is not instant. The read is absent until the answer
 arrives, the study reports itself as loading through the contract's data status,
-and the engine recalculates when the bars land. A refusal, an unknown symbol or a
-host with no provider at all surfaces as OS6002 with the reason in
-`req.error(...)` and a retry the host can offer. The study keeps drawing
+and the engine recalculates when the bars land. The study keeps drawing
 everything that does not depend on the read.
+
+A request the host cannot answer surfaces as one of three codes, because the
+three have three different fixes: a symbol or an exchange the host does not know
+is OS6007, an instrument the host resolved and has no bars for over the chart's
+range is OS6008, and a source that refused, failed or was never connected at all
+is OS6009, carrying the host's own reason. Each of them puts that reason in
+`req.error(...)` and leaves the host free to offer a retry. OS6002 is the finer
+timeframe of section 15.2 and is never one of these; `errors.md` section 6
+records the reassignment.
 
 **Count: 6 entries, of which 2 are planned.**
 
@@ -1182,31 +1201,60 @@ four hundred historical alerts would be useless.
 
 ---
 
-## 17. Orders and position
+## 17. Orders, legs and strategy risk
 
 Everything in this section is available only in a `strategy()` file. Calling one
 from a `study()` file is OS7001, with the fix naming the declaration to change.
 
+This is the one part of the library that spends money, so it is written to a
+different standard from the rest. Two engines that disagree about a colour draw a
+different picture; two engines that disagree about when a stop is hit take
+different trades from the same script. Everything in sections 17.8 to 17.11 is
+therefore a conformance area with vectors of its own, on the same footing as the
+rest of the language, and an engine is conforming only when it reproduces them.
+
 ### 17.1 The position model
 
-A strategy holds **one net position** in the instrument the chart is showing.
-`buy(qty)` adds to it, `sell(qty)` subtracts from it, and an order that crosses
-zero is reported as one exit and one entry. `close()` flattens it.
+A strategy holds **one position per leg**. A leg is one contract the strategy
+trades, named by a string and declared before the run starts (section 17.6). A
+file that declares no leg has exactly one leg, the instrument its chart is
+showing, and every order function acts on it with no leg named.
 
-One net position rather than independent long and short books, because a net
-position is what a broker actually gives back, and a language whose model
-disagreed with the account would produce a backtest that cannot be reconciled
-with a statement.
+**A strategy never places an order that computes a delta against the account's
+position.** Every order states its own side and its own quantity outright.
 
-**No order function takes a symbol.** A strategy trades the instrument on its
-chart and nothing else, so a position built from more than one instrument is
-written as one leg traded, the others read with `req.symbol` of section 15, and
-the decision routed by the host from an `alert`. Version 1 stops there rather
-than half-defining a per-leg order, because a per-leg order needs per-leg
-position facts and a fill model for bars that are not the chart's, and a fill
-model that guessed would report a backtest fill at a price the leg never traded.
-The boundary is stated here so that a multi-leg script is written to it on
-purpose rather than discovering it in a backtest.
+An account position is held per contract, not per strategy. A second strategy on
+the same contract, a manual trade, or this same script started twice all land in
+that one row. An order that reads the row and sends the difference is therefore
+computing against somebody else's trade: two strategies on one contract would
+each keep undoing the other, and neither would be wrong from where it was
+standing. This is a rule rather than a default because the failure is silent. It
+costs nothing on the day only one strategy is in the market, and it costs the
+whole position on the day two are.
+
+What follows from it:
+
+- A strategy's position is folded from the strategy's own settled fills and from
+  nothing else. The ledger of section 17.7 is where those fills live.
+- Every profit figure the language reports comes from those same fills. No
+  number in section 17.4 is read from the account's position row.
+- Where the account holds a position in a contract this strategy also holds, the
+  run's record says so and carries the account's quantity beside the strategy's.
+  The language never divides a shared position between its owners. `pos.isShared`
+  reports that the position is shared, and no call returns the account's quantity
+  as a number, because a script that could read it would compute against it,
+  which is the rule above.
+
+`buy(qty)` adds to a leg's position, `sell(qty)` subtracts from it, and `close()`
+flattens it. **No order crosses zero.** An instruction that would take a leg from
+long to short is sent as two orders, one that closes the outgoing position and
+one that opens the replacement, each carrying its own position reference. A
+single order that crossed zero would leave a late fill with no way to say which
+of the two positions it settled, and during a flip a leg holds both at once.
+
+One position per leg, rather than one net book across every leg, because legs are
+different contracts: adding a position in one to a position in another produces a
+number that is not a quantity of anything and cannot be sent anywhere.
 
 An order is filled according to the declaration's `fillOn` option, which defaults
 to the next bar's open (`language.md` section 13.3), with the declared slippage
@@ -1219,10 +1267,10 @@ per `language.md` section 6.8.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `buy(qty = the declaration's, limit = none, stop = none, tag = "")` | nothing | the host's order interface; the fill reaches the chart as a marker | Enter or add to a long position |
-| `sell(qty = ..., limit = none, stop = none, tag = "")` | nothing | the same | Enter or add to a short position |
-| `close(tag = none, qty = none)` | nothing | the same | Flatten the position, or the part carrying one tag |
-| `exit(tag = "", qty = none, limit = none, stop = none, trail = none, trailOffset = none, profit = none, loss = none)` | nothing | the same | Attach a bracket: a target, a stop, or a trailing stop |
+| `buy(qty = the declaration's, limit = none, stop = none, tag = "", leg = the only leg)` | nothing | the strategy's ledger, then the order destination | Enter or add to a long position in one leg |
+| `sell(qty = ..., limit = none, stop = none, tag = "", leg = ...)` | nothing | the same | Enter or add to a short position in one leg |
+| `close(tag = none, qty = none, leg = ...)` | nothing | the same | Flatten a leg, or the part of it carrying one tag |
+| `exit(tag = "", qty = none, limit = none, stop = none, profit = none, loss = none, leg = ...)` | nothing | the same | Set the leg's stop or target from a call site |
 | `cancel(tag)` | nothing | the same | Cancel a working order that has not filled |
 | `cancelAll()` | nothing | the same | Cancel every working order this strategy placed |
 
@@ -1232,31 +1280,64 @@ both a stop-limit order. One function with optional prices rather than six named
 functions, because the trader's decision is direction and the price is a
 qualifier.
 
+**Every order function names the leg it acts on.** In a file with one leg the
+`leg` argument defaults to that leg and is never written. In a file with more
+than one, leaving it out is OS3012: there is no leg the engine could invent. A
+`leg` that is not one of the declared names is OS3008, whose message lists the
+names that are.
+
 `exit` prices may be given as absolute prices (`limit`, `stop`) or as distances
 from the entry (`profit`, `loss`, in the instrument's own price units). Giving
 both an absolute and a distance for the same side is OS3010, because the two
 would have to be reconciled and any rule for that would surprise somebody.
 
+**A leg carries at most one stop and at most one target at a time.** `exit()`
+sets them from a call site and `leg.stop()` and `leg.target()` of section 17.9
+set them as standing levels; they are two spellings of one thing, and the last
+call to run on a bar is the one in force. `leg.stopPrice()` and
+`leg.targetPrice()` read back the level actually in force, whichever set it.
+There is no trailing stop here: a trail is a rule evaluated on every bar rather
+than a price an order can rest at, so it lives in section 17.9 and has one
+spelling only.
+
+Two opposite orders on one leg on one bar are OS7013, and neither is placed. Two
+opposite orders on two different legs are ordinary: that is what a two-sided
+position is.
+
 ### 17.3 The `order` namespace
 
 | Call | Returns | For |
 |---|---|---|
-| `order.place(side, qty, type = "market", price = none, trigger = none, tag = "")` | nothing | The general form, for a script that computes its side |
-| `order.reverse(qty = none, tag = "")` | nothing | Flatten and open the same size the other way, in one decision |
-| `order.bracket(tag = "", profit = none, loss = none, trail = none, trailOffset = none)` | nothing | Attach or replace a bracket on the open position |
+| `order.place(side, qty, type = "market", price = none, trigger = none, tag = "", leg = the only leg)` | nothing | The general form, for a script that computes its side |
+| `order.reverse(qty = none, tag = "", leg = ...)` | nothing | Close a leg's position and open the same size the other way, as the two orders of section 17.1 |
+| `order.bracket(tag = "", profit = none, loss = none, leg = ...)` | nothing | Set the leg's stop and target as distances from the entry |
 | `order.working(tag)` | `series bool` | Whether an order with that tag is live and unfilled |
 | `order.pending` | `series number` | How many orders are live and unfilled |
+| `order.id(tag)` | `series string` | The destination's own order id for that tag, `""` before the destination has answered |
+| `order.status(tag)` | `series string` | The ledger's folded status for that tag, section 17.7 |
+| `order.filled(tag)` | `series number` | Cumulative filled quantity for that tag, `0` before the first fill |
+| `order.avgFill(tag)` | `series number` | Average fill price for that tag, absent before the first fill |
+| `order.rejection(tag)` | `series string` | The destination's own rejection text, `""` when there is none |
 | `order.qtyForCash(cash, price = close)` | `number` | Size from an amount of money |
 | `order.qtyForRisk(risk, entry, stop)` | `number` | Size so that being stopped out costs `risk` |
 | `order.qtyForEquityPercent(percent, price = close)` | `number` | Size from a percentage of current equity |
-| `order.roundToLot(qty, direction = "down")` | `number` | Round to a whole multiple of `chart.lotSize` |
+| `order.roundToLot(qty, direction = "down", leg = ...)` | `number` | Round to a whole multiple of that leg's lot size |
 | `order.modify(tag, ...)` (planned) | nothing | Change a working order's price or quantity in place |
 | `order.oco(tagA, tagB)` (planned) | nothing | Cancel one order when the other fills |
 
+The five reading calls, `order.id` through `order.rejection`, read the strategy's
+own ledger and never the destination. They are what a script prints into a table
+when a trader asks why an entry did not happen, and `order.rejection` carries the
+destination's own words rather than a paraphrase of them, because the destination
+is the only party that knows why it refused.
+
+An unknown tag in any of them is OS7009, on the same ground as `cancel`: a tag
+that names nothing is a script that has lost track of its own orders.
+
 The sizing helpers round down to a whole number of units by default, and
 `order.roundToLot` rounds down unless told otherwise, because a size rounded up
-is a position larger than the script asked for and the error compounds with
-every entry.
+is a position larger than the script asked for and the error compounds with every
+entry.
 
 `order.qtyForRisk` returns `none` when `entry` and `stop` are equal, rather than
 raising, because that is a real state during warmup and the order function that
@@ -1265,9 +1346,10 @@ argument.
 
 ### 17.4 The `pos` namespace
 
-What is readable about the position and the run so far. Every entry is a per-bar
-fact and reflects fills, not intentions: an order placed on this bar and filled
-on the next bar's open does not change any of these until that fill happens.
+What is readable about the strategy and the run so far. Every entry is a per-bar
+fact folded from the strategy's own fills, and reflects fills rather than
+intentions: an order placed on this bar and filled on the next bar's open does
+not change any of these until that fill settles.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
@@ -1283,12 +1365,22 @@ on the next bar's open does not change any of these until that fill happens.
 | `pos.openProfitPercent` | `series number` | absent while flat | The same as a percentage of the position's cost |
 | `pos.maxProfit` | `series number` | absent while flat | Best unrealised profit this position has seen |
 | `pos.maxLoss` | `series number` | absent while flat | Worst unrealised loss this position has seen |
+| `pos.isShared` | `series bool` | bar 0 | The account holds a position in a contract this strategy also holds |
 | `pos.equity` | `series number` | bar 0 | Starting capital plus realised and unrealised profit |
 | `pos.netProfit` | `series number` | bar 0 | Realised profit since the run began |
 | `pos.tradeCount` | `series number` | bar 0 | Closed trades so far |
 | `pos.winRate` (planned) | `series number` | bar 0 | Share of closed trades that made money |
 | `pos.profitFactor` (planned) | `series number` | bar 0 | Gross profit over gross loss |
 | `pos.maxDrawdown` (planned) | `series number` | bar 0 | Largest peak to trough fall in equity so far |
+
+The first twelve describe one position, so they read the file's only leg. In a
+file that declares more than one leg they are refused at compile time, with the
+fix naming `leg.size()`, `leg.avgPrice()` and their siblings in section 17.6:
+adding a quantity of one contract to a quantity of another produces a number that
+is not a position in anything, and summing two average prices produces a price at
+which nothing traded. `pos.equity`, `pos.netProfit`, `pos.tradeCount`,
+`pos.isShared` and the three planned entries are money and counts, which add
+across legs, so they read the whole strategy in every file.
 
 `pos.avgPrice` is absent while flat rather than zero, because zero is a price and
 a script comparing against it would take a branch that looks correct. `pos.size`
@@ -1299,16 +1391,424 @@ adding it to something should get the right answer.
 something else, such as a bid or an ask, is not expressible in version 1 and the
 entry says so rather than leaving the reader to assume.
 
+`pos.isShared` is a boolean and stays one. It says that the account's position in
+this contract is larger than the strategy's own, which is a fact a dashboard
+should show and a trader should know. It is not a quantity, and there is no call
+that turns it into one.
+
 ### 17.5 Where orders land in the chart contract
 
 Nothing in this section corresponds to a field of the descriptor a study becomes.
 Orders go to the host's order interface, on paper by default. What reaches the
-chart is their consequence: each fill becomes one marker, and a strategy that
-wants its stop or target drawn plots them or draws them like any other value.
-That separation is deliberate. The chart shows what happened; the broker decides
-what happens.
+chart is their consequence: each settled fill becomes one marker, and a strategy
+that wants its stop or target drawn plots them or draws them like any other
+value. The named events of section 17.11 reach the run's record and the host's
+log, not the descriptor.
 
-**Count: 35 entries, of which 5 are planned.**
+That separation is deliberate. The chart shows what happened; the destination
+decides what happens.
+
+### 17.6 Legs, and the contract each one trades
+
+A leg is declared once, at the top level, and never inside a block or a function.
+The declarations are top level only under OS3006, for the same reason a plot is:
+the set of contracts a strategy trades is part of its fixed shape, known before
+bar 0, and a leg that appeared on some bars and not others would leave the run's
+record with nothing stable to key on.
+
+| Call | Returns | Lands in | For |
+|---|---|---|---|
+| `leg.fixed(name, symbol, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the strategy's leg set, resolved before bar 0 | Declare a leg on a contract named outright |
+| `leg.relative(name, underlying, expiry = 0, strike = 0, right = "none", exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the same | Declare a leg on a contract named relatively |
+
+Every argument of both calls is part of a declaration fixed before bar 0, so each
+must be a compile-time constant: a literal, arithmetic over literals, or an
+`input()`. A bar-dependent one is OS3003. Two legs declared with one `name` is
+OS3017, the same code as two columns sharing a title, because the name is what
+every later call keys on.
+
+`leg.fixed` names a contract the host already knows. `leg.relative` names one by
+description, and the host resolves it: `underlying` is the instrument the
+contract derives from, `expiry` is a rank with `0` for the nearest expiry and `1`
+for the one after it, `strike` is an offset in strikes from the money with `0`
+at the money and positive offsets above it, and `right` is `"none"`, `"call"` or
+`"put"`. The engine never parses a symbol and never builds one: a symbol format
+built for one market is meaningless in another, and portability is the whole
+objective.
+
+**A relative contract resolves exactly once, before bar 0, and the resolved
+identity is what every later action uses.** This is not a preference. An
+at-the-money expression evaluated again at exit names a different contract from
+the one that was entered, so the strategy sends a closing order for a position it
+does not hold while the position it does hold stays open. The resolved identity
+is persisted with the run, so a restart uses the contract that was entered rather
+than the contract that is nearest now.
+
+A relative description the host cannot resolve to a contract is OS6007, before
+the first bar, and the strategy does not start.
+
+| Call | Returns | Warmup | For |
+|---|---|---|---|
+| `leg.symbol(name)` | `string` | bar 0 | The resolved contract, which is what the orders carried |
+| `leg.exchange(name)` | `string` | bar 0 | The exchange the orders were sent to |
+| `leg.product(name)` | `string` | bar 0 | The product actually sent, section 17.7 |
+| `leg.expiry(name)` | `number` | bar 0 | The resolved contract's expiry, absent for a contract with none |
+| `leg.strike(name)` | `number` | bar 0 | The resolved contract's strike, absent for a contract with none |
+| `leg.size(name)` | `series number` | bar 0, `0` when flat | Signed units this strategy holds in the leg |
+| `leg.avgPrice(name)` | `series number` | absent while the leg is flat | Average price of the leg's open position |
+| `leg.entryTime(name)` | `series number` | absent while the leg is flat | When the leg's current position was opened |
+| `leg.profit(name)` | `series number` | bar 0, `0` when flat | The leg's open profit in money, marked to this bar's close |
+| `leg.isOpen(name)` | `series bool` | bar 0 | Whether the leg holds a position |
+| `leg.stopPrice(name)` | `series number` | absent when no stop is in force | The stop actually in force, from whichever call set it |
+| `leg.targetPrice(name)` | `series number` | absent when no target is in force | The target actually in force |
+
+The first five report the contract the host resolved, which is the contract the
+orders carried, and they are fixed for the run rather than per bar. The next five
+are a leg's own position facts, and in a one-leg file they say what section
+17.4's first twelve say. A leg carries no equivalent of `pos.isLong`,
+`pos.barsHeld`, `pos.maxProfit` or `pos.maxLoss` in version 1: the sign of
+`leg.size()` answers the first, `leg.entryTime()` answers the second, and the
+other two are a `var` the script keeps. The last two read the levels of section
+17.9, which is where a level is set.
+
+### 17.7 The order and fill ledger
+
+**Each strategy owns its own order and fill ledger.** It is the strategy's record
+of what it has actually done, it is what every position figure in this section is
+folded from, and it is per strategy rather than per account for the reason in
+section 17.1.
+
+The ledger holds one row per order placed. A row is appended when the order is
+sent and is never rewritten in place: each frame from the destination appends a
+revision, and the row's current fact is the fold of its revisions, so the
+sequence that produced a position can be replayed and audited rather than
+inferred.
+
+| Field | Holds |
+|---|---|
+| `id` | The destination's own opaque order id, exactly as it was given, as a string the engine never parses |
+| `tag` | The tag the script placed the order with, `""` when it named none |
+| `leg` | The leg the order belongs to |
+| `positionRef` | The position this order settles against, below |
+| `symbol`, `exchange` | The contract actually sent, after the leg resolved |
+| `product` | The product actually sent |
+| `side`, `qty`, `type`, `price`, `trigger` | The order as it left the engine |
+| `status` | The folded status, below |
+| `filledQty` | Cumulative filled quantity, never a delta |
+| `avgFillPrice` | The destination's average price over `filledQty`, absent while `filledQty` is `0` |
+| `rejection` | The destination's own rejection text, `""` when there is none |
+| `placedAt`, `updatedAt` | When the order was sent, and when a frame last changed the row |
+
+Three of these exist because the short version loses money.
+
+**The product is recorded as sent, not as declared.** A product is translated per
+destination, so the word a strategy carries and the word that reached the
+destination are not always the same, and a position reconciled against the
+declared word is reconciled against something nobody traded. `leg.product()`
+returns the word that was sent.
+
+**The symbol and exchange are recorded as sent.** A leg that resolved a relative
+contract carries a name the source never wrote, and that name is the only one a
+statement can be matched against.
+
+**Every order carries a position reference.** A position reference is minted when
+a leg goes from flat to holding, and it ends when that position's quantity
+returns to zero through settled fills. During a flip a leg holds two at once, the
+outgoing one and its replacement, which is why a flip is two orders and not one.
+A fill settles the position its own order names, never whichever position is
+current, because a fill that arrives late would otherwise be applied to the
+position that replaced the one it belonged to.
+
+**Statuses.** The ledger's `status` is one of six words: `"placed"` before the
+destination has answered, `"open"` while the order is live, `"triggerPending"`
+while it waits for its trigger, and the three terminal words `"complete"`,
+`"rejected"` and `"cancelled"`. A destination with words of its own, `expired`
+for instance, maps each of them onto one of the six in its adapter and carries
+its own word through to `rejection` and the log. The mapping is the adapter's
+because a status vocabulary is exactly the kind of thing that differs per
+destination and must not reach the language.
+
+A status is terminal when it is one of the last three. The engine sends no
+further frame of a terminal order to the fold, and a terminal order's row never
+changes again.
+
+### 17.8 Folding an order frame
+
+**A frame from a destination is cumulative, not a delta.** It states the order's
+total filled quantity so far and the average price over that total, not what
+happened since the last frame. Frames repeat, arrive out of order and arrive
+twice, and an engine that adds each frame's quantity to a running total doubles a
+fill and reports a position the strategy never held.
+
+The fold of a frame `f` into a row `r` is exactly this, and an engine is
+conforming only when it is exactly this:
+
+1. **Locate.** `f` names a row by the destination's order id. A frame that names
+   no row in this strategy's ledger is refused and recorded, and nothing is
+   folded. It is not an order this strategy placed.
+2. **Filled quantity.** `filled = max(r.filledQty, f.filledQty)` and
+   `delta = filled - r.filledQty`. The cumulative quantity never decreases, so a
+   frame that reports less than the row already holds contributes `delta = 0`.
+3. **Average price.** When `delta > 0` the row takes `f.avgFillPrice`, which the
+   destination computed over the cumulative quantity. When `delta == 0` the row
+   keeps the price it had. The engine never averages two averages of its own: the
+   destination's average over the total is already the answer. A frame that
+   reports a greater cumulative quantity and no average price is refused and
+   recorded, and nothing is folded, because a fill with no price cannot be marked
+   against anything.
+4. **Status.** Status moves forward along `"placed"`, then `"open"` or
+   `"triggerPending"`, then a terminal word, and never backwards. A frame whose
+   status sits behind the row's leaves the status alone. A terminal status is
+   never left.
+5. **Changed.** The frame changed the row when the status moved, or `delta > 0`,
+   or the rejection text is new. Otherwise it changed nothing.
+6. **Settle.** When `delta > 0`, one fill of `delta` units at `f.avgFillPrice`
+   settles against `r.positionRef`, which is the position that order belongs to
+   and not whichever position the leg holds now.
+7. **Stop.** When the frame changed nothing, nothing else happens: no fill, no
+   event, no report row, no recalculation. A repeated frame and a frame overtaken
+   by a later one both end here.
+
+Because frames are cumulative, a terminal frame that overtakes a partial one
+loses nothing: it carries the whole filled quantity, so step 2 produces the
+remaining delta in one piece. This is the property that makes the fold safe under
+out-of-order delivery, and it is the reason the language reads cumulative frames
+rather than asking a destination for deltas it may not be able to give.
+
+### 17.9 Protective levels
+
+The levels a strategy declares. Each call sets a level that stays in force until
+it is replaced or removed, and passing `none` as the level removes it. These are
+not order functions: an absent level removes a rule rather than raising OS7002,
+because removing a stop is a thing a script means to do and there is no order to
+refuse.
+
+**Per leg.**
+
+| Call | Returns | Lands in | For |
+|---|---|---|---|
+| `leg.stop(name, price)` | nothing | the leg's stop, replacing any in force | Close the leg when its price reaches `price` against the position |
+| `leg.target(name, price)` | nothing | the leg's target | Close the leg when its price reaches `price` in favour of the position |
+| `leg.trail(name, distance, arm = none)` | nothing | the leg's trailing stop | Follow the best price the leg has seen, `distance` behind it |
+
+**Per strategy.** `book` is the strategy's own book: every leg it has declared,
+taken together. Its profit is the sum, in money, of every leg's open profit and
+of everything the strategy realised since the book was last flat, which is the
+window section 17.12 explains and the reason the combined rules belong to one of
+the two shapes and not the other.
+
+| Call | Returns | Lands in | For |
+|---|---|---|---|
+| `book.stop(amount)` | nothing | the combined stop | Square off every leg when the book's profit falls to `-amount` |
+| `book.target(amount)` | nothing | the combined target | Square off every leg when the book's profit reaches `amount` |
+| `book.lockProfit(arm, lock, step = none, advance = none)` | nothing | the profit floor | Arm a floor at a profit, then advance it as profit grows |
+| `book.trailStopsToEntry(at)` | nothing | every leg's stop | Move every leg's stop to its own entry once the book is `at` in profit |
+| `book.direction(filter)` | nothing | the entry filter | `"long"`, `"short"` or `"both"`, which sides an entry may take |
+| `book.entryWindow(spec)` | nothing | the entry gate | New entries only inside this window, written as section 12.5 writes one |
+| `book.exitAt(time)` | nothing | the exit time | Square off every leg at this `"HHMM"` in the chart's timezone |
+| `book.squareOffAtExpiry(minutesBefore = 0)` | nothing | the expiry rule | Square off a leg this many minutes before its contract expires |
+| `book.dailyLoss(amount)` | nothing | the day's limit | Square off and stop entering for the day when the day's loss reaches `amount` |
+
+What the book reads back:
+
+| Call | Returns | Warmup | For |
+|---|---|---|---|
+| `book.profit` | `series number` | bar 0 | The book's profit in money, open and realised since it was last flat |
+| `book.dayProfit` | `series number` | bar 0 | The same measured from this session's open, which is what `book.dailyLoss` tests |
+| `book.isOpen` | `series bool` | bar 0 | Whether any leg holds a position |
+
+A `filter` that is not `"long"`, `"short"` or `"both"`, a window that does not
+parse as section 12.5 writes one, and a time that is not four digits are each
+OS3008, for the reason that section gives: a value outside the set selects no
+rule, and defaulting quietly would change what the script does.
+
+The end of day square off is not a call here. It is the declaration's
+`closeOnSessionEnd` option (`language.md` section 13.3), which already exists,
+and it is named in section 17.11 for the event it emits. One spelling of one rule.
+
+**The trail, exactly.** `distance` is in the leg's own price units and is
+positive. The trail is armed when the leg's profit per unit first reaches `arm`,
+measured as the last price minus the average entry price for a long leg and the
+reverse for a short one; with `arm` absent the trail is armed by the leg's first
+settled fill. Once armed the engine keeps the best price the leg has seen since
+arming: the highest price for a long leg, the lowest for a short one, taken from
+the bar's high or low on a confirmed bar and from the last price on a bar that is
+still moving. The trail's level is the best price less `distance` for a long leg
+and plus `distance` for a short one. **The level only ever moves in the leg's
+favour.** It never retreats, and it is never recomputed from a price worse than
+the best one seen, which is what the word ratchet means here and what a vector
+has to prove.
+
+Where a leg carries both a stop and an armed trail, the level in force is the
+more protective of the two: the higher for a long leg, the lower for a short one.
+`leg.stopPrice()` returns that level, not the one the script last wrote.
+
+**The lock profit, exactly.** `book.lockProfit(arm, lock, step, advance)` does
+nothing until the book's profit first reaches `arm`; at that moment a floor
+exists at `lock`. When `step` and `advance` are given, the floor stands at
+`lock + n * advance` where `n` is the largest whole number for which the book's
+profit has reached `arm + n * step`. The floor never moves down. When the book's
+profit falls to the floor or below while a floor exists, every leg is squared
+off. `step` and `advance` are given together or not at all; one without the other
+is OS3009.
+
+### 17.10 When a level is tested, and in what order
+
+**Every rule of section 17.9 is evaluated once per bar, after the script's own
+statements for that bar have run, in the order below.** The order is part of the
+language rather than an implementation detail: two engines that tested a combined
+stop before a leg stop would close different positions from the same script on
+the same bar.
+
+1. The daily loss limit.
+2. The exit time, then the end of day square off, then the expiry square off.
+3. The combined stop, then the combined target.
+4. The lock profit: arm the floor, then advance it, then test it.
+5. The trail to entry.
+6. Each leg in declaration order: its stop, then its target, then its trail,
+   which is armed, then advanced, then tested.
+
+A rule that squares the book off ends the sequence for that bar. The rules below
+it have nothing left to act on and emit nothing. The book rules are tested before
+the leg rules because a breached combined limit takes the whole book off either
+way, and the record should name the rule that did it.
+
+**How a level is tested.** On a confirmed bar a level is reached when the bar's
+traded range reaches it: `low <= level` for a long leg's stop and a short leg's
+target, `high >= level` for a long leg's target and a short leg's stop. On a bar
+that is still moving the level is tested against the last price only, and the
+test is taken again when the bar closes, under the rollback rule of `language.md`
+section 7.5.
+
+**When one bar's range contains both a leg's stop and its target, the stop is
+taken.** Nothing in a bar says which came first, and assuming the better of the
+two is how a backtest invents money that was never made.
+
+**Where the exit fills.** A stop sends a stop order at its level and a target
+sends a limit order at its level, so a backtest fills where the level was rather
+than at the next bar's open. When the bar's open is already beyond the level, the
+fill is at the open, because the level was gone before the bar began. The
+declaration's slippage applies to a stop and not to a target: a stop takes the
+price on the other side and pays for it, and a limit fills at its own price or
+not at all.
+
+A level's exit order is an order like any other. It lands in the ledger, it folds
+by section 17.8, and it obeys the lot and tick rules, so a stop that rounds to no
+whole lot is OS7005 and a level off the tick is OS7006.
+
+### 17.11 Named events
+
+Every transition a rule causes is emitted as a named event carrying the bar's
+time, the leg where there is one, the rule's own level and the value that
+crossed it. A trader reading a log after a bad day needs to know which rule
+fired, and "the position closed" is not an answer.
+
+| Event | Emitted when |
+|---|---|
+| `legStopHit` | A leg's stop was reached and the leg was closed |
+| `legTargetHit` | A leg's target was reached and the leg was closed |
+| `trailArmed` | A leg's trailing stop armed, because profit reached `arm` |
+| `trailAdvanced` | A leg's trailing stop moved in the leg's favour |
+| `combinedStopHit` | The book's profit fell to the combined stop and the book was squared off |
+| `combinedTargetHit` | The book's profit reached the combined target and the book was squared off |
+| `lockProfitArmed` | The book's profit first reached `arm` and a floor exists |
+| `lockProfitFloorAdvanced` | The floor moved up a step |
+| `lockProfitTriggered` | The book's profit fell to the floor and the book was squared off |
+| `trailToEntryActivated` | Every leg's stop was moved to its own entry |
+| `sessionEndSquareOff` | `closeOnSessionEnd` flattened the book at the session's close |
+| `expirySquareOff` | A leg was closed because its contract was about to expire |
+| `exitTimeSquareOff` | `book.exitAt` flattened the book at its time |
+| `dailyLossHit` | The day's loss reached the limit; the book is off and no entry is taken for the rest of the day |
+| `entryRefused` | An entry was refused by the direction filter, the entry window or a daily loss already hit, naming which |
+
+An event is a record, not a value. No call reads one, because a script that
+branched on its own stop having fired would be deciding twice what the rule
+already decided once, and the second decision would be the one nobody tested.
+
+### 17.12 Two strategy shapes
+
+A strategy takes one of two shapes, and the shape decides what a stop means.
+
+**As a unit.** `book.enter(tag = "")` sends every declared leg its declared side
+and quantity in one decision, and `book.exit(tag = "")` closes every open leg.
+The book has one entry, so the book's profit has one starting point and the
+combined rules of section 17.9 measure from it. This is the shape a multi-leg
+position is written in when the legs only make sense together.
+
+**Per leg.** `leg.enter(name, side = the leg's, qty = the leg's, limit = none,
+stop = none, tag = "")` and `leg.exit(name, qty = none, limit = none, stop =
+none, tag = "")` take one leg at a time, on that leg's own signal, filtered by
+`book.direction`. Legs open and close at different moments, so the book need
+never be flat at all.
+
+| Call | Returns | Lands in | For |
+|---|---|---|---|
+| `book.enter(tag = "")` | nothing | one order per declared leg | Enter the whole book as a unit |
+| `book.exit(tag = "")` | nothing | one order per open leg | Exit the whole book as a unit |
+| `leg.enter(name, side = the leg's, qty = the leg's, limit = none, stop = none, tag = "")` | nothing | one order | Enter one leg on its own signal |
+| `leg.exit(name, qty = none, limit = none, stop = none, tag = "")` | nothing | one order | Exit one leg on its own signal |
+
+**This is what a combined stop means, and why it means it.** `book.profit` is
+measured from the last moment the book was flat. In a strategy that enters as a
+unit that moment is the start of the current trade, because the book goes flat
+between trades by construction, so a combined stop is a stop on that trade. In a
+per-leg strategy the book may never be flat: one leg closes as another opens, and
+the measurement would run from a moment no rule chose and no reader could name.
+A combined stop there is a stop on an arbitrary window, which is worse than no
+stop at all, because it looks like one.
+
+The shape is therefore decided by which of the two pairs a file uses, and a file
+uses one of them. The per-leg pair is `leg.enter` and `leg.exit`, and `buy`,
+`sell`, `close`, `exit`, `order.place` and `order.reverse` of sections 17.2 and
+17.3 are that same pair written the short way.
+
+- A file that calls `book.enter` or `book.exit` and also calls any per-leg entry
+  or exit is refused at compile time. A leg entered outside the unit leaves the
+  book holding a position it did not enter as a unit, and the measurement above
+  stops being the trade.
+- A file that calls `book.stop`, `book.target`, `book.lockProfit` or
+  `book.trailStopsToEntry` without calling `book.enter` is refused at compile
+  time, with the fix naming `leg.stop` and `leg.target`.
+
+Both refusals hold in a one-leg file as well, although nothing there could go
+wrong: one rule that is always true is easier to hold in the head than one rule
+with an exception, and a script that grows a second leg later would otherwise
+start meaning something different on the day it grew it.
+
+### 17.13 Arming
+
+**A strategy is born unable to trade for real.** A new strategy, and a strategy
+whose source has just been edited, sends its orders to the paper destination.
+Arming it is a separate, deliberate act performed on that one strategy in the
+host, and **nothing in a script can perform it**: there is no call, no option and
+no input that arms anything. A misconfigured script found after the fact cannot
+have been placing real orders, which is the only guarantee worth having here.
+
+There is also no call that reports it. A script cannot know whether it is armed,
+so it cannot behave differently when it is, and the run that was tested on paper
+is the run that goes to market. A strategy that behaved differently once armed
+would be a strategy nobody had ever tested.
+
+A strategy that places an order with no destination at all, armed or not, is
+OS7015.
+
+### 17.14 Refusals defined here that the catalogue has no code for
+
+Four refusals above are stated as rules with no code quoted, because `errors.md`
+is authoritative for codes and this document does not invent them. They are
+rules either way, and the code follows the rule rather than the other way round:
+
+- A frame naming an order this strategy's ledger does not hold (section 17.8,
+  step 1), at the host.
+- A frame reporting a greater cumulative filled quantity with no average fill
+  price (section 17.8, step 3), at the host.
+- A file that mixes the two shapes of section 17.12, at compile time.
+- A combined rule in a file with no book entry (section 17.12), at compile time.
+
+The same applies to the twelve single-position entries of section 17.4 in a file
+that declares more than one leg.
+
+**Count: 74 entries, of which 5 are planned.**
 
 ---
 
@@ -1342,7 +1842,7 @@ lands in. The field names are the contract's own.
 | `bar.isNew`, `bar.isConfirmed`, `bar.isRealtime`, `bar.updates` | the calculation context's bar state |
 | `chart.timezone`, `chart.now()`, `chart.tickSize`, `chart.symbol`, `chart.interval` | the calculation context's chart facts |
 | every calculation in sections 4 to 11 | the computed values, one column per plot, aligned to the bars, absent where the warmup says |
-| every order function in section 17 | no contract field; the host's order interface |
+| every order function, level and named event in section 17 | no contract field; the strategy's own ledger, the host's order interface and the run's record |
 
 An absent value reaching any of these is a gap, never a zero: a line breaks, a
 band stops, a level is not drawn, a bar keeps its own colour, a cell is blank.

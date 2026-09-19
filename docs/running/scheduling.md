@@ -41,8 +41,9 @@ Anything that is about the process belongs in the schedule.
 Two worked cases make the split concrete.
 
 **"Do not trade in the first fifteen minutes."** That is a rule of the strategy.
-It goes in the file, measured from `session.startTime` or from a `var` anchored
-on `session.isFirstBar`, so that a backtest sees exactly the same rule.
+It goes in the file, as a `book.entryWindow("0930-1530")` that opens late, or
+measured from `session.startTime` or from a `var` anchored on
+`session.isFirstBar`, so that a backtest sees exactly the same rule.
 
 **"Start the process at 09:00."** That is about the process, not the strategy.
 It goes in the schedule, and the script neither knows nor cares.
@@ -84,8 +85,8 @@ the question instead of you inferring it from the absence of trades.
 ### Stop late enough to be flat
 
 A stop time that arrives while a position is open does not close the position.
-It stops the script. The position stays where it is, at the broker, with nothing
-managing it.
+It stops the script. The position stays where it is, at the destination, with
+nothing managing it.
 
 So a stop time has to sit after the strategy's own last action, with room to
 spare. Two settings do most of the work: `closeOnSessionEnd = true` in the
@@ -150,9 +151,12 @@ not on the arrival of a bar that will never come.
 
 Expiry days deserve their own note. An instrument that expires stops existing,
 and a strategy holding it through settlement is holding whatever the exchange
-settles it into. Put the expiry rule in the script, as a date test or as a
-flat-by time on the expiry day, and do not rely on the schedule to protect a
-position from a calendar event.
+settles it into. The rule for it belongs in the script, as
+`book.squareOffAtExpiry(minutesBefore)`, which closes a leg that many minutes
+before its own contract expires and emits `expirySquareOff` when it does. Per leg
+rather than per strategy, because two legs can carry two expiries. Do not rely on
+the schedule to protect a position from a calendar event: the schedule knows when
+the process runs and nothing about what it is holding.
 
 ### Sessions that cross midnight
 
@@ -203,19 +207,25 @@ hands.
 
 ### Making the stop safe from inside the script
 
-Three lines of defence, in the order they should fire:
+Four lines of defence, in the order they should fire:
 
 1. A time exit in the script, comfortably before the scheduled stop, as in the
    example above.
-2. `closeOnSessionEnd = true` in the declaration, so an intraday position cannot
-   survive the session even if the time exit did not fire.
-3. A resting stop order at the broker, placed with `exit(stop = ...)` when the
-   position is opened, so there is protection that does not depend on your
-   process being alive at all.
+2. `book.exitAt("HHMM")`, which squares every leg off at a stated time whatever
+   the script's own logic did that day.
+3. `closeOnSessionEnd = true` in the declaration, so an intraday position cannot
+   survive the session even if neither of the first two fired.
+4. A stop as a level, set with `leg.stop` or `exit(stop = ...)`, which the engine
+   tests once per bar and turns into a stop order at its level when it is
+   reached.
 
-The third one is the only protection that survives a crash, which is why an
-intraday strategy with a real stop level should send it rather than simulate it
-by watching price bar by bar.
+Each of the four is evaluated by the engine, so each of them needs the strategy to
+still be running. **Nothing the language holds protects a position after the
+process is gone.** That is the whole argument for a stop time that sits after the
+strategy is already flat, and it is why the reconciliation step below exists
+rather than being a formality. A protective order that rests at the destination on
+its own, and therefore survives your machine, is an ordinary order you placed and
+did not cancel, not a rule the language is holding for you.
 
 ## Restart and recovery
 
@@ -223,8 +233,9 @@ by watching price bar by bar.
 
 | Thing | Survives a restart |
 |---|---|
-| The position at the broker | Yes |
-| Working orders at the broker | Yes, until they fill, expire or are cancelled |
+| The position at the destination | Yes |
+| Working orders at the destination | Yes, until they fill, expire or are cancelled |
+| The contract a relative leg resolved to | Yes, it is persisted with the run |
 | The script's `var` state | No |
 | `pos.size` and the rest of the `pos` namespace | No, the new process starts flat |
 | Drawing objects | No |
@@ -232,8 +243,16 @@ by watching price bar by bar.
 | The log file | Yes, it is appended to |
 
 A restarted strategy is a new process with no memory, running a file that starts
-flat. If it was holding a position when it stopped, the broker still is and the
+flat. If it was holding a position when it stopped, the account still is and the
 script no longer knows.
+
+The third row is the one that would be a disaster if it went the other way. A leg
+described relatively, such as the nearest expiry at the money, resolves once
+before bar 0, and the resolved identity is persisted with the run. A restart
+therefore uses the contract that was entered rather than the contract that is
+nearest now. Re-resolving the description at restart would name a different
+contract on any day the market had moved, and the strategy would go on to close a
+position it does not hold while the one it does hold stays open.
 
 ### Rebuildable state is the design rule
 
@@ -300,16 +319,25 @@ expressed as a position check, or an entry condition that cannot be true twice.
 
 After any restart during a session, and before letting the strategy trade again:
 
-1. Read the broker's position for the instrument.
+1. Read the account's position for the contract. For a leg that was described
+   relatively, read the contract the previous run resolved, which the run keeps,
+   rather than working out what is nearest today.
 2. Read the strategy's own `pos.size`, which will be zero.
 3. If they disagree, decide who owns the position. Either flatten it by hand, or
    take it over by hand and leave the strategy flat.
 4. Cancel any working orders the stopped process left behind, unless you are
-   deliberately keeping a resting stop.
+   deliberately keeping one.
 5. Only then let the strategy trade.
 
+Nothing in the language does this for you, and that is the consequence of the
+order model rather than an omission in it. A strategy folds its position from its
+own settled fills, so a new process has none and starts flat; and no call returns
+the account's quantity, because a script that could read it would compute against
+it and would be computing against whoever else is in that contract. The
+reconciliation is a decision, so it belongs to a person.
+
 Skipping this step is how an account ends up with two positions in the same
-instrument, one of which nothing is managing.
+contract, one of which nothing is managing.
 
 ## Logs
 
@@ -367,21 +395,63 @@ Make the lines greppable. A fixed leading token per kind of event, in capitals,
 lets you pull one strategy's entries out of a week of logs with one search, and
 costs nothing.
 
+### The lines you did not write
+
+Your `print` lines are not the whole log. Every transition a risk rule causes is
+emitted as a named event carrying the bar's time, the leg where there is one, the
+rule's own level and the value that crossed it, and those events reach the host's
+log and the run's record on their own.
+
+That matters most on the day a strategy is stopped and you have to say why. The
+question after a bad day is never "did it lose money", it is "which rule decided
+that". Work the log in this order:
+
+1. **Find the last square off event.** One of `combinedStopHit`,
+   `lockProfitTriggered`, `dailyLossHit`, `exitTimeSquareOff`, `sessionEndSquareOff`
+   or `expirySquareOff` ended the book, and the event carries the level and the
+   value that crossed it.
+2. **Read upwards to the last `entryRefused`.** If entries stopped before the loss,
+   the direction filter, the entry window or an earlier daily loss was the cause,
+   and the event says which.
+3. **Check for `trailArmed` with no `trailAdvanced`.** The trade went your way by
+   the arming distance and came straight back.
+4. **Only then read your own lines**, which say what the script was thinking when
+   it entered.
+
+Doing it the other way round, starting from your own `print` output, is how an
+afternoon goes on a rule that was working exactly as written. The full list of
+events is in
+[../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md).
+
 ## Running many strategies at once
 
-### The same instrument in two strategies
+### The same contract in two strategies
 
-Each strategy tracks its own position. The broker tracks one net position per
-instrument per account. Two strategies that both trade the same instrument will
-each believe they hold their own, while the account holds the sum, and if one
-goes long two lots while the other goes short two lots, the account is flat and
-both strategies think they have a trade on.
+Each strategy keeps its own order and fill ledger and folds its own position from
+it. The account holds one position row per contract. Two strategies on the same
+contract each believe they hold their own, while the account holds the sum, and if
+one goes long two lots while the other goes short two lots, the account is flat
+and both strategies think they have a trade on.
 
-There is no setting that fixes this, because there is no honest answer for how
-one net position should be split between two scripts. The workable approaches
-are to keep one strategy per instrument per account, to separate them by
-account, or to combine the rules into one file so that one script owns the
-position. Choose one deliberately before running the second strategy.
+That much is a fact of arithmetic. What the language adds is a guarantee about how
+bad it gets: **no strategy ever places an order that computes a delta against the
+account's position.** Every order states its own side and quantity outright, so
+two strategies on one contract each trade their own plan and the account nets them.
+Had either one been allowed to correct itself towards the account row, each would
+have read a row the other had just moved, each would have sent a correction, and
+the pair would have spent the session undoing each other while both logs looked
+reasonable. The same applies to a trade you place by hand: it changes the row, and
+it changes nothing about what either strategy does.
+
+So the damage is bounded and visible rather than compounding and silent.
+`pos.isShared` turns true, which is the language telling you, in the only terms it
+has, that the contract has more than one owner.
+
+There is still no setting that divides the row, because there is no honest answer
+for how one position should be split between two scripts. The workable approaches
+are to keep one strategy per contract per account, to separate them by account, or
+to combine the rules into one file so that one script owns the position. Choose one
+deliberately before running the second strategy.
 
 ### What changes when you go from one to ten
 
@@ -415,7 +485,8 @@ backtest I approved. A start that logs the revision answers it in the log.
 3. Confirm the revision that is about to start is the one you meant.
 4. Confirm enough history will be preloaded for the file's warmup.
 5. Start the process and watch for the line that says it is warm.
-6. Check the strategy's position against the broker's, once, by eye.
+6. Check the strategy's position against the account's, once, by eye, and check
+   what a relative leg resolved to against what the previous run held.
 7. Note the restart in the log with a reason, because the next person to read
    that file is you.
 
@@ -427,9 +498,13 @@ backtest I approved. A start that logs the revision answers it in the log.
   start time depends on
 - [reading-a-report.md](./reading-a-report.md) for judging a run before it is
   scheduled at all
+- [../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md) for
+  the session rules and the full list of named events
+- [../strategies/reading-the-books.md](../strategies/reading-the-books.md) for the
+  books you reconcile after a restart
 - [../README.md](../README.md) for the documentation index
 - [../../spec/stdlib.md](../../spec/stdlib.md) for the `session` and `date`
-  namespaces
+  namespaces, and section 17 for legs, the book rules and the events
 - [../../spec/language.md](../../spec/language.md) for persistence, the rollback
   rule and the strategy options
 - [../../examples/README.md](../../examples/README.md) for the worked scripts

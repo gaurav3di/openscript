@@ -317,23 +317,43 @@ operand is evaluated only when it can change the result.
 | `true` | `false` | `false` | `true` |
 | `true` | `none` | `none` | `true` |
 | `false` | any | `false` | `b` |
-| `none` | `true` | `none` | `none` |
+| `none` | `true` | `none` | `true` |
 | `none` | `false` | `false` | `none` |
 | `none` | `none` | `none` | `none` |
 
-Read the table carefully at the `or` column: `true or none` is `true`, and
-`none or true` is `none`. **`or` is the one operator in the language whose result
-depends on which side the absent operand sits.** It follows from the evaluation
-order, the left operand deciding first, and the practical consequence is that the
-operand you are sure about belongs on the left.
+An unknown operand is absorbed exactly when the other operand decides the answer
+alone, which is a `false` under `and` and a `true` under `or`. Everywhere else an
+unknown operand gives an unknown result.
+
+**Both operators are commutative.** `a and b` is `b and a` and `a or b` is
+`b or a` for every pair in the table, so operand order never changes the value of
+an expression. De Morgan's laws hold with absent operands as well as present
+ones: `not (a and b)` is `not a or not b`, and `not (a or b)` is
+`not a and not b`. In practice that means a guard is fixed by choosing the right
+operator, not by swapping the sides: `not isNone(x) and x > 5` and
+`x > 5 and not isNone(x)` are one test, `isNone(x) or x > 5` and
+`x > 5 or isNone(x)` are another, and `isNone(x) and x > 5` is never true however
+it is written.
+
+What order does decide is which operand is evaluated. The right operand is
+skipped only when the left one settles the answer by itself, so an absent left
+operand skips nothing: the right operand could still decide.
+
+| Expression | Left is | Right operand evaluated |
+|---|---|---|
+| `a and b` | `false` | No |
+| `a and b` | `true` or `none` | Yes |
+| `a or b` | `true` | No |
+| `a or b` | `false` or `none` | Yes |
 
 ```
 newDay = bar.isFirst or not date.isSameDay(time, time[1])
 ```
 
-That line works because `bar.isFirst` is never absent and is checked first. On bar
-0 it is `true`, the right operand is never evaluated, and `time[1]` being absent
-never matters.
+That line still saves the right operand on bar 0, because `bar.isFirst` is `true`
+there rather than absent, and a `true` on the left of an `or` is exactly the case
+that skips. An `or` whose left operand is absent rather than `true` gives no such
+protection: the right operand runs, and anything in it that holds state advances.
 
 Short-circuiting interacts with stateful calls, and the interaction is specified
 rather than accidental. If the right operand contains a call that holds per-bar
@@ -503,10 +523,12 @@ plot(weight, "Weighted body", aqua)
 plot(heavy ? 1 : 0, "Down bar on heavy volume", orange, style = "histogram")
 ```
 
-The last line is worth a second look. `heavy` is absent for the first nineteen
-bars, because `sma(volume, 20)` is, so the comparison is absent and `and` reports
-absence. The ternary then takes the false arm and plots a confident zero. If the
-gap should be visible, say so: `heavy ? 1 : isNone(heavy) ? none : 0`.
+The last line is worth a second look. `sma(volume, 20)` is absent for the first
+nineteen bars, so the right operand of the `and` is absent there. On a down bar
+the left operand is `true` and `heavy` is absent; on an up bar the left operand
+is `false`, which decides the answer alone, and `heavy` is `false`. Where `heavy`
+is absent the ternary takes the false arm and plots a confident zero. If the gap
+should be visible, say so: `heavy ? 1 : isNone(heavy) ? none : 0`.
 
 ### What absence does to a comparison
 

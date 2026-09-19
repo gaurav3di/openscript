@@ -207,11 +207,37 @@ no `!`. They use three-valued logic, where the absent value means "unknown".
 | `true` | `false` | `false` | `true` |
 | `true` | `none` | `none` | `true` |
 | `false` | any | `false` | `b` |
-| `none` | `true` | `none` | `none` |
+| `none` | `true` | `none` | `true` |
 | `none` | `false` | `false` | `none` |
 | `none` | `none` | `none` | `none` |
 
 `not none` is `none`.
+
+The whole table follows from one idea: an unknown operand is absorbed exactly
+when the other operand decides the answer by itself. That is a `false` under
+`and` and a `true` under `or`. Everywhere else the result is unknown, because it
+genuinely depends on the value nobody has.
+
+### Both operators are commutative
+
+**`a and b` is `b and a`, and `a or b` is `b or a`, for every pair of `true`,
+`false` and `none`.** Operand order never changes the value of the expression.
+Four guards, two meanings, and each pair agrees on every bar:
+
+```
+if not isNone(x) and x > 5      // "present and above five"
+if x > 5 and not isNone(x)      // the same answer on every bar
+
+if isNone(x) or x > 5           // "absent or above five"
+if x > 5 or isNone(x)           // the same answer on every bar
+```
+
+Write whichever one reads better in the script. What decides whether a guard
+works is the operator, not the side a test sits on: `isNone(x) and x > 5` is
+never true and `not isNone(x) or x > 5` is true on every bar, whichever way round
+each is written. De Morgan's laws hold too, absent operands included, so
+`not (a and b)` and `not a or not b` are the same expression, and so are
+`not (a or b)` and `not a and not b`.
 
 ### The short-circuit rules
 
@@ -222,24 +248,24 @@ that means:
 |---|---|---|---|
 | `a and b` | `false` | No | `false` |
 | `a and b` | `true` | Yes | `b` |
-| `a and b` | `none` | Yes | `false` when `b` is false, otherwise `none` |
+| `a and b` | `none` | Yes | `false` when `b` is `false`, otherwise `none` |
 | `a or b` | `true` | No | `true` |
 | `a or b` | `false` | Yes | `b` |
-| `a or b` | `none` | No | `none` |
+| `a or b` | `none` | Yes | `true` when `b` is `true`, otherwise `none` |
 
-The asymmetry in the last row is the one to remember. An `and` with an unknown
-left operand can still be settled by a false right operand, so the right operand
-is evaluated. An `or` with an unknown left operand is unknown whatever is on the
-right, so the right operand is never reached.
+The two halves are mirror images, and the `none` rows are the ones to read twice.
+An unknown left operand settles nothing on its own, so the right operand is
+evaluated in both cases: under `and` a `false` on the right would make the answer
+`false`, and under `or` a `true` on the right would make it `true`. Only a left
+operand that decides alone, a `false` under `and` or a `true` under `or`, skips
+the right operand.
 
-The practical rule that falls out of it: **put the total test on the left.**
-
-```
-if not isNone(x) and x > 5      // works: the left operand is never absent
-if x > 5 and not isNone(x)      // absent when x is absent, so it never fires
-if isNone(x) or x > 5           // works
-if x > 5 or isNone(x)           // absent when x is absent, so it never fires
-```
+So order does not change what an expression means, but it does change what runs.
+That is worth two habits. Put the cheaper or more often decisive test on the
+left, because the right operand's work is saved on every bar the left one
+settles. And do not use an `or` as a shield for a possibly absent left operand:
+the right operand runs anyway, which matters when it holds a call that keeps
+state.
 
 ### Short-circuiting and calls that hold state
 

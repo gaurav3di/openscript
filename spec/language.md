@@ -276,7 +276,7 @@ Colours are also produced by functions: `rgb(r, g, b)`, `rgba(r, g, b, a)` with
 percentage of transparency.
 
 ```
-plot(signal, "Signal", rgb(255, 136, 0))
+plot(signalLine, "Signal", rgb(255, 136, 0))
 fill(upper, lower, fade(aqua, 88))
 ```
 
@@ -375,7 +375,7 @@ total = ema(close, 9) +
         ema(close, 21) +
         ema(close, 50)
 
-plot(macd, "MACD",
+plot(macdLine, "MACD",
      color = aqua,
      width = 2)
 
@@ -1345,9 +1345,9 @@ true:
 
 ```
 switch
-    case rsi > 70
+    case rsiValue > 70
         zone = "high"
-    case rsi < 30
+    case rsiValue < 30
         zone = "low"
     default
         zone = "mid"

@@ -1,6 +1,6 @@
 # OpenScript documentation
 
-By the end of this page you will know which of the seventy-one pages in this set
+By the end of this page you will know which of the seventy-two pages in this set
 answers the question in front of you, what order to read them in if you do not
 yet have a question, and what every convention in them means, so that no page
 has to explain itself twice.
@@ -119,7 +119,7 @@ Go straight to the shelf that holds your kind of question.
 
 ## How to read anything in this set
 
-Three conventions run through all seventy-one pages. Learning them here saves
+Three conventions run through all seventy-two pages. Learning them here saves
 every page from restating them.
 
 ### Examples are complete scripts
@@ -260,7 +260,7 @@ cannot move, and a section can.
 
 ## Every page
 
-Seventy-one pages plus this index, grouped by folder. The second column says what
+Seventy-two pages plus this index, grouped by folder. The second column says what
 the page answers, which is not the same thing as what it is called.
 
 ### Start here
@@ -317,10 +317,11 @@ the page answers, which is not the same thing as what it is called.
 
 | Page | Answers |
 |---|---|
-| [strategies/overview.md](./strategies/overview.md) | What a strategy does that a study does not, and in what order it happens on each bar |
-| [strategies/orders.md](./strategies/orders.md) | How to place, name, cancel and reverse an order, and what happens when the next signal arrives while one is still working |
+| [strategies/overview.md](./strategies/overview.md) | What a strategy does that a study does not, in what order it happens on each bar, and why it can do none of it for real until somebody arms it |
+| [strategies/orders.md](./strategies/orders.md) | How to declare the contracts a strategy trades, place, name, cancel and reverse an order on one of them, and what happens when the next signal arrives while one is still working |
+| [strategies/reading-the-books.md](./strategies/reading-the-books.md) | What a strategy's own order rows, fills and positions say, how to read them from a script, and why one fill can be reported twice without being counted twice |
 | [strategies/position-and-sizing.md](./strategies/position-and-sizing.md) | What a strategy knows about its own position, and how to size from quantity, lots, money at risk or volatility |
-| [strategies/exits-and-brackets.md](./strategies/exits-and-brackets.md) | How to attach a stop and a target, trail one, exit on the clock, and hold one stop over a position built from several legs |
+| [strategies/exits-and-brackets.md](./strategies/exits-and-brackets.md) | Every risk rule the language has, per leg, per strategy and per session, the order they are evaluated in, and which one to read in a log after a bad day |
 | [strategies/costs-and-fills.md](./strategies/costs-and-fills.md) | Where your backtest assumed each fill happened, what that assumption is worth, and how to price the real cost stack in |
 
 ### data/ (where the numbers come from)

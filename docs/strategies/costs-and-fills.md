@@ -97,11 +97,33 @@ them, and none of them is optimism:
   what the order is: a limit on the price you will accept after the trigger. The
   position it was supposed to close stays open.
 
-The practical discipline: run the strategy twice, once with the stop as a resting
-order and once as a rule in the script that exits at the next bar's open, and
-compare. If the two results are far apart, the strategy's returns are mostly a
+The practical discipline: run the strategy twice, once with the stop as a level the
+engine holds and once as a rule in the script that exits at the next bar's open,
+and compare. If the two results are far apart, the strategy's returns are mostly a
 claim about fill quality, and fill quality is the thing you have least control
 over.
+
+### Where a level's exit fills
+
+A stop, a target or a trail set as a level is not filled at the declaration's fill
+point. It fills where the level was, because that is what the order it sends does:
+
+- **A stop sends a stop order at its level and a target sends a limit order at its
+  level**, so a backtest fills at the level rather than at the next bar's open.
+- **When the bar's open is already beyond the level, the fill is at the open**,
+  because the level was gone before the bar began. That is the gap case, stated
+  rather than modelled away: on the day it matters most, a stop fills a long way
+  from its trigger.
+- **The declared slippage applies to a stop and not to a target.** A stop takes the
+  price on the other side and pays for it. A limit fills at its own price or not at
+  all, so charging it slippage would be charging for something that did not happen.
+- **When one bar's range contains both a leg's stop and its target, the stop is
+  taken.** Nothing in a bar says which came first, and assuming the better of the
+  two is how a backtest invents money that was never made.
+
+A level's exit order is an order like any other. It lands in the strategy's ledger,
+it obeys the lot and tick rules, and it can be refused: a stop that rounds to no
+whole lot is OS7005 and a level off the tick is OS7006.
 
 ## Slippage
 
@@ -398,7 +420,7 @@ script runs in all three places without being rewritten.
 |---|---|---|
 | Wonderful equity curve, terrible live account | Costs left at zero | Fill in the stack, then rerun |
 | The edge halves when slippage goes from one tick to two | The edge was fill quality | Trade a slower version of the idea |
-| Backtest fills every stop at the stop price | Gaps not considered | Read the gap days in the trade list by hand |
+| Every stop in the report filled exactly at its level | The gap days are the exception and you have not looked at them | Sort the trade list by the gap between the level and the fill |
 | Cost per trade looks too small | `"perTrade"` charged once per round trip instead of per fill | Run one round trip and read the report |
 | Intraday results are good and overnight ones are not | Carry and product type | Set `product` correctly and account for carry |
 | Costs changed and the results did not | The cost number is a literal nobody dares touch | Make it an `input` with a comment on its source |
@@ -407,7 +429,8 @@ script runs in all three places without being rewritten.
 
 - [overview.md](./overview.md) for the declaration options named here
 - [orders.md](./orders.md) for the order kinds whose fills these assumptions cover
+- [reading-the-books.md](./reading-the-books.md) for the ledger every one of these fills lands in
 - [position-and-sizing.md](./position-and-sizing.md) for the turnover these costs are charged on
-- [exits-and-brackets.md](./exits-and-brackets.md) for what a stop is really worth through a gap
+- [exits-and-brackets.md](./exits-and-brackets.md) for the levels whose exits fill where this page says they do
 - [../../spec/language.md](../../spec/language.md) for `fillOn`, `slippage` and the commission options
 - [../../examples/10-strategy-ema-cross.oscript](../../examples/10-strategy-ema-cross.oscript) for a declaration with the cost model filled in

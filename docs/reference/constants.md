@@ -170,21 +170,23 @@ level is not data and a trendline is.
 
 ---
 
-## Marker shapes, placements and sizes
+## Marker shapes and placements
 
-The arguments of `signal(text, color, at, shape, size)`.
+The arguments of `signal(text, color, at, shape)`.
 
 ### `at`
 
 | Value | Places the marker |
 |---|---|
-| `"auto"` | Above the bar when the text suggests a sell, below when it suggests a buy, above otherwise. The default |
-| `"above"` | Above the bar |
+| `"above"` | Above the bar. The default |
 | `"below"` | Below the bar |
 | `"price"` | At the bar's price |
 
-A script that cares says which. `"auto"` exists so that the common case,
-`signal("BUY")` and `signal("SELL")`, needs no argument at all.
+Say which. A call that names no `at` takes `"above"` whatever its text says, and
+there is no value that places the marker by reading that text, because a marker
+whose position depends on its own text reads differently on two engines. `at` is
+part of the marker's declaration and is fixed before bar 0, as `shape` and
+`color` are, so each takes a literal or an `input()` and never a per-bar value.
 
 ### `shape`
 
@@ -202,18 +204,11 @@ A script that cares says which. `"auto"` exists so that the common case,
 | `"flag"` |
 
 `signal` is the whole of shape plotting. One call and one named marker, in place of
-a plot call with six positional arguments choosing a shape, a location, a size and
-an offset.
+a plot call with six positional arguments choosing a shape, a location and an
+offset.
 
-### `size`
-
-| Value | Means |
-|---|---|
-| `"normal"` | The default, and the only size the specification names |
-
-**The specification is silent on the rest of this vocabulary.** It gives `"normal"`
-as the default and does not enumerate the alternatives, so a script that needs a
-larger or smaller marker has nothing to write today.
+A marker has no size argument. The ten shapes above and the three placements are
+the whole of the vocabulary.
 
 ---
 
@@ -535,13 +530,11 @@ one that names it.
 
 | Vocabulary | What is missing |
 |---|---|
-| `signal(size = ...)` | Only `"normal"` is named. No larger or smaller value is specified |
 | `cell(align = ...)`, `draw.label(align = ...)` | Only the two defaults, `"left"` and `"center"`, are named |
 | `order.place(side = ...)` | No accepted values are named |
 | `order.place(type = ...)` | Only `"market"` is named |
 | `order.roundToLot(direction = ...)` | Only `"down"` is named |
 | The named colours' channel values | Fixed in the library manifest and the conformance suite, not in the specification text |
-| Marker vocabulary in the compiled program | The compiled format records a narrower set of shapes and placements than `signal` accepts. Which set an engine must support end to end is not stated |
 
 ---
 

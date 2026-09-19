@@ -382,10 +382,10 @@ it where the values are sparse, such as a pivot series that is absent on most
 bars, so the few values that exist read as points rather than as a line between
 two distant bars.
 
-`signal(text, color = none, at = "auto", shape = "label", size = "normal")` is
-the whole of shape plotting: one call, one named marker on the bar. It may
-appear anywhere in the file, including inside an `if`, because it is a per-bar
-event rather than a declared column.
+`signal(text, color = none, at = "above", shape = "label")` is the whole of
+shape plotting: one call, one named marker on the bar. It may appear anywhere in
+the file, including inside an `if`, because it is a per-bar event rather than a
+declared column.
 
 ```
 if crossUp(fast, slow)
@@ -395,11 +395,14 @@ if crossDown(fast, slow)
     signal("SELL", at = "above", shape = "triangleDown")
 ```
 
-`at` takes `"auto"`, `"above"`, `"below"` or `"price"`. `shape` takes `"label"`,
-`"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`,
-`"square"`, `"diamond"`, `"cross"` and `"flag"`. With `at = "auto"` the marker
-sits above the bar when its text suggests a sell and below when it suggests a
-buy; a script that cares says which.
+`at` takes `"above"`, `"below"` or `"price"`, and defaults to `"above"`.
+`shape` takes `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`,
+`"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"` and `"flag"`.
+Say where the marker goes on every call, as both calls above do: no value picks
+the side by reading the text, because a marker whose position depends on its own
+text reads differently on two engines. `at`, `shape` and `color` are fixed
+before the first bar runs, so each must be a literal or an `input()`; a value
+that changes from bar to bar is OS3003.
 
 One thing to know before you build on it: `signal` does not fire on a bar that
 is still moving, unless the declaration sets `onUnconfirmed = true`. A marker

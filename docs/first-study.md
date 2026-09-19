@@ -322,9 +322,13 @@ part of the study's fixed shape. Its arguments:
 |---|---|---|
 | `text` | required | What the marker says |
 | colour | none | The marker's colour |
-| `at` | `"auto"` | `"auto"`, `"above"`, `"below"` or `"price"` |
+| `at` | `"above"` | `"above"`, `"below"` or `"price"` |
 | `shape` | `"label"` | `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"`, `"flag"` |
-| `size` | `"normal"` | The marker's size |
+
+Both calls above say where the marker goes, and yours should too: a call that
+names no `at` sits above the bar whatever its text says, and no value places it
+by reading that text, because a marker whose position depends on its own text
+reads differently on two engines.
 
 Notice that the two cross tests are computed at the top level, above the `if`
 statements that use them. That is not style; it is the rule that catches more

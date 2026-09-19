@@ -2,15 +2,17 @@
 // the day, with the first break of either side marked once.
 //
 // Exercises: the session namespace, state that resets on the day's first bar,
-// elapsed time arithmetic in milliseconds, background shading for a regime, and
-// a step plot for a level that only changes while the range is forming.
+// elapsed time arithmetic in milliseconds, background shading for a regime, a
+// step plot for a level that only changes while the range is forming, and an
+// input read straight into a declaration field that is fixed before bar 0.
 
 version 1
 
 study("Opening range", overlay = true, precision = 2)
 
 rangeMinutes = input(15, "Opening range, in minutes", min = 1, max = 240)
-shade        = input(true, "Shade the range")
+shadeOpacity = input(1,  "Shading opacity, 0 turns the shading off",
+                     min = 0, max = 1)
 
 var openTime  = none
 var rangeHigh = none
@@ -53,7 +55,15 @@ lowPlot  = plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
 // absent colour as "no colour was given" and falls back to the first plot's own
 // colour faded to twelve percent (stdlib 14.2), so none would still shade.
 // opacity is the dimmer over whatever colour is there, and zero is off.
-fill(highPlot, lowPlot, fade(aqua, 93), opacity = shade ? 1 : 0)
+//
+// The switch is a number input rather than a bool because opacity is a fixed
+// field of the band's declaration, settled before bar 0. Such a field holds a
+// literal, arithmetic over literals, or a bare input() whose resolved value fits
+// the field (language 13.2, compiled-program 2.3 and 3.5). An expression over an
+// input has nowhere to live: it is neither a value the compiler can fold nor a
+// reference to one input, and a bool would not fit a number 0 to 1 in any case.
+// issues/0003 argues whether the language should grow a form for it.
+fill(highPlot, lowPlot, fade(aqua, 93), opacity = shadeOpacity)
 
 // Behind the candles rather than as a fourth line, because "the range is still
 // forming" is a fact about the whole bar and has no price to sit at.

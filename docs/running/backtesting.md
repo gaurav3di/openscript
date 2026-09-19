@@ -35,11 +35,20 @@ A run is not a view of a script. It is a stored row, and the row holds:
 | From and to | The range of bars |
 | Input values | Every `input()` as it stood at the moment of the run |
 | Cost settings | Slippage, commission, product, lot size |
-| Result | Equity curve, trade list and the numbers derived from them |
+| Resolved legs | The contract each declared leg resolved to, which is what the orders carried |
+| Result | The order and fill ledger, the equity curve, the trade list, the named events, and the numbers derived from them |
 
-A result you cannot describe with those eight fields is a result you cannot
+A result you cannot describe with those nine fields is a result you cannot
 defend. Every one of them changes the answer, which is why every one of them is
 recorded rather than assumed.
+
+Two of the rows are worth a sentence each. **Resolved legs** matters because a leg
+described relatively, such as the nearest expiry at the money, resolves once before
+bar 0; recording the description would not let anybody reproduce the run, and
+recording the resolution does. **The ledger** is in the result rather than derived
+from it because every position and profit figure the run reports is folded from
+this strategy's own settled fills, so the ledger is the evidence and the curve is
+the summary.
 
 ## The file has to be a strategy
 
@@ -103,11 +112,14 @@ in the real market, and a backtest whose default is optimistic is a backtest
 that lies. `fillOn = "close"` exists, and every result it produces is better
 than the result you will get.
 
-**A stop and a target inside one bar have no defensible order.** If a bar's high
-reaches the target and its low reaches the stop, only the tick data the
-simulator does not have could say which came first. Either drop to an interval
-where the two levels are rarely inside one bar, or accept that the run resolves
-these ties by a fixed rule and treat every such trade as unknown.
+**When one bar's range contains both a leg's stop and its target, the stop is
+taken.** Only the tick data the simulator does not have could say which came
+first, and assuming the better of the two is how a backtest invents money that was
+never made. So the language states the rule rather than leaving two engines to
+disagree, and it states it against you. Two things follow: a run on a coarse
+interval quietly attributes every ambiguous bar to the stop, and the honest
+response is to drop to an interval where the two levels are rarely inside one bar,
+or to count those trades and know how many of them there are.
 
 **A coarser interval is not a slower version of a finer one.** A 15 minute
 script rerun on 1 hour bars is a different strategy with the same source: its
@@ -332,6 +344,12 @@ the from and to dates, and the input values. Restore the revision, set those
 inputs, run that range, and compare the trade list rather than the summary. Two
 runs with the same net profit and different trade lists are not the same run.
 
+Where the file declares legs, add the resolved contracts to that list. A relative
+leg resolves against the market as it stood before bar 0, so a rerun started on
+another day would resolve a different contract from the same description, and the
+two runs would not be comparable however carefully everything else was pinned. The
+run keeps what it resolved for exactly this reason.
+
 If the trade lists differ and everything in the row matches, the data changed.
 Adjusted history, a revised bar, a different vendor for the same symbol: all of
 them move a result, and none of them is in the script.
@@ -360,8 +378,13 @@ and it is the next page.
 
 - [reading-a-report.md](./reading-a-report.md) for what every number in the
   result means
-- [paper-and-live.md](./paper-and-live.md) for the step after a run you believe
+- [paper-and-live.md](./paper-and-live.md) for the step after a run you believe,
+  and for why nothing in a script can arm one
 - [scheduling.md](./scheduling.md) for running strategies on a calendar
+- [../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md) for
+  the rules a run evaluates after each bar, and where their exits fill
+- [../strategies/reading-the-books.md](../strategies/reading-the-books.md) for the
+  ledger a run stores alongside its curve
 - [../README.md](../README.md) for the documentation index
 - [../../spec/language.md](../../spec/language.md) for the execution model,
   absence and the strategy options
