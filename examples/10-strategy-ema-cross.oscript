@@ -28,11 +28,16 @@ stopDistance   = stopMult * atrValue
 targetDistance = targetMult * atrValue
 
 // Size from the distance to the stop, so a wide stop buys fewer units and every
-// trade risks the same amount. This is a cash figure and not a percentage of
-// equity: a script cannot read its own equity, so a percentage would have to be
-// applied to the starting capital and would stop being a percentage of anything
-// after the first trade.
-lotUnits  = max(chart.lotSize, 1)
+// trade risks the same amount. A cash figure and not a percentage of equity,
+// deliberately: pos.equity and order.qtyForEquityPercent both exist, and a
+// percentage of a growing account compounds the loss as well as the win, which
+// is a second decision hidden inside what looks like one.
+
+// chart.lotSize is absent, not 1, when the host has not said what a lot is, and
+// absence propagates through max as it does through arithmetic, so the fallback
+// goes inside the guard rather than around it. Without orElse every size would
+// be absent and the strategy would never place an order at all.
+lotUnits  = max(orElse(chart.lotSize, 1), 1)
 rawUnits  = stopDistance > 0 ? riskAmount / stopDistance : none
 orderQty  = isNone(rawUnits) ? none : floor(rawUnits / lotUnits) * lotUnits
 

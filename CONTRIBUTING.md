@@ -69,5 +69,6 @@ Three layers, and a change usually touches more than one:
 
 ```bash
 node scripts/check-names.mjs
+node scripts/check-examples.mjs
 npm test
 ```

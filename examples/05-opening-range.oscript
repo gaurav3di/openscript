@@ -46,9 +46,14 @@ if not forming and broken == 0 and not isNone(rangeHigh)
         broken = -1
         signal("BREAK DOWN")
 
-plot(rangeHigh, "Range high", aqua,   width = 2, style = "step")
-plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
-fill(rangeHigh, rangeLow, shade ? fade(aqua, 93) : none)
+highPlot = plot(rangeHigh, "Range high", aqua,   width = 2, style = "step")
+lowPlot  = plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
+
+// The shading switch is an opacity of zero, not a colour of none. fill reads an
+// absent colour as "no colour was given" and falls back to the first plot's own
+// colour faded to twelve percent (stdlib 14.2), so none would still shade.
+// opacity is the dimmer over whatever colour is there, and zero is off.
+fill(highPlot, lowPlot, fade(aqua, 93), opacity = shade ? 1 : 0)
 
 // Behind the candles rather than as a fourth line, because "the range is still
 // forming" is a fact about the whole bar and has no price to sit at.

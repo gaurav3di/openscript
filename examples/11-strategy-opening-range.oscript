@@ -67,7 +67,7 @@ if ready and ok and close < rangeLow
 if pos.size != 0 and not isNone(elapsed) and elapsed >= holdMinutes * 60000
     close()
 
-plot(rangeHigh, "Range high", aqua,   width = 2, style = "step")
-plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
-fill(rangeHigh, rangeLow, fade(aqua, 93))
+highPlot = plot(rangeHigh, "Range high", aqua,   width = 2, style = "step")
+lowPlot  = plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
+fill(highPlot, lowPlot, fade(aqua, 93))
 background(forming ? fade(silver, 92) : none)

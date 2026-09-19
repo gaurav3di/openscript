@@ -178,14 +178,14 @@ up is not renumbered.
 | Range | Kind | Covers | Severity | Entries |
 |---|---|---|---|---|
 | OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 22 |
-| OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 18 |
-| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 18 |
+| OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 19 |
+| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 20 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 9 |
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 15 |
-| OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 18 |
-| | | | **Total** | **132** |
+| OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
+| | | | **Total** | **136** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -262,9 +262,9 @@ The specification is several documents, and a rule is often stated where it
 belongs rather than here. Two kinds of difference are therefore possible, and
 both are resolved the same way: the catalogue is what the compiler emits.
 
-**Refinements.** `language.md` sometimes quotes a family code for a case this
-catalogue gives its own code, so that the fix can be specific rather than
-general. The family code remains correct for every case not listed here.
+**Refinements.** `language.md` and `stdlib.md` sometimes quote a family code for a
+case this catalogue gives its own code, so that the fix can be specific rather
+than general. The family code remains correct for every case not listed here.
 
 | Code | Refines | The case it takes over |
 |---|---|---|
@@ -272,6 +272,9 @@ general. The family code remains correct for every case not listed here.
 | OS2011 | OS2003 | A condition must be a bool |
 | OS2012 | OS2003 | The two arms of the ternary have different types |
 | OS2013 | OS2003 | An array literal mixes types |
+| OS2019 | OS2016 | A type that cannot be an array element |
+| OS3019 | OS3011 | A declaration handle where a runtime object belongs |
+| OS3020 | OS3011 | fill's first two arguments, which name two declared plots |
 
 **Reassignments.** Where a sibling document quotes a code that this catalogue
 assigns to something else, the catalogue's assignment is the one the compiler
@@ -379,7 +382,7 @@ Severity error. Stage lexer. Since language version 1. Reference language.md 3.1
 - `{expected}` is the leading space count every line of this block carries.
 - `{line}` is the line that opened the block.
 
-**Cause.** Every line of one block carries exactly the same leading whitespace, and a continuation line must be indented more deeply than the first line of its statement. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see.
+**Cause.** Every line of one block carries exactly the same leading whitespace, and a continuation line must be indented more deeply than the first line of its statement. A difference of one space is still a difference, because the alternative is a language where a block's extent depends on a tolerance nobody can see. A blank line and a comment-only line stand outside the rule: they carry no token and no indentation at all, so any leading whitespace is accepted on them and neither one is ever this error.
 
 **Fix.** Indent this line to {expected} spaces to keep it in the block, or to {line}'s own indentation to end the block here.
 
@@ -559,7 +562,7 @@ Severity error. Stage parser. Since language version 1. Reference language.md 3.
 
 - `{header}` is the keyword that opened the block, such as if, else, for, while, case or default.
 
-**Cause.** A header line introduces a block that consists of the following lines indented more deeply than the header. With nothing indented under it the header has no body, which is almost always a line that lost its indentation in a paste.
+**Cause.** A header line introduces a block that consists of the following lines indented more deeply than the header. With nothing indented under it the header has no body, which is almost always a line that lost its indentation in a paste. Blank and comment-only lines carry no token, so they never count as a body: a header followed only by those, and then by a line at or left of the header, is still this error.
 
 **Fix.** Indent the body under the header, or delete the header line if the body is genuinely empty.
 
@@ -800,7 +803,7 @@ Severity error. Stage parser. Since language version 1. Reference language.md 3.
 - `{word}` is the reserved word that was used as a name.
 - `{suggestion}` is a near name that is not reserved, derived from the word.
 
-**Cause.** The reserved words of language.md 3.4 include five that version 1 does not implement (import, map, matrix, type, as). They are reserved now so that implementing them later cannot break a script that used one as a name.
+**Cause.** The reserved words of language.md 3.4 include five that version 1 does not implement (import, map, matrix, type, as). They are reserved now so that implementing them later cannot break a script that used one as a name. A named argument label is not a name: it is matched against the callee's parameter list and is never looked up in any scope, so plot(v, "V", color = aqua) is correct and is not this error. The rule stops at the label. A parameter of a user function is an ordinary identifier, because the body refers to it, so fn f(color = red) is this error.
 
 **Fix.** Rename it; {suggestion} keeps the meaning and is not reserved.
 
@@ -959,16 +962,16 @@ fn smooth(src) =>
 
 ### OS2003 Types do not match
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 10.1. Test `tests/errors/OS2003`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 5.4, 10.1. Test `tests/errors/OS2003`.
 
 **Message.** `{leftType} and {rightType} do not mix here.`
 
 - `{leftType}` is the type of the left operand or of the name's first assignment.
 - `{rightType}` is the type of the right operand or of the value being assigned.
 
-**Cause.** There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money.
+**Cause.** There is no implicit conversion anywhere in the language: 0 is not false, an empty string is not false, and a number is not a string. A name's type is fixed by its first assignment, so assigning a different type later arrives here too. Every silent coercion rule is a source of bugs that survive review, and a trading script that quietly treats a zero as a false is a bug nobody finds until it costs money. A declaration handle arrives here as well: plot(), plotCandles(), fill() and level() return the compile-time half of a declaration (language.md 5.4), so a handle in a position that requires a value has nothing to give, and the message names its type as plot, fill or level.
 
-**Fix.** Convert explicitly: text(x) for a string, number(s) for a number, bool(x) for a bool, or use a separate name for the second value.
+**Fix.** Convert explicitly: text(x) for a string, number(s) for a number, bool(x) for a bool, or use a separate name for the second value. A plot, fill or level handle converts to nothing: leave it named at the top level, pass it to fill(), and use draw.line() or draw.box() where the script needs something it can keep.
 
 Before:
 
@@ -984,13 +987,13 @@ s = "count: " + text(5)
 
 ### OS2004 This value has no history
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.2. Test `tests/errors/OS2004`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.2, 5.4. Test `tests/errors/OS2004`.
 
 **Message.** `{expr} has no history, so [] cannot read a past value of it.`
 
 - `{expr}` is the expression the history operator was applied to.
 
-**Cause.** History is retained for four kinds of value: a built-in series, a name assigned at the top level of the file, a call to a function declared to return a series, and a series parameter of a user function. Retaining it for every temporary inside every block would cost memory per bar and would not run fifty thousand bars in a browser tab.
+**Cause.** History is retained for four kinds of value: a built-in series, a name assigned at the top level of the file, a call to a function declared to return a series, and a series parameter of a user function. Retaining it for every temporary inside every block would cost memory per bar and would not run fifty thousand bars in a browser tab. A name bound to a declaration handle is none of the four, although it sits at the top level: it is a compile-time binding with no per-bar value at all. A runtime object carries no history either, so [] on a line, a label, a box, a polyline or a table is this error as well (language.md 5.4).
 
 **Fix.** Assign the value to a name at the top level of the file, then read that name's history.
 
@@ -1284,35 +1287,35 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 
 **Message.** `An empty array literal needs its element type from an annotation or from a first use.`
 
-**Cause.** An array is homogeneous, so its element type has to be known before anything is pushed into it. An empty literal with nothing around it to infer from leaves the type open, and the language does not guess.
+**Cause.** An array is homogeneous, so its element type has to be known before anything is pushed into it. An empty literal takes that type from an annotation when it has one, and otherwise from the first call in the file, in source order, that puts an element into it: push, unshift, insert or set. With neither an annotation nor such a call, nothing in the file says what the array holds and the language does not guess.
 
-**Fix.** Annotate the declaration: var hits: array<number> = [].
+**Fix.** Annotate the declaration, var hits: array<number> = [], or put the first element in with push(), unshift(), insert() or set() and let the type be read from that call.
 
 Before:
 
 ```
 var hits = []
-push(hits, close)
+plot(size(hits), "Hits", aqua)
 ```
 
 After:
 
 ```
 var hits: array<number> = []
-push(hits, close)
+plot(size(hits), "Hits", aqua)
 ```
 
 ### OS2016 Unknown type in an annotation
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 19. Test `tests/errors/OS2016`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 5.4, 19. Test `tests/errors/OS2016`.
 
 **Message.** `{type} is not a type.`
 
 - `{type}` is the word that was written where a type was expected.
 
-**Cause.** The types are number, string, bool, color, none and array<T>, with series in front where a per-bar value is meant. There is no integer type: a length, a bar count and a price are all number.
+**Cause.** The types are number, string, bool, color, none, array<T> and the five runtime object types line, label, box, polyline and table, with series in front where a per-bar value is meant. There is no integer type: a length, a bar count and a price are all number. The declaration handle types plot, fill and level are deliberately not in the grammar, so writing one in an annotation is this error as well: a handle can never be a var, a parameter, a return value or an array element, and there is nothing left for an annotation to describe.
 
-**Fix.** Use number, string, bool, color or array<T>, with series in front for a per-bar value.
+**Fix.** Use number, string, bool, color, array<T>, or an object type (line, label, box, polyline, table), with series in front for a per-bar value.
 
 Before:
 
@@ -1337,7 +1340,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 - `{name}` is the function name.
 - `{line}` is the line of the first declaration.
 
-**Cause.** There is no overloading in version 1, so one name is one function. Two declarations would make the call site's meaning depend on argument types, which is exactly the kind of resolution a reader cannot do in their head.
+**Cause.** A user function is not overloaded in version 1, so one name in a file is one function. Two declarations would make the call site's meaning depend on argument types, which is exactly the kind of resolution a reader cannot do in their head. The library's own overloads are a different thing: they are a fixed published set, round() and clear() among them, and a script cannot add to it.
 
 **Fix.** Rename one of them, or give the one function a default argument that covers both uses.
 
@@ -1376,6 +1379,33 @@ After:
 
 ```
 fn ratio(src, len) => src / src[len]
+```
+
+### OS2019 This type cannot be an array element
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 14.1, 19. Test `tests/errors/OS2019`.
+
+**Message.** `array<{type}> is not a type: {type} cannot be an array element.`
+
+- `{type}` is the element type written inside the angle brackets.
+
+**Cause.** An array element is a number, a string, a bool, a color, or one of the runtime object types of language.md 5.4, and nothing else. A declaration handle is the compile-time half of a declaration and has no run-time value, so there would be nothing to store. A series is a per-bar history, and an array of them would be a second history the engine retained per element, as many as the script chose to push. An array of arrays is the matrix that language.md 14.2 reserves for a later version.
+
+**Fix.** Use an element type an array holds: number, string, bool, color, line, label, box, polyline or table. A plot cannot be kept anywhere, so declare each plot at the top level and give it its own name.
+
+Before:
+
+```
+var edges: array<plot> = []
+push(edges, plot(upper, "Upper", aqua))
+```
+
+After:
+
+```
+upperEdge = plot(upper, "Upper", aqua)
+lowerEdge = plot(lower, "Lower", aqua)
+fill(upperEdge, lowerEdge, color = fade(aqua, 88))
 ```
 
 ---
@@ -1515,10 +1545,10 @@ Severity error. Stage checker. Since language version 1. Reference language.md 7
 
 **Message.** `{name} defines part of the study's fixed shape and cannot appear inside {construct}.`
 
-- `{name}` is the call, one of plot, fill, level or table.
+- `{name}` is the call, one of plot, plotCandles, fill, level or table.
 - `{construct}` is the enclosing construct, such as an if block, a loop or a function body.
 
-**Cause.** The set of plotted columns, fills, levels and tables is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.
+**Cause.** The set of plotted columns, bands, levels and grids is fixed before bar 0 so the chart can build a legend, an axis and a settings dialog. A call inside a branch would add a column on some bars and not others, and there would be nothing stable to name. table() is on the list for the same reason, the grid's size and corner being part of the study's fixed shape, although what it returns is a runtime object that cell() writes to per bar (language.md 5.4). A drawing or an alert call inside a request expression is the same error for a related reason: that expression is evaluated on another instrument's bars, so there is no bar of this chart for it to draw on.
 
 **Fix.** Move the call to the top level and hide it per bar by passing none: plot(cond ? value : none, ...). Inside a request expression, read the value first and draw with it afterwards.
 
@@ -1621,16 +1651,16 @@ if close > open
 
 ### OS3010 Two arguments that cannot both be given
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS3010`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.3, 15.3. Test `tests/errors/OS3010`.
 
 **Message.** `{first} and {second} set the same thing two ways.`
 
 - `{first}` is the first of the two arguments.
 - `{second}` is the second of the two arguments.
 
-**Cause.** An exit level can be written as an absolute price or as a distance from the entry, and both at once would have to be reconciled. Every rule for reconciling them (the nearer one, the later one, the absolute one) surprises somebody, so the call is refused and the script says which it meant.
+**Cause.** Two arguments that set one thing have to be reconciled, and every rule for reconciling them surprises somebody, so the call is refused and the script says which it meant. There are two pairs. An exit level can be written as an absolute price or as a distance from the entry, and the candidate rules (the nearer one, the later one, the absolute one) each surprise someone. A band takes color for both of its sides, or colorUp and colorDown for the leading and the lagging side, and color together with either of those leaves no answer for which side wins.
 
-**Fix.** Keep one of the two: an absolute price, or a distance from the entry.
+**Fix.** Keep one of the two: an absolute price or a distance from the entry, one colour for the whole band or a colour for each side.
 
 Before:
 
@@ -1655,7 +1685,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 - `{expected}` is the declared parameter type.
 - `{found}` is the type of the expression at the call site.
 
-**Cause.** Arguments are checked against the declared parameter types, with broadcast as the only widening: a plain value may be passed where a series is expected, and it is read as that same value on every bar. Nothing else converts on its own.
+**Cause.** Arguments are checked against the declared parameter types, with broadcast as the only widening: a plain value may be passed where a series is expected, and it is read as that same value on every bar. Nothing else converts on its own. A declaration handle passed to an argument that does not take one arrives here too; where that argument wanted a runtime object the case has its own code, OS3019, and fill's two plot arguments have OS3020.
 
 **Fix.** Convert the value with text(), number() or bool(), or pass an expression of type {expected}.
 
@@ -1806,11 +1836,11 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 
 **Message.** `{kind} titles must be unique in a file; {title} is also used at line {line}.`
 
-- `{kind}` is the thing being titled: plot, fill, level, input or table.
+- `{kind}` is the thing being titled: plot, plotCandles, level, input or table.
 - `{title}` is the repeated title, quoted.
 - `{line}` is the line of the first use of that title.
 
-**Cause.** The legend row, the settings dialog and the saved layout all key a column by its title, and an alert message names it. Two columns with one title would overwrite each other's saved settings.
+**Cause.** The legend row, the settings dialog and the saved layout all key a column by its title, and an alert message names it. Two columns with one title would overwrite each other's saved settings. fill is not on the list: a band has no title of its own and is identified by the two plots it is drawn between.
 
 **Fix.** Rename one of them so each title appears once.
 
@@ -1851,6 +1881,61 @@ After:
 
 ```
 mode = input("fast", "Mode", options = ["fast", "slow"])
+```
+
+### OS3019 A declaration handle in an object argument
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 15.3. Test `tests/errors/OS3019`.
+
+**Message.** `{name}'s {argument} is {expected}; {found} is a declaration handle, which has no value at run time.`
+
+- `{name}` is the function being called.
+- `{argument}` is the parameter name.
+- `{expected}` is the object type the parameter takes.
+- `{found}` is the handle type at the call site: plot, fill or level.
+
+**Cause.** plot(), plotCandles(), fill() and level() return a declaration handle: the compile-time half of a declaration, an entry in the program's outputs, with no run-time representation at all. The draw setters, cell() and clear() take a runtime object, which is a value the script made on a bar and can keep, move and delete. The two kinds are separated in the type system for exactly this reason, and fill() is the one call in version 1 that takes a handle.
+
+**Fix.** Pass an object the script created with draw.line(), draw.box() or draw.label(), and change a plot's own appearance through the arguments of the plot call instead.
+
+Before:
+
+```
+upper = plot(basis + dev, "Upper", aqua)
+draw.setColor(upper, red)
+```
+
+After:
+
+```
+plot(basis + dev, "Upper", color = close > basis ? lime : red)
+```
+
+### OS3020 fill needs two declared plots
+
+Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 15.3. Test `tests/errors/OS3020`.
+
+**Message.** `fill's {argument} is {found}; it takes a plot declared by plot() or plotCandles().`
+
+- `{argument}` is the parameter that was given the wrong thing, plotA or plotB.
+- `{found}` is the type of the expression at the call site.
+
+**Cause.** A band is one entry of the chart contract's shaded bands, and that entry holds the two plot keys the band is drawn between (compiled-program.md 2.8). A bare expression has no key, because no column was ever declared for it, so there is nothing in the contract for it to compile into. Naming the two edges is what makes a band readable as well: it is drawn between two columns the chart already shows, rather than instead of them.
+
+**Fix.** Plot both edges at the top level, name each one, and pass the two names to fill().
+
+Before:
+
+```
+fill(basis + dev, basis - dev, color = fade(aqua, 88))
+```
+
+After:
+
+```
+upper = plot(basis + dev, "Upper", aqua)
+lower = plot(basis - dev, "Lower", aqua)
+fill(upper, lower, color = fade(aqua, 88))
 ```
 
 ---
@@ -1966,22 +2051,24 @@ last = size(values) > 10 ? values[10] : none
 
 ### OS4005 The drawing object no longer exists
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4005`.
+Severity error. Stage engine. Since language version 1. Reference language.md 5.4. Test `tests/errors/OS4005`.
 
 **Message.** `This {kind} was deleted on bar {bar} and cannot be changed.`
 
 - `{kind}` is the object kind: line, label, box or polyline.
 - `{bar}` is the bar index the object was deleted on.
 
-**Cause.** A drawing object lives from the bar that created it until the bar that deletes it. A handle kept in a var outlives the object, so moving a deleted object is a script holding a stale handle, which is worth saying rather than ignoring.
+**Cause.** An object lives from the bar that created it until the bar that deletes it, and nothing else ends its life: dropping the last name that refers to one leaves it on the chart, because there is no collection of unreachable objects. This error is the other side of that rule. A name kept in a var outlives the object it was given, so a setter reaching a deleted object is a script that has lost track of its own state and will go on doing so. A table never arrives here, because a table is never deleted: clear(t) empties it and the grid lives as long as the study. OS8019 warns about the shape that leads here, at compile time.
 
-**Fix.** Set the handle to none when you delete the object, and test isNone(handle) before changing it.
+**Fix.** Assign none to the name on the same path as the delete, and test isNone() on it before changing the object.
 
 Before:
 
 ```
 var top = none
-if newHigh
+if isNone(top)
+    top = draw.line(time, low, time, high)
+if close < open
     draw.delete(top)
 draw.setTo(top, time, high)
 ```
@@ -1990,7 +2077,9 @@ After:
 
 ```
 var top = none
-if newHigh
+if isNone(top)
+    top = draw.line(time, low, time, high)
+if close < open
     draw.delete(top)
     top = none
 if not isNone(top)
@@ -3648,7 +3737,7 @@ Severity warning. Stage checker. Since language version 1. Reference language.md
 - `{name}` is the name that is never read.
 - `{line}` is the line of its assignment.
 
-**Cause.** The statement still runs on every bar, so an unread name costs time on fifty thousand bars and tells the next reader that something depends on it. It is usually the remains of a calculation that was replaced.
+**Cause.** The statement still runs on every bar, so an unread name costs time on fifty thousand bars and tells the next reader that something depends on it. It is usually the remains of a calculation that was replaced. A name bound to a declaration handle is exempt: it is a compile-time binding with nothing left in the bar loop, and naming a fill or a level result and never reading it is legal (language.md 5.4).
 
 **Fix.** Use the value, or delete the line.
 
@@ -3879,6 +3968,39 @@ After:
 ```
 len = input(20, "Length")
 plot(ema(close, len), "EMA", aqua)
+```
+
+### OS8019 A deleted object is still held
+
+Severity warning. Stage checker. Since language version 1. Reference language.md 5.4. Test `tests/errors/OS8019`.
+
+**Message.** `{name} still holds the {kind} deleted at line {line}.`
+
+- `{name}` is the name or the array that refers to the deleted object.
+- `{kind}` is the object kind: line, label, box or polyline.
+- `{line}` is the line the delete is written on.
+
+**Cause.** An object lives until the script deletes it, and deleting it touches neither the name nor the array element that refers to it: there is no collection of unreachable objects, because unreachable and no longer wanted are different facts and only the script knows the second. What is left is stale rather than absent, so the next setter that reaches it stops the bar with OS4005, usually many bars after the line that caused it.
+
+**Fix.** Assign none to the name on the same path as the delete, and where the object came out of an array, remove the element as well as deleting the object.
+
+Before:
+
+```
+var zones: array<box> = []
+push(zones, draw.box(time, low, time, high))
+if size(zones) > 20
+    draw.delete(element(zones, 0))
+```
+
+After:
+
+```
+var zones: array<box> = []
+push(zones, draw.box(time, low, time, high))
+if size(zones) > 20
+    draw.delete(element(zones, 0))
+    shift(zones)
 ```
 
 ---

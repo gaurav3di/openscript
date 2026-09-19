@@ -4,27 +4,79 @@ One row per language feature. Each row says what the feature is, whether it is
 specified, implemented or planned, which specification section defines it, and
 which test proves it.
 
-**There is no completion percentage in this file.** The percentage is computed
-and printed by continuous integration, which reads these tables, counts the rows,
+**There is no completion percentage in this file.** The percentage is computed and
+printed by continuous integration, which reads these tables, counts the rows,
 counts the rows marked `implemented`, confirms that each of those rows names a
 test that exists and passes, and prints the ratio. Nobody types a number, so
-nobody can be optimistic about one. The build fails in three cases:
+nobody can be optimistic about one.
 
-1. A row is marked `implemented` and the test it names does not exist, or exists
-   and fails.
-2. A conformance case exists that no row names. Coverage that no feature claims
-   is coverage that proves nothing.
-3. A row names a specification section that does not exist in a document that
-   exists. A `planned` row may name a planned document; see the document table
-   below.
+---
+
+## The rule continuous integration enforces
+
+The checker reads this file and takes every table row that sits under a numbered
+`##` section heading below the horizontal rule after this preamble. Each such row
+is a feature row with five cells, in order: Feature, What it is, Status, Section,
+Test. Tables above that rule are prose and are not read.
+
+**A row is valid when all five of these hold.**
+
+1. **Status** is exactly one of `specified`, `implemented`, `planned`, in
+   backticks.
+2. **Section** is either the literal `none` or a comma-separated list of one or
+   more citations. A citation is a document name in backticks, optionally followed
+   by one space and a locator. The document must be a Markdown file that exists in
+   `spec/`. The locator is either a section number, digits separated by dots, or
+   an error code matching `OS[0-9]{4}`, and it must exist as a heading in that
+   document: a section number matches the regular expression
+   `^#{2,4} <locator>[. ]` and an error code matches `^### <code> `. A citation
+   with no locator names the document as a whole and resolves when the file
+   exists.
+3. A row whose Status is `specified` or `implemented` has a Section that is not
+   `none`. A row whose Status is `planned` may have either, and cites a section
+   only when that section names the feature without defining it.
+4. **Test** is exactly one identifier in backticks, of the form `<area>/<name>` or
+   `unit:<area>/<name>`, where `<area>` is one of the areas listed below and
+   `<name>` is lowercase letters, digits and hyphens. No two rows in this file
+   carry the same identifier.
+5. A row whose Status is `implemented` names a test that exists and passed in this
+   run: a `unit:` identifier is a compiler unit test, and any other is the
+   directory `cases/<identifier>` of the conformance suite.
+
+**The build fails when any of these is true.**
+
+1. A feature row is invalid under any of the five rules above. The message names
+   the section, the feature and the rule.
+2. A citation does not resolve: the document is absent from `spec/`, or the
+   locator is not a heading in it. This is the failure that this file was rebuilt
+   to remove, and it is the reason the checker resolves every citation on every
+   run rather than trusting the text.
+3. A conformance case directory exists that no row names. Coverage that no feature
+   claims is coverage that proves nothing.
+4. Two rows name the same test identifier.
+
+**What it prints on success:** the row count, the count per status, and the
+implemented ratio.
+
+### One thing conformance.md says too broadly
+
+`conformance.md` section 2 says both that a case with no matching matrix row fails
+the build and that a matrix row naming a case that does not exist fails the build.
+Only the first half holds unconditionally, and rule 5 above is the whole of the
+second half: the Test cell of a `specified` or `planned` row reserves an
+identifier, it does not claim the case is written. The reason is that this matrix
+is written before the suite, so under the broader reading no row could be added
+until its case existed, which would make the matrix a record of the suite rather
+than a plan for it, while the half that matters, that no case exists which no
+feature claims, is untouched.
 
 ## Status values
 
 | Status | Means |
 |---|---|
-| `specified` | A specification section defines the behaviour completely. No implementation yet. |
+| `specified` | A section of a document that exists defines the behaviour completely. No implementation yet. |
 | `implemented` | Specified, implemented, and the named test passes in the last CI run. |
-| `planned` | Agreed as in scope for language version 1, but not yet written into a specification section. The section column names where it will be defined. |
+| `planned` | Agreed as in scope for language version 1, and not yet defined completely by any section. |
 
 Every row in this matrix is currently `specified` or `planned`, because the
 compiler is not written yet. The first `implemented` row appears when a compiler
@@ -32,35 +84,70 @@ stage passes the test that row names, and not before.
 
 `planned` is not a soft form of `specified`. A `planned` row means the design
 question is still open in at least one detail, and that detail has to be decided
-and written down before any code is written for it, because a rule that is
-decided in code is a rule that two engines will decide differently.
+and written down before any code is written for it, because a rule that is decided
+in code is a rule that two engines will decide differently.
 
-## Specification documents cited
+**A library entry that `stdlib.md` marks `(planned)` is `planned` here.** Such an
+entry names a call and its shape so the surface is legible, as `stdlib.md` section
+1 says, and does not define its behaviour; calling one is OS2001. Those entries
+are collected into one row per library section rather than one row per name, so
+the planned count stays readable.
 
-| Document | State |
+## Documents a row may cite
+
+All five exist. There is no planned document, and a citation to a document that
+does not exist is a build failure, not a promise.
+
+| Document | Holds |
 |---|---|
-| `language.md` | Exists. Syntax, types, scope, the per-bar model. |
-| `compiled-program.md` | Planned. The instruction schema every engine reads. |
-| `errors.md` | Planned. The error catalogue. |
-| `conformance.md` | Exists. How the suite works and what passing means. |
-| `library.md` | Planned. Generated per-function reference: signature, exact warmup, absence behaviour. |
-| `surface.md` | Planned. The drawing surface: plots, fills, levels, bar colour, background, tables, drawing objects, alerts. |
-| `strategy.md` | Planned. Orders, position, cost model, the performance report. |
+| `language.md` | Syntax, types, scope, the per-bar execution model, the shape of the library |
+| `stdlib.md` | The library catalogue: every name a script can call, its signature, its warmup, where it lands in the chart contract |
+| `compiled-program.md` | The versioned schema and machine every engine reads |
+| `errors.md` | The error catalogue: code, cause, fix, example, for every code the compiler or an engine can emit |
+| `conformance.md` | How the suite works, and what a passing result entitles an implementation to claim |
+
+Where two of them disagree, `errors.md` wins about the text of a code,
+`language.md` wins about a rule of the language, and `stdlib.md` wins about a
+function.
+
+## Two documents that disagree, and which one is right
+
+Both are recorded here because a matrix that hid them would be measuring a
+specification that does not exist. Neither is a row: a row states one settled
+behaviour, and each of these needs an entry in `issues/` against the stale
+document.
+
+**Object lifetime.** `language.md` section 5.4 says a runtime object lives until
+the script deletes it, that dropping the last name referring to it does not delete
+it, and that there is no collection of unreachable objects.
+`compiled-program.md` section 3.2 says the object heap keeps what is reachable
+from cells and from strategy state. `language.md` is right and that line of
+`compiled-program.md` is stale, because when a drawing stops drawing is a rule of
+the language, and a reachability test would erase a line the moment a script
+reused the variable holding it.
+
+**The marker enumeration.** `stdlib.md` section 14.3 gives `signal` an `at` of
+four values and a `shape` of ten. `compiled-program.md` section 2.8 gives the
+marker a `position` of three and a `shape` of five. `stdlib.md` is right and
+`compiled-program.md` section 2.8 is the stale document, because the library is
+the authority about a function's arguments and the chart contract already carries
+the wider set, so the format has to widen rather than the library shrink.
 
 ## Test identifiers
 
 A test identifier is `<area>/<name>`. That is also the path of the conformance
-case directory, relative to the suite root, so a row in this table and a
-directory on disk are the same string. `conformance.md` defines the case layout.
+case directory, relative to the suite root, so a row in this table and a directory
+on disk are the same string. `conformance.md` section 2 defines the case layout.
 
 An identifier prefixed `unit:` is a compiler unit test rather than a conformance
 case, used where the thing being proved is a diagnostic or a compiler-internal
 invariant and there are no bars to run.
 
-Areas: `lex`, `version`, `type`, `absent`, `bar`, `persist`, `expr`, `flow`,
-`fn`, `scope`, `decl`, `input`, `array`, `str`, `math`, `color`, `ta`, `plot`,
-`fill`, `level`, `barcolor`, `background`, `table`, `draw`, `time`, `session`,
-`req`, `alert`, `order`, `pos`, `perf`, `err`, `log`, `prog`.
+Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
+`expr`, `flow`, `fn`, `scope`, `decl`, `input`, `array`, `lib`, `str`, `math`,
+`color`, `ta`, `series`, `time`, `session`, `plot`, `fill`, `level`, `barcolor`,
+`background`, `table`, `draw`, `req`, `alert`, `order`, `pos`, `perf`, `err`,
+`log`, `prog`, `conf`.
 
 ---
 
@@ -68,571 +155,799 @@ Areas: `lex`, `version`, `type`, `absent`, `bar`, `persist`, `expr`, `flow`,
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| Source encoding | UTF-8 text, a leading byte order mark accepted and ignored | specified | `language.md` 3.1 | `unit:lex/encoding-bom` |
-| Line ending normalisation | CRLF folded to LF before anything else, so one file compiles identically on any operating system | specified | `language.md` 3.1 | `unit:lex/line-endings` |
-| Illegal character rejection | Anything outside the permitted set, including a non-breaking space or a typographic quote, is OS1001 at the character | specified | `language.md` 3.1 | `unit:lex/illegal-character` |
-| Line comment | `//` to end of line, and not inside a string literal | specified | `language.md` 3.2 | `unit:lex/comment` |
-| No block comment | The form does not exist, so an unterminated one cannot swallow a file | specified | `language.md` 3.2 | `unit:lex/no-block-comment` |
-| Identifiers | ASCII letter or underscore, then letters, digits, underscores; case sensitive | specified | `language.md` 3.3 | `unit:lex/identifier` |
-| Reserved words | The version 1 reserved list, including words reserved but unused | specified | `language.md` 3.4 | `unit:lex/reserved-words` |
-| Decimal number literal | Integer, fractional, and a leading `.` with no digit before it | specified | `language.md` 3.5 | `lex/number-decimal` |
-| Digit group separator | `_` between digits, carrying no meaning | specified | `language.md` 3.5 | `lex/number-underscore` |
-| Exponent form | `2.5e-4` | specified | `language.md` 3.5 | `lex/number-exponent` |
-| Hexadecimal literal | `0xFF`, with no octal and no binary form, so `010` is ten | specified | `language.md` 3.5 | `lex/number-hex` |
-| Unary minus on a literal | A negative number is an operator applied to a literal, not part of it | specified | `language.md` 3.5 | `lex/number-negative` |
-| String literal | Double or single quoted, the two forms identical | specified | `language.md` 3.6 | `lex/string-literal` |
-| String escapes | `\\ \" \' \n \t \r \0 \uXXXX`, any other backslash sequence OS1004 | specified | `language.md` 3.6 | `lex/string-escapes` |
-| Unterminated string | OS1004 reported at the opening quote, naming the missing delimiter | specified | `language.md` 3.6 | `unit:lex/string-unterminated` |
-| Boolean literals | `true` and `false`, of type `bool`, never numbers | specified | `language.md` 3.7 | `lex/bool-literal` |
-| Named colour literal | Nineteen bare names, no prefix | specified | `language.md` 3.8 | `lex/color-named` |
-| Hex colour literal | `#rrggbb` and `#rrggbbaa` | specified | `language.md` 3.8 | `lex/color-hex` |
-| Absent literal | `none`, written bare, with its own type | specified | `language.md` 3.9 | `lex/none-literal` |
-| Newline terminates a statement | One statement per line, no separator; a `;` is OS1007 | specified | `language.md` 3.10 | `unit:lex/no-semicolon` |
-| Indentation blocks | A header line and the more deeply indented lines under it | specified | `language.md` 3.10 | `lex/block-indent` |
-| Spaces only | A tab in leading whitespace is OS1002, because a tab's width is an editor setting | specified | `language.md` 3.10 | `unit:lex/tab-indent` |
-| Sibling indentation equality | Every line of one block carries identical leading whitespace, or OS1003 | specified | `language.md` 3.10 | `unit:lex/indent-mismatch` |
-| Empty block | A header with no indented body is OS1010 | specified | `language.md` 3.10 | `unit:lex/empty-block` |
-| Continuation by open bracket | An unclosed `(` or `[` continues the statement | specified | `language.md` 3.11 | `lex/continuation-bracket` |
-| Continuation by trailing token | A trailing binary operator, comma, `?`, `:` or `=` continues the statement | specified | `language.md` 3.11 | `lex/continuation-operator` |
-| Continuation by backslash | A trailing `\` continues the statement | specified | `language.md` 3.11 | `lex/continuation-backslash` |
-| Continuation indentation | A continuation line must be indented past the statement's first line, or OS1003 | specified | `language.md` 3.11 | `unit:lex/continuation-indent` |
-| Operator token set | The exact punctuation list of section 3.12 | specified | `language.md` 3.12 | `unit:lex/operator-tokens` |
-| Rejected operator spellings | `!`, `&&`, `\|\|`, `^`, `;` and the increment operators do not exist, each with a named fix | specified | `language.md` 3.12 | `unit:lex/rejected-operators` |
+| Source encoding | UTF-8 text, a leading byte order mark accepted and ignored | `specified` | `language.md` 3.1 | `unit:lex/encoding-bom` |
+| Line ending normalisation | CRLF folded to LF before anything else, so one file compiles identically on any operating system | `specified` | `language.md` 3.1 | `unit:lex/line-endings` |
+| Illegal character rejection | Anything outside the permitted set, including a non-breaking space or a typographic quote, is OS1001 at the character | `specified` | `language.md` 3.1, `errors.md` OS1001 | `unit:lex/illegal-character` |
+| Line comment | `//` to end of line, and not inside a string literal | `specified` | `language.md` 3.2 | `unit:lex/comment` |
+| No block comment | The form does not exist, so an unterminated one cannot swallow a file | `specified` | `language.md` 3.2 | `unit:lex/no-block-comment` |
+| Identifiers | ASCII letter or underscore, then letters, digits, underscores; case sensitive | `specified` | `language.md` 3.3 | `unit:lex/identifier` |
+| Reserved words | The version 1 reserved list, including words reserved but unused | `specified` | `language.md` 3.4, `errors.md` OS1019 | `unit:lex/reserved-words` |
+| Decimal number literal | Integer, fractional, and a leading `.` with no digit before it | `specified` | `language.md` 3.5 | `lex/number-decimal` |
+| Digit group separator | `_` between digits, carrying no meaning | `specified` | `language.md` 3.5 | `lex/number-underscore` |
+| Exponent form | `2.5e-4` | `specified` | `language.md` 3.5 | `lex/number-exponent` |
+| Hexadecimal literal | `0xFF`, with no octal and no binary form, so `010` is ten | `specified` | `language.md` 3.5 | `lex/number-hex` |
+| Unary minus on a literal | A negative number is an operator applied to a literal, not part of it | `specified` | `language.md` 3.5 | `lex/number-negative` |
+| String literal | Double or single quoted, the two forms identical | `specified` | `language.md` 3.6 | `lex/string-literal` |
+| String escapes | `\\ \" \' \n \t \r \0 \uXXXX`, any other backslash sequence OS1005 | `specified` | `language.md` 3.6, `errors.md` OS1005 | `lex/string-escapes` |
+| Unterminated string | OS1004 reported at the opening quote, naming the missing delimiter | `specified` | `language.md` 3.6, `errors.md` OS1004 | `unit:lex/string-unterminated` |
+| Boolean literals | `true` and `false`, of type `bool`, never numbers | `specified` | `language.md` 3.7 | `lex/bool-literal` |
+| Named colour literal | Nineteen bare names, no prefix | `specified` | `language.md` 3.8, `stdlib.md` 11.1 | `lex/color-named` |
+| Hex colour literal | `#rrggbb` and `#rrggbbaa` | `specified` | `language.md` 3.8 | `lex/color-hex` |
+| Absent literal | `none`, written bare, with its own type | `specified` | `language.md` 3.9 | `lex/none-literal` |
+| Newline terminates a statement | One statement per line, no separator; a `;` is OS1007 | `specified` | `language.md` 3.10, `errors.md` OS1007 | `unit:lex/no-semicolon` |
+| One statement per line | Two statements on one line is OS1018, since there is no separator that would join them | `specified` | `language.md` 3.10, `errors.md` OS1018 | `unit:lex/one-statement-per-line` |
+| Indentation blocks | A header line and the more deeply indented lines under it | `specified` | `language.md` 3.10 | `lex/block-indent` |
+| Spaces only | A tab in leading whitespace is OS1002, because a tab's width is an editor setting | `specified` | `language.md` 3.10, `errors.md` OS1002 | `unit:lex/tab-indent` |
+| Sibling indentation equality | Every line of one block carries identical leading whitespace, or OS1003 | `specified` | `language.md` 3.10, `errors.md` OS1003 | `unit:lex/indent-mismatch` |
+| Blank and comment-only lines carry no indentation | Such a line emits no token: it never opens or closes a block, is never OS1003, and accepts any indentation | `specified` | `language.md` 3.10 | `lex/blank-and-comment-lines` |
+| A commented-out line at column zero | Does not close the block it sits in, because every editor writes it that way and a rule that closed a block there would close it invisibly | `specified` | `language.md` 3.10 | `lex/comment-column-zero` |
+| Empty block | A header with no indented body is OS1010, and blank or comment-only lines do not count as a body | `specified` | `language.md` 3.10, `errors.md` OS1010 | `unit:lex/empty-block` |
+| One single-line form only | `fn` writes its body after `=>` and opens no block; `if`, `else`, `for`, `while`, `case` and `default` have no such form | `specified` | `language.md` 3.10, `language.md` 11.1 | `unit:lex/single-line-forms` |
+| Continuation by open bracket | An unclosed `(` or `[` continues the statement | `specified` | `language.md` 3.11 | `lex/continuation-bracket` |
+| Continuation by trailing token | A trailing binary operator, comma, `?`, `:` or `=` continues the statement | `specified` | `language.md` 3.11 | `lex/continuation-operator` |
+| Continuation by backslash | A trailing `\` continues the statement | `specified` | `language.md` 3.11 | `lex/continuation-backslash` |
+| Continuation indentation | A continuation line must be indented past the statement's first line, or OS1003 | `specified` | `language.md` 3.11, `errors.md` OS1003 | `unit:lex/continuation-indent` |
+| Bracket never closed | OS1012 at the opening bracket, and a mismatched closer is OS1013 | `specified` | `language.md` 3.11, `errors.md` OS1012, `errors.md` OS1013 | `unit:lex/bracket-unclosed` |
+| Operator token set | The exact punctuation list of section 3.12 | `specified` | `language.md` 3.12 | `unit:lex/operator-tokens` |
+| Rejected operator spellings | The C-style spellings of not, and, or and power do not exist, nor do `;` and the increment operators, and each has a named fix | `specified` | `language.md` 3.12 | `unit:lex/rejected-operators` |
 
 ## 2. Version declaration and compatibility
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `version` statement | A bare first line naming the language version, readable by a one-line scan | specified | `language.md` 4 | `version/declared` |
-| Absent version declaration | Compiled at the newest version, with warning OS8003 naming the line to add | specified | `language.md` 4 | `version/undeclared-warns` |
-| Front end selection | Version 1 source is always parsed by the version 1 front end, which is kept forever | specified | `language.md` 4.1 | `version/front-end-pinned` |
-| Compatibility promise | A script that compiles under version N compiles under every later release and produces the same numbers | specified | `language.md` 4.1 | `version/promise-corpus` |
-| Deprecation instead of removal | A construct that was a mistake keeps working and gains an OS8xxx warning naming its replacement | specified | `language.md` 4.1 | `version/deprecation-warns` |
+| `version` statement | A bare first line naming the language version, readable by a one-line scan | `specified` | `language.md` 4 | `version/declared` |
+| The version line is first | Anything before it except comments is OS1021 | `specified` | `language.md` 4, `errors.md` OS1021 | `unit:version/not-first` |
+| Absent version declaration | Compiled at the newest version, with warning OS8003 naming the line to add | `specified` | `language.md` 4, `errors.md` OS8003 | `version/undeclared-warns` |
+| Front end selection | Version 1 source is always parsed by the version 1 front end, which is kept forever | `specified` | `language.md` 4.1 | `version/front-end-pinned` |
+| Compatibility promise | A script that compiles under version N compiles under every later release and produces the same numbers | `specified` | `language.md` 4.1 | `version/promise-corpus` |
+| Deprecation instead of removal | A construct that was a mistake keeps working and gains OS8013 naming its replacement | `specified` | `language.md` 4.1, `errors.md` OS8013 | `version/deprecation-warns` |
 
 ## 3. Types and conversion
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `number` | Binary64, always finite; infinity and not-a-number never appear as values | specified | `language.md` 5.1 | `type/number-finite` |
-| No integer type | One numeric type, so no conversion exists to get wrong | specified | `language.md` 5.1 | `type/no-integer-type` |
-| Whole-number arguments | A fractional length or index is OS3004, rejected rather than truncated | specified | `language.md` 5.1 | `type/whole-number-required` |
-| `string` | A sequence of Unicode code points | specified | `language.md` 5.1 | `type/string` |
-| `bool` | `true` or `false`, not a number | specified | `language.md` 5.1 | `type/bool` |
-| `color` | Red, green, blue and alpha | specified | `language.md` 5.1 | `type/color` |
-| `none` type | The absent value, a member of every type | specified | `language.md` 5.1, 6 | `type/none` |
-| `series T` | One `T` per bar | specified | `language.md` 5.2 | `type/series` |
-| `array<T>` | Ordered, mutable, resizable, homogeneous | specified | `language.md` 5.1, 14.1 | `type/array` |
-| Time as a number | Milliseconds since the epoch, UTC; no separate time type in version 1 | specified | `language.md` 5.1 | `type/time-is-number` |
-| No implicit conversion | `0` is not false, `""` is not false, `1 + true` is OS2003 | specified | `language.md` 5.3 | `type/no-coercion` |
-| `text(x)` | Any value to a string; `text(none)` is `"none"` | specified | `language.md` 5.3 | `type/text` |
-| `text(x, decimals)` | A number to a string with fixed decimals | specified | `language.md` 5.3 | `type/text-decimals` |
-| `number(s)` | A string to a number, or absence when it does not parse | specified | `language.md` 5.3 | `type/number-parse` |
-| `bool(x)` | Absence to `false`, a bool to itself; numbers rejected | specified | `language.md` 5.3 | `type/bool-convert` |
-| Broadcast | A plain `T` used where `series T` is expected is that value on every bar | specified | `language.md` 5.2 | `type/broadcast` |
-| Type fixed by first assignment | Assigning a different type to a name later is OS2003 | specified | `language.md` 10.1 | `type/first-assignment-fixes` |
-| Type annotations | `series number`, `array<number>` and the rest, checked when present | specified | `language.md` 11.2, 19 | `type/annotation` |
+| `number` | Binary64, always finite; infinity and not-a-number never appear as values | `specified` | `language.md` 5.1 | `type/number-finite` |
+| No integer type | One numeric type, so no conversion exists to get wrong | `specified` | `language.md` 5.1 | `type/no-integer-type` |
+| Whole-number arguments | A fractional length or index is OS3004 at compile time and OS4003 at run time, rejected rather than truncated | `specified` | `language.md` 5.1, `errors.md` OS3004, `errors.md` OS4003 | `type/whole-number-required` |
+| `string` | A sequence of Unicode code points | `specified` | `language.md` 5.1 | `type/string` |
+| `bool` | `true` or `false`, not a number | `specified` | `language.md` 5.1 | `type/bool` |
+| `color` | Red, green, blue and alpha | `specified` | `language.md` 5.1, `stdlib.md` 11 | `type/color` |
+| `none` type | The absent value, a member of every type | `specified` | `language.md` 5.1, `language.md` 6 | `type/none` |
+| `series T` | One `T` per bar | `specified` | `language.md` 5.2 | `type/series` |
+| `array<T>` | Ordered, mutable, resizable, homogeneous | `specified` | `language.md` 5.1, `language.md` 14.1 | `type/array` |
+| Time as a number | Milliseconds since the epoch, UTC; no separate time type in version 1 | `specified` | `language.md` 5.1 | `type/time-is-number` |
+| No implicit conversion | `0` is not false, `""` is not false, `1 + true` is OS2003 | `specified` | `language.md` 5.3, `errors.md` OS2003 | `type/no-coercion` |
+| `text(x)` | Any value to a string; `text(none)` is `"none"` | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/text` |
+| `text(x, decimals)` | A number to a string with fixed decimals, halves away from zero | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/text-decimals` |
+| `number(s)` | A string to a number, or absence when it does not parse | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/number-parse` |
+| `bool(x)` | Absence to `false`, a bool to itself; numbers rejected | `specified` | `language.md` 5.3, `stdlib.md` 8.1 | `type/bool-convert` |
+| Broadcast | A plain `T` used where `series T` is expected is that value on every bar | `specified` | `language.md` 5.2 | `type/broadcast` |
+| Type fixed by first assignment | Assigning a different type to a name later is OS2003 | `specified` | `language.md` 10.1, `errors.md` OS2003 | `type/first-assignment-fixes` |
+| Type annotations | `series number`, `array<number>` and the rest, checked when present | `specified` | `language.md` 11.2, `language.md` 19 | `type/annotation` |
+| Unknown type in an annotation | OS2016, listing the type names that exist | `specified` | `language.md` 19, `errors.md` OS2016 | `unit:type/unknown-annotation` |
 
-## 4. The absent value
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `isNone(x)` | True when absent | specified | `language.md` 6.1 | `absent/is-none` |
-| `orElse(x, fallback)` | The value when present, the fallback when absent | specified | `language.md` 6.1 | `absent/or-else` |
-| Arithmetic propagation | Any absent operand makes the result absent | specified | `language.md` 6.2 | `absent/arithmetic` |
-| `none * 0` is absent | Zero times unknown is unknown, because the operand was not a number at all | specified | `language.md` 6.2 | `absent/times-zero` |
-| Concatenation propagation | `"a" + none` is absent; print it deliberately with `text(none)` | specified | `language.md` 6.2 | `absent/concat` |
-| Division by zero | Absence, including `0 / 0`, so one bad bar does not kill a correct study | specified | `language.md` 6.3 | `absent/divide-by-zero` |
-| Non-finite maths | `sqrt(-1)`, `log(0)`, overflow: absence, never infinity | specified | `language.md` 6.3 | `absent/non-finite` |
-| Ordering propagation | `<`, `<=`, `>`, `>=` return absence when either operand is absent, never `false` | specified | `language.md` 6.4 | `absent/ordering` |
-| Equality is total | `==` and `!=` always return a bool, so a script can ask the question | specified | `language.md` 6.5 | `absent/equality` |
-| Three-valued logic | The `and`, `or`, `not` table with absence meaning unknown | specified | `language.md` 6.6 | `absent/three-valued-logic` |
-| Short circuit | An operand is evaluated only when it can change the result | specified | `language.md` 6.6, 9.4 | `absent/short-circuit` |
-| Absent condition | An absent condition takes the false branch, in `if`, `while`, the ternary, a switch arm and an alert | specified | `language.md` 6.6 | `absent/condition-false-branch` |
-| OS8004 warning | Warns on an `if` whose condition can be absent and whose block assigns a name read outside it | specified | `language.md` 6.6 | `unit:absent/os8004-warning` |
-| Library propagation | A window function is absent if any bar in its window is absent | specified | `language.md` 6.7 | `absent/window-propagation` |
-| The three skipping functions | `sumSkip`, `avgSkip`, `countPresent`, named for what they do | specified | `language.md` 6.7 | `absent/skip-functions` |
-| Absence on a drawing surface | A gap, never a zero: a broken line, a stopped fill, an unpainted bar, a blank cell | specified | `language.md` 6.7 | `absent/surface-gap` |
-| Absence in an order | An absent price or quantity is OS7002 naming the argument, never a substituted value | specified | `language.md` 6.8 | `absent/order-rejected` |
-
-## 5. The per-bar execution model
+## 4. Declaration handles and runtime objects
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| One pass per bar | Every top-level statement runs, first line to last, once per bar, oldest first | specified | `language.md` 7.1 | `bar/one-pass-per-bar` |
-| No entry point | The file is the body of the per-bar loop; there is no main and no event handler | specified | `language.md` 7.1 | `bar/no-entry-point` |
-| Fixed-surface statements | `plot`, `fill`, `level`, `input`, `table` and the declaration are read once; their arguments run every bar | specified | `language.md` 7.1 | `bar/fixed-surface-once` |
-| Fixed surface in a block | A fixed-surface call inside a conditional is OS3006, with the fix "plot `none` instead" | specified | `language.md` 7.1 | `unit:bar/os3006-in-block` |
-| `bar.index` | Zero-based position in the supplied dataset, oldest bar 0 | specified | `language.md` 7.2 | `bar/index` |
-| `bar.count` | `bar.index + 1` | specified | `language.md` 7.2 | `bar/count` |
-| `bar.isFirst` | This is bar 0 | specified | `language.md` 7.2 | `bar/is-first` |
-| `bar.isLast` | This is the newest bar in the dataset | specified | `language.md` 7.2 | `bar/is-last` |
-| `bar.isConfirmed` | This bar's interval has elapsed; true for every historical bar | specified | `language.md` 7.2 | `bar/is-confirmed` |
-| `bar.isRealtime` | A live feed is driving updates | specified | `language.md` 7.2 | `bar/is-realtime` |
-| `bar.isNew` | The last update appended a bar rather than replacing one | specified | `language.md` 7.2 | `bar/is-new` |
-| `bar.updates` | How many times this bar has been executed | specified | `language.md` 7.2 | `bar/updates` |
-| Warmup as absence | No warmup phase exists: a function needing `k` bars is absent until `k` bars exist | specified | `language.md` 7.3 | `bar/warmup-is-absence` |
-| Exact warmup lengths | Each function's first present bar is specified, not approximate | specified | `language.md` 7.3, `library.md` | `ta/warmup-exact` |
-| History past the start | `x[n]` with `n > bar.index` is absent: not clamped, not zero, not an error | specified | `language.md` 7.4 | `bar/history-before-start` |
-| Fractional history index | OS4001, with the fix naming `floor` or `round` | specified | `language.md` 7.4 | `bar/history-fractional` |
-| Negative history index | OS3004 for a literal, OS4001 at runtime; reading the future is not available | specified | `language.md` 7.4 | `bar/history-negative` |
-| History past retained depth | OS4002 naming the depth and the `limits(history = ...)` line, distinct from a value that never existed | specified | `language.md` 7.4 | `bar/history-past-depth` |
-| Default retained depth | The full history of the supplied dataset, so OS4002 appears only when a host set a depth | specified | `language.md` 7.4 | `bar/history-default-depth` |
-| Rollback on the moving bar | Persistent values are restored to the end of the previous bar before each re-execution | specified | `language.md` 7.5 | `bar/rollback` |
-| Rollback covers array contents | Not only the reference, so an intrabar push does not accumulate duplicates | specified | `language.md` 7.5, 14.1 | `bar/rollback-array` |
-| Deferred effects | Signals, alerts and orders wait for bar confirmation and never happen if the condition goes away | specified | `language.md` 7.5 | `bar/deferred-effects` |
-| `onUnconfirmed` opt-in | A declaration option, with OS8002 on any higher timeframe read in that file | specified | `language.md` 7.5 | `bar/on-unconfirmed` |
-| Determinism of arithmetic | Binary64, round-to-nearest-even, source order; no reassociation, no fused multiply-add, no extended precision | specified | `language.md` 7.6 | `bar/determinism-arithmetic` |
-| Determinism of iteration | Array iteration is index order; no unordered collection exists in version 1 | specified | `language.md` 7.6 | `bar/determinism-iteration` |
-| No hidden clock or randomness | The only clock is `chart.now()`, whose value the host supplies and a case fixes | specified | `language.md` 7.6 | `bar/no-clock-no-random` |
+| Declaration handle | `plot`, `plotCandles`, `fill` and `level` return a compile-time value of type `plot`, `plot`, `fill` and `level`, with no run-time representation at all | `specified` | `language.md` 5.4, `stdlib.md` 14.2 | `obj/handle-kind` |
+| Runtime object | `draw.line`, `draw.label`, `draw.box`, `draw.polyline` and `table` return an ordinary reference value of type `line`, `label`, `box`, `polyline` and `table` | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `obj/object-kind` |
+| Why the split | A plot is one field of a fixed descriptor and a drawing is one of an unbounded set, so only the second can be a value the script holds | `specified` | `language.md` 5.4 | `obj/split-rationale` |
+| Handle where a value is required | OS2003, naming `plot`, `fill` or `level` as the type | `specified` | `language.md` 5.4, `errors.md` OS2003 | `unit:obj/handle-as-value` |
+| Handle in an argument that does not take one | OS3011 | `specified` | `language.md` 5.4, `errors.md` OS3011 | `unit:obj/handle-wrong-argument` |
+| `fill` is the only call taking a handle | A handle may be named at the top level and passed to a declaration call that takes one, and nothing else; naming a `fill` or `level` result is legal and does nothing | `specified` | `language.md` 5.4, `stdlib.md` 14.2 | `obj/handle-to-fill` |
+| A handle is a compile-time binding | Section 8.1's per-bar recomputation does not apply to a name bound to a handle: it is bound once and nothing of it is left in the bar loop | `specified` | `language.md` 5.4 | `obj/handle-binding` |
+| `table` is an object with a top-level call site | The call is top level because the grid's shape is fixed, and what it returns is written to per bar, so it is a run-time value | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-is-object` |
+| One table per call site | One `table()` call site returns the same object on every bar | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-same-object` |
+| Objects are references | Two names for one object, and `==` between two of them is identity | `specified` | `language.md` 5.4, `language.md` 9.3 | `obj/identity-equality` |
+| Objects in arrays and functions | An object may be held in a `var`, kept in an `array<box>`, passed to a user function and compared against `none`; a handle may do none of that | `specified` | `language.md` 5.4, `language.md` 14.1 | `obj/array-of-objects` |
+| Neither kind takes `[]` | No history operator on a handle or on an object | `specified` | `language.md` 5.4, `errors.md` OS2004 | `unit:obj/no-history` |
+| Object lifetime | An object lives from the bar that created it until the bar that deletes it | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `obj/lifetime` |
+| No collection of unreachable objects | Dropping the last name referring to an object does not delete it; the chart holds it and it keeps drawing | `specified` | `language.md` 5.4 | `obj/no-collection` |
+| Stale handle in a setter | Passing a deleted object to a setter is OS4005, not a silent no operation | `specified` | `language.md` 5.4, `stdlib.md` 14.4, `errors.md` OS4005 | `unit:obj/stale-handle` |
+| Deleting does not remove the array element | A script holding objects in an array deletes the object and then removes the element | `specified` | `language.md` 5.4 | `obj/delete-keeps-element` |
+| A table is never deleted | `clear(t)` empties its cells and the grid lives as long as the study | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-cleared-not-deleted` |
+| Rollback of objects created on a moving bar | The object set is restored to the end of the previous bar before the bar runs again, so a live chart does not gain one object per tick | `specified` | `language.md` 5.4, `language.md` 7.5, `stdlib.md` 14.4 | `obj/rollback` |
+| No object cap | The budget is memory, and a host that cannot hold them says so rather than dropping the oldest | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `obj/no-cap` |
+| Object types in the grammar | `type` admits the object types and `array<objectType>` | `specified` | `language.md` 19, `language.md` 14.1 | `obj/grammar-object-types` |
+| Handle types are not in the grammar | They are deliberately absent because a handle type can never be annotated | `specified` | `language.md` 5.4, `language.md` 19 | `unit:obj/no-handle-annotation` |
 
-## 6. Series history and persistence
+## 5. The absent value
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| Bare series read | Reading a series gives the value on the bar being executed | specified | `language.md` 5.2 | `persist/series-read` |
-| History operator | `x[n]` gives the value `n` bars back; `x[0]` is `x` | specified | `language.md` 5.2, 9.6 | `persist/history-read` |
-| History eligibility | Only built-in series, top-level names, series-returning calls and series parameters accept `[]`; anything else is OS2004 | specified | `language.md` 5.2 | `persist/history-eligibility` |
-| Call-site series retention | Passing an expression to a series parameter retains that expression's per-bar values for that call site | specified | `language.md` 5.2 | `persist/call-site-retention` |
-| Plain assignment | Recomputed fresh every bar; the previous value is readable only through `[]` | specified | `language.md` 8.1 | `persist/plain-assignment` |
-| `var` | Initialised once, then carried from bar to bar | specified | `language.md` 8.2 | `persist/var` |
-| `var` first reached late | The initialiser runs on the first bar control reaches it, and the value is absent before that | specified | `language.md` 8.2 | `persist/var-late-init` |
-| `var` in a function | Allowed, and scoped to the function body while persisting across bars | specified | `language.md` 8.2, 11.4 | `persist/var-in-function` |
-| `var` with no initialiser | OS1011, with the fix naming `var name = none` | specified | `language.md` 8.2 | `unit:persist/var-no-initialiser` |
-| `live var` | Identical to `var` but exempt from rollback, spelled longer because it makes live and backtest numbers differ | specified | `language.md` 8.2 | `persist/live-var` |
-| History versus persistence | Two unrelated ideas that share a syntax; `x[1]` on a `var` reads the persistent value one bar ago | specified | `language.md` 8.3 | `persist/history-vs-persistence` |
-| `history(expr, n)` | The explicit form, always history, for lines where `[]` would read ambiguously | specified | `language.md` 9.6 | `persist/history-explicit` |
-| `element(arr, i)` | The explicit form, always element access | specified | `language.md` 9.6 | `array/element-explicit` |
+| `isNone(x)` | True when absent | `specified` | `language.md` 6.1, `stdlib.md` 8.1 | `absent/is-none` |
+| `orElse(x, fallback)` | The value when present, the fallback when absent | `specified` | `language.md` 6.1, `stdlib.md` 8.1 | `absent/or-else` |
+| Arithmetic propagation | Any absent operand makes the result absent | `specified` | `language.md` 6.2 | `absent/arithmetic` |
+| `none * 0` is absent | Zero times unknown is unknown, because the operand was not a number at all | `specified` | `language.md` 6.2 | `absent/times-zero` |
+| Concatenation propagation | `"a" + none` is absent; print it deliberately with `text(none)` | `specified` | `language.md` 6.2 | `absent/concat` |
+| Division by zero | Absence, including `0 / 0`, so one bad bar does not kill a correct study | `specified` | `language.md` 6.3 | `absent/divide-by-zero` |
+| Non-finite maths | `sqrt(-1)`, `log(0)`, overflow: absence, never infinity | `specified` | `language.md` 6.3, `stdlib.md` 2.4 | `absent/non-finite` |
+| Ordering propagation | `<`, `<=`, `>`, `>=` return absence when either operand is absent, never `false`, and comparing against `none` warns with OS8012 | `specified` | `language.md` 6.4, `errors.md` OS8012 | `absent/ordering` |
+| Equality is total | `==` and `!=` always return a bool, so a script can ask the question | `specified` | `language.md` 6.5 | `absent/equality` |
+| Three-valued logic | The `and`, `or`, `not` table with absence meaning unknown | `specified` | `language.md` 6.6 | `absent/three-valued-logic` |
+| Short circuit | An operand is evaluated only when it can change the result | `specified` | `language.md` 6.6, `language.md` 9.4 | `absent/short-circuit` |
+| Absent condition | An absent condition takes the false branch, in `if`, `while`, the ternary, a switch arm and an alert | `specified` | `language.md` 6.6 | `absent/condition-false-branch` |
+| OS8004 warning | Warns on an `if` whose condition can be absent and whose block assigns a name read outside it | `specified` | `language.md` 6.6, `errors.md` OS8004 | `unit:absent/os8004-warning` |
+| Library propagation | A window function is absent if any bar in its window is absent | `specified` | `language.md` 6.7, `stdlib.md` 2.4 | `absent/window-propagation` |
+| The three skipping functions | `sumSkip`, `avgSkip`, `countPresent`, named for what they do | `specified` | `language.md` 6.7, `stdlib.md` 9 | `absent/skip-functions` |
+| The one exception in the library | `trueRange()` on bar 0 is `high - low` rather than absent, written down here rather than left to the engine | `specified` | `stdlib.md` 6 | `absent/true-range-bar-zero` |
+| Absence on a drawing surface | A gap, never a zero: a broken line, a stopped fill, an unpainted bar, a blank cell | `specified` | `language.md` 6.7, `stdlib.md` 18 | `absent/surface-gap` |
+| Absence in an order | An absent price or quantity is OS7002 naming the argument, never a substituted value | `specified` | `language.md` 6.8, `stdlib.md` 17.1, `errors.md` OS7002 | `absent/order-rejected` |
+| Absence in memory is a tag | An engine must not represent absence as a number, because a not-a-number sentinel gets four operators right and six wrong | `specified` | `compiled-program.md` 3.4 | `prog/absent-tag` |
 
-## 7. Expressions and operators
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| Precedence | The nine-level table, left associative except unary and the ternary | specified | `language.md` 9.1 | `expr/precedence` |
-| Arithmetic operators | `+ - * /` on numbers, with absence and finiteness rules | specified | `language.md` 9.2 | `expr/arithmetic` |
-| Remainder | `%` is truncated division's remainder, so its sign follows the left operand | specified | `language.md` 9.2 | `expr/remainder` |
-| `mod(a, b)` | The always-positive form, because both are wanted about equally often | specified | `language.md` 9.2 | `math/mod` |
-| String concatenation | `+` joins two strings and does nothing else; `"a" + 5` is OS2003 | specified | `language.md` 9.2 | `expr/concat` |
-| Numeric ordering | `< <= > >=` on numbers | specified | `language.md` 9.3 | `expr/ordering-number` |
-| String ordering | By Unicode code point, stable across locales, and not offered as an alphabetical sort | specified | `language.md` 9.3 | `expr/ordering-string` |
-| Equality | Same type, or any value against `none`; mixed types are OS2003 | specified | `language.md` 9.3 | `expr/equality` |
-| Colour equality | Equal when all four channels match | specified | `language.md` 9.3 | `color/equality` |
-| Array identity | Two arrays are equal when they are the same array; `arrayEqual` compares contents | specified | `language.md` 9.3, 14.1 | `array/identity-equality` |
-| No chained comparison | `a < b < c` is OS1008, because the two plausible readings disagree | specified | `language.md` 9.3 | `unit:expr/chained-comparison` |
-| Ternary | `cond ? a : b`, right associative, only the taken arm evaluated, arms same type or one absent | specified | `language.md` 9.5 | `expr/ternary` |
-| Subscript disambiguation | `[]` is history on a series and element access on an array, decided at compile time | specified | `language.md` 9.6 | `expr/subscript-dispatch` |
-| Assignment is a statement | `if x = 5` is OS1006 with the fix "write `==`" | specified | `language.md` 10.1 | `unit:expr/assignment-not-expression` |
-| Compound assignment | `+= -= *= /= %=`, expanding to the obvious form and obeying absence propagation | specified | `language.md` 10.1 | `expr/compound-assignment` |
-
-## 8. Control flow
+## 6. The per-bar execution model
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `if` / `else if` / `else` | The three forms, with `else if` on one line and no extra indentation | specified | `language.md` 10.2 | `flow/if-else` |
-| Condition typing | A condition must be `bool` or absent; anything else is OS2003, with no truthiness rule | specified | `language.md` 10.2 | `flow/condition-type` |
-| `for x = a to b` | Inclusive at both ends | specified | `language.md` 10.3 | `flow/for-to` |
-| `step` | Defaults to 1; a descending loop must say `step -1` | specified | `language.md` 10.3 | `flow/for-step` |
-| Non-reversing loop | If the end is below the start with a positive step, the body does not run | specified | `language.md` 10.3 | `flow/for-no-reverse` |
-| Zero step | OS3004, removing the only accidental infinite `for` | specified | `language.md` 10.3 | `unit:flow/for-zero-step` |
-| `for x in arr` | Visits indices 0 to size-1 as measured on entry | specified | `language.md` 10.3 | `flow/for-in` |
-| Mutation during `for in` | Appended elements are not visited; a shrink past the cursor ends the loop | specified | `language.md` 10.3 | `flow/for-in-mutation` |
-| Loop variable is read-only | Assigning to it is OS2006; leave early with `break` | specified | `language.md` 10.3 | `unit:flow/loop-var-readonly` |
-| `while` | Condition re-evaluated before each iteration, same typing rule as `if` | specified | `language.md` 10.4 | `flow/while` |
-| `break` and `continue` | Leave or skip the innermost loop; outside a loop either is OS1009 | specified | `language.md` 10.5 | `flow/break-continue` |
-| `switch` value form | Compares a subject against each case | specified | `language.md` 10.6 | `flow/switch-value` |
-| `switch` condition form | No subject; takes the first true arm | specified | `language.md` 10.6 | `flow/switch-condition` |
-| Multiple values per case | Comma separated, all of the subject's type | specified | `language.md` 10.6 | `flow/switch-multi-value` |
-| No fall-through | Each arm's block ends at the next `case` or `default` | specified | `language.md` 10.6 | `flow/switch-no-fallthrough` |
-| `default` | Optional, last; with no match and no default, nothing happens | specified | `language.md` 10.6 | `flow/switch-default` |
-| Names set by arms | Must be declared before the `switch`, which makes the "declared in one arm only" bug impossible | specified | `language.md` 10.6, 12.2 | `flow/switch-name-scope` |
-| Per-bar loop budget | Iterations summed over all loops in one bar, default 2,000,000, exceeding it is OS5001 | specified | `language.md` 10.7 | `flow/loop-budget` |
-| Budget failure stops the bar | It does not break out of the loop, because a truncated loop produces a plausible wrong number | specified | `language.md` 10.7 | `flow/loop-budget-stops-bar` |
-| `limits(loops = ...)` | Raises the budget deliberately, in one place | specified | `language.md` 10.7 | `flow/limits-loops` |
-| `limits(history = ...)` | Sets the retained series depth | specified | `language.md` 10.7, 7.4 | `flow/limits-history` |
-| `limits()` placement | At most once, immediately after the declaration, literal arguments only | specified | `language.md` 10.7 | `unit:flow/limits-placement` |
-| Host refusal of a limit | A host unwilling to run a requested limit says so with OS5003 rather than capping quietly | specified | `language.md` 10.7 | `flow/limits-refused` |
+| One pass per bar | Every top-level statement runs, first line to last, once per bar, oldest first | `specified` | `language.md` 7.1, `compiled-program.md` 5.1 | `bar/one-pass-per-bar` |
+| No entry point | The file is the body of the per-bar loop; there is no main and no event handler | `specified` | `language.md` 7.1 | `bar/no-entry-point` |
+| Fixed-shape statements | `plot`, `plotCandles`, `fill`, `level`, `table`, `input` and the declaration are read once; their value arguments run every bar | `specified` | `language.md` 7.1, `language.md` 15.3, `stdlib.md` 14.1 | `bar/fixed-shape-once` |
+| Fixed-shape call in a block | A `plot`, `plotCandles`, `fill`, `level` or `table` call inside a conditional is OS3006, with the fix "plot `none` instead" | `specified` | `language.md` 15.3, `errors.md` OS3006 | `unit:bar/os3006-in-block` |
+| `bar.index` | Zero-based position in the supplied dataset, oldest bar 0 | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/index` |
+| `bar.count` | `bar.index + 1` | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/count` |
+| `bar.isFirst` | This is bar 0 | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/is-first` |
+| `bar.isLast` | This is the newest bar in the dataset | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/is-last` |
+| `bar.isConfirmed` | This bar's interval has elapsed; true for every historical bar | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/is-confirmed` |
+| `bar.isRealtime` | A live feed is driving updates | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/is-realtime` |
+| `bar.isNew` | The last update appended a bar rather than replacing one | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/is-new` |
+| `bar.updates` | How many times this bar has been executed | `specified` | `language.md` 7.2, `stdlib.md` 3.3 | `bar/updates` |
+| Warmup as absence | No warmup phase exists: a function needing `k` bars is absent until `k` bars exist | `specified` | `language.md` 7.3, `compiled-program.md` 7 | `bar/warmup-is-absence` |
+| History past the start | `x[n]` with `n > bar.index` is absent: not clamped, not zero, not an error | `specified` | `language.md` 7.4 | `bar/history-before-start` |
+| Fractional history index | OS4001, with the fix naming `floor` or `round` | `specified` | `language.md` 7.4, `errors.md` OS4001 | `bar/history-fractional` |
+| Negative history index | OS3004 for a literal, OS4001 at runtime; reading the future is not available | `specified` | `language.md` 7.4, `errors.md` OS3004, `errors.md` OS4001 | `bar/history-negative` |
+| History past retained depth | OS4002 naming the depth and the `limits(history = ...)` line, distinct from a value that never existed | `specified` | `language.md` 7.4, `errors.md` OS4002 | `bar/history-past-depth` |
+| Default retained depth | The full history of the supplied dataset, so OS4002 appears only when a host set a depth | `specified` | `language.md` 7.4 | `bar/history-default-depth` |
+| Rollback on the moving bar | Persistent values are restored to the end of the previous bar before each re-execution | `specified` | `language.md` 7.5, `compiled-program.md` 6.3 | `bar/rollback` |
+| Rollback covers array contents | Not only the reference, so an intrabar push does not accumulate duplicates | `specified` | `language.md` 7.5, `language.md` 14.1, `compiled-program.md` 6.1 | `bar/rollback-array` |
+| Deferred effects | Signals, alerts and orders wait for bar confirmation and never happen if the condition goes away | `specified` | `language.md` 7.5, `compiled-program.md` 5.4 | `bar/deferred-effects` |
+| `onUnconfirmed` opt-in | A declaration option, with OS8002 on any higher timeframe read that develops in that file | `specified` | `language.md` 7.5, `language.md` 13.2, `errors.md` OS8002 | `bar/on-unconfirmed` |
+| Determinism of arithmetic | Binary64, round-to-nearest-even, source order; no reassociation, no fused multiply-add, no extended precision | `specified` | `language.md` 7.6, `compiled-program.md` 8.1 | `bar/determinism-arithmetic` |
+| Determinism of iteration | Array iteration is index order; no unordered collection exists in version 1 | `specified` | `language.md` 7.6, `compiled-program.md` 8.2 | `bar/determinism-iteration` |
+| No hidden clock or randomness | The only clock is `chart.now()`, whose value the host supplies and a case fixes | `specified` | `language.md` 7.6, `compiled-program.md` 8.4 | `bar/no-clock-no-random` |
+| Nothing outside the program | An engine reads no file, no network and no environment during a bar | `specified` | `compiled-program.md` 8.4 | `bar/no-outside-input` |
 
-## 9. User functions
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| Single-line `fn` | `fn name(params) => expression` | specified | `language.md` 11.1 | `fn/single-line` |
-| Multi-line `fn` | A block whose final expression is the value | specified | `language.md` 11.1 | `fn/multi-line` |
-| Top level only | Functions may not be nested and are not values in version 1 | specified | `language.md` 11.1 | `unit:fn/no-nesting` |
-| Parameter annotations | Optional, checked when present, inferred otherwise | specified | `language.md` 11.2 | `fn/parameter-annotation` |
-| Parameter defaults | A default expression per parameter | specified | `language.md` 11.2 | `fn/parameter-default` |
-| Positional arguments | In declared order | specified | `language.md` 11.2 | `fn/positional-arguments` |
-| Named arguments | By parameter name, not repeating a positional one | specified | `language.md` 11.2 | `fn/named-arguments` |
-| Positional after named | OS3005 | specified | `language.md` 11.2 | `unit:fn/positional-after-named` |
-| Wrong argument count | OS3001 | specified | `language.md` 11.2 | `unit:fn/argument-count` |
-| Unknown named argument | OS3002, whose message lists the names that exist | specified | `language.md` 11.2 | `unit:fn/unknown-named-argument` |
-| `return expression` | Exits immediately with that value | specified | `language.md` 11.3 | `fn/return` |
-| Bare `return` | Exits with absence | specified | `language.md` 11.3 | `fn/return-bare` |
-| Implicit return | A trailing bare expression is the return value | specified | `language.md` 11.3 | `fn/implicit-return` |
-| State per call site | Two calls in two places are two independent pieces of state | specified | `language.md` 11.4 | `fn/state-per-call-site` |
-| One slot per loop call site | A call inside a loop shares one slot across iterations, which is what an accumulation wants | specified | `language.md` 11.4 | `fn/state-in-loop` |
-| No recursion | Direct or cyclic self-call is OS2005 naming the cycle, because slots are allocated statically | specified | `language.md` 11.4 | `unit:fn/recursion-rejected` |
-| Unexecuted call site | Its series is absent for that bar and its state does not advance | specified | `language.md` 11.4 | `fn/unexecuted-call-site` |
-| OS8001 warning | Warns on a stateful call inside a conditional branch and names the fix | specified | `language.md` 11.4 | `unit:fn/os8001-warning` |
-| Forward reference | A function may be called before its declaration appears | specified | `language.md` 12.5 | `fn/forward-reference` |
-
-## 10. Scope
+## 7. Series history and persistence
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| Three scopes | Global (library), file (top-level names and functions), block (every block and function body) | specified | `language.md` 12.1 | `scope/three-scopes` |
-| First assignment declares | A name is declared by its first assignment in a scope | specified | `language.md` 12.2 | `scope/first-assignment-declares` |
-| Assignment updates an outer name | An assignment to a name from an enclosing scope updates it and creates nothing | specified | `language.md` 12.2 | `scope/outer-update` |
-| Block-local names | A name first assigned in a block is invisible outside it, which is OS2001 when read | specified | `language.md` 12.2 | `scope/block-local` |
-| No shadowing | Declaring an inner name that exists outside is OS2002, naming the outer line | specified | `language.md` 12.3 | `unit:scope/no-shadowing` |
-| Parameter shadowing | A parameter named after a file-scope name or a library function is OS2002 | specified | `language.md` 12.3 | `unit:scope/parameter-shadowing` |
-| Assigning to a built-in | `close = 5` is OS2002, with a suggested name | specified | `language.md` 12.4 | `unit:scope/builtin-assignment` |
-| Use before assignment | Reading a file-scope name above its assignment is OS2001, not absence | specified | `language.md` 12.5 | `unit:scope/use-before-assignment` |
-| Lifetime versus visibility | `var` sets how long a value lives; the block sets where the name is seen | specified | `language.md` 8.2, 12.1 | `scope/lifetime-vs-visibility` |
+| Bare series read | Reading a series gives the value on the bar being executed | `specified` | `language.md` 5.2 | `persist/series-read` |
+| History operator | `x[n]` gives the value `n` bars back; `x[0]` is `x` | `specified` | `language.md` 5.2, `language.md` 9.6 | `persist/history-read` |
+| History eligibility | Only built-in series, top-level names, series-returning calls and series parameters accept `[]`; anything else is OS2004 | `specified` | `language.md` 5.2, `errors.md` OS2004 | `persist/history-eligibility` |
+| Call-site series retention | Passing an expression to a series parameter retains that expression's per-bar values for that call site | `specified` | `language.md` 5.2, `compiled-program.md` 2.10 | `persist/call-site-retention` |
+| Plain assignment | Recomputed fresh every bar; the previous value is readable only through `[]` | `specified` | `language.md` 8.1 | `persist/plain-assignment` |
+| `var` | Initialised once, then carried from bar to bar | `specified` | `language.md` 8.2, `compiled-program.md` 4.3 | `persist/var` |
+| `var` first reached late | The initialiser runs on the first bar control reaches it, and the value is absent before that | `specified` | `language.md` 8.2 | `persist/var-late-init` |
+| `var` in a function | Allowed, and scoped to the function body while persisting across bars | `specified` | `language.md` 8.2, `language.md` 11.4 | `persist/var-in-function` |
+| `var` with no initialiser | OS1011, with the fix naming `var name = none` | `specified` | `language.md` 8.2, `errors.md` OS1011 | `unit:persist/var-no-initialiser` |
+| `live var` | Identical to `var` but exempt from rollback, spelled longer because it makes live and backtest numbers differ, and warned with OS8011 | `specified` | `language.md` 8.2, `errors.md` OS8011 | `persist/live-var` |
+| History versus persistence | Two unrelated ideas that share a syntax; `x[1]` on a `var` reads the persistent value one bar ago | `specified` | `language.md` 8.3 | `persist/history-vs-persistence` |
+| `history(expr, n)` | The explicit form, always history, for lines where `[]` would read ambiguously | `specified` | `language.md` 9.6, `stdlib.md` 9 | `persist/history-explicit` |
+| `element(arr, i)` | The explicit form, always element access | `specified` | `language.md` 9.6, `language.md` 14.1 | `array/element-explicit` |
+| A persistent value holding a bar index | OS8014, because a bar index is not stable when history is paged in | `specified` | `errors.md` OS8014 | `unit:persist/bar-index-warning` |
 
-## 11. Declarations
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `study()` | Declares a study; first statement after any `version` line and leading comments | specified | `language.md` 13.1 | `decl/study` |
-| `strategy()` | Every study option plus the trading options, so one file plots and trades | specified | `language.md` 13.1, 13.3 | `decl/strategy` |
-| Exactly one declaration | Missing is OS2007, two is OS2008 | specified | `language.md` 13.1 | `unit:decl/one-declaration` |
-| Compile-time constant options | Literals, arithmetic over literals or an `input()` call; anything bar-dependent is OS3003 | specified | `language.md` 13.2 | `unit:decl/constant-options` |
-| `title` | The legend and picker name, first positional argument | specified | `language.md` 13.2 | `decl/option-title` |
-| `short` | A shorter legend name, defaulting to the title | specified | `language.md` 13.2 | `decl/option-short` |
-| `overlay` | Price pane when true, own pane when false | specified | `language.md` 13.2 | `decl/option-overlay` |
-| `precision` | Decimals on this study's axis and legend, 0 to 10 | specified | `language.md` 13.2 | `decl/option-precision` |
-| `format` | `"price"`, `"percent"` or `"volume"` axis and crosshair formatting | specified | `language.md` 13.2 | `decl/option-format` |
-| `range` | `[min, max]` fixing the study pane's scale | specified | `language.md` 13.2 | `decl/option-range` |
-| `scale` | `"right"`, `"left"` or `"none"` | specified | `language.md` 13.2 | `decl/option-scale` |
-| `group` | Category in a picker | specified | `language.md` 13.2 | `decl/option-group` |
-| `onUnconfirmed` | Allows signals, alerts and orders on a moving bar | specified | `language.md` 13.2, 7.5 | `decl/option-on-unconfirmed` |
-| `capital` | Starting equity for the backtest | specified | `language.md` 13.3 | `decl/option-capital` |
-| `currency` | Display label for money in the report | specified | `language.md` 13.3 | `decl/option-currency` |
-| `qty` | Default order size when an order names none | specified | `language.md` 13.3 | `decl/option-qty` |
-| `qtyType` | `"units"`, `"lots"`, `"cash"` or `"equityPercent"` | specified | `language.md` 13.3 | `decl/option-qty-type` |
-| `product` | `"intraday"` or `"overnight"` | specified | `language.md` 13.3 | `decl/option-product` |
-| `fillOn` | `"nextOpen"` (the default, because a close cannot fill at that same close) or `"close"` | specified | `language.md` 13.3 | `decl/option-fill-on` |
-| `slippage` | Ticks of adverse slippage on every fill | specified | `language.md` 13.3 | `decl/option-slippage` |
-| `commission` | Cost per the commission unit | specified | `language.md` 13.3 | `decl/option-commission` |
-| `commissionType` | `"perTrade"`, `"perUnit"` or `"percent"` | specified | `language.md` 13.3 | `decl/option-commission-type` |
-| `pyramiding` | Maximum entries in one direction before entries are refused | specified | `language.md` 13.3 | `decl/option-pyramiding` |
-| `closeOnSessionEnd` | Flatten at the session close | specified | `language.md` 13.3 | `decl/option-close-on-session-end` |
-
-## 12. Inputs
+## 8. Expressions and operators
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `input(default, title)` | Declares a tunable value and one row of the settings dialog | specified | `language.md` 13.4 | `input/basic` |
-| Type from the default | The input's type follows the default's type, which is why the default comes first | specified | `language.md` 13.4 | `input/type-from-default` |
-| Number input | With `min`, `max` and `step` bounds | specified | `language.md` 13.4 | `input/number` |
-| Bool input | A checkbox row | specified | `language.md` 13.4 | `input/bool` |
-| String input | A text row | specified | `language.md` 13.4 | `input/string` |
-| Colour input | A colour row | specified | `language.md` 13.4 | `input/color` |
-| Source input | A built-in series chosen from the price fields | specified | `language.md` 13.4 | `input/source` |
-| Options list | `options = [...]` makes the row a fixed choice | specified | `language.md` 13.4 | `input/options` |
-| `kind = "interval"` | A timeframe row, validated against the known timeframes | specified | `language.md` 13.4 | `input/interval` |
-| Top level only | An `input()` inside a block or a function is OS3007 | specified | `language.md` 13.4 | `unit:input/top-level-only` |
-| Out-of-range value | A supplied value outside `min` and `max` is rejected before the first bar | planned | `surface.md` inputs | `input/out-of-range` |
-| Settings round trip | Saved settings reload to the same values and produce the same output | planned | `surface.md` inputs | `input/settings-round-trip` |
-| Group and inline layout | Optional grouping of rows in the generated dialog | planned | `surface.md` inputs | `input/dialog-layout` |
+| Precedence | The nine-level table, left associative except unary and the ternary | `specified` | `language.md` 9.1 | `expr/precedence` |
+| Arithmetic operators | `+ - * /` on numbers, with absence and finiteness rules | `specified` | `language.md` 9.2 | `expr/arithmetic` |
+| Remainder | `%` is truncated division's remainder, so its sign follows the left operand | `specified` | `language.md` 9.2, `compiled-program.md` 4.5 | `expr/remainder` |
+| `mod(a, b)` | `a - b * floor(a / b)`, the floored remainder, whose sign follows `b`; `mod(a, 0)` is `none` | `specified` | `language.md` 9.2, `stdlib.md` 8.1 | `math/mod` |
+| `MOD` is the operator, not the function | The `MOD` instruction is `%`, truncated and signed like `a`; the library's `mod` compiles to a library call | `specified` | `compiled-program.md` 4.5, `stdlib.md` 8.1 | `prog/mod-is-operator` |
+| String concatenation | `+` joins two strings and does nothing else; `"a" + 5` is OS2003 | `specified` | `language.md` 9.2, `errors.md` OS2003 | `expr/concat` |
+| Numeric ordering | `< <= > >=` on numbers | `specified` | `language.md` 9.3 | `expr/ordering-number` |
+| String ordering | By Unicode code point, stable across locales, and not offered as an alphabetical sort | `specified` | `language.md` 9.3 | `expr/ordering-string` |
+| Equality | Same type, or any value against `none`; mixed types are OS2003 | `specified` | `language.md` 9.3, `errors.md` OS2003 | `expr/equality` |
+| Colour equality | Equal when all four channels match | `specified` | `language.md` 9.3 | `color/equality` |
+| Reference identity | Two references are equal when they are the same array or the same object | `specified` | `language.md` 9.3, `language.md` 5.4 | `array/identity-equality` |
+| `arrayEqual` | Compares contents rather than identity | `specified` | `language.md` 9.3, `language.md` 14.1 | `array/array-equal` |
+| No chained comparison | `a < b < c` is OS1008, because the two plausible readings disagree | `specified` | `language.md` 9.3, `errors.md` OS1008 | `unit:expr/chained-comparison` |
+| Ternary | `cond ? a : b`, right associative, only the taken arm evaluated, arms same type or one absent, else OS2012 | `specified` | `language.md` 9.5, `errors.md` OS2012 | `expr/ternary` |
+| Ternary with one arm | OS1015, naming the missing `:` | `specified` | `language.md` 9.5, `errors.md` OS1015 | `unit:expr/ternary-one-arm` |
+| Subscript disambiguation | `[]` is history on a series and element access on an array, decided at compile time | `specified` | `language.md` 9.6 | `expr/subscript-dispatch` |
+| Assignment is a statement | `if x = 5` is OS1006 with the fix "write `==`" | `specified` | `language.md` 10.1, `errors.md` OS1006 | `unit:expr/assignment-not-expression` |
+| Compound assignment | `+= -= *= /= %=`, expanding to the obvious form and obeying absence propagation | `specified` | `language.md` 10.1 | `expr/compound-assignment` |
 
-## 13. Collections
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| Array literal | `[1, 2, 3]`, homogeneous | specified | `language.md` 14.1 | `array/literal` |
-| Empty literal | Takes its type from an annotation or from context | specified | `language.md` 14.1 | `array/empty-literal` |
-| Reference semantics | Assignment shares the array; `copy` makes an independent one, so passing is never quietly expensive | specified | `language.md` 14.1 | `array/reference-semantics` |
-| `size(arr)` | Element count | specified | `language.md` 14.1 | `array/size` |
-| Element read and write | `arr[i]`, `element(arr, i)`, `set(arr, i, v)` | specified | `language.md` 14.1 | `array/element-access` |
-| `push` and `pop` | Append, and remove and return the last | specified | `language.md` 14.1 | `array/push-pop` |
-| `shift` and `unshift` | Remove and return the first, and insert at the front | specified | `language.md` 14.1 | `array/shift-unshift` |
-| `insert` and `remove` | Insert before an index, and remove and return an index | specified | `language.md` 14.1 | `array/insert-remove` |
-| `clear(arr)` | Remove everything | specified | `language.md` 14.1 | `array/clear` |
-| `slice(arr, from, to)` | A new array, `from` inclusive, `to` exclusive | specified | `language.md` 14.1 | `array/slice` |
-| `copy(arr)` | An independent copy | specified | `language.md` 14.1 | `array/copy` |
-| `indexOf(arr, v)` | First index, or -1 | specified | `language.md` 14.1 | `array/index-of` |
-| `sort(arr, order)` | In place, ascending or descending, and stable so two engines agree on ties | specified | `language.md` 14.1 | `array/sort` |
-| `reverse(arr)` | In place | specified | `language.md` 14.1 | `array/reverse` |
-| Array statistics | `sum`, `avg`, `min`, `max`, `stdev` over the whole array | specified | `language.md` 14.1 | `array/statistics` |
-| `arrayEqual` | Compares contents rather than identity | specified | `language.md` 9.3, 14.1 | `array/array-equal` |
-| Out-of-range index | OS4004 naming the index and the size, because an array has an extent the script chose | specified | `language.md` 14.1 | `array/out-of-range` |
-| Element limit | 1,000,000 by default; exceeding it is OS5002 and `limits()` does not raise it in version 1 | specified | `language.md` 14.1 | `array/element-limit` |
-| Persistent array | An array in a `var` persists, and rollback restores its contents | specified | `language.md` 14.1, 7.5 | `array/persistent` |
-| `map<K, V>` | Reserved word, not implemented; insertion-order iteration when it arrives, for determinism | specified | `language.md` 14.2 | `unit:array/map-reserved` |
-| `matrix<T>` | Reserved word, not implemented; two-dimensional numeric container when it arrives | specified | `language.md` 14.2 | `unit:array/matrix-reserved` |
-
-## 14. Strings
-
-The `str` namespace holds everything beyond concatenation. Each row is `planned`
-because the per-function reference is not written; the shape of the namespace is
-fixed by `language.md` 15.2.
+## 9. Control flow
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `str.length` | Count of Unicode code points, not bytes and not UTF-16 units | planned | `library.md` str | `str/length` |
-| Code point semantics | Length, indexing and slicing all count code points, so one engine cannot disagree with another | planned | `library.md` str | `str/code-points` |
-| `str.upper`, `str.lower` | Case conversion, using the locale-independent mapping so a result never depends on a machine setting | planned | `library.md` str | `str/case` |
-| `str.contains` | Substring test | planned | `library.md` str | `str/contains` |
-| `str.startsWith`, `str.endsWith` | Prefix and suffix tests | planned | `library.md` str | `str/prefix-suffix` |
-| `str.indexOf` | First index of a substring, or -1 | planned | `library.md` str | `str/index-of` |
-| `str.substring` | A range by code point index | planned | `library.md` str | `str/substring` |
-| `str.replace`, `str.replaceAll` | First and every occurrence | planned | `library.md` str | `str/replace` |
-| `str.split` | To an `array<string>` | planned | `library.md` str | `str/split` |
-| `str.join` | From an `array<string>` | planned | `library.md` str | `str/join` |
-| `str.trim` | Leading and trailing whitespace removed | planned | `library.md` str | `str/trim` |
-| `str.padLeft`, `str.padRight` | Pad to a width, for table cells that line up | planned | `library.md` str | `str/pad` |
-| `str.repeat` | Repeat a string a whole number of times | planned | `library.md` str | `str/repeat` |
-| `str.format` | A template with positional placeholders, so a message is one string rather than six concatenations | planned | `library.md` str | `str/format` |
+| `if` / `else if` / `else` | The three forms, with `else if` on one line and no extra indentation | `specified` | `language.md` 10.2 | `flow/if-else` |
+| `else` with no `if` | OS1016, naming the indentation that separated them | `specified` | `language.md` 10.2, `errors.md` OS1016 | `unit:flow/else-without-if` |
+| Condition typing | A condition must be `bool` or absent; anything else is OS2011, with no truthiness rule | `specified` | `language.md` 10.2, `errors.md` OS2011 | `flow/condition-type` |
+| `for x = a to b` | Inclusive at both ends | `specified` | `language.md` 10.3 | `flow/for-to` |
+| `step` | Defaults to 1; a descending loop must say `step -1` | `specified` | `language.md` 10.3 | `flow/for-step` |
+| Non-reversing loop | If the end is below the start with a positive step, the body does not run | `specified` | `language.md` 10.3 | `flow/for-no-reverse` |
+| Zero step | OS3004, removing the only accidental infinite `for` | `specified` | `language.md` 10.3, `errors.md` OS3004 | `unit:flow/for-zero-step` |
+| Incomplete `for` header | OS1020, naming the part that is missing | `specified` | `language.md` 10.3, `errors.md` OS1020 | `unit:flow/for-header` |
+| `for x in arr` | Visits indices 0 to size-1 as measured on entry | `specified` | `language.md` 10.3 | `flow/for-in` |
+| Mutation during `for in` | Appended elements are not visited; a shrink past the cursor ends the loop | `specified` | `language.md` 10.3 | `flow/for-in-mutation` |
+| Loop variable is read-only | Assigning to it is OS2006; leave early with `break` | `specified` | `language.md` 10.3, `errors.md` OS2006 | `unit:flow/loop-var-readonly` |
+| Absent loop bound | A bound that is absent at run time is OS4013 rather than a loop that silently does not run | `specified` | `language.md` 10.3, `errors.md` OS4013 | `flow/loop-bound-absent` |
+| `while` | Condition re-evaluated before each iteration, same typing rule as `if` | `specified` | `language.md` 10.4 | `flow/while` |
+| `break` and `continue` | Leave or skip the innermost loop; outside a loop either is OS1009 | `specified` | `language.md` 10.5, `errors.md` OS1009 | `flow/break-continue` |
+| `switch` value form | Compares a subject against each case | `specified` | `language.md` 10.6 | `flow/switch-value` |
+| `switch` condition form | No subject; takes the first true arm | `specified` | `language.md` 10.6 | `flow/switch-condition` |
+| Multiple values per case | Comma separated, all of the subject's type | `specified` | `language.md` 10.6 | `flow/switch-multi-value` |
+| No fall-through | Each arm's block ends at the next `case` or `default` | `specified` | `language.md` 10.6 | `flow/switch-no-fallthrough` |
+| `default` | Optional, last; with no match and no default, nothing happens | `specified` | `language.md` 10.6 | `flow/switch-default` |
+| `case` or `default` out of place | OS1017 | `specified` | `language.md` 10.6, `errors.md` OS1017 | `unit:flow/case-out-of-place` |
+| Names set by arms | Must be declared before the `switch`, which makes the "declared in one arm only" bug impossible | `specified` | `language.md` 10.6, `language.md` 12.2 | `flow/switch-name-scope` |
+| Per-bar loop budget | Iterations summed over all loops in one bar, default 2,000,000, exceeding it is OS5001 | `specified` | `language.md` 10.7, `compiled-program.md` 5.5, `errors.md` OS5001 | `flow/loop-budget` |
+| Budget failure stops the bar | It does not break out of the loop, because a truncated loop produces a plausible wrong number | `specified` | `language.md` 10.7, `compiled-program.md` 8.5 | `flow/loop-budget-stops-bar` |
+| `limits(loops = ...)` | Raises the budget deliberately, in one place | `specified` | `language.md` 10.7, `compiled-program.md` 2.4 | `flow/limits-loops` |
+| `limits(history = ...)` | Sets the retained series depth | `specified` | `language.md` 10.7, `language.md` 7.4 | `flow/limits-history` |
+| `limits()` placement | At most once, immediately after the declaration, literal arguments only: OS3014 and OS3015 | `specified` | `language.md` 10.7, `errors.md` OS3014, `errors.md` OS3015 | `unit:flow/limits-placement` |
+| Host refusal of a limit | A host unwilling to run a requested limit says so with OS5003 rather than capping quietly | `specified` | `language.md` 10.7, `errors.md` OS5003 | `flow/limits-refused` |
+| Warnings about dead control flow | OS8015 on a loop that never runs, OS8016 on unreachable code, OS8017 on a constant condition | `specified` | `errors.md` OS8015, `errors.md` OS8016, `errors.md` OS8017 | `unit:flow/dead-code-warnings` |
 
-## 15. Mathematics
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `abs`, `sign` | Magnitude, and -1, 0 or 1 | planned | `library.md` math | `math/abs-sign` |
-| `floor`, `ceil`, `round` | Rounding, with `round` using round-half-away-from-zero, stated so engines agree on `.5` | planned | `library.md` math | `math/rounding` |
-| `round(x, decimals)` | Rounding to a number of decimals | planned | `library.md` math | `math/round-decimals` |
-| `truncate` | Towards zero | planned | `library.md` math | `math/truncate` |
-| `min`, `max` | Two-argument forms, bare | planned | `library.md` math | `math/min-max` |
-| `pow` | The power function, because `^` has two plausible readings | specified | `language.md` 3.12 | `math/pow` |
-| `sqrt`, `exp`, `log`, `log10` | With absence for a non-finite or non-real result | planned | `library.md` math | `math/exp-log` |
-| Trigonometry | `sin`, `cos`, `tan` and the inverses, with the exact binary64 results a case pins | planned | `library.md` math | `math/trigonometry` |
-| `math.toDegrees`, `math.toRadians` | Angle conversion | planned | `library.md` math | `math/angle-conversion` |
-| Constants | `math.pi`, `math.e` | planned | `library.md` math | `math/constants` |
-| `clamp` | Bound a value between a low and a high | planned | `library.md` math | `math/clamp` |
-| No random source | There is no random function, because a script that plots differently twice cannot be conformance tested | specified | `language.md` 7.6 | `math/no-random` |
-
-## 16. Colours
+## 10. User functions
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| Named colours | The nineteen bare names, which are ordinary globals so more can be added without a grammar change | specified | `language.md` 3.8 | `color/named` |
-| Hex colours | 24 bit, and 32 bit with an alpha byte | specified | `language.md` 3.8 | `color/hex` |
-| `rgb(r, g, b)` | Construct from channels | specified | `language.md` 3.8 | `color/rgb` |
-| `rgba(r, g, b, a)` | Construct with alpha from 0 to 1 | specified | `language.md` 3.8 | `color/rgba` |
-| `fade(color, percent)` | Lower a colour's alpha | specified | `language.md` 3.8 | `color/fade` |
-| Absent colour | An absent colour paints nothing, rather than falling back to a default | planned | `surface.md` colour | `color/absent` |
+| Single-line `fn` | `fn name(params) => expression` | `specified` | `language.md` 11.1 | `fn/single-line` |
+| Multi-line `fn` | A block whose final expression is the value | `specified` | `language.md` 11.1 | `fn/multi-line` |
+| Top level only | Functions may not be nested | `specified` | `language.md` 11.1 | `unit:fn/no-nesting` |
+| A function is not a value | Naming one without calling it is OS2014, and there are no function values in version 1 | `specified` | `language.md` 11.1, `errors.md` OS2014 | `unit:fn/not-a-value` |
+| A name that is not a function | Calling a name that holds a value is OS2010 | `specified` | `language.md` 11.1, `errors.md` OS2010 | `unit:fn/not-callable` |
+| Two functions of one name | OS2017, naming the earlier declaration | `specified` | `language.md` 11.1, `errors.md` OS2017 | `unit:fn/duplicate-name` |
+| Parameter annotations | Optional, checked when present, inferred otherwise | `specified` | `language.md` 11.2 | `fn/parameter-annotation` |
+| Parameter defaults | A default expression per parameter | `specified` | `language.md` 11.2 | `fn/parameter-default` |
+| Duplicate parameter name | OS2018 | `specified` | `language.md` 11.2, `errors.md` OS2018 | `unit:fn/duplicate-parameter` |
+| Positional arguments | In declared order | `specified` | `language.md` 11.2 | `fn/positional-arguments` |
+| Named arguments | By parameter name, not repeating a positional one | `specified` | `language.md` 11.2 | `fn/named-arguments` |
+| An argument label is not a name | A label is matched against the callee's parameter list and never looked up in a scope, so a reserved word or a type name is legal there and OS1019 does not fire | `specified` | `language.md` 11.2, `language.md` 3.4 | `fn/label-not-a-name` |
+| A parameter is an identifier | `fn f(color = red)` is OS1019, because a parameter is a name in a scope and `color` is a type name | `specified` | `language.md` 11.2, `errors.md` OS1019 | `unit:fn/parameter-reserved-word` |
+| Positional after named | OS3005 | `specified` | `language.md` 11.2, `errors.md` OS3005 | `unit:fn/positional-after-named` |
+| Argument given twice | OS3013 | `specified` | `language.md` 11.2, `errors.md` OS3013 | `unit:fn/argument-twice` |
+| Wrong argument count | OS3001 | `specified` | `language.md` 11.2, `errors.md` OS3001 | `unit:fn/argument-count` |
+| Unknown named argument | OS3002, whose message lists the names that exist | `specified` | `language.md` 11.2, `errors.md` OS3002 | `unit:fn/unknown-named-argument` |
+| Missing required argument | OS3012 | `specified` | `language.md` 11.2, `errors.md` OS3012 | `unit:fn/missing-argument` |
+| Missing comma between arguments | OS1014 | `specified` | `language.md` 11.2, `errors.md` OS1014 | `unit:fn/missing-comma` |
+| `return expression` | Exits immediately with that value | `specified` | `language.md` 11.3 | `fn/return` |
+| Bare `return` | Exits with absence | `specified` | `language.md` 11.3 | `fn/return-bare` |
+| Implicit return | A trailing bare expression is the return value | `specified` | `language.md` 11.3 | `fn/implicit-return` |
+| A call that returns no value | The grammar has a `nothing` rule for a call whose result cannot be used, such as `signal` or a `draw` setter | `specified` | `language.md` 19, `stdlib.md` 14.3 | `fn/nothing-returned` |
+| State per call site | Two calls in two places are two independent pieces of state | `specified` | `language.md` 11.4, `compiled-program.md` 2.12 | `fn/state-per-call-site` |
+| One slot per loop call site | A call inside a loop shares one slot across iterations, which is what an accumulation wants | `specified` | `language.md` 11.4 | `fn/state-in-loop` |
+| No recursion | Direct or cyclic self-call is OS2005 naming the cycle, because slots are allocated statically | `specified` | `language.md` 11.4, `errors.md` OS2005 | `unit:fn/recursion-rejected` |
+| Unexecuted call site | Its series is absent for that bar and its state does not advance | `specified` | `language.md` 11.4 | `fn/unexecuted-call-site` |
+| OS8001 warning | Warns on a stateful call inside a conditional branch and names the fix | `specified` | `language.md` 11.4, `errors.md` OS8001 | `unit:fn/os8001-warning` |
+| Forward reference | A function may be called before its declaration appears | `specified` | `language.md` 12.5 | `fn/forward-reference` |
 
-## 17. Technical analysis library
-
-Roughly one hundred functions. One row per family here, and one conformance case
-per function inside the family's directory, because a hundred rows would drown
-the rest of this table without proving anything a family row does not. The
-function count itself is printed by continuous integration from the library
-manifest, alongside the count of manifest entries that have a case.
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| Simple and weighted averages | `sma`, `wma`, `swma` | planned | `library.md` ta | `ta/average-simple` |
-| Exponential and running averages | `ema`, `rma`, `dema`, `tema`, each with its stated seeding | planned | `library.md` ta | `ta/average-exponential` |
-| Adaptive and volume averages | `hma`, `alma`, `vwma` | planned | `library.md` ta | `ta/average-adaptive` |
-| Momentum oscillators | `rsi`, `stoch`, `cci`, `mfi`, `williamsR` | planned | `library.md` ta | `ta/momentum` |
-| Trend indicators | `macd`, `adx`, `dmi`, `aroon`, `supertrend` | planned | `library.md` ta | `ta/trend` |
-| Volatility | `tr`, `atr`, `stdev`, `variance`, `bollinger`, `keltner`, `donchian` | planned | `library.md` ta | `ta/volatility` |
-| Volume | `obv`, `ad`, `cmf`, `pvt`, `vwap`, anchored `vwap` | planned | `library.md` ta | `ta/volume` |
-| Extremes and pivots | `highest`, `lowest`, `highestBars`, `lowestBars`, `pivotHigh`, `pivotLow` | planned | `library.md` ta | `ta/extremes` |
-| Crossover tests | `crossUp`, `crossDown`, `cross` | planned | `library.md` ta | `ta/crossover` |
-| Change and accumulation | `change`, `roc`, `cum`, `sum`, `barsSince`, `valueWhen` | planned | `library.md` ta | `ta/change` |
-| Regression and correlation | `linreg`, `slope`, `correlation`, `covariance` | planned | `library.md` ta | `ta/regression` |
-| Rank and distribution | `percentRank`, `percentile`, `median`, `mode` | planned | `library.md` ta | `ta/rank` |
-| Exact warmup per function | Each function's first present bar is fixed by the manifest and asserted per function | specified | `language.md` 7.3 | `ta/warmup-exact` |
-| Absence behaviour per function | Window propagation, or the named skipping behaviour, asserted per function | specified | `language.md` 6.7 | `ta/absence-behaviour` |
-| Independent reference agreement | Every library function matches an independently written reference, with its provenance recorded | planned | `conformance.md` categories | `ta/reference-agreement` |
-
-## 18. The plot family
+## 11. Scope
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `plot(value, title, color)` | One column of one value per bar | specified | `language.md` 15.3 | `plot/basic` |
-| Line, stepline and histogram styles | The three most used shapes of a per-bar column | planned | `surface.md` plot | `plot/style-line-family` |
-| Area and column styles | Filled to a baseline | planned | `surface.md` plot | `plot/style-area-column` |
-| Point styles | Circles and crosses at each bar's value | planned | `surface.md` plot | `plot/style-points` |
-| Candle and bar plots | Four series drawn as price bars in the study's own pane | planned | `surface.md` plot | `plot/style-candle` |
-| Width, opacity and line style | Solid, dashed and dotted, with a width and an opacity | specified | `language.md` 15.3 | `plot/appearance` |
-| Per-bar plot colour | A colour expression evaluated per bar, so one line changes colour with a condition | planned | `surface.md` plot | `plot/per-bar-color` |
-| Plot offset | Shift a plotted column forward or back by a whole number of bars | planned | `surface.md` plot | `plot/offset` |
-| Price scale selection | Left, right or none, per plot | planned | `surface.md` plot | `plot/price-scale` |
-| Precision and format | Per-plot override of the declaration's precision and format | planned | `surface.md` plot | `plot/precision-format` |
-| Fixed column set | The set of plots is fixed before bar 0, which is what lets a legend and a settings dialog exist | specified | `language.md` 7.1 | `plot/fixed-column-set` |
-| Hiding by absence | A plot is hidden on a bar by plotting `none`, never by wrapping it in an `if` | specified | `language.md` 7.1, 6.7 | `plot/hide-by-absence` |
-| `signal(text)` | The whole of shape plotting: one call, one named marker on the bar | specified | `language.md` 15.3 | `plot/signal` |
-| Signal layer replacement | The marker layer is rebuilt each run, so a signal that stops firing leaves nothing behind | planned | `surface.md` plot | `plot/signal-layer-clear` |
+| Three scopes | Global (library), file (top-level names and functions), block (every block and function body) | `specified` | `language.md` 12.1 | `scope/three-scopes` |
+| First assignment declares | A name is declared by its first assignment in a scope | `specified` | `language.md` 12.2 | `scope/first-assignment-declares` |
+| Assignment updates an outer name | An assignment to a name from an enclosing scope updates it and creates nothing | `specified` | `language.md` 12.2 | `scope/outer-update` |
+| Block-local names | A name first assigned in a block is invisible outside it, which is OS2001 when read | `specified` | `language.md` 12.2, `errors.md` OS2001 | `scope/block-local` |
+| No shadowing | Declaring an inner name that exists outside is OS2002, naming the outer line | `specified` | `language.md` 12.3, `errors.md` OS2002 | `unit:scope/no-shadowing` |
+| Parameter shadowing | A parameter named after a file-scope name or a library function is OS2002 | `specified` | `language.md` 12.3, `errors.md` OS2002 | `unit:scope/parameter-shadowing` |
+| Assigning to a built-in | `close = 5` is OS2002, with a suggested name; every library name is a global | `specified` | `language.md` 12.4, `stdlib.md` 2.1, `errors.md` OS2002 | `unit:scope/builtin-assignment` |
+| Use before assignment | Reading a file-scope name above its assignment is OS2001, not absence | `specified` | `language.md` 12.5, `errors.md` OS2001 | `unit:scope/use-before-assignment` |
+| Unknown member of a namespace | OS2009, listing the members that exist | `specified` | `language.md` 15.2, `errors.md` OS2009 | `unit:scope/unknown-member` |
+| A name never read | OS8010, so a misspelled name is a warning rather than a silent nothing | `specified` | `errors.md` OS8010 | `unit:scope/name-never-read` |
+| Lifetime versus visibility | `var` sets how long a value lives; the block sets where the name is seen | `specified` | `language.md` 8.2, `language.md` 12.1 | `scope/lifetime-vs-visibility` |
 
-## 19. Fills, levels, bar colour and background
+## 12. Declarations: study and strategy
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `fill(a, b, color)` | A shaded band between two plots | specified | `language.md` 15.3 | `fill/basic` |
-| Two-sided fill colour | A different colour depending on which plot leads, because which side leads is itself the signal | planned | `surface.md` fill | `fill/two-sided` |
-| Fill opacity | Alpha on the band, usually through `fade` | specified | `language.md` 3.8, 15.3 | `fill/opacity` |
-| Fill across absence | The band stops on a bar where either plot is absent | specified | `language.md` 6.7 | `fill/absence-gap` |
-| `level(price, title, color)` | A horizontal reference line in the study's pane | specified | `language.md` 13.2, 15.3 | `level/basic` |
-| Computed level | A level whose price comes from the data and moves with it | planned | `surface.md` level | `level/computed` |
-| Level appearance | Width and dashed or solid | planned | `surface.md` level | `level/appearance` |
-| `barColor(color)` | Recolours the price candles, one colour per bar | specified | `language.md` 15.3 | `barcolor/basic` |
-| Bar colour absence | An absent colour leaves the bar its own colour | specified | `language.md` 6.7 | `barcolor/absence` |
-| Single publisher rule | Only one study colours the candles at a time, and the winner is stable from frame to frame | planned | `surface.md` barcolor | `barcolor/single-publisher` |
-| `background(color)` | Per-bar shading behind the pane, a full-height column | specified | `language.md` 15.3 | `background/basic` |
-| Background absence | An absent colour clears that bar's shading | specified | `language.md` 6.7 | `background/absence` |
+| `study()` | Declares a study; first statement after any `version` line and leading comments | `specified` | `language.md` 13.1 | `decl/study` |
+| `strategy()` | Every study option plus the trading options, so one file plots and trades | `specified` | `language.md` 13.1, `language.md` 13.3 | `decl/strategy` |
+| Exactly one declaration | Missing is OS2007, two is OS2008 | `specified` | `language.md` 13.1, `errors.md` OS2007, `errors.md` OS2008 | `unit:decl/one-declaration` |
+| Compile-time constant options | Literals, arithmetic over literals or an `input()` call; anything bar-dependent is OS3003 | `specified` | `language.md` 13.2, `errors.md` OS3003 | `unit:decl/constant-options` |
+| `title` | The legend and picker name, first positional argument | `specified` | `language.md` 13.2, `compiled-program.md` 2.3 | `decl/option-title` |
+| `short` | A shorter legend name, defaulting to the title | `specified` | `language.md` 13.2, `compiled-program.md` 2.3 | `decl/option-short` |
+| `overlay` | Price pane when true, own pane when false | `specified` | `language.md` 13.2, `compiled-program.md` 2.3 | `decl/option-overlay` |
+| `precision` | Decimals on this study's axis and legend, 0 to 10 | `specified` | `language.md` 13.2, `compiled-program.md` 2.3 | `decl/option-precision` |
+| `format` | `"price"`, `"percent"` or `"volume"` axis and crosshair formatting | `specified` | `language.md` 13.2, `compiled-program.md` 2.3 | `decl/option-format` |
+| `range` | `[min, max]` fixing the study pane's scale; a malformed pair is OS3016 | `specified` | `language.md` 13.2, `errors.md` OS3016 | `decl/option-range` |
+| `scale` | `"right"`, `"left"` or `"none"` | `specified` | `language.md` 13.2 | `decl/option-scale` |
+| `group` | Category in a picker | `specified` | `language.md` 13.2 | `decl/option-group` |
+| `onUnconfirmed` | Allows signals, alerts and orders on a moving bar | `specified` | `language.md` 13.2, `language.md` 7.5 | `decl/option-on-unconfirmed` |
+| An option that requires another | OS3009, naming the option that has to be set with it | `specified` | `language.md` 13.2, `errors.md` OS3009 | `unit:decl/option-needs-option` |
+| An option value that is not an accepted name | OS3008 at compile time, OS4012 at run time | `specified` | `language.md` 13.2, `errors.md` OS3008, `errors.md` OS4012 | `unit:decl/option-unknown-value` |
+| Two outputs sharing a title | OS3017, because a legend with two identical rows cannot be read | `specified` | `errors.md` OS3017 | `unit:decl/duplicate-title` |
+| `capital` | Starting equity for the backtest | `specified` | `language.md` 13.3 | `decl/option-capital` |
+| `currency` | Display label for money in the report | `specified` | `language.md` 13.3, `stdlib.md` 3.4 | `decl/option-currency` |
+| `qty` | Default order size when an order names none | `specified` | `language.md` 13.3 | `decl/option-qty` |
+| `qtyType` | `"units"`, `"lots"`, `"cash"` or `"equityPercent"` | `specified` | `language.md` 13.3 | `decl/option-qty-type` |
+| `product` | `"intraday"` or `"overnight"` | `specified` | `language.md` 13.3 | `decl/option-product` |
+| `fillOn` | `"nextOpen"` (the default, because a close cannot fill at that same close) or `"close"` | `specified` | `language.md` 13.3, `stdlib.md` 17.1 | `decl/option-fill-on` |
+| `slippage` | Ticks of adverse slippage on every fill | `specified` | `language.md` 13.3 | `decl/option-slippage` |
+| `commission` | Cost per the commission unit | `specified` | `language.md` 13.3 | `decl/option-commission` |
+| `commissionType` | `"perTrade"`, `"perUnit"` or `"percent"` | `specified` | `language.md` 13.3 | `decl/option-commission-type` |
+| `pyramiding` | Maximum entries in one direction before entries are refused | `specified` | `language.md` 13.3 | `decl/option-pyramiding` |
+| `closeOnSessionEnd` | Flatten at the session close | `specified` | `language.md` 13.3 | `decl/option-close-on-session-end` |
 
-## 20. Tables
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `table(...)` declaration | Declared at the top level, because it is part of the study's fixed shape | specified | `language.md` 15.3 | `table/declaration` |
-| Cell content | Text, text colour and background colour per cell | planned | `surface.md` table | `table/cell-content` |
-| Cell alignment | Horizontal and vertical alignment per cell | planned | `surface.md` table | `table/cell-alignment` |
-| Row and column sizing | Widths and heights, or automatic | planned | `surface.md` table | `table/sizing` |
-| Corner placement | Which corner of the pane the grid is pinned to | planned | `surface.md` table | `table/placement` |
-| Per-bar update | Cells written during the bar, with the last write of the last bar being what is shown | planned | `surface.md` table | `table/per-bar-update` |
-| Clearing | Writing no rows draws nothing, which is how a "show table" input switches it off | planned | `surface.md` table | `table/clear` |
-| Absent cell | An absent value renders a blank cell, never a zero | specified | `language.md` 6.7 | `table/absent-cell` |
-
-## 21. Mutable drawing objects
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `draw.line` | A line between two anchors | planned | `surface.md` draw | `draw/line` |
-| `draw.label` | A text plate at one anchor | planned | `surface.md` draw | `draw/label` |
-| `draw.box` | A rectangle between two anchors, with an optional fill | planned | `surface.md` draw | `draw/box` |
-| `draw.polyline` | A path through several anchors, optionally closed and filled | planned | `surface.md` draw | `draw/polyline` |
-| Time and price anchoring | An anchor is a time and a price, not a bar index, so a shape stays put when history is paged in | planned | `surface.md` draw | `draw/time-anchored` |
-| Mutation after creation | Move, recolour and retext an object on a later bar | planned | `surface.md` draw | `draw/mutation` |
-| Deletion | Remove an object the script created | planned | `surface.md` draw | `draw/delete` |
-| Identity across bars | An object handle held in a `var` refers to the same object next bar | planned | `surface.md` draw | `draw/identity` |
-| Rollback of drawing state | Objects created on a moving bar are undone before the bar re-runs, as `var` values are | planned | `surface.md` draw, `language.md` 7.5 | `draw/rollback` |
-| No object cap | There is no platform limit on object count; the only limit is memory and the script's own `limits()` | planned | `surface.md` draw | `draw/no-cap` |
-| Line extension | Continue a line past its anchor to the pane edge, left or right | planned | `surface.md` draw | `draw/extend` |
-| Tooltip and hit identity | Hover detail and a click identity on a box or a label | planned | `surface.md` draw | `draw/tooltip-hit` |
-| Layer replacement | The object layer is rebuilt from the script's state each run, so nothing orphaned survives | planned | `surface.md` draw | `draw/layer-replacement` |
-
-## 22. Time, session and instrument facts
+## 13. Inputs
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `time` | The bar's open time, UTC milliseconds | specified | `language.md` 15.1 | `time/bar-time` |
-| `date.year`, `.month`, `.day` | Calendar fields from a timestamp, in the chart's timezone | planned | `library.md` date | `time/date-fields` |
-| `date.hour`, `.minute`, `.second` | Clock fields from a timestamp | planned | `library.md` date | `time/clock-fields` |
-| `date.dayOfWeek` | Day number, with the numbering fixed so a weekly rule cannot differ between engines | planned | `library.md` date | `time/day-of-week` |
-| Timestamp construction | Build a timestamp from calendar and clock fields plus a timezone | planned | `library.md` date | `time/construct` |
-| Timestamp formatting | A timestamp to a string with an explicit pattern, never a locale default | planned | `library.md` date | `time/format` |
-| `chart.timezone` | The timezone every calendar conversion uses | planned | `library.md` chart | `time/timezone` |
-| `chart.symbol`, `chart.exchange` | The instrument being charted | planned | `library.md` chart | `time/instrument-identity` |
-| `chart.interval` | The chart's timeframe | planned | `library.md` chart | `time/interval` |
-| `chart.tickSize`, `chart.lotSize` | Instrument facts a strategy needs for rounding and sizing | planned | `library.md` chart | `time/tick-and-lot` |
-| `chart.now()` | The only wall clock, supplied by the host and fixed by a conformance case | specified | `language.md` 7.6, 15.2 | `time/now` |
-| `session.isFirstBar` | The first bar of the instrument's session | specified | `language.md` 15.2 | `session/first-bar` |
-| `session.isLastBar` | The last bar of the session | planned | `library.md` session | `session/last-bar` |
-| `session.isMarketOpen` | Whether this bar falls inside the instrument's trading session | planned | `library.md` session | `session/is-open` |
-| Session boundaries | Start and end times taken from the instrument facts the host supplies, not guessed | planned | `library.md` session | `session/boundaries` |
-| Session day boundary | Which calendar day a bar belongs to when a session crosses midnight | planned | `library.md` session | `session/day-boundary` |
+| `input(default, title)` | Declares a tunable value and one row of the settings dialog | `specified` | `language.md` 13.4, `stdlib.md` 13.1 | `input/basic` |
+| Type from the default | The input's type follows the default's type, which is why the default comes first | `specified` | `language.md` 13.4, `stdlib.md` 13.2 | `input/type-from-default` |
+| Number input | With `min`, `max` and `step` bounds | `specified` | `stdlib.md` 13.1, `stdlib.md` 13.3 | `input/number` |
+| Bool input | A checkbox row | `specified` | `stdlib.md` 13.1 | `input/bool` |
+| String input | A text row | `specified` | `stdlib.md` 13.1 | `input/string` |
+| Select input | `options = [...]` makes the row a fixed choice, and a default outside the list is OS3018 | `specified` | `stdlib.md` 13.3, `errors.md` OS3018 | `input/options` |
+| Colour input | A colour row | `specified` | `stdlib.md` 13.1 | `input/color` |
+| Source input | A built-in series chosen from the price fields | `specified` | `stdlib.md` 13.1 | `input/source` |
+| `kind = "interval"` | A timeframe row, validated against the timeframe strings | `specified` | `stdlib.md` 13.1, `stdlib.md` 15.2 | `input/interval` |
+| `kind = "time"` | Stored as a wall clock string in the chart's zone, returned as a timestamp, converted once before bar 0 | `specified` | `stdlib.md` 13.1, `stdlib.md` 13.3 | `input/time` |
+| `group` and `tooltip` | A heading the dialog groups rows under, and help text beside the label | `specified` | `stdlib.md` 13.2 | `input/group-tooltip` |
+| Style rows the host generates | A colour, opacity, thickness, line style and plot style row per `plot`, which a declared `color` input takes over rather than duplicating | `specified` | `stdlib.md` 13.4 | `input/host-style-rows` |
+| Top level only | An `input()` inside a block or a function is OS3007 | `specified` | `language.md` 13.4, `stdlib.md` 14.1, `errors.md` OS3007 | `unit:input/top-level-only` |
+| Non-constant default | OS3003, because the dialog is built before bar 0 | `specified` | `stdlib.md` 13.2, `errors.md` OS3003 | `unit:input/non-constant-default` |
+| Out-of-range value | A supplied value outside `min` and `max` is refused before the first bar: OS3004 for a literal, OS6019 for a host setting | `specified` | `stdlib.md` 13.3, `errors.md` OS3004, `errors.md` OS6019 | `input/out-of-range` |
+| An input never used | OS8018, so a dialog row that does nothing is visible to its author | `specified` | `errors.md` OS8018 | `unit:input/never-used` |
+| `inline` and `confirm` | Rows sharing a line, and a value asked for when the study is added | `planned` | `stdlib.md` 13.2 | `input/dialog-layout` |
+| Planned input kinds | `"symbol"`, `"price"` and `"session"` are named so the surface is legible and are not defined | `planned` | `stdlib.md` 13.1 | `input/planned-kinds` |
+| Settings round trip | Saved settings reload to the same values and produce the same output, for every kind rather than only `"time"` | `planned` | `none` | `input/settings-round-trip` |
 
-## 23. Higher timeframe and other instrument reads
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `req.timeframe(tf, expr)` | A value computed on a higher timeframe and folded onto this chart's bars | specified | `language.md` 15.2 | `req/timeframe` |
-| Repaint mode | Every higher timeframe read states its mode, and the mode is part of the call, not a setting | planned | `surface.md` req | `req/repaint-mode` |
-| Default is non-repainting | The default mode uses only completed higher timeframe bars, because an honest default is worth more than a convenient one | planned | `surface.md` req | `req/default-non-repainting` |
-| Warning OS8002 | A higher timeframe read in a file declaring `onUnconfirmed = true` warns, because that is where repainting comes from | specified | `language.md` 7.5 | `unit:req/os8002-warning` |
-| Unknown timeframe | OS6001 naming the timeframes that exist | specified | `language.md` 16 | `req/unknown-timeframe` |
-| Alignment | Which chart bar each higher timeframe value first appears on, specified exactly | planned | `surface.md` req | `req/alignment` |
-| Absence before the first close | Absent until the first higher timeframe bar in the dataset completes | planned | `surface.md` req | `req/warmup` |
-| `req.symbol(...)` | Another instrument's bars or a value computed from them | planned | `surface.md` req | `req/symbol` |
-| Missing instrument data | An OS6xxx error naming the instrument and what was missing, never a silent empty series | planned | `errors.md` OS6xxx | `req/missing-data` |
-| Calendar mismatch | How bars align when two instruments have different sessions or holidays | planned | `surface.md` req | `req/calendar-mismatch` |
-| Request accounting | How many distinct reads a script makes, reported rather than capped | planned | `surface.md` req | `req/request-accounting` |
-
-## 24. Alerts
+## 14. Collections
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `alert(condition, message)` | A condition the runtime watches and a message it emits | specified | `language.md` 15.3 | `alert/basic` |
-| Message from per-bar values | The message may be built from this bar's values | planned | `surface.md` alert | `alert/message-template` |
-| Confirmed bar only | An alert does not fire on a moving bar unless the declaration opts in | specified | `language.md` 7.5 | `alert/confirmed-only` |
-| Absent condition | An absent condition does not fire, by the false-branch rule | specified | `language.md` 6.6 | `alert/absent-condition` |
-| One firing per bar | An alert fires at most once per bar, however many times the bar is executed | planned | `surface.md` alert | `alert/once-per-bar` |
-| Payload contract | What the host receives: identity, title, message, bar time and bar index | planned | `surface.md` alert | `alert/payload` |
+| Array literal | `[1, 2, 3]`, homogeneous; a literal mixing types is OS2013 | `specified` | `language.md` 14.1, `errors.md` OS2013 | `array/literal` |
+| Empty literal element type | From an annotation when there is one, otherwise from the first `push`, `unshift`, `insert` or `set` in source order; with neither it is OS2015 | `specified` | `language.md` 14.1, `language.md` 19, `errors.md` OS2015 | `array/empty-literal` |
+| Element types | `number`, `string`, `bool`, `color` or a runtime object type; never a declaration handle and never a `series` | `specified` | `language.md` 14.1, `language.md` 5.4 | `array/element-types` |
+| Reference semantics | Assignment shares the array; `copy` makes an independent one, so passing is never quietly expensive | `specified` | `language.md` 14.1 | `array/reference-semantics` |
+| `size(arr)` | Element count | `specified` | `language.md` 14.1 | `array/size` |
+| Element read and write | `arr[i]`, `element(arr, i)`, `set(arr, i, v)` | `specified` | `language.md` 14.1 | `array/element-access` |
+| `push` and `pop` | Append, and remove and return the last | `specified` | `language.md` 14.1 | `array/push-pop` |
+| `shift` and `unshift` | Remove and return the first, and insert at the front | `specified` | `language.md` 14.1 | `array/shift-unshift` |
+| `insert` and `remove` | Insert before an index, and remove and return an index | `specified` | `language.md` 14.1 | `array/insert-remove` |
+| `clear(arr)` | Remove everything | `specified` | `language.md` 14.1 | `array/clear` |
+| `slice(arr, from, to)` | A new array, `from` inclusive, `to` exclusive; an invalid range is OS4007 | `specified` | `language.md` 14.1, `errors.md` OS4007 | `array/slice` |
+| `copy(arr)` | An independent copy | `specified` | `language.md` 14.1 | `array/copy` |
+| `indexOf(arr, v)` | First index, or -1 | `specified` | `language.md` 14.1 | `array/index-of` |
+| `sort(arr, order)` | In place, ascending or descending, and stable so two engines agree on ties | `specified` | `language.md` 14.1 | `array/sort` |
+| `reverse(arr)` | In place | `specified` | `language.md` 14.1 | `array/reverse` |
+| Array statistics | `sum`, `avg`, `min`, `max`, `stdev` over the whole array | `specified` | `language.md` 14.1 | `array/statistics` |
+| An operation on an empty array | OS4006, rather than an invented value | `specified` | `language.md` 14.1, `errors.md` OS4006 | `array/empty-operation` |
+| Out-of-range index | OS4004 naming the index and the size, because an array has an extent the script chose | `specified` | `language.md` 14.1, `errors.md` OS4004 | `array/out-of-range` |
+| Element limit | 1,000,000 by default; exceeding it is OS5002 and `limits()` does not raise it in version 1 | `specified` | `language.md` 14.1, `errors.md` OS5002 | `array/element-limit` |
+| Persistent array | An array in a `var` persists, and rollback restores its contents | `specified` | `language.md` 14.1, `language.md` 7.5 | `array/persistent` |
+| Arrays in the object heap | An array is a reference into the same heap that holds tables and drawing objects | `specified` | `compiled-program.md` 3.2, `compiled-program.md` 4.9 | `array/heap` |
+| `map<K, V>` | Reserved word, not implemented; insertion-order iteration when it arrives, for determinism | `specified` | `language.md` 14.2 | `unit:array/map-reserved` |
+| `matrix<T>` | Reserved word, not implemented; two-dimensional numeric container when it arrives | `specified` | `language.md` 14.2 | `unit:array/matrix-reserved` |
 
-## 25. Strategy: orders
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| `buy(...)` | Enter or add to a long position | specified | `language.md` 13.3 | `order/buy` |
-| `sell(...)` | Enter or add to a short position | specified | `language.md` 13.3 | `order/sell` |
-| `close()` | Flatten the current position | specified | `language.md` 13.3 | `order/close` |
-| Limit orders | An order with a limit price, and what happens when it is not reached | planned | `strategy.md` orders | `order/limit` |
-| Stop orders | An order with a stop price, and the fill rule when a bar gaps through it | planned | `strategy.md` orders | `order/stop` |
-| Brackets | A stop loss and a take profit attached to an entry, cancelling each other on fill | planned | `strategy.md` orders | `order/bracket` |
-| Order identity and cancel | Naming an order so a later bar can modify or cancel it | planned | `strategy.md` orders | `order/identity-cancel` |
-| Quantity types | Units, lots, cash and equity percent, with the rounding rule for each | planned | `strategy.md` sizing | `order/qty-types` |
-| Default quantity | Taken from the declaration when an order names none | specified | `language.md` 13.3 | `order/default-qty` |
-| Pyramiding limit | Entries beyond the limit are refused, and the refusal is reported | specified | `language.md` 13.3 | `order/pyramiding` |
-| Fill timing | `nextOpen` or `close`, applied consistently in backtest and live | specified | `language.md` 13.3 | `order/fill-timing` |
-| Slippage | Ticks of adverse slippage applied to every fill | specified | `language.md` 13.3 | `order/slippage` |
-| Commission models | Per trade, per unit and percent | specified | `language.md` 13.3 | `order/commission` |
-| Market-specific costs | Taxes, exchange and regulator charges and stamp duty for the market being traded | planned | `strategy.md` costs | `order/market-costs` |
-| Product type | Intraday versus overnight, and what each implies for carrying a position | specified | `language.md` 13.3 | `order/product-type` |
-| Session flattening | `closeOnSessionEnd` flattens at the session close | specified | `language.md` 13.3 | `order/session-flatten` |
-| Reversal in one order | Going from long to short with a single order, and how the trade list records it | planned | `strategy.md` orders | `order/reversal` |
-| Absent argument | An absent price or quantity is OS7002 naming the argument | specified | `language.md` 6.8 | `order/absent-argument` |
-| Deferral on a moving bar | An order decided intrabar is placed when the bar confirms, or not at all | specified | `language.md` 7.5 | `order/deferred` |
-| Rejection reporting | Every refused order reports an OS7xxx code and a reason, and none is dropped silently | planned | `errors.md` OS7xxx | `order/rejection-reported` |
-
-## 26. Strategy: position and performance
+## 15. Standard library rules
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `pos.size` | Signed position size, zero when flat | specified | `language.md` 15.2 | `pos/size` |
-| `pos.avgPrice` | Average entry price of the open position | specified | `language.md` 15.2 | `pos/avg-price` |
-| `pos.unrealised` | Open profit at this bar | specified | `language.md` 15.2 | `pos/unrealised` |
-| `pos.realised` | Closed profit so far | planned | `strategy.md` position | `pos/realised` |
-| `pos.barsHeld`, `pos.entryTime` | How long the position has been open and when it opened | planned | `strategy.md` position | `pos/held` |
-| Long, short and flat transitions | The exact state machine, including partial closes | planned | `strategy.md` position | `pos/transitions` |
-| Trade list | One row per closed trade: entry, exit, size, cost, profit | planned | `strategy.md` report | `perf/trade-list` |
-| Equity curve | Equity per bar, including open profit | planned | `strategy.md` report | `perf/equity-curve` |
-| Drawdown | Peak-to-trough decline, on the stated basis | planned | `strategy.md` report | `perf/drawdown` |
-| Win rate and expectancy | The two headline statistics, each with its formula written down | planned | `strategy.md` report | `perf/win-rate-expectancy` |
-| Monthly return table | Returns grouped by calendar month | planned | `strategy.md` report | `perf/monthly-table` |
-| Trade markers | Every trade marked on the chart at its fill bar | planned | `strategy.md` report | `perf/trade-markers` |
-| Run reproducibility | A run records its script revision, inputs, date range, cost settings and compiled program hash, and reruns identically | planned | `strategy.md` report | `perf/reproducible-run` |
-| Run comparison | Two runs compared well enough to tell a real improvement from noise | planned | `strategy.md` report | `perf/run-comparison` |
+| The shape of an entry | Call, Returns, Warmup, For, and a Lands in column for anything the host draws | `specified` | `stdlib.md` 1, `stdlib.md` 2.7 | `lib/entry-shape` |
+| Warmup is a promise | A warmup of bar `n - 1` means `none` on bars 0 to `n - 2` and a value from `n - 1` on, on exactly those bars and no others | `specified` | `stdlib.md` 1, `language.md` 7.3 | `lib/warmup-promise` |
+| Warmups compose | A call whose source is absent is absent, so nested calls add their warmups | `specified` | `stdlib.md` 1, `language.md` 6.7 | `lib/warmup-composes` |
+| Bare names and namespaces | Everyday functions are bare; `bar`, `chart`, `session`, `date`, `str`, `math`, `pos`, `order`, `draw` and `req` hold the long tail, settled per function | `specified` | `language.md` 15.2, `stdlib.md` 2.1 | `lib/bare-and-namespaced` |
+| Overloads | One bare name may carry several signatures differing in arity or argument type, resolved at compile time with no run-time dispatch | `specified` | `stdlib.md` 2.2, `errors.md` OS3001 | `lib/overloads` |
+| Multi-output calls | A function with more than one output returns an `array<number>` holding this bar's outputs in the documented order | `specified` | `stdlib.md` 2.3 | `lib/multi-output` |
+| A multi-output array is never absent | It never changes length either, so an early bar gives an absent element rather than an out-of-range error | `specified` | `stdlib.md` 2.3 | `lib/multi-output-length` |
+| History of a multi-output call | `m[0]` is element 0 of this bar's array and `history(m, 1)` is the whole array one bar ago | `specified` | `stdlib.md` 2.3, `language.md` 9.6 | `lib/multi-output-history` |
+| Length arguments | A whole number of 1 or more: fractional or zero is OS3004 as a literal and OS4003 at run time | `specified` | `stdlib.md` 2.5, `errors.md` OS3004, `errors.md` OS4003 | `lib/length-argument` |
+| A series length | Read per bar, with warmup measured against the largest value the length has taken since the start of the dataset | `specified` | `stdlib.md` 2.5 | `lib/series-length` |
+| Exact arithmetic recipes | Every function is an exact recipe over binary64 in source order, with seeds stated and no "usual definition" anywhere | `specified` | `stdlib.md` 2.6, `compiled-program.md` 8.3 | `lib/exact-recipe` |
+| Where a call lands | Sections 13 to 17 name the contract field per call and section 18 collects the map | `specified` | `stdlib.md` 2.7, `stdlib.md` 18, `compiled-program.md` 11 | `lib/lands-in` |
+| Calling a planned entry | OS2001 with a message saying the name is planned, rather than a message saying it does not exist | `specified` | `stdlib.md` 1, `errors.md` OS2001 | `lib/planned-entry` |
+| The library manifest | The program names the functions it calls and the manifest it was compiled against; a mismatch is OS6004 | `specified` | `compiled-program.md` 2.5, `errors.md` OS6004 | `prog/lib-manifest` |
 
-## 27. Errors, warnings and diagnostics
-
-| Feature | What it is | Status | Section | Test |
-|---|---|---|---|---|
-| Code ranges | OS1xxx syntax, OS2xxx names and types, OS3xxx arguments, OS4xxx runtime, OS5xxx limits, OS6xxx data, OS7xxx orders, OS8xxx warnings | specified | `language.md` 16 | `err/code-ranges` |
-| Diagnostic shape | Every diagnostic carries a code, a line, a column, a message and a fix | specified | `language.md` 16 | `err/diagnostic-shape` |
-| Caret under the text | The reported column points at the offending characters | specified | `ROADMAP.md` phase 1, `errors.md` | `unit:err/caret` |
-| Warnings do not stop | OS8xxx never halts compilation or a bar; it is reported on the line | specified | `language.md` 16 | `err/warning-does-not-stop` |
-| A runtime error stops the bar | The study is marked errored and the message is shown on the chart, rather than producing a plausible wrong number | specified | `language.md` 10.7, 16 | `err/runtime-stops-bar` |
-| Catalogue authority | `errors.md` wins over any other document quoting a code | specified | `language.md` 1, 16 | `unit:err/catalogue-authority` |
-| No undocumented code | The build fails if the compiler can emit a code with no catalogue entry | specified | `language.md` 16 | `unit:err/no-undocumented-code` |
-| No untested entry | The build fails if a catalogue entry has no test that produces it | specified | `language.md` 16 | `unit:err/no-untested-entry` |
-| Every error names a fix | A diagnostic that cannot state a fix is a defect in the diagnostic | specified | `language.md` 16 | `unit:err/fix-present` |
-
-## 28. Logging
+## 16. Bar data and instrument facts
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `print(x)` | Write a value to the script's log for the bar being executed | planned | `library.md` log | `log/print` |
-| Levels | `log.info`, `log.warn`, `log.error`, so a live script's log can be filtered | planned | `library.md` log | `log/levels` |
-| Bar context | Every entry carries the bar time and bar index, so a log line can be matched to a bar | planned | `library.md` log | `log/bar-context` |
-| Rate limit | A per-bar and per-run cap, with the cap reported rather than silently dropping lines | planned | `library.md` log | `log/rate-limit` |
-| Rollback of log output | Lines written during a re-executed moving bar replace the previous execution's lines | planned | `library.md` log | `log/rollback` |
-| No effect on numbers | Logging changes no value, so a case's numeric output is identical with logging on or off | planned | `library.md` log | `log/no-side-effect` |
-| Log as an assertable output | A conformance case may assert the log stream, which is how logging itself is proved | planned | `conformance.md` categories | `log/assertable` |
+| Built-in series | `open`, `high`, `low`, `close`, `volume` and `time`, bare in every script with history through `[]` | `specified` | `language.md` 15.1, `stdlib.md` 3.1 | `bar/built-in-series` |
+| Derived price series | `hl2`, `hlc3`, `ohlc4`, `hlcc4`, each with its formula written down | `specified` | `language.md` 15.1, `stdlib.md` 3.1 | `bar/derived-series` |
+| Volume absent, never zero | An instrument the host has no volume for gives absence, because zero is a real reading that means nobody traded | `specified` | `stdlib.md` 3.1 | `bar/volume-absent` |
+| `close` has two roles | `close` bare is the price and `close(...)` is the order function, told apart by syntax; in a study file the call is OS7001 | `specified` | `stdlib.md` 3.2, `errors.md` OS7001 | `bar/close-two-roles` |
+| `chart.symbol`, `chart.exchange` | The instrument being charted | `specified` | `stdlib.md` 3.4 | `chart/instrument-identity` |
+| `chart.interval` and friends | The canonical interval string, `chart.intervalMinutes` and `chart.isIntraday` | `specified` | `stdlib.md` 3.4, `stdlib.md` 15.2 | `chart/interval` |
+| `chart.timezone` | The chart's IANA zone, which every calendar conversion uses | `specified` | `stdlib.md` 3.4, `stdlib.md` 12.1 | `chart/timezone` |
+| `chart.tickSize`, `chart.lotSize`, `chart.pointValue` | Instrument facts a strategy needs for rounding and sizing, absent rather than guessed when the host has not said; reading one the host cannot supply is OS6012 | `specified` | `stdlib.md` 3.4, `errors.md` OS6012 | `chart/tick-and-lot` |
+| `chart.currency`, `chart.instrumentType`, `chart.hasVolume` | The remaining constant facts, with the instrument type drawn from a closed list | `specified` | `stdlib.md` 3.4 | `chart/instrument-facts` |
+| `chart.now()` | The only wall clock, supplied by the host and fixed by a conformance case | `specified` | `language.md` 7.6, `stdlib.md` 3.4 | `chart/now` |
+| `timeClose` | The instant a bar's interval ends | `planned` | `stdlib.md` 3.1 | `bar/time-close` |
+| Planned chart facts | `chart.isReplay`, `chart.expiry`, `chart.strike` and `chart.optionType` are named and not defined | `planned` | `stdlib.md` 3.4 | `chart/planned-facts` |
 
-## 29. Compiled program and engines
+## 17. Mathematics and rounding
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| Compiled program is data | A plain instruction list against a versioned schema, never generated source | specified | `README.md`, `compiled-program.md` | `prog/is-data` |
-| No dynamic code | Nothing calls `eval` or builds a function from text, so a strict content security policy is enough | specified | `README.md`, `compiled-program.md` | `unit:prog/no-eval` |
-| Schema round trip | Serialise, deserialise and run, with identical output | planned | `compiled-program.md` | `prog/round-trip` |
-| Schema versioning | A compatibility promise on the format, so an engine written today reads a program compiled tomorrow | planned | `compiled-program.md` | `prog/schema-version` |
-| Program hash stability | The same source under the same language version compiles to the same program and the same hash | planned | `compiled-program.md` | `prog/hash-stability` |
-| Cross-engine equality | Every engine produces identical output on every case, and a disagreement blocks the release | specified | `conformance.md`, `ROADMAP.md` phase 6 | `prog/cross-engine-equality` |
-</content>
-</invoke>
+| `abs`, `sign` | Magnitude, and -1, 0 or 1 | `specified` | `stdlib.md` 8.1 | `math/abs-sign` |
+| `min`, `max`, `clamp` | The two-argument forms, bare, and a value held inside a range | `specified` | `stdlib.md` 8.1 | `math/min-max-clamp` |
+| `floor`, `ceil`, `trunc` | Toward negative infinity, toward positive infinity, toward zero | `specified` | `stdlib.md` 8.1 | `math/truncation` |
+| `round(x)` | To the nearest whole number, halves away from zero, stated so two engines cannot differ on a tick | `specified` | `stdlib.md` 8.1 | `math/rounding` |
+| `round(x, decimals)` | To a fixed number of decimals on the same rule | `specified` | `stdlib.md` 8.1 | `math/round-decimals` |
+| `roundToStep`, `roundToTick` | To a multiple of a step, and to the instrument's tick, which is `none` when the host supplied no tick size | `specified` | `stdlib.md` 8.1, `stdlib.md` 3.4 | `math/round-to-tick` |
+| `sqrt`, `pow`, `exp`, `log`, `log10` | With absence rather than an error where the result is not a finite real | `specified` | `stdlib.md` 8.1 | `math/exp-log` |
+| `math.pi`, `math.e` | The two constants | `specified` | `stdlib.md` 8.2 | `math/constants` |
+| `math.log2`, `math.hypot` | Base two logarithm, and a hypotenuse without intermediate overflow | `specified` | `stdlib.md` 8.2 | `math/log2-hypot` |
+| `math.toDegrees`, `math.toRadians` | Angle conversion | `specified` | `stdlib.md` 8.2 | `math/angle-conversion` |
+| Trigonometry | `math.sin`, `math.cos`, `math.tan`, the three inverses and `math.atan2` | `specified` | `stdlib.md` 8.2 | `math/trigonometry` |
+| No random source | There is no random function anywhere, because a script that plots differently twice cannot be conformance tested | `specified` | `language.md` 7.6, `stdlib.md` 8.2 | `math/no-random` |
+| Hyperbolic functions | `math.sinh`, `math.cosh` and `math.tanh` are named and not defined | `planned` | `stdlib.md` 8.2 | `math/hyperbolic` |
+
+## 18. Strings and formatting
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `str.length` | Count of Unicode code points, not bytes and not UTF-16 units | `specified` | `stdlib.md` 10 | `str/length` |
+| Code point semantics | Length, indexing and slicing all count code points, so one engine cannot disagree with another; a position outside the string is OS4011 | `specified` | `stdlib.md` 10, `errors.md` OS4011 | `str/code-points` |
+| `str.upper`, `str.lower` | Case conversion, invariant rather than locale aware, so a result never depends on a machine setting | `specified` | `stdlib.md` 10 | `str/case` |
+| `str.trim` | Leading and trailing spaces removed | `specified` | `stdlib.md` 10 | `str/trim` |
+| `str.contains` | Substring test | `specified` | `stdlib.md` 10 | `str/contains` |
+| `str.startsWith`, `str.endsWith` | Prefix and suffix tests | `specified` | `stdlib.md` 10 | `str/prefix-suffix` |
+| `str.indexOf` | First position of a substring, or -1 | `specified` | `stdlib.md` 10 | `str/index-of` |
+| `str.substring` | `from` inclusive, `to` exclusive, to the end when `to` is absent | `specified` | `stdlib.md` 10 | `str/substring` |
+| `str.replace`, `str.replaceAll` | First and every occurrence | `specified` | `stdlib.md` 10 | `str/replace` |
+| `str.split` | To an `array<string>` | `specified` | `stdlib.md` 10 | `str/split` |
+| `str.join` | From an `array<string>` | `specified` | `stdlib.md` 10 | `str/join` |
+| `str.padLeft`, `str.padRight` | Pad to a width, for a table column that must line up | `specified` | `stdlib.md` 10 | `str/pad` |
+| `str.repeat` | A whole number of copies, for a bar drawn out of characters in a cell | `specified` | `stdlib.md` 10 | `str/repeat` |
+| No warmup on a string operation | A string operation on a present string produces a value on bar 0 | `specified` | `stdlib.md` 10 | `str/no-warmup` |
+| String length limit | A string past the engine's limit is OS5008 rather than a truncation | `specified` | `errors.md` OS5008 | `str/length-limit` |
+| `str.format` | A template with placeholders, which arrives with the variadic call form and not before | `planned` | `stdlib.md` 10 | `str/format` |
+| `str.match` | Pattern matching, once a pattern syntax is specified | `planned` | `stdlib.md` 10 | `str/match` |
+
+## 19. Colours
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| Named colours | The nineteen bare names, ordinary globals so more can be added without a grammar change | `specified` | `language.md` 3.8, `stdlib.md` 11.1 | `color/named` |
+| Channel values fixed by the manifest | Their exact channels are part of the conformance suite, so a study looks the same on every engine | `specified` | `stdlib.md` 11.1 | `color/manifest-channels` |
+| Hex colours | 24 bit, and 32 bit with an alpha byte | `specified` | `language.md` 3.8 | `color/hex` |
+| `rgb(r, g, b)` | Construct from channels, fully opaque | `specified` | `stdlib.md` 11.2 | `color/rgb` |
+| `rgba(r, g, b, a)` | Construct with alpha from 0 to 1, where 1 is opaque | `specified` | `stdlib.md` 11.2 | `color/rgba` |
+| `fade(color, percent)` | Transparency as a percentage, where 100 is invisible, which is the convention a chart's own style controls use | `specified` | `stdlib.md` 11.2 | `color/fade` |
+| `alpha`, `withAlpha` | Read a colour's alpha, and set it on the 0 to 1 convention | `specified` | `stdlib.md` 11.2 | `color/alpha` |
+| `mix(a, b, weight)` | Blend of two colours | `specified` | `stdlib.md` 11.2 | `color/mix` |
+| Channel out of range | OS3004 as a literal and OS4009 at run time, not a clamp, because a colour computed from data and landing at 300 is a bug | `specified` | `stdlib.md` 11.2, `errors.md` OS4009 | `color/channel-range` |
+| Absent colour | An absent colour paints nothing and is not an error, which is how a conditional paint switches itself off | `specified` | `stdlib.md` 14.3, `language.md` 6.7 | `color/absent` |
+| One alpha convention | A colour carries its own alpha everywhere, so a band, a box fill and a background are all dimmed the same way | `specified` | `stdlib.md` 11.2, `stdlib.md` 14.2 | `color/one-alpha-convention` |
+| `hsl`, `gradient` | Hue-saturation-lightness construction and positioning a value between two colours, named and not defined | `planned` | `stdlib.md` 11.2 | `color/planned-construction` |
+
+## 20. Technical analysis library
+
+The library is roughly two hundred entries. One row per family here, and one
+conformance case per function inside the family's directory, because two hundred
+rows would drown the rest of this file without proving anything a family row does
+not. The function count itself is printed by continuous integration from the
+library manifest, alongside the count of manifest entries that have a case.
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| Simple and weighted averages | `sma`, `wma`, `swma`, `alma`, each with its stated weighting | `specified` | `stdlib.md` 4 | `ta/average-simple` |
+| Exponential and running averages | `ema`, `rma`, `dema`, `tema`, each with its stated seeding | `specified` | `stdlib.md` 4 | `ta/average-exponential` |
+| Adaptive and volume averages | `hma`, `vwma`, `linreg` | `specified` | `stdlib.md` 4 | `ta/average-adaptive` |
+| `ma(src, len, type)` | One call whose shape a select input can switch between the six named types | `specified` | `stdlib.md` 4 | `ta/ma-selector` |
+| Trend systems that return a direction | `supertrend` and `psar` return the line and a direction together, because deriving the flip would double the work | `specified` | `stdlib.md` 4 | `ta/trend-direction` |
+| Trend frames and strength | `adx`, `aroon`, `ichimoku`, with the spans returned undisplaced and drawn forward by the plot's offset | `specified` | `stdlib.md` 4 | `ta/trend` |
+| Momentum oscillators | `rsi`, `stoch`, `stochRsi`, `macd`, `ppo`, `cci`, `mom`, `roc`, `williamsR`, `tsi`, `trix`, `cmo`, `dpo`, `ultimateOsc`, `awesomeOsc` | `specified` | `stdlib.md` 5 | `ta/momentum` |
+| A function over changes costs one bar | An oscillator that consumes changes rather than levels warms up one bar later, and the warmup column says so per entry | `specified` | `stdlib.md` 5 | `ta/change-warmup` |
+| Volatility and bands | `trueRange`, `atr`, `natr`, `stdev`, `variance`, `bollinger`, `bbWidth`, `bbPercent`, `keltner`, `donchian`, `chop`, `hv` | `specified` | `stdlib.md` 6 | `ta/volatility` |
+| Population by default | `stdev` and `variance` divide by `len`, with `sample = true` for the other divisor, so neither camp writes the correction by hand | `specified` | `stdlib.md` 6 | `ta/stdev-population` |
+| Volume studies | `vwap`, `vwapAnchor`, `obv`, `ad`, `adOsc`, `mfi`, `cmf`, `pvt`, `eom`, `forceIndex`, `relativeVolume` | `specified` | `stdlib.md` 7 | `ta/volume` |
+| `vwap` resets on the session | Not at midnight, because the session is what the number means; on a session-length bar it equals its source and warns with OS8006 | `specified` | `stdlib.md` 7, `errors.md` OS8006 | `ta/vwap-session` |
+| A volume study with no volume | Every function of the volume family returns absence on every bar when the host supplies no volume | `specified` | `stdlib.md` 7, `stdlib.md` 3.1 | `ta/volume-absent` |
+| Exact warmup per function | Each function's first present bar is fixed by the entry and asserted per function | `specified` | `language.md` 7.3, `stdlib.md` 1 | `ta/warmup-exact` |
+| Absence behaviour per function | Window propagation, or the named skipping behaviour, asserted per function | `specified` | `language.md` 6.7, `stdlib.md` 2.4 | `ta/absence-behaviour` |
+| Independent reference agreement | Every library function matches an independently written reference, which is what the `numerics` category exists for | `specified` | `conformance.md` 4, `conformance.md` 7 | `ta/reference-agreement` |
+| Planned entries in the calculation families | `kama`, `zlema`, `vidya`, `zigzag`, `fisher`, `rvi`, `coppock`, `massIndex`, `nvi`, `pvi`, `klinger`, `volumeProfile` and `cvd` are named and not defined | `planned` | `stdlib.md` 4, `stdlib.md` 5, `stdlib.md` 6, `stdlib.md` 7 | `ta/planned-entries` |
+
+## 21. Series helpers
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| Extremes over a window | `highest`, `lowest`, `highestBars`, `lowestBars` | `specified` | `stdlib.md` 9 | `series/extremes` |
+| `change` | Over one bar, and over a stated distance | `specified` | `stdlib.md` 9 | `series/change` |
+| `rising`, `falling` | Every change in the window positive, or every one negative | `specified` | `stdlib.md` 9 | `series/rising-falling` |
+| Crossover tests | `crossUp`, `crossDown`, `cross` | `specified` | `stdlib.md` 9 | `series/crossover` |
+| A touch counts as a cross | "At or below, then above" rather than "strictly below, then above", so two series that touch and separate report one cross | `specified` | `stdlib.md` 9 | `series/cross-touch` |
+| `barsSince`, `valueWhen` | Bars since a condition last held, and a value as it stood then, with an occurrence argument | `specified` | `stdlib.md` 9 | `series/bars-since` |
+| Absent before the condition first holds | Absent rather than zero, because zero would read as "it happened on this bar" | `specified` | `stdlib.md` 9 | `series/bars-since-absent` |
+| Accumulation | `cum`, `sum` over a window, `count` over a window | `specified` | `stdlib.md` 9 | `series/accumulation` |
+| Pivots | `pivotHigh` and `pivotLow` report `right` bars after the pivot, the first bar on which it is knowable, so history carries no lookahead | `specified` | `stdlib.md` 9 | `series/pivots` |
+| Rank and distribution | `median`, `percentile`, `percentRank` | `specified` | `stdlib.md` 9 | `series/rank` |
+| Correlation and covariance | Over a window, population form, -1 to 1 for the correlation | `specified` | `stdlib.md` 9 | `series/regression` |
+
+## 22. Time, session and calendar
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `time` | The bar's open time, UTC milliseconds | `specified` | `language.md` 15.1, `stdlib.md` 3.1 | `time/bar-time` |
+| The zone a calendar field is read in | The chart's timezone unless a `zone` argument names another, because a study that disagreed with the chart's own axis would be wrong invisibly | `specified` | `stdlib.md` 12.1 | `time/zone-default` |
+| A zone is an IANA name | Never a fixed offset, which is silently wrong for half the year wherever daylight saving is observed; an unknown zone is OS6005 | `specified` | `stdlib.md` 12.1, `errors.md` OS6005 | `time/zone-iana` |
+| Calendar fields | `date.year`, `date.month`, `date.day`, `date.dayOfYear` | `specified` | `stdlib.md` 12.2 | `time/date-fields` |
+| Clock fields | `date.hour`, `date.minute`, `date.second` | `specified` | `stdlib.md` 12.2 | `time/clock-fields` |
+| `date.dayOfWeek` | 1 for Monday through 7 for Sunday, so a trading week is a contiguous range | `specified` | `stdlib.md` 12.2 | `time/day-of-week` |
+| `date.weekOfYear` | Week number, weeks starting Monday | `specified` | `stdlib.md` 12.2 | `time/week-of-year` |
+| `date.from` | Build a timestamp from calendar and clock fields plus a zone; a field outside its range is OS4010 | `specified` | `stdlib.md` 12.2, `errors.md` OS4010 | `time/construct` |
+| Calendar boundaries | `date.startOfDay`, `date.startOfWeek`, `date.startOfMonth`, `date.isSameDay` | `specified` | `stdlib.md` 12.2 | `time/boundaries` |
+| `date.format` | A closed set of placeholders, with English invariant month and weekday abbreviations, never a locale default | `specified` | `stdlib.md` 12.3 | `time/format` |
+| Session flags | `session.isOpen`, `session.isFirstBar`, `session.isLastBar`, the last known from the host's scheduled close rather than from a bar arriving | `specified` | `stdlib.md` 12.4 | `session/flags` |
+| Session times | `session.startTime`, `session.endTime`, `session.barIndex` | `specified` | `stdlib.md` 12.4 | `session/times` |
+| `session.isIn` and the window spec | `"HHMM-HHMM"` with an optional day list, an end before a start crossing midnight, a malformed literal OS3008 | `specified` | `stdlib.md` 12.5, `errors.md` OS3008 | `session/window-spec` |
+| `date.add` | Calendar arithmetic that respects month lengths and daylight saving, named and not defined | `planned` | `stdlib.md` 12.2 | `time/calendar-add` |
+| `session.isHoliday`, `session.nextOpen` | Named and not defined; the first waits on a supplied calendar | `planned` | `stdlib.md` 12.4 | `session/planned` |
+| Session day boundary | Which calendar day a bar belongs to when a session crosses midnight | `planned` | `none` | `session/day-boundary` |
+
+## 23. The plot family
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `plot(value, title, ...)` | One column of one value per bar, returning a declaration handle and landing in one entry of the contract's plotted columns | `specified` | `language.md` 15.3, `stdlib.md` 14.2, `compiled-program.md` 2.8 | `plot/basic` |
+| Plot styles | `"line"`, `"lineWithMarkers"`, `"step"`, `"area"`, `"histogram"` and `"column"`, the same closed set the host's own style menu offers | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `plot/styles` |
+| `plotCandles` | Four series drawn as bar-shaped output, carried as one plotted column naming four source columns | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `plot/candles` |
+| A band drawn to a candle plot | Follows the `close` column, which is the column the contract keeps as that plot's identity | `specified` | `stdlib.md` 14.2 | `plot/candles-identity` |
+| Width and colour | A width, and a colour argument that is also how the per-bar colour is given | `specified` | `stdlib.md` 14.2 | `plot/appearance` |
+| Per-bar plot colour | A constant colour lands on the plot's style and a `series color` lands on the contract's per-bar colour channel, from the same argument | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `plot/per-bar-color` |
+| Plot offset | Shifts where the column is drawn and never what it contains, which is what a displaced cloud or a projected channel wants | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `plot/offset` |
+| Price scale selection | `"right"`, `"left"` or `"none"`, per plot | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `plot/price-scale` |
+| Precision and format per plot | They set the formatting of the price scale the plot maps to, which is almost never wanted over the price pane, so OS8007 warns | `specified` | `stdlib.md` 14.2, `errors.md` OS8007 | `plot/precision-format` |
+| Fixed column set | The set of plots is fixed before bar 0, which is what lets a legend and a settings dialog exist | `specified` | `language.md` 7.1, `language.md` 5.4, `compiled-program.md` 2.8 | `plot/fixed-column-set` |
+| Hiding by absence | A plot is hidden on a bar by plotting `none`, never by wrapping it in an `if` | `specified` | `language.md` 7.1, `stdlib.md` 14.1 | `plot/hide-by-absence` |
+| A plot that can never draw | OS8009, because a column that is absent on every bar is a mistake rather than a hidden plot | `specified` | `errors.md` OS8009 | `unit:plot/never-draws` |
+| `signal(text)` | The whole of shape plotting: one call, one named marker on the bar, landing in the contract's markers | `specified` | `language.md` 15.3, `stdlib.md` 14.3 | `plot/signal` |
+| Signal placement and shape | `at` takes four values and `shape` ten, with `"auto"` choosing above or below from the text | `specified` | `stdlib.md` 14.3 | `plot/signal-shapes` |
+| One marker per call site per bar | A call site that fires more than once on a bar leaves the last text written | `specified` | `stdlib.md` 14.3, `compiled-program.md` 2.8 | `plot/signal-once` |
+| A signal on a moving bar | Does not fire unless the declaration sets `onUnconfirmed = true` | `specified` | `stdlib.md` 14.3, `language.md` 7.5 | `plot/signal-confirmed` |
+
+`compiled-program.md` section 2.8 still carries the narrower marker enumeration.
+The row above states the library's set, which is the specified one, for the reason
+given at the top of this file.
+
+## 24. Fills, levels, bar colour and background
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `fill(plotA, plotB, ...)` | A shaded band between two declared plots, carried as two plot keys in the contract's bands | `specified` | `language.md` 15.3, `stdlib.md` 14.2, `compiled-program.md` 2.8 | `fill/handles` |
+| An expression as a fill edge | OS3011, with the fix naming the plot to declare, because there is no contract key for a column that was never declared | `specified` | `stdlib.md` 14.2, `errors.md` OS3011 | `unit:fill/expression-rejected` |
+| `color` on a band | Sets both sides | `specified` | `stdlib.md` 14.2 | `fill/color` |
+| Two-sided fill colour | `colorUp` is the side where `plotA` leads and `colorDown` the side where `plotB` leads, because which side leads is itself the signal | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `fill/two-sided` |
+| `color` with either two-sided colour | OS3010, because reconciling them would need a rule and every rule for it surprises somebody | `specified` | `stdlib.md` 14.2, `errors.md` OS3010 | `unit:fill/color-conflict` |
+| No colour given at all | The band is `plotA`'s colour faded to twelve percent, the chart's own default for a band | `specified` | `stdlib.md` 14.2 | `fill/default-color` |
+| `opacity` multiplies the colour's alpha | Default 1, a dimmer over whatever the colours already are rather than a second way to say `fade` | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `fill/opacity` |
+| Fill across absence | The band stops on a bar where either plot is absent | `specified` | `language.md` 6.7, `stdlib.md` 18 | `fill/absence-gap` |
+| `level(price, title, ...)` | A horizontal reference line in the study's pane | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `level/basic` |
+| Computed level | A level's price arrives through a channel and is evaluated every bar; the level drawn is the one from the last bar executed | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `level/computed` |
+| Level appearance | Colour, width, and solid or dashed | `specified` | `stdlib.md` 14.2, `compiled-program.md` 2.8 | `level/appearance` |
+| `barColor(color)` | Recolours the instrument's own candles, one colour per bar | `specified` | `stdlib.md` 14.3, `compiled-program.md` 2.8 | `barcolor/basic` |
+| Bar colour absence | An absent colour leaves the bar its own colour and is not an error | `specified` | `stdlib.md` 14.3, `language.md` 6.7 | `barcolor/absence` |
+| One paint channel per program | Three `barColor()` calls write one channel and the last write on the bar wins, which is the ordinary channel rule | `specified` | `compiled-program.md` 2.8 | `barcolor/last-write` |
+| `background(color)` | Per-bar shading behind the pane, a full-height column | `specified` | `stdlib.md` 14.3, `compiled-program.md` 2.8 | `background/basic` |
+| Background absence | An absent colour clears that bar's shading | `specified` | `stdlib.md` 14.3, `language.md` 6.7 | `background/absence` |
+| Single publisher rule | Which study wins when two of them colour the candles at once, and that the winner is stable from frame to frame | `planned` | `none` | `barcolor/single-publisher` |
+
+## 25. Tables
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `table(...)` declaration | Declared at the top level because the grid's size and corner are part of the study's fixed shape | `specified` | `stdlib.md` 14.3, `language.md` 5.4, `errors.md` OS3006 | `table/declaration` |
+| Fixed rows, columns and corner | Registered in the contract with its rows, columns, corner and options, so its shape is declaration-time even though its cells are written per bar | `specified` | `compiled-program.md` 2.8, `stdlib.md` 14.3 | `table/fixed-shape` |
+| `cell(t, row, col, text, ...)` | Text, text colour and background colour per cell, written on any bar and from anywhere | `specified` | `stdlib.md` 14.3 | `table/cell-content` |
+| Cell alignment | Per cell, through the `align` argument | `specified` | `stdlib.md` 14.3 | `table/cell-alignment` |
+| A cell outside the grid | OS4008, naming the cell and the grid's size | `specified` | `errors.md` OS4008 | `unit:table/cell-out-of-range` |
+| `clear(t)` | Empties every cell, so a table can be rebuilt from scratch and a "show table" input can switch it off | `specified` | `stdlib.md` 14.3, `language.md` 5.4 | `table/clear` |
+| `clear` is one overloaded name | `clear(arr)` is the array operation and `clear(t)` is the table one, told apart by the argument's type | `specified` | `stdlib.md` 14.3, `stdlib.md` 2.2, `language.md` 14.1 | `table/clear-overload` |
+| Per-bar update | Cells go to an output buffer cleared at the start of each execution of a bar and committed with the rest, so the last write of the last bar is what is shown | `specified` | `compiled-program.md` 2.8, `compiled-program.md` 5.1 | `table/per-bar-update` |
+| Cells are not channels | A grid of two hundred cells would otherwise need two hundred channels, almost all absent on almost every bar | `specified` | `compiled-program.md` 2.8 | `table/cells-not-channels` |
+| Absent cell | An absent value renders a blank cell, never a zero | `specified` | `language.md` 6.7, `stdlib.md` 18 | `table/absent-cell` |
+| Row and column sizing | Widths and heights, or automatic; no argument carries them today | `planned` | `none` | `table/sizing` |
+
+## 26. Mutable drawing objects
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `draw.line` | A line between two anchors, with optional extension | `specified` | `stdlib.md` 14.4 | `draw/line` |
+| `draw.label` | A text plate at one anchor | `specified` | `stdlib.md` 14.4 | `draw/label` |
+| `draw.box` | A rectangle between two anchors, with an optional fill and caption | `specified` | `stdlib.md` 14.4 | `draw/box` |
+| `draw.polyline` | A path through several anchors, optionally closed and filled | `specified` | `stdlib.md` 14.4 | `draw/polyline` |
+| Two parallel arrays for a path | `draw.polyline` takes times and prices separately because version 1 has no record type, and gets its natural shape when one arrives | `specified` | `stdlib.md` 14.4 | `draw/polyline-arrays` |
+| Time and price anchoring | An anchor is a time and a price, not a bar index, so a shape stays put when history is paged in | `specified` | `stdlib.md` 14.4 | `draw/time-anchored` |
+| Mutation after creation | The setters move, recolour, retext and restyle an object on a later bar | `specified` | `stdlib.md` 14.4 | `draw/mutation` |
+| Line extension | `draw.setExtend` continues a line to the pane edge, left or right | `specified` | `stdlib.md` 14.4 | `draw/extend` |
+| Tooltip | Detail shown while the pointer rests on an object | `specified` | `stdlib.md` 14.4 | `draw/tooltip` |
+| Deletion and counting | `draw.delete`, `draw.deleteAll` and `draw.count` | `specified` | `stdlib.md` 14.4, `language.md` 5.4 | `draw/delete` |
+| Identity across bars | An object held in a `var` is the same object next bar | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `draw/identity` |
+| Engine capability | A program that creates objects declares the `objects` capability, and an engine without it refuses at load with OS6006 | `specified` | `compiled-program.md` 2.2, `errors.md` OS6006 | `draw/capability` |
+| Hit identity | A click identity on a box or a label, beyond the tooltip | `planned` | `none` | `draw/hit-identity` |
+| Layer replacement | Whether and how the host rebuilds the free-drawing layer from the script's state on a rerun; the compiled format carries no field for the live object set | `planned` | `none` | `draw/layer-replacement` |
+
+## 27. Higher timeframe and other instrument reads
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `req.timeframe(tf, expr, mode)` | An expression computed on a coarser interval and folded onto this chart's bars | `specified` | `stdlib.md` 15.1, `language.md` 15.2 | `req/timeframe` |
+| `req.symbol(...)` | An expression computed on another instrument, with its own request and attach lifecycle in the contract | `specified` | `stdlib.md` 15.1 | `req/symbol` |
+| Timeframe strings | A count and a unit, case sensitive so `"1M"` is a month and `"1m"` a minute, with a bare number read as minutes; an unrecognised one is OS6001 | `specified` | `stdlib.md` 15.2, `errors.md` OS6001 | `req/timeframe-strings` |
+| A timeframe finer than the chart's | OS6002, and a timeframe that does not fold into the chart's is OS6015, since folding cannot invent bars that were never loaded | `specified` | `stdlib.md` 15.2, `errors.md` OS6002, `errors.md` OS6015 | `req/finer-timeframe` |
+| The mode is part of the call | `"confirmed"`, `"developing"` or `"lookahead"`, written on the line that causes the behaviour rather than set somewhere else | `specified` | `stdlib.md` 15.3 | `req/mode` |
+| The default never repaints | `"confirmed"` is the default and the other two must be written out, so a script that says nothing cannot repaint | `specified` | `stdlib.md` 15.3 | `req/default-non-repainting` |
+| Warning on a developing read | OS8002, naming the line and what the study will now do | `specified` | `stdlib.md` 15.3, `errors.md` OS8002 | `unit:req/os8002-warning` |
+| Warning on a lookahead read | OS8005, and the compiled study is marked repainting so the host shows it in the legend | `specified` | `stdlib.md` 15.3, `errors.md` OS8005 | `unit:req/os8005-warning` |
+| Warmup per mode | Each mode's first present bar is stated, so alignment is not left to the engine | `specified` | `stdlib.md` 15.3 | `req/warmup` |
+| What an expression means inside a read | Compiled as a separate program over the requested bars, where the built-in series are the requested instrument's at the requested timeframe | `specified` | `stdlib.md` 15.4 | `req/expression` |
+| A per-bar name inside a read | OS6003, because a value computed on this chart's bars has no counterpart on the requested bars | `specified` | `stdlib.md` 15.4, `errors.md` OS6003 | `unit:req/per-bar-name` |
+| An order or a surface call inside a read | OS7003 for an order function, OS3006 for a drawing or alert call | `specified` | `stdlib.md` 15.4, `errors.md` OS7003, `errors.md` OS3006 | `unit:req/order-in-read` |
+| Waiting for the host | The read is absent until the answer arrives, the study reports itself loading, and the rest of it keeps drawing | `specified` | `stdlib.md` 15.5 | `req/waiting` |
+| `req.isReady`, `req.error` | Whether the host has answered, and the reason a read failed | `specified` | `stdlib.md` 15.1 | `req/status` |
+| A refused or empty request | OS6007 for an unknown symbol or exchange, OS6008 for no bars, OS6009 for a failure, each with a reason the script can read | `specified` | `stdlib.md` 15.5, `errors.md` OS6007, `errors.md` OS6008, `errors.md` OS6009 | `req/failed-request` |
+| A request that changes after bar 0 | OS6013, because the set of requests is part of the program's shape | `specified` | `errors.md` OS6013 | `unit:req/request-stable` |
+| Too many outstanding requests | OS5006, with the count named rather than a quiet cap | `specified` | `errors.md` OS5006 | `req/request-budget` |
+| A feed that does not offer a timeframe | OS6014, distinct from a timeframe the language does not know | `specified` | `errors.md` OS6014 | `req/feed-timeframe` |
+| Alignment onto the chart's bars | Which chart bar each higher timeframe value first appears on, bar by bar, beyond the mode's warmup rule | `planned` | `none` | `req/alignment` |
+| Calendar mismatch | How bars align when two instruments have different sessions or holidays | `planned` | `none` | `req/calendar-mismatch` |
+| `req.candle`, `req.events` | A whole higher timeframe bar at once, and scheduled events; named and not defined | `planned` | `stdlib.md` 15.1 | `req/planned-reads` |
+
+## 28. Alerts
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `alert(message, ...)` | A message raised on this bar, landing in one entry of the contract's watched conditions | `specified` | `language.md` 15.3, `stdlib.md` 16, `compiled-program.md` 2.8 | `alert/basic` |
+| A call site becomes a declared condition | The compiler lifts each call site into one entry whose predicate is the chain of guards reaching it, so the runtime watches the study rather than the script polling | `specified` | `stdlib.md` 16.1, `compiled-program.md` 2.8 | `alert/declared-condition` |
+| `id` is the stable name | A subscription survives an edit; with no `id` the compiler derives one from position and warns with OS8008 | `specified` | `stdlib.md` 16.1, `errors.md` OS8008 | `alert/id` |
+| Message from per-bar values | The message is evaluated for the bar the predicate accepted and reaches the host on its own channel | `specified` | `stdlib.md` 16.1, `compiled-program.md` 2.8 | `alert/message-template` |
+| `frequency` | `"oncePerBar"`, `"once"` or `"everyUpdate"`, the last requiring `onUnconfirmed = true` or OS3009 | `specified` | `stdlib.md` 16.2, `errors.md` OS3009 | `alert/frequency` |
+| Confirmed bar only | An alert does not fire on a moving bar unless the declaration opts in, and never fires if the condition has gone by the close | `specified` | `language.md` 7.5, `stdlib.md` 16.2 | `alert/confirmed-only` |
+| Absent condition | An absent condition does not fire, by the false-branch rule | `specified` | `language.md` 6.6 | `alert/absent-condition` |
+| Nothing fires for history | Adding a study to a chart that already holds history fires nothing for those bars | `specified` | `stdlib.md` 16.2 | `alert/no-history` |
+| `notify(message, channel)` | Sending an alert somewhere the host has configured; named and not defined | `planned` | `stdlib.md` 16 | `alert/notify` |
+| Payload contract | What the host receives beyond identity, title and message: the bar time and the bar index are not fixed anywhere | `planned` | `compiled-program.md` 2.8 | `alert/payload` |
+
+## 29. Strategy: orders
+
+Everything in this section is available only in a `strategy()` file. Calling one
+from a `study()` file is OS7001.
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| One net position | `buy` adds, `sell` subtracts, an order that crosses zero is one exit and one entry, because a net position is what a broker gives back | `specified` | `stdlib.md` 17.1 | `order/net-position` |
+| No order takes a symbol | A strategy trades the chart's instrument and nothing else, and a multi-leg script is written to that boundary on purpose | `specified` | `stdlib.md` 17.1 | `order/no-symbol` |
+| An order in a study file | OS7001, with the fix naming the declaration to change | `specified` | `stdlib.md` 17.1, `errors.md` OS7001 | `unit:order/study-file` |
+| `buy(...)` | Enter or add to a long position | `specified` | `stdlib.md` 17.2 | `order/buy` |
+| `sell(...)` | Enter or add to a short position | `specified` | `stdlib.md` 17.2 | `order/sell` |
+| `close(...)` | Flatten the position, or the part carrying one tag | `specified` | `stdlib.md` 17.2 | `order/close` |
+| Limit, stop and stop-limit | `limit` alone, `stop` alone, both together, and neither for a market order: one function with optional prices rather than six names | `specified` | `stdlib.md` 17.2 | `order/price-qualifiers` |
+| A resting order with no price | OS7007 | `specified` | `stdlib.md` 17.2, `errors.md` OS7007 | `unit:order/resting-no-price` |
+| `exit(...)` brackets | A target, a stop or a trailing stop, as absolute prices or as distances from the entry | `specified` | `stdlib.md` 17.2 | `order/bracket` |
+| An absolute and a distance for one side | OS3010, because the two would have to be reconciled and any rule for it surprises somebody | `specified` | `stdlib.md` 17.2, `errors.md` OS3010 | `unit:order/bracket-conflict` |
+| A bracket price on the wrong side | OS7010 | `specified` | `errors.md` OS7010 | `unit:order/bracket-side` |
+| `cancel`, `cancelAll` | Cancel a working order, or every one this strategy placed; an unknown tag is OS7009 | `specified` | `stdlib.md` 17.2, `errors.md` OS7009 | `order/cancel` |
+| `order.place` | The general form, for a script that computes its side | `specified` | `stdlib.md` 17.3 | `order/place` |
+| `order.reverse` | Flatten and open the same size the other way, in one decision | `specified` | `stdlib.md` 17.3 | `order/reversal` |
+| `order.bracket` | Attach or replace a bracket on the open position | `specified` | `stdlib.md` 17.3 | `order/bracket-namespace` |
+| `order.working`, `order.pending` | Whether a tag is live and unfilled, and how many orders are | `specified` | `stdlib.md` 17.3 | `order/working` |
+| Sizing helpers | `order.qtyForCash`, `order.qtyForRisk`, `order.qtyForEquityPercent`, rounding down by default because a size rounded up compounds with every entry | `specified` | `stdlib.md` 17.3 | `order/sizing-helpers` |
+| `order.qtyForRisk` with no distance | Returns `none` rather than raising, and the order function refuses the absent quantity with OS7002 naming the argument | `specified` | `stdlib.md` 17.3, `errors.md` OS7002 | `order/qty-for-risk-absent` |
+| `order.roundToLot` | To a whole multiple of the lot size, down unless told otherwise; a quantity that is not a multiple is OS7005 | `specified` | `stdlib.md` 17.3, `errors.md` OS7005 | `order/round-to-lot` |
+| Quantity types | Units, lots, cash and equity percent, from the declaration | `specified` | `language.md` 13.3 | `order/qty-types` |
+| Default quantity | Taken from the declaration when an order names none | `specified` | `language.md` 13.3, `stdlib.md` 17.2 | `order/default-qty` |
+| Zero or negative quantity | OS7004 | `specified` | `errors.md` OS7004 | `unit:order/qty-non-positive` |
+| A price that is not on a tick | OS7006, rather than a fill at a price the instrument cannot trade | `specified` | `errors.md` OS7006 | `order/tick-price` |
+| Pyramiding limit | Entries beyond the limit are refused with OS7008, and the refusal is reported | `specified` | `language.md` 13.3, `errors.md` OS7008 | `order/pyramiding` |
+| Fill timing | `nextOpen` or `close`, applied consistently in backtest and live | `specified` | `language.md` 13.3, `stdlib.md` 17.1 | `order/fill-timing` |
+| Slippage | Ticks of adverse slippage applied to every fill | `specified` | `language.md` 13.3, `stdlib.md` 17.1 | `order/slippage` |
+| Commission models | Per trade, per unit and percent | `specified` | `language.md` 13.3, `stdlib.md` 17.1 | `order/commission` |
+| Product type | Intraday versus overnight, and what each implies for carrying a position | `specified` | `language.md` 13.3 | `order/product-type` |
+| Session flattening | `closeOnSessionEnd` flattens at the session close, and an order outside the session is OS7012 | `specified` | `language.md` 13.3, `errors.md` OS7012 | `order/session-flatten` |
+| Absent argument | An absent price or quantity is OS7002 naming the argument, and places nothing | `specified` | `language.md` 6.8, `errors.md` OS7002 | `order/absent-argument` |
+| Deferral on a moving bar | An order decided intrabar is placed when the bar confirms, or not at all, and returns absent while deferred rather than inventing an id | `specified` | `language.md` 7.5, `compiled-program.md` 5.4 | `order/deferred` |
+| Not enough capital | OS7011, naming what the order needed | `specified` | `errors.md` OS7011 | `order/insufficient-capital` |
+| Two opposite orders on one bar | OS7013, because the pair has no honest fill order | `specified` | `errors.md` OS7013 | `unit:order/opposite-orders` |
+| Rejection reporting | Every refused order reports an OS7xxx code and a reason: OS7014 from the destination, OS7015 when there is no destination at all | `specified` | `errors.md` OS7014, `errors.md` OS7015 | `order/rejection-reported` |
+| Orders reach no contract field | They go to the host's order interface; what reaches the chart is their consequence, one marker per fill | `specified` | `stdlib.md` 17.5 | `order/no-contract-field` |
+| Market-specific costs | Taxes, exchange and regulator charges and duties for the market being traded | `planned` | `none` | `order/market-costs` |
+| `order.modify`, `order.oco` | Changing a working order in place, and cancelling one when the other fills; named and not defined | `planned` | `stdlib.md` 17.3 | `order/planned` |
+
+## 30. Strategy: position and performance
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `pos.size` | Net position in units, positive long and negative short, `0` when flat | `specified` | `stdlib.md` 17.4 | `pos/size` |
+| `pos.isLong`, `pos.isShort`, `pos.isFlat` | The three direction tests | `specified` | `stdlib.md` 17.4 | `pos/direction` |
+| `pos.avgPrice` | Average price of the open position, absent while flat because zero is a price a script would compare against | `specified` | `stdlib.md` 17.4 | `pos/avg-price` |
+| `pos.entryTime`, `pos.barsHeld` | When the position opened, and how long it has been open | `specified` | `stdlib.md` 17.4 | `pos/held` |
+| `pos.entries` | How many entries make up the current position, for a pyramiding rule | `specified` | `stdlib.md` 17.4 | `pos/entries` |
+| `pos.openProfit`, `pos.openProfitPercent` | Unrealised profit at this bar's close, in money and as a percentage of cost | `specified` | `stdlib.md` 17.4 | `pos/open-profit` |
+| `pos.maxProfit`, `pos.maxLoss` | Best and worst unrealised excursion this position has seen | `specified` | `stdlib.md` 17.4 | `pos/excursion` |
+| `pos.equity`, `pos.netProfit`, `pos.tradeCount` | Capital plus realised and unrealised profit, realised profit since the run began, and closed trades so far | `specified` | `stdlib.md` 17.4 | `pos/equity` |
+| Marked to the close | Open profit is marked to this bar's close, and marking to anything else is not expressible in version 1 | `specified` | `stdlib.md` 17.4 | `pos/marked-to-close` |
+| Position facts reflect fills | An order placed on this bar and filled on the next bar's open changes nothing here until that fill happens | `specified` | `stdlib.md` 17.4 | `pos/reflects-fills` |
+| `pos.winRate`, `pos.profitFactor`, `pos.maxDrawdown` | Named and not defined; each needs its formula written down before an engine computes it | `planned` | `stdlib.md` 17.4 | `pos/planned-statistics` |
+| Long, short and flat transitions | The exact state machine, including partial closes | `planned` | `none` | `pos/transitions` |
+| Trade list | One row per closed trade: entry, exit, size, cost, profit | `planned` | `none` | `perf/trade-list` |
+| Equity curve | Equity per bar, including open profit | `planned` | `none` | `perf/equity-curve` |
+| Drawdown | Peak-to-trough decline, on a stated basis | `planned` | `none` | `perf/drawdown` |
+| Win rate and expectancy | The two headline statistics, each with its formula written down | `planned` | `none` | `perf/win-rate-expectancy` |
+| Monthly return table | Returns grouped by calendar month | `planned` | `none` | `perf/monthly-table` |
+| Trade markers | Every trade marked on the chart at its fill bar | `planned` | `none` | `perf/trade-markers` |
+| Run reproducibility | A run records its script revision, inputs, date range and cost settings and reruns identically; only the program hash half of that is fixed today | `planned` | `compiled-program.md` 2.14 | `perf/reproducible-run` |
+| Run comparison | Two runs compared well enough to tell a real improvement from noise | `planned` | `none` | `perf/run-comparison` |
+
+## 31. Errors, warnings and diagnostics
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| Code ranges | OS1xxx syntax, OS2xxx names and types, OS3xxx arguments, OS4xxx runtime, OS5xxx limits, OS6xxx data, OS7xxx orders, OS8xxx warnings | `specified` | `language.md` 16, `errors.md` 4 | `err/code-ranges` |
+| Diagnostic shape | Every diagnostic carries a code, a line, a column, a message and a fix | `specified` | `language.md` 16, `errors.md` 2 | `err/diagnostic-shape` |
+| Caret under the text | The reported column points at the offending characters | `specified` | `errors.md` 2 | `unit:err/caret` |
+| Warnings do not stop | OS8xxx never halts compilation or a bar; it is reported on the line | `specified` | `language.md` 16, `errors.md` 4 | `err/warning-does-not-stop` |
+| A runtime error stops the bar | The study is marked errored and the message is shown on the chart, rather than producing a plausible wrong number | `specified` | `language.md` 16, `errors.md` 4 | `err/runtime-stops-bar` |
+| Catalogue authority | `errors.md` wins over any other document quoting a code | `specified` | `language.md` 1, `language.md` 16, `errors.md` 3 | `unit:err/catalogue-authority` |
+| No undocumented code | The build fails if the compiler can emit a code with no catalogue entry | `specified` | `errors.md` 5 | `unit:err/no-undocumented-code` |
+| No untested entry | The build fails if a catalogue entry has no test that produces it | `specified` | `errors.md` 5 | `unit:err/no-untested-entry` |
+| Every error names a fix | A diagnostic that cannot state a fix is a defect in the diagnostic | `specified` | `language.md` 16, `errors.md` 3 | `unit:err/fix-present` |
+| `errors.json` is the machine copy | The catalogue is generated to a data file the compiler and the editor read, so the prose cannot drift from the codes | `specified` | `errors.md` 1 | `err/json-shape` |
+| Substitutions for OS1001 | The characters a source is most likely to carry by accident, each with the character to write instead | `specified` | `errors.md` 7 | `unit:err/os1001-substitutions` |
+| Codes that refine another code | Where a narrower code replaces one quoted elsewhere, recorded in one place rather than argued per site | `specified` | `errors.md` 6 | `unit:err/refining-codes` |
+| Engine-raised codes | The codes an engine rather than a compiler produces, and which of them the format introduces | `specified` | `compiled-program.md` 10, `errors.md` 4 | `err/engine-codes` |
+| Program-shaped limits | OS5009 when the program is too large, OS5007 when one bar took too long | `specified` | `errors.md` OS5009, `errors.md` OS5007 | `unit:err/program-limits` |
+| Nesting depth | OS5005, raised at load because the call graph is statically bounded, rather than halfway through a bar | `specified` | `errors.md` OS5005, `compiled-program.md` 3.3 | `err/nesting-depth` |
+
+## 32. Logging
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| `print(value)` | Write a value to the script's log for the bar being executed, from anywhere in the file | `specified` | `stdlib.md` 14.3, `language.md` 15.3 | `log/print` |
+| Bar context | Every entry carries the bar's time, so a log line can be matched to a bar | `specified` | `stdlib.md` 14.3 | `log/bar-context` |
+| Rate limited by the host | The host rate limits rather than the language, and a host that drops lines says how many rather than truncating silently | `specified` | `stdlib.md` 14.3 | `log/rate-limit` |
+| Logging changes no value | `print` draws nothing and lands in no contract field, so a case's numeric output is identical with logging on or off | `specified` | `stdlib.md` 14.3, `stdlib.md` 18 | `log/no-side-effect` |
+| Log as an assertable output | A conformance case may assert the log stream, which is how logging itself is proved | `specified` | `conformance.md` 7 | `log/assertable` |
+| Levels | `log.info`, `log.warn`, `log.error`, so a live script's log can be filtered | `planned` | `none` | `log/levels` |
+| Rollback of log output | Whether lines written during a re-executed moving bar replace the previous execution's lines or are deferred like an order | `planned` | `none` | `log/rollback` |
+
+## 33. Compiled program and engines
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| Compiled program is data | A plain instruction list against a versioned schema, never generated source | `specified` | `compiled-program.md` 2 | `prog/is-data` |
+| No dynamic code | Nothing calls `eval` or builds a function from text, so a strict content security policy is enough | `specified` | `compiled-program.md` 2.14, `compiled-program.md` 3.5 | `unit:prog/no-eval` |
+| Canonical encoding | One text encoding with sorted object keys and a fixed number form, so the same program encodes the same way everywhere | `specified` | `compiled-program.md` 2.14 | `prog/canonical-encoding` |
+| Schema round trip | Serialise, deserialise and run, with identical output | `specified` | `compiled-program.md` 2.14 | `prog/round-trip` |
+| Program hash stability | The same source under the same language version compiles to the same program and the same hash, and the source hash identifies the source | `specified` | `compiled-program.md` 2.14, `compiled-program.md` 2.3 | `prog/hash-stability` |
+| Two versions, two jobs | A format version and a language version, each with its own compatibility promise | `specified` | `compiled-program.md` 2.1, `compiled-program.md` 9.1 | `prog/versions` |
+| What a minor bump may do | The list of changes an engine written today must survive | `specified` | `compiled-program.md` 9.2 | `prog/minor-bump` |
+| What a major bump may do | The list of changes that require an engine to be updated | `specified` | `compiled-program.md` 9.3 | `prog/major-bump` |
+| How an engine refuses | OS6016 for a format version it does not implement, OS6017 for a language version, at load and never halfway | `specified` | `compiled-program.md` 9.4, `errors.md` OS6016, `errors.md` OS6017 | `prog/engine-refusal` |
+| What never changes | The guarantees no version bump may withdraw | `specified` | `compiled-program.md` 9.5 | `prog/stable-guarantees` |
+| Capability negotiation | A program declares what it requires, and an engine lacking one refuses with OS6006 rather than running most of it | `specified` | `compiled-program.md` 2.2, `errors.md` OS6006 | `prog/capabilities` |
+| Load-time verification | A malformed program is OS6018 at load, never half executed | `specified` | `compiled-program.md` 3.5, `errors.md` OS6018 | `prog/load-verification` |
+| Memory regions | Stack, slots, frames, cells, library state, series registers, the object heap, channels, pending effects, the loop counter and strategy state, each with its lifetime | `specified` | `compiled-program.md` 3.2 | `prog/memory-regions` |
+| Values in the machine | The value kinds an engine holds and how a reference differs from a scalar | `specified` | `compiled-program.md` 3.1 | `prog/value-kinds` |
+| The instruction set | The whole opcode list, stable and numbered so a format that adds one does not renumber the rest | `specified` | `compiled-program.md` 4.13 | `prog/instruction-set` |
+| Channels and `EMIT` | One channel per output value, written by `EMIT`, with `defer` marking the ones held back on a moving bar | `specified` | `compiled-program.md` 2.7, `compiled-program.md` 4.11 | `prog/channels` |
+| Cells and series registers | Values that persist across bars, and registers that hold one value per bar plus the bar being executed | `specified` | `compiled-program.md` 4.3, `compiled-program.md` 4.4 | `prog/cells-and-registers` |
+| Call sites and state regions | One state region per call site, with a base added per frame; a program needing more regions than the engine allows is OS5004 | `specified` | `compiled-program.md` 2.12, `errors.md` OS5004 | `prog/call-sites` |
+| The bar cycle | The numbered steps of one execution of one bar, which is where rollback, channels and effects meet | `specified` | `compiled-program.md` 5.1 | `prog/bar-cycle` |
+| What the host supplies | Bars, instrument facts, settings and bar state, and nothing else | `specified` | `compiled-program.md` 5.2 | `prog/host-inputs` |
+| Checkpoints | What a checkpoint holds and how one is restored | `specified` | `compiled-program.md` 6.1, `compiled-program.md` 6.2 | `prog/checkpoint` |
+| The rollback rule | Stated once, in terms of the memory regions, so an engine does not have to infer it per feature | `specified` | `compiled-program.md` 6.3 | `prog/rollback-rule` |
+| The replay invariant | Re-executing a bar from its checkpoint produces the same state and the same output as the first execution did | `specified` | `compiled-program.md` 6.4 | `prog/replay-invariant` |
+| Stepping | Running a program one bar at a time, for an editor and for a debugger | `specified` | `compiled-program.md` 6.5 | `prog/stepping` |
+| Debug information | Source positions and names by index, so a diagnostic can point at the line that produced an instruction | `specified` | `compiled-program.md` 2.15 | `prog/debug-info` |
+| Becoming a chart | The mapping from program fields to chart descriptor fields, listed so an engine knows what its output is for | `specified` | `compiled-program.md` 11 | `prog/becoming-a-chart` |
+| A worked example | A whole program with a bar by bar trace including a re-executed moving bar | `specified` | `compiled-program.md` 12 | `prog/worked-example` |
+| Engine conformance checklist | What an engine must do to claim it implements the format | `specified` | `compiled-program.md` 13 | `prog/engine-checklist` |
+
+## 34. Conformance suite and cross-engine equality
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| A case on disk | One directory, whose path relative to the suite root is the case identifier and the string in this file's Test column | `specified` | `conformance.md` 2 | `conf/case-layout` |
+| `case.json` | What the case is, what it asserts, and any declared tolerance | `specified` | `conformance.md` 2 | `conf/case-json` |
+| How bars are supplied | `bars.csv` in full, with the column set and the ordering fixed | `specified` | `conformance.md` 3 | `conf/bars` |
+| Instrument facts | `instrument.json`, with documented defaults when it is absent | `specified` | `conformance.md` 3 | `conf/instrument-facts` |
+| Secondary series and intrabar updates | `bars.<name>.csv` for another instrument or timeframe, `ticks.csv` for a moving bar | `specified` | `conformance.md` 3 | `conf/secondary-series` |
+| Expected output | `expected.csv` for a columnar assertion, `expected.json` for diagnostics, drawings, tables, orders, trades and log lines | `specified` | `conformance.md` 4 | `conf/expected` |
+| Runner determinism | What a runner may not do if its results are to mean anything | `specified` | `conformance.md` 5 | `conf/runner-determinism` |
+| Comparing numbers | Exact by default, with the comparison function written out | `specified` | `conformance.md` 6 | `conf/comparison` |
+| Declaring a tolerance | Per case, in the case file, rather than globally in a runner | `specified` | `conformance.md` 6 | `conf/tolerance` |
+| Categories of case | The sixteen categories, and which of them run on an engine rather than a compiler | `specified` | `conformance.md` 7 | `conf/categories` |
+| Profiles | `core`, `chart` and `strategy`, cumulative, with `unsupported` counted and printed separately | `specified` | `conformance.md` 8 | `conf/profiles` |
+| The adapter and the result document | What an implementation ships and what it reports | `specified` | `conformance.md` 9 | `conf/result-document` |
+| Cross-engine equality | Every engine produces identical output on every case, and a disagreement blocks the release | `specified` | `conformance.md` 10 | `prog/cross-engine-equality` |
+| Suite versioning | How the suite itself is versioned, so a result names what it was run against | `specified` | `conformance.md` 11 | `conf/suite-versioning` |
+| What a passing result means | What it does and does not entitle an implementation to claim, and the badge | `specified` | `conformance.md` 12 | `conf/claim` |

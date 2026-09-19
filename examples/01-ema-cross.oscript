@@ -25,13 +25,18 @@ slow = ema(src, slowLen)
 up   = crossUp(fast, slow)
 down = crossDown(fast, slow)
 
-plot(fast, "Fast", aqua, width = 2)
-plot(slow, "Slow", orange, width = 2)
+// Both plots are named. fill shades between two declared columns and takes the
+// declaration handles those two names hold, never the series the columns were
+// computed from: a band is a field of the chart descriptor holding two plot
+// keys, so there is nothing for a bare expression to compile into and an
+// expression in either position is OS3011.
+fastPlot = plot(fast, "Fast", aqua, width = 2)
+slowPlot = plot(slow, "Slow", orange, width = 2)
 
 // The band is drawn between the two plotted columns rather than as a third
 // column, so it inherits their warmup: neither average exists before bar 20,
 // the values are absent there, and the fill simply starts where they do.
-fill(fast, slow, fade(aqua, 90))
+fill(fastPlot, slowPlot, fade(aqua, 90))
 
 if up
     signal("BUY")

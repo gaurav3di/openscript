@@ -183,6 +183,24 @@ The built-in global names (`close`, `plot`, `ema` and the rest of the standard
 library) are not reserved words. They are ordinary names in the outermost scope,
 and section 12 explains why assigning to one is still an error.
 
+**A named argument label is not a name.** In `f(label = value)` the label is
+matched against the callee's parameter list and is never looked up in any scope,
+so labels live in a namespace of their own and a reserved word is legal as one.
+`plot(x, "X", color = aqua)` and `psar(start = 0.02, step = 0.02)` are both
+correct, and neither is OS1019. A label cannot be ambiguous with an expression,
+because nothing in section 19's expression grammar lets a bare reserved word be
+followed by `=`, so one token of lookahead settles it. The same rule covers a
+label that spells a built-in function, such as `input(14, "Length", min = 2)`:
+the label is not a reference to `min`.
+
+The rule stops at the label. A **parameter** of a user function is an ordinary
+identifier, because the body refers to it, so `fn f(color = red)` is OS1019; a
+library parameter may be called `color` or `step` because nothing ever refers to
+it except a label. The alternative, striking `color` and `step` off the reserved
+list, would make `color` both a type name and a possible variable name and would
+put a name where the `for` header expects `step`, which costs more than one
+sentence about labels.
+
 ### 3.5 Number literals
 
 A number literal is decimal, optionally with a fractional part, optionally with an
@@ -281,6 +299,10 @@ A block is introduced by a header line (`if`, `else`, `for`, `while`, `case`,
 indented more deeply than the header. The block ends at the first line indented
 the same as the header or less.
 
+Throughout this section, **line** means a line that carries at least one token.
+A line that holds none, because it is empty, because it holds only spaces, or
+because its only content is a comment, is not a line for any of these rules.
+
 ```
 if close > open
     body = close - open
@@ -290,6 +312,13 @@ low = 0                 // outside the block: same indentation as `if`
 
 Rules, all mechanical:
 
+- **A blank line and a comment-only line carry no indentation at all.** They take
+  no part in this calculation: such a line never opens a block, never ends one and
+  is never OS1003, and any leading whitespace is accepted on it, including none
+  and including more than the block it sits inside. The lexer emits no token for
+  it, which is the whole of the rule. A commented-out statement dragged to column
+  zero is why: every editor writes it that way and every reader already reads it
+  that way, and a rule that closed a block on it would close blocks invisibly.
 - Indentation is spaces only. A tab in leading whitespace is OS1002 with the fix
   "indent with spaces". Tabs are rejected rather than expanded because the width
   of a tab is an editor setting, so a file whose meaning depends on it is a file
@@ -301,13 +330,30 @@ Rules, all mechanical:
   is the convention and the formatter's output, but any consistent amount is
   accepted.
 - A header line with no indented line after it is OS1010, with the fix "indent the
-  body, or write the whole statement on one line if the form allows it".
-
-`if`, `else` and the `case` arms of a `switch` are the only headers with a
-single-line form:
+  body, or write the whole statement on one line if the form allows it". Blank and
+  comment-only lines do not count as a body, so a header followed only by those
+  and then a line at or left of the header is still OS1010.
 
 ```
-if crossUp(fast, slow)
+if close > open
+    body = close - open
+
+    // Still the same block: the blank line above and this comment carry no
+    // indentation, so neither one ends it.
+    signal("UP")
+low = 0
+```
+
+The one header with a form that fits on its own line is `fn`, which writes its
+body after `=>` and opens no block (section 11.1). `if`, `else`, `for`, `while`,
+`case` and `default` have no such form: there is no statement separator to end a
+body with, since `;` does not exist (OS1007), so a body of one statement is
+written on the next line and indented like any other.
+
+```
+fn change(src) => src - src[1]      // the single-line form, no block
+
+if crossUp(fast, slow)              // one statement, still its own block
     signal("BUY")
 ```
 
@@ -339,6 +385,11 @@ message = "entry at " + \
 A continuation line must be indented more deeply than the first line of its
 statement, so a continuation can never be mistaken for the start of a new
 statement. A continuation line indented the same or less is OS1003.
+
+A blank line or a comment-only line inside a continuation is ignored on the terms
+of section 3.10: it carries no token, so it neither continues nor ends the
+statement, and a comment may be written on its own line between two arguments of
+a call that spans several lines.
 
 ### 3.12 Operator and punctuation tokens
 
@@ -414,6 +465,13 @@ the project rather than as an aspiration:
 | `none` | The absent value, section 6 | `none` |
 | `series T` | One `T` per bar, section 5.2 | no literal |
 | `array<T>` | An ordered, mutable, resizable list of `T` | `[1, 2, 3]` |
+| `plot`, `fill`, `level` | A declaration handle, section 5.4 | no literal |
+| `line`, `label`, `box`, `polyline`, `table` | A runtime object, section 5.4 | no literal |
+
+A call that draws or acts rather than computing, `signal()` or `draw.delete()`
+for instance, returns **nothing**. Nothing is not a type: it is the absence of a
+result, it is not `none`, no name can hold it, and it cannot be written in an
+annotation. Using such a call where a value is expected is OS2003.
 
 There is no integer type. A `number` is binary64 throughout, so a length, a bar
 count and a price are the same type and no conversion exists to get wrong.
@@ -509,6 +567,98 @@ label(close, "RSI " + text(r, 1))
 ```
 
 The one automatic widening is broadcast, section 5.2, which changes no value.
+
+### 5.4 Declaration handles and runtime objects
+
+Some library calls return something that is not a number, a string, a bool, a
+colour or an array. There are two kinds of such thing, they wear one word in
+casual speech, and their rules are opposites, so the type system names both.
+
+**A declaration handle is a compile-time value.** `plot()`, `plotCandles()`,
+`fill()` and `level()` return one, of type `plot`, `plot`, `fill` and `level`.
+Each of those calls is top level only (section 15.3) and each declares a fixed
+part of the study: a column, a band, a horizontal line. The declaration happens once, before bar 0,
+even though the call is written inside the per-bar flow. What happens per bar is
+only the evaluation of the call's value argument, which is written to the channel
+the declaration reserved. The compiled format splits the call the same way: the
+declaration is an entry in the program's `outputs`
+(`compiled-program.md` section 2.8) and the per-bar half is one `EMIT`
+(section 4.11). A handle is the compile-time half, and it has no run-time
+representation at all.
+
+**A runtime object is an ordinary value.** `draw.line()`, `draw.label()`,
+`draw.box()`, `draw.polyline()` and `table()` return one, of type `line`,
+`label`, `box`, `polyline` and `table`. A script creates objects as bars arrive,
+mutates them, keeps them and deletes them. An object is a reference, like an
+array (section 14.1): assigning it to a second name gives two names for one
+object, and `==` on two of them is identity.
+
+| Operation | `plot`, `fill`, `level` | `line`, `label`, `box`, `polyline`, `table` |
+|---|---|---|
+| Assign to a name at the top level | yes | yes |
+| Assign to a name inside a block or a function | no | yes |
+| Hold in a `var` or a `live var` | no | yes |
+| Hold in an array | no | yes |
+| Pass to a library call that declares that type | yes, `fill` only | yes, the `draw` setters, `cell`, `clear` |
+| Pass to, or return from, a user function | no | yes |
+| `==`, `!=`, and comparison against `none` | no | yes |
+| `[]` | no | no |
+| Arithmetic, ordered comparison, a condition, a ternary arm | no | no |
+| Survives the bar | it never existed during one | yes, until it is deleted |
+
+A handle where a value is required is OS2003, naming `plot`, `fill` or `level` as
+the type; a handle in an argument that does not take one is OS3011. A name bound
+to a handle is a compile-time binding, not a per-bar value, so section 8.1 does
+not apply to it: it is bound once, and there is nothing of it left in the bar
+loop.
+
+The two kinds differ because what they become differs. A plot and a band are
+fields of a chart descriptor, fixed when the study is registered, and a fixed
+field is not something a script can hold one of. A line or a box is one of an
+unbounded, changing set that the script builds as bars arrive, so it has to be a
+value the script can keep, put in an array and hand to a function.
+
+`table` sits with the objects, although `table()` is a top-level call like
+`plot()`. The call is top level because the grid's size and corner are part of
+the study's fixed shape; the thing it returns is written to per bar by `cell()`
+and emptied by `clear()`, and a value that library calls take as an argument is a
+run-time value by definition. `table()` at one call site returns the same object
+on every bar.
+
+**When an object outlives its usefulness.** An object lives from the bar that
+created it until the bar that deletes it. Dropping the last name that refers to
+it does not delete it: the chart holds it and it keeps drawing. There is no
+collection of unreachable objects, because "unreachable" and "no longer wanted"
+are different facts and only the script knows the second one.
+
+- `draw.delete(obj)` removes one and `draw.deleteAll()` removes every object the
+  script created. `draw.count()` says how many are live.
+- A handle to a deleted object is stale, not absent. Passing one to a setter is
+  OS4005. Assign `none` to the name when you delete the object, and test with
+  `isNone` before mutating it.
+- Deleting an object does not remove it from an array holding it. A script that
+  keeps objects in an array deletes the object and removes the element.
+- A table is never deleted. `clear(t)` empties its cells and the grid lives as
+  long as the study does.
+- An object created while the moving bar is executing is rolled back with
+  everything else when that bar executes again, so a live chart does not gain one
+  object per tick (section 7.5).
+- There is no cap on how many objects a script may create. The budget is memory,
+  and a host that cannot hold them must say so rather than quietly dropping the
+  oldest.
+
+```
+upper = plot(basis + dev, "Upper", aqua)    // a declaration handle
+lower = plot(basis - dev, "Lower", aqua)
+fill(upper, lower, color = fade(aqua, 88))  // the only call that takes one
+
+var zones = []                              // runtime objects
+if not isNone(pivotUp)
+    push(zones, draw.box(time[5], high[5], time, close, color = red))
+if size(zones) > 20
+    draw.delete(element(zones, 0))
+    shift(zones)
+```
 
 ---
 
@@ -956,9 +1106,16 @@ section 6 and the finiteness rule of section 5.1.
 `+` also concatenates two strings. It does nothing else: `"a" + 5` is OS2003.
 
 `%` is the remainder of truncated division, so its sign follows the left operand:
-`-7 % 3` is `-1`. For the always-positive form, the library has `mod(-7, 3)`,
-which is `2`. Both exist because both are wanted about equally often and picking
-one leaves half of all uses writing the correction by hand.
+`-7 % 3` is `-1` and `7 % -3` is `1`. `a % 0` is `none`, by section 6.3.
+
+The library has the floored form, `mod(a, b) = a - b * floor(a / b)`, whose sign
+follows the right operand: `mod(-7, 3)` is `2` and `mod(7, -3)` is `-2`.
+`mod(a, 0)` is `none`. The two agree for every positive `b`, which is every use
+that wraps an index, a bar count or a session offset. Both exist because both are
+wanted about equally often and picking one leaves half of all uses writing the
+correction by hand. `stdlib.md` section 8.1 is the authority for `mod`, and the
+`MOD` instruction of `compiled-program.md` section 4.5 is this `%` and not that
+`mod`.
 
 ### 9.3 Comparison
 
@@ -970,7 +1127,10 @@ sort and is not offered as one.
 Comparing two different types is OS2003, except against `none`, which is always
 allowed. Two `color` values are equal when all four channels match. Two arrays are
 equal when they are the same array, not when they hold equal elements; `arrayEqual`
-compares contents.
+compares contents. The same holds for every reference: two runtime objects
+(section 5.4) are equal when they are the same object, and there is no operation
+that compares two of them by content. A declaration handle cannot be compared at
+all.
 
 A comparison may not be chained. `a < b < c` is OS1008, with the fix
 `a < b and b < c`. Chaining is rejected rather than given the mathematical meaning
@@ -994,7 +1154,7 @@ behaviour, not a hazard to avoid, and section 11.4 explains it.
 the taken arm is evaluated.
 
 ```
-color = up ? lime : red
+tint  = up ? lime : red
 value = ready ? computed : none
 ```
 
@@ -1549,6 +1709,16 @@ names  = ["a", "b"]
 var hits: array<number> = []
 ```
 
+`T` is `number`, `string`, `bool`, `color`, or one of the runtime object types of
+section 5.4. `array<box>` and `array<line>` are ordinary arrays and are how a
+study keeps the drawings it will come back to. `T` is never a declaration handle
+and never a `series`.
+
+An empty literal takes its element type from an annotation when there is one, and
+otherwise from the first call in the file, in source order, that puts an element
+into it: `push`, `unshift`, `insert` or `set`. With neither, the element type is
+unknown and the literal is OS2015.
+
 An array value is a reference. Assigning one name to another gives two names for
 one array; `copy(arr)` makes an independent one. This is stated because the
 alternative, copying on assignment, would make passing a large array to a function
@@ -1571,6 +1741,7 @@ The core operations, all bare names:
 | `slice(arr, from, to)` | A new array, `from` inclusive, `to` exclusive |
 | `copy(arr)` | An independent copy |
 | `indexOf(arr, v)` | First index of `v`, or `-1` |
+| `arrayEqual(a, b)` | Whether two arrays hold equal elements in the same order, as against `==`, which is identity |
 | `sort(arr, order)` | In place, `"asc"` or `"desc"` |
 | `reverse(arr)` | In place |
 | `sum(arr)`, `avg(arr)`, `min(arr)`, `max(arr)`, `stdev(arr)` | Statistics over the whole array |
@@ -1650,7 +1821,7 @@ and keeps autocomplete useful.
 | `str` | String operations beyond concatenation |
 | `math` | Mathematics beyond the common functions, which are bare |
 | `pos` | Open position facts in a strategy: size, average price, unrealised profit |
-| `order` | Order placement beyond the bare `buy`, `sell` and `close` |
+| `order` | Order facts and placement beyond the bare `buy`, `sell`, `close`, `exit`, `cancel` and `cancelAll` |
 | `draw` | Line, label, box and polyline objects a script creates and mutates |
 | `req` | Higher timeframe and other-instrument reads |
 
@@ -1666,14 +1837,16 @@ hi = req.timeframe("1D", high)
 
 ### 15.3 Drawing surfaces
 
-Top level only, because they define the fixed shape of the study: `plot`, `fill`,
-`level`, `input`, `table`.
+Top level only, because they declare the fixed shape of the study: `plot`,
+`fill`, `level` and `table` (OS3006), and `input` (OS3007).
 
 Anywhere, because they are per-bar events or per-bar paint: `signal`, `alert`,
-`background`, `barColor`, the `draw` namespace, and every order function.
+`background`, `barColor`, `cell`, `print`, the `draw` namespace, and every order
+function.
 
 ```
-plot(value, "Title", color = aqua, width = 2, style = "line")
+upper = plot(hi, "Upper", color = aqua, width = 2, style = "line")
+lower = plot(lo, "Lower", color = aqua, width = 2)
 fill(upper, lower, color = fade(aqua, 88))
 level(0, "Zero", gray)
 
@@ -1681,6 +1854,13 @@ signal("BUY")                       // a named marker on this bar
 background(risky ? fade(red, 92) : none)
 barColor(trend > 0 ? lime : red)
 ```
+
+**`fill` names two plots, not two expressions.** Its first two arguments are the
+declaration handles of section 5.4, and a band is a field of the chart descriptor
+holding two plot keys (`compiled-program.md` section 2.8), so there is no key for
+a column that was never declared and nothing for a bare expression to compile
+into. Plot the two edges, name them, and pass the names. `stdlib.md` section 14.2
+carries the full signature, the colour arguments and the opacity.
 
 `signal(text)` is the whole of shape plotting. One call, one named marker on the
 bar, in place of a plot call with six positional arguments choosing a shape, a
@@ -1790,6 +1970,17 @@ section that explains it.
     `study()` option, so the plotted numbers and the traded numbers are the same
     numbers, computed once. (Section 13.1.)
 
+19. **`fill` takes two plots, not two series.** Name the plots and pass the
+    names. A plot handle is a compile-time value and goes nowhere else: not into
+    a `var`, not into an array, not into a function. A line, a label, a box, a
+    polyline and a table are the opposite, ordinary values that persist until
+    the script deletes them. (Sections 5.4, 15.3.)
+
+20. **A reserved word is legal as a named argument label.** `color = aqua` and
+    `step = 0.02` are labels, not names, and a label is never looked up in a
+    scope. It is still not legal as a variable or as a parameter of a user
+    function. (Section 3.4.)
+
 ---
 
 ## 18. Reserved for later versions
@@ -1814,8 +2005,7 @@ reason the list exists.
 Informative. Where this summary and the prose disagree, the prose wins.
 
 ```
-file            = [ version ] { NEWLINE } declaration { NEWLINE } [ limits ]
-                  { statement | function } ;
+file            = [ version ] declaration [ limits ] { statement | function } ;
 
 version         = "version" NUMBER NEWLINE ;
 declaration     = ( "study" | "strategy" ) "(" [ arguments ] ")" NEWLINE ;
@@ -1873,11 +2063,31 @@ primary         = NUMBER | STRING | "true" | "false" | "none" | COLOR
 arrayLiteral    = "[" [ expression { "," expression } ] "]" ;
 
 arguments       = argument { "," argument } ;
-argument        = [ IDENT "=" ] expression ;
+argument        = [ label "=" ] expression ;
+label           = IDENT | RESERVED ;
 
-type            = [ "series" ] ( "number" | "string" | "bool" | "color" )
-                | "array" "<" type ">" ;
+type            = [ "series" ] valueType
+                | "array" "<" ( valueType | objectType ) ">"
+                | objectType ;
+valueType       = "number" | "string" | "bool" | "color" ;
+objectType      = "line" | "label" | "box" | "polyline" | "table" ;
 ```
 
 `equality` and `comparison` take at most one operator, which is how section 9.3's
 ban on chaining is expressed in the grammar rather than in a later check.
+
+`label` admits a reserved word because a named argument label is not a name,
+section 3.4. `RESERVED` is any word in section 3.4's list.
+
+`objectType` names the runtime object types of section 5.4. The type names
+`line`, `label`, `box`, `polyline` and `table` are recognised in a type position
+only, and are ordinary global function names everywhere else, exactly as `color`
+is both a type name and the name of an argument label.
+
+The declaration handle types `plot`, `fill` and `level` are deliberately absent
+from `type`. A handle can never be annotated, because it can never be a `var`, a
+parameter, a return value or an array element, so those three names exist in the
+checker and in diagnostics and nowhere in the grammar.
+
+A blank line and a comment-only line produce no token at all (section 3.10), so
+no production above can match one and none needs to mention them.

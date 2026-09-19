@@ -7,7 +7,9 @@
   "private": true,
   "scripts": {
     "check:names": "node scripts/check-names.mjs",
-    "test": "node scripts/check-names.mjs"
+    "check:examples": "node scripts/check-examples.mjs",
+    "check:errors": "node scripts/check-error-codes.mjs",
+    "test": "node scripts/check-names.mjs && node scripts/check-examples.mjs && node scripts/check-error-codes.mjs"
   },
   "keywords": [
     "trading",

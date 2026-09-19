@@ -39,7 +39,10 @@ reference for that.
 the ordinary case is short: no version ceremony beyond one line, no namespace
 prefix on `ema`, no prefix on `aqua`, and one `signal("BUY")` where a shape plot
 would take six positional arguments. It also fixes the rule that a stateful call
-is made at the top level and used inside a branch, never the other way round.
+is made at the top level and used inside a branch, never the other way round,
+and it is where a reader first meets a named plot: `fill` shades between two
+declared columns and takes the handles those two names hold, so a band is always
+written under the two plots it joins.
 
 **2. Trailing volatility stop.** The first script that needs the past. Its two
 bands are defined in terms of their own previous values, which is the shape that
@@ -66,7 +69,9 @@ thing to subtract when both ends come from the same run.
 on the session's first bar rather than on a date change, because an evening
 session that runs past midnight is one session and two dates, and the window is
 measured in milliseconds since the open so the script says the same thing in
-every timezone.
+every timezone. Its shading switch is an `opacity` of zero rather than a colour
+of `none`, because `fill` reads an absent colour as no colour given and falls
+back to a default band.
 
 **6. Combined premium.** Two instruments that are not on the chart, added
 together. The important line is the addition: if one leg has no bar at this time
@@ -132,41 +137,14 @@ answer is how a reader tells a decision from an omission.
 
 ### Still owed
 
-1. **`color` is a reserved word and also an argument name.** `language.md`
-   section 3.4 reserves `color`; section 15.3 writes `plot(value, "Title",
-   color = aqua)`, and `stdlib.md` sections 14.2 and 14.4 take `color` as an
-   argument throughout. The grammar in `language.md` section 19 requires an
-   IDENT before `=` in an argument, and a reserved word is not one, so the
-   specification's own examples do not parse, and neither do scripts 4 and 9.
-   `step` has the same problem: it is reserved by `for`, and it is the natural
-   name for a number input's increment. Either drop both from the reserved list,
-   neither being needed as a keyword outside its own statement, or rename the
-   arguments.
-
-2. **Drawing objects and tables have no type.** `stdlib.md` sections 14.3 and
-   14.4 return a `table`, a `line`, a `label`, a `box` and a `polyline`, while
-   `language.md` section 5.1 lists only `number`, `string`, `bool`, `color`,
-   `none`, `series T` and `array<T>`, and the type grammar allows an array only
-   of those. Scripts 4, 8 and 9 hold those values, and script 9 holds an array
-   of boxes with no annotation it could write. Add the object types, and let
-   `array<T>` name them.
-
-3. **A drawing object cannot be read back.** `stdlib.md` section 14.4 lists
+1. **A drawing object cannot be read back.** `stdlib.md` section 14.4 lists
    sixteen ways to change an object and none to ask it anything, and does not say
    whether that is deliberate. Script 9 keeps four parallel arrays describing
    boxes it drew itself, because there is no way to ask a box where its edges
    are. Either add the reads, or state that these objects are write only, so
    nobody plans around the other answer.
 
-4. **The two placement lists disagree.** `language.md` section 15.3 puts `plot`,
-   `fill`, `level`, `input` and `table` at the top level only, and `signal`,
-   `alert`, `background`, `barColor`, the `draw` namespace and the order
-   functions anywhere. `stdlib.md` section 14.1 has `cell` and `print` in the
-   second list and neither `alert` nor `input` in either, and `plotCandles` and
-   `clear` appear in no list at all. Script 8 writes `cell` inside an `if` on the
-   strength of `stdlib.md`. One list has to be the list.
-
-5. **The library manifest does not exist.** `stdlib.md` fixes the name, the
+2. **The library manifest does not exist.** `stdlib.md` fixes the name, the
    arguments, the result and the warmup of every function the twelve call, and
    its section 19 says the exact arithmetic, the seeding and the worked example
    live in a manifest that the compiler, the editor's autocomplete and the
@@ -174,19 +152,12 @@ answer is how a reader tells a decision from an omission.
    `pivotHigh` and the rest have a signature and no numbers, and nothing in this
    folder can be checked against a reference implementation.
 
-6. **Where the next bar starts is not a fact.** `chart.intervalMinutes`
+3. **Where the next bar starts is not a fact.** `chart.intervalMinutes`
    (`stdlib.md` section 3.4) gives the interval, so script 9 could project a box
    one interval past the newest bar. It still extends only to the current bar's
    own time, because one interval past the last bar of a session is not where the
    next bar opens, and a projected box is looked at exactly there.
    `session.nextOpen` is the missing piece and is marked planned in section 12.4.
-
-7. **A blank line inside a block is undefined.** `language.md` section 3.10 says
-   every line of one block carries exactly the same leading whitespace, and a
-   blank line carries none. Scripts 8 and 9 both space their block bodies out, so
-   the lexer has to state that a blank line and a comment only line are skipped
-   before indentation is measured, or a great many readable scripts will fail to
-   parse for a reason nobody will guess.
 
 ### Answered since
 
@@ -224,7 +195,48 @@ the answer now lives, and the scripts have been brought to it.
   title, `cell` writes one cell and `clear` empties the grid.
 - **`fill` takes one colour.** `stdlib.md` section 14.2: `colorUp` and
   `colorDown` beside `color`, which is what makes a crossing readable at a
-  glance.
+  glance. `color` with either of the other two is OS3010, no colour at all means
+  the first plot's own colour faded to twelve percent, and `opacity` is a dimmer
+  over whatever colour is there rather than a second way to write one.
+- **`fill` names two plots, not two expressions.** `language.md` sections 5.4
+  and 15.3 and `stdlib.md` section 14.2. A band is a field of the chart
+  descriptor holding two plot keys, so there is no key for a column that was
+  never declared and an expression in either position is OS3011. Scripts 1, 2,
+  3, 5 and 11 name their two edge plots and pass the names. Script 5 switches
+  its shading off with `opacity = 0` rather than a colour of `none`, because an
+  absent colour reads as "no colour was given" and would still shade.
+- **`color` is a reserved word and also an argument name.** `language.md`
+  section 3.4: a named argument label is matched against the callee's parameter
+  list and is never looked up in any scope, so a reserved word is legal as one
+  and OS1019 does not fire on it. Section 19's grammar admits `RESERVED` where a
+  label goes. A parameter of a user function is still an ordinary identifier, so
+  `fn f(color = red)` is OS1019. Scripts 4, 8 and 9 write `color =` on that
+  rule, and every input in the folder writes `min =` and `max =` on it too.
+- **Drawing objects and tables have no type.** `language.md` section 5.4 splits
+  the two kinds that were one word. `line`, `label`, `box`, `polyline` and
+  `table` are runtime objects: ordinary values that go in a name inside a block,
+  in a `var`, in an array and through a function. `plot`, `plotCandles`, `fill`
+  and `level` return a declaration handle, a compile-time value that may be
+  named at the top level and passed to `fill` and nowhere else. Section 19's
+  `type` rule admits the object types and `array<objectType>`, and section 14.1
+  gives an empty literal its element type from an annotation or from the first
+  `push`, `unshift`, `insert` or `set`, which is what script 9's five untyped
+  `[]` declarations rely on.
+- **The two placement lists disagree.** `language.md` section 15.3 and
+  `stdlib.md` section 14.1 now carry the same two sets: `plot`, `fill`, `level`
+  and `table` are top level only under OS3006 and `input` under OS3007;
+  `signal`, `alert`, `background`, `barColor`, `cell`, `print`, the `draw`
+  namespace and every order function may appear anywhere. Script 8 writes `cell`
+  inside an `if` on the strength of both documents rather than one.
+  `plotCandles` and `clear` are still placed by prose rather than by either list
+  (`language.md` section 5.4 and `stdlib.md` section 14.3), and no script here
+  calls them.
+- **A blank line inside a block is undefined.** `language.md` section 3.10: a
+  blank line and a comment only line carry no token and no indentation at all,
+  so they never open a block, never close one, are never OS1003, accept any
+  indentation including none, and never count as a body for OS1010. Scripts 8
+  and 9 space their block bodies out on that rule, and a commented-out statement
+  dragged to column zero no longer closes a block invisibly.
 - **Per plot options are not enumerated.** `stdlib.md` section 14.2 lists
   `width`, `style`, `offset`, `scale`, `precision` and `format`, with the closed
   style list and the rule that a constant colour and a per-bar colour are the
@@ -235,7 +247,6 @@ the answer now lives, and the scripts have been brought to it.
   into the watched condition's predicate. Script 6 was written the other way and
   has been corrected.
 
-None of these required a change to the shape of the language. The seven still
-owed are missing surface or a disagreement between two documents, and the ten
-answered were missing decisions that have since been made, which is the result
-this gate was looking for.
+None of these required a change to the shape of the language. The three still
+owed are missing surface, and the fifteen answered were missing decisions that
+have since been made, which is the result this gate was looking for.

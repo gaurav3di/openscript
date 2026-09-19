@@ -53,9 +53,12 @@ upper = showBands ? vwapValue + bandMult * dev : none
 lower = showBands ? vwapValue - bandMult * dev : none
 
 plot(vwapValue, "Anchored VWAP", orange, width = 2)
-plot(upper, "Upper band", aqua)
-plot(lower, "Lower band", aqua)
-fill(upper, lower, fade(aqua, 92))
+// The two edge plots are named so the band can be drawn between the columns
+// themselves. Both are absent on every bar when the bands are switched off, so
+// the fill stops with them and needs no test of its own.
+upperPlot = plot(upper, "Upper band", aqua)
+lowerPlot = plot(lower, "Lower band", aqua)
+fill(upperPlot, lowerPlot, fade(aqua, 92))
 
 // The anchor bar itself, so it is obvious where the measurement starts.
 // orElse is needed on bar 0: started[1] is absent there, not none is none, and

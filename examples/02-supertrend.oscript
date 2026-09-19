@@ -50,9 +50,11 @@ stopLine = dir == 1 ? lowerBand : upperBand
 plot(dir ==  1 ? stopLine : none, "Stop, long",  lime, width = 2)
 plot(dir == -1 ? stopLine : none, "Stop, short", red,  width = 2)
 
-plot(rawUpper, "Upper band", fade(silver, 60))
-plot(rawLower, "Lower band", fade(silver, 60))
-fill(rawUpper, rawLower, fade(silver, 94))
+// Named, because fill joins two declared columns and takes their declaration
+// handles rather than the series behind them (stdlib 14.2).
+upperPlot = plot(rawUpper, "Upper band", fade(silver, 60))
+lowerPlot = plot(rawLower, "Lower band", fade(silver, 60))
+fill(upperPlot, lowerPlot, fade(silver, 94))
 
 barColor(paint ? (dir == 1 ? lime : red) : none)
 

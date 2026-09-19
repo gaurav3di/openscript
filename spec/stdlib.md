@@ -431,7 +431,7 @@ produce a value on bar 0 whenever their arguments do.
 | `exp(x)` | `number` | `e` to the power `x` |
 | `log(x)` | `number` | Natural logarithm, `none` at or below zero |
 | `log10(x)` | `number` | Base ten logarithm, same absence rule |
-| `mod(a, b)` | `number` | Remainder that always carries `b`'s sign, unlike the `%` operator |
+| `mod(a, b)` | `number` | `a - b * floor(a / b)`, the floored remainder, whose sign follows `b`; `none` when `b` is zero |
 | `isNone(x)` | `bool` | True when the value is absent |
 | `orElse(x, fallback)` | same as `x` | `x` when present, `fallback` when absent |
 | `bool(x)` | `bool` | `none` to `false`, a bool to itself; numbers are rejected |
@@ -444,6 +444,18 @@ is fixed so two engines cannot differ on a tick.
 `roundToTick` returns `none` rather than the unrounded price when the host has
 not supplied a tick size. Returning the input would produce an order price that
 looks rounded and is not.
+
+`mod` is the floored remainder and `%` is the truncated one, and that is the
+whole difference between them: `mod(-7, 3)` is `2` where `-7 % 3` is `-1`, and
+`mod(7, -3)` is `-2` where `7 % -3` is `1`. The formula is written out rather
+than described because "the modulo" names two different functions in common use
+and an engine that picked the other one would disagree with every other engine at
+every negative argument. The two agree for every positive `b`, which is every use
+that wraps an index, a bar count or a session offset. `mod(a, 0)` is `none`, on
+the rule of section 2.4 that a result with no finite real value is absent, and it
+is the answer `a % 0` gives as well. `mod` is a library call and compiles to one;
+the `MOD` instruction of `compiled-program.md` section 4.5 is the `%` operator,
+not this function.
 
 ### 8.2 The `math` namespace
 
@@ -790,13 +802,26 @@ are planned.**
 
 ### 14.1 What may appear where
 
-`plot`, `fill`, `level` and `table` are top level only (OS3006). They define the
-fixed shape of the study: the set of columns, bands, levels and grids must be
-known before bar 0 so the legend, the axis and the settings dialog can exist.
-Hide one on a bar by giving it `none`, never by wrapping it in an `if`.
+`plot`, `fill`, `level` and `table` are top level only (OS3006), and `input` is
+top level only under a code of its own (OS3007). They declare the fixed shape of
+the study: the set of columns, bands, levels and grids must be known before bar 0
+so the legend, the axis and the settings dialog can exist. Hide one on a bar by
+giving it `none`, never by wrapping it in an `if`.
 
-`signal`, `barColor`, `background`, `cell`, `print` and the whole `draw`
-namespace may appear anywhere, because they are per-bar events or per-bar paint.
+`signal`, `alert`, `barColor`, `background`, `cell`, `print`, the whole `draw`
+namespace and every order function of section 17 may appear anywhere, because
+they are per-bar events, per-bar paint or per-bar decisions. This is the same
+split as `language.md` section 15.3, stated with both lists complete.
+
+The two lists are not two halves of one idea. `plot`, `plotCandles`, `fill` and
+`level` return a **declaration handle**, a compile-time value; `table()` returns
+a **runtime object** although its call site is fixed at the top level; and
+`draw.line()` and its siblings return runtime objects a script keeps, mutates
+and deletes.
+`language.md` section 5.4 defines both kinds and lists exactly what each one
+admits. In short: a handle may be named at the top level and passed to `fill`,
+and nothing else; an object is an ordinary value and may be held in a `var`, put
+in an array and passed to a function.
 
 ### 14.2 Plots, bands and levels
 
@@ -804,11 +829,50 @@ namespace may appear anywhere, because they are per-bar events or per-bar paint.
 |---|---|---|---|
 | `plot(value, title, color = ..., width = 1.5, style = "line", offset = 0, overlay = none, precision = none, format = none, scale = "right")` | `plot` | one entry of the contract's plotted columns | Draw a column of numbers |
 | `plotCandles(open, high, low, close, title, colorUp = lime, colorDown = red, wickColor = none, borderColor = none)` | `plot` | a plotted column with its four named source columns | Draw bar-shaped output: a smoothed or higher timeframe candle |
-| `fill(plotA, plotB, color = ..., colorUp = none, colorDown = none, opacity = 0.12, overlay = none)` | `fill` | one entry of the contract's shaded bands | Shade the region between two plots |
+| `fill(plotA, plotB, color = none, colorUp = none, colorDown = none, opacity = 1, overlay = none)` | `fill` | one entry of the contract's shaded bands | Shade the region between two declared plots |
 | `level(price, title = "", color = gray, style = "dashed", width = 1)` | `level` | one entry of the contract's horizontal levels | A fixed reference line in the study's pane |
 
-`plot` returns a handle so `fill` can name two of them. The handle is a
-compile-time value; it cannot be stored in a `var` or passed to a function.
+**`fill`'s first two arguments are plot handles, not series.** They name the two
+declared columns the band is drawn between. The compiled program carries them as
+the two plot keys of `outputs.fills[].between` (`compiled-program.md` section
+2.8), and the chart's own band spec holds the same pair of keys, so there is
+nothing in the contract for a bare expression to become and a script cannot shade
+between a column it never declared. An expression in either position is OS3011,
+with the fix naming the plot to declare.
+
+```
+upper = plot(basis + dev, "Upper", aqua)
+lower = plot(basis - dev, "Lower", aqua)
+fill(upper, lower, color = fade(aqua, 88))
+```
+
+`plot`, `plotCandles`, `fill` and `level` each return a declaration handle of
+type `plot`, `plot`, `fill` and `level` (`language.md` section 5.4). A handle may
+be assigned to a name at the top level and passed to a declaration call that
+takes one; it may not be stored in a `var`, put in an array, passed to a user
+function or read with `[]`. `fill` is the only call in version 1 that takes one,
+so a `fill` or `level` result is normally discarded; naming it is legal and does
+nothing. A handle from `plotCandles` is a `plot`, and a band drawn to one follows
+its `close` column, which is the column the contract keeps as that plot's
+identity.
+
+**The colour arguments.** `color` sets both sides of the band. `colorUp` sets the
+side where `plotA` is above `plotB` and `colorDown` the side where `plotB` is
+above `plotA`; a band that reads differently depending on which line leads is the
+reason the contract carries two. Giving `color` together with either of the other
+two is OS3010, because reconciling them would need a rule and every rule for it
+surprises somebody. With none of the three given, the band is `plotA`'s colour
+faded to twelve percent, which is the chart's own default for a band and is faint
+enough not to drown what is behind it.
+
+**Opacity multiplies the colour's alpha, and defaults to 1.** A colour carries
+its own alpha everywhere in this language, and `fade(aqua, 88)` is how a script
+says "twelve percent" for a pane background, a box fill or a band alike. So
+`opacity` is not a second way to say the same thing: it is a dimmer over whatever
+the colours already are, it reaches the contract as the band's own `opacity`
+field, and a script that never touches it gets exactly the colour it wrote. As on
+a plot, a constant colour lands on the band's style and a `series color` lands on
+the contract's per-bar colour channel instead.
 
 `style` accepts `"line"`, `"lineWithMarkers"`, `"step"`, `"area"`, `"histogram"`
 and `"column"`. These are the styles that make sense for a single column of
@@ -866,6 +930,16 @@ conditional paint switches itself off. Passing an absent colour is not an error.
 host rather than by the language, and a host that drops lines must say how many
 it dropped rather than truncating silently.
 
+`table()` is top level only, as a plot is, because the grid's size and corner are
+part of the study's fixed shape. What it returns is a **runtime object**, not a
+declaration handle: `cell()` and `clear()` take it as an argument and write to it
+per bar, so it is an ordinary value that can be named, kept and passed to a
+function (`language.md` section 5.4). One call site returns the same object on
+every bar. A table is never deleted; `clear(t)` empties its cells and the grid
+lives as long as the study. `clear` is one overloaded name: `clear(arr)` is the
+array operation of `language.md` section 14.1 and `clear(t)` is this one, told
+apart by the argument's type under section 2.2.
+
 ### 14.4 The `draw` namespace
 
 Objects a script creates and then mutates over time, rather than a column of one
@@ -876,6 +950,20 @@ it was put when more history is loaded and every bar index shifts.
 a script may create; the only budget is memory, and a host that cannot hold them
 must say so rather than dropping the oldest. This is a deliberate difference from
 the platforms this language exists to replace.
+
+The four creation calls return a value of type `line`, `label`, `box` and
+`polyline`. These are runtime objects and ordinary values: a script assigns one
+to a name inside a block, keeps it in a `var`, holds a set of them in an
+`array<box>`, passes one to a user function and compares one against `none`
+(`language.md` section 5.4). That is what a drawing needs and a plot handle is
+denied, because the set of drawings is unbounded and changes as bars arrive while
+the set of plots is fixed before bar 0.
+
+Dropping the last name that refers to an object does not delete it: the chart
+holds it and it keeps drawing until `draw.delete` says otherwise. A handle to a
+deleted object is stale rather than absent, so a script assigns `none` to the
+name when it deletes the object, and a script holding objects in an array deletes
+the object and then removes the element.
 
 Creation:
 
