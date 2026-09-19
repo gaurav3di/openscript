@@ -9,7 +9,8 @@
     "check:names": "node scripts/check-names.mjs",
     "check:examples": "node scripts/check-examples.mjs",
     "check:errors": "node scripts/check-error-codes.mjs",
-    "test": "node scripts/check-names.mjs && node scripts/check-examples.mjs && node scripts/check-error-codes.mjs"
+    "test": "node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-names.mjs",
+    "check:layering": "node scripts/check-layering.mjs"
   },
   "keywords": [
     "trading",

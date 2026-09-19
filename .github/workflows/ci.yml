@@ -40,6 +40,17 @@ jobs:
       - name: Every documented error code is in the catalogue
         run: node scripts/check-error-codes.mjs
 
+  layering:
+    name: layering check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Each piece can still be taken without the others
+        run: node scripts/check-layering.mjs
+
   build:
     name: build and test
     runs-on: ubuntu-latest

@@ -105,6 +105,76 @@ source text
    -> any engine          (browser, server, yours)
 ```
 
+## The pieces, and which way they point
+
+A platform adopting OpenScript usually already has a chart, or an editor, or a
+broker connection, and sometimes all three. So the pieces are separate packages
+and the dependencies only ever point one way.
+
+```
+   openscript              openalgo-charts
+   (knows nobody)          (knows nobody)
+        |    \             /
+        |     \           /
+        |    openscript-charts        <- knows both. The only place that does
+        |
+   openscript/editor
+        |
+   openscript-codemirror              <- knows the editor component. Nothing else does
+```
+
+| Package | Is | Depends on |
+|---|---|---|
+| `openscript` | Compiler and engine | Nothing |
+| `openscript/editor` | Highlight, complete, diagnose, hover, signature, format. No DOM | The compiler |
+| `openscript-charts` | Turns a compiled study into a chart's indicator descriptor | The compiler and a chart |
+| `openscript-codemirror` | A drop-in editor language package | The editor half and an editor component |
+| `openscript-py` | The same compiled program, run on a server | Nothing |
+
+An adapter is the only thing allowed to know two worlds at once, which is what
+makes it the piece a platform replaces rather than the piece they patch. A
+platform with its own chart writes their own chart adapter and keeps everything
+else. A platform with its own editor does the same on that side.
+
+This is enforced rather than promised. `scripts/check-layering.mjs` runs in
+continuous integration and fails the build if the compiler imports a chart, if
+anything outside an adapter imports a package, or if the compiler or the editor
+half so much as mentions a browser global.
+
+## Taking it, one step at a time
+
+Each row is usable on its own. Nobody has to take the next one.
+
+| You want | You add | Roughly |
+|---|---|---|
+| Scripts that produce numbers | `openscript`, and the six-item host interface | An afternoon |
+| Those studies on your chart | `openscript-charts`, plus a chart | Days. Free if the chart is the one this adapter already targets |
+| Traders authoring in your app | `openscript/editor`, and your own text component or the drop-in one | Days |
+| Traders trading from it | Wire the order half of the host interface to your order API | About a week |
+| To run it on your own stack | Implement the compiled program format in your language, then pass the conformance suite | Weeks |
+
+The last row is the one that matters for the standard. A platform that will not
+run our code at all reads the compiled program specification, writes its own
+engine, passes the suite, and its traders' scripts are the same scripts as
+everyone else's.
+
+## The host interface
+
+Whatever a platform takes, it supplies six things and nothing more:
+
+1. Bars: open, high, low, close, volume, time.
+2. Instrument facts: tick size, lot size, session, timezone.
+3. More bars on request, for another instrument or another timeframe.
+4. Somewhere to draw.
+5. Somewhere to send orders, if scripts are allowed to trade.
+6. Somewhere to save settings.
+
+No instrument naming scheme, no exchange rules and no broker concepts appear in
+the language. A symbol is opaque to it: a script names a contract by what the
+contract is, and the platform resolves that to whatever its own symbology calls
+it. A format built around one market's derivatives means nothing on a crypto
+exchange, and portability is the entire objective.
+
 ## Errors
 
 Every error has a stable code, a message, the cause, the fix and an example,
