@@ -1,0 +1,8 @@
+#!/bin/sh
+# Refuse a commit that names another product, platform or company.
+# Enable once per clone: git config core.hooksPath .githooks
+node scripts/check-names.mjs --staged || {
+  echo ""
+  echo "Commit refused. OpenScript explains itself without pointing at anyone else."
+  exit 1
+}

@@ -16,6 +16,12 @@ node scripts/check-names.mjs
 If you need to refer to prior art, describe it generically: "an existing chart
 scripting language", "a copyleft licensed runtime".
 
+Enable the same check as a local pre-commit hook, once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 **2. Original work only.** Do not copy text, documentation, error messages or
 implementation from any other project into this one, and do not paste code you
 do not have the right to relicense under Apache-2.0. If you ported an algorithm
