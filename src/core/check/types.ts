@@ -160,6 +160,21 @@ export function accepts(to: Type, from: Type): boolean {
 }
 
 /**
+ * Whether two types may stand beside each other.
+ *
+ * This is `sameType` with the rule of language.md 6 added: `none` is a member
+ * of every type, so an arm of a ternary, a `case` value or an operand of `==`
+ * that is absent mixes with anything. It is the test every rule that compares
+ * two written expressions uses, and `sameType` is the narrower question of
+ * whether two definite types are the same one.
+ */
+export function compatible(left: Type, right: Type): boolean {
+  if (left.kind === 'nothing' || right.kind === 'nothing') return left.kind === right.kind;
+  if (elementOf(left).kind === 'none' || elementOf(right).kind === 'none') return true;
+  return sameType(left, right);
+}
+
+/**
  * The type of a place that holds both, with series-ness carried across.
  *
  * A name assigned a plain number on one line and a series number on another

@@ -1,5 +1,5 @@
 /**
- * Where a value sits inside a window's range: `stoch`, `stochRsi` and
+ * Where a value sits inside a lookback's range: `stoch`, `stochRsi` and
  * `williamsR`.
  *
  * All three are the same test with different sources and different scales.
@@ -20,7 +20,7 @@ function position(value: Value, high: Value, low: Value): Value {
   return result((100 * (value - low)) / span);
 }
 
-/** The raw range position of a series against its own window. */
+/** The raw range position of a series against its own lookback. */
 function rawTail(len: number): Tail<Value, Value> {
   const top = highestTail(len);
   const bottom = lowestTail(len);
@@ -35,7 +35,7 @@ function rawTail(len: number): Tail<Value, Value> {
  * `stoch(len, smoothK, smoothD)`: `[k, d]`, element 0 from bar
  * `len + smoothK - 2` and element 1 from bar `len + smoothK + smoothD - 3`.
  *
- * The close against the window's outright high and low, which are the bars'
+ * The close against the lookback's outright high and low, which are the bars'
  * highs and lows and not the close's own extremes.
  */
 export function stochTail(len = 14, smoothK = 1, smoothD = 3): Tail<Bar, Value[]> {
@@ -62,7 +62,7 @@ export function stoch(bars: readonly Bar[], len = 14, smoothK = 1, smoothD = 3):
  * `stochRsi(src, rsiLen, stochLen, smoothK, smoothD)`: `[k, d]`, element 0 from
  * bar `rsiLen + stochLen + smoothK - 2`.
  *
- * The same position test applied to `rsi` rather than to price, so the window
+ * The same position test applied to `rsi` rather than to price, so the lookback
  * is the range the strength reading itself covered.
  */
 export function stochRsiTail(

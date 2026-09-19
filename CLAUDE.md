@@ -139,6 +139,17 @@ every hosted install.
 **A trader's files live on a mounted volume**, never inside the image, so they
 survive a container rebuild.
 
+**Nothing new is started, and nothing computes in the request process.** The
+integration adds routes and services to an application that already runs, so the
+existing start command brings up everything. But that application is a single
+cooperatively scheduled worker, where ordinary threads and thread pools are green
+rather than real, so anything that occupies the worker stops it for every user
+until it returns. A backtest over fifty thousand bars is pure computation with no
+yield points: it runs in a subprocess, the route returns an id, and progress goes
+over the socket that is already open. The development server uses real threading,
+so this exact mistake works perfectly on a developer's machine and only fails in
+production.
+
 The rule underneath all of these: **the smallest deployment sets the budget.** A
 limit that is generous on one install and default on another is the default one.
 

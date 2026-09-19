@@ -8,7 +8,7 @@
  * index an out-of-range error at the left edge of a chart and nowhere else.
  */
 import type { Bar, Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, result } from '../values/index.js';
+import { NONE, at, fold, isPresent, result } from '../values/index.js';
 import type { MaType } from '../averages/index.js';
 import { maTail, smaTail } from '../averages/index.js';
 import { highestTail, lowestTail } from '../series/index.js';
@@ -44,7 +44,10 @@ export function bbWidthTail(len = 20, mult = 2): Tail<Value, Value> {
   const bands = bollingerTail(len, mult);
   return {
     next(value: Value): Value {
-      const [basis, upper, lower] = bands.next(value);
+      const trio = bands.next(value);
+      const basis = at(trio, 0);
+      const upper = at(trio, 1);
+      const lower = at(trio, 2);
       if (!isPresent(basis) || !isPresent(upper) || !isPresent(lower)) return NONE;
       if (basis === 0) return NONE;
       return result((upper - lower) / basis);
@@ -62,7 +65,9 @@ export function bbPercentTail(len = 20, mult = 2): Tail<Value, Value> {
   const bands = bollingerTail(len, mult);
   return {
     next(value: Value): Value {
-      const [, upper, lower] = bands.next(value);
+      const trio = bands.next(value);
+      const upper = at(trio, 1);
+      const lower = at(trio, 2);
       if (!isPresent(value) || !isPresent(upper) || !isPresent(lower)) return NONE;
       const span = upper - lower;
       if (span === 0) return NONE;

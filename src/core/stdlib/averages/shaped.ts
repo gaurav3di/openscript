@@ -1,11 +1,11 @@
 /**
  * The averages with a shape to them: `hma`, `alma` and `linreg`.
  *
- * Each one is a weighted window like `wma`, and each accumulates oldest bar
- * first, in index order, for the reason `window.ts` gives.
+ * Each one is a weighted lookback like `wma`, and each accumulates oldest bar
+ * first, in index order, for the reason `lookback.ts` gives.
  */
 import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, isLength, isPresent, makeLookback, result } from '../values/index.js';
 import { roundHalfAway } from '../maths/index.js';
 
 import { wmaTail } from './simple.js';
@@ -19,7 +19,7 @@ import { wmaTail } from './simple.js';
  * **The half length is not stated.** `stdlib.md` section 4 fixes the outer
  * length as `round(sqrt(len))`, which the declared warmup confirms, and says
  * nothing about the inner one. `floor(len / 2)` is used here, held at a minimum
- * of 1 so a length of 1 or 2 still has a window, and the declared warmup holds
+ * of 1 so a length of 1 or 2 still has a lookback, and the declared warmup holds
  * for any inner length at or below `len`, so nothing in the warmup column
  * settles it. This is recorded as a gap rather than presented as a reading.
  */
@@ -47,18 +47,18 @@ export function hma(src: Series, len: number): Value[] {
 /**
  * `alma(src, len, offset, sigma)`: the Gaussian weighted mean, from bar `len - 1`.
  *
- * The kernel depends only on the position in the window, so it is built once.
+ * The kernel depends only on the position in the lookback, so it is built once.
  * `offset` slides its peak between lag and smoothness and `sigma` sets how
  * sharply it falls away.
  */
 export function almaTail(len: number, offset = 0.85, sigma = 6): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   const peak = offset * (len - 1);
   const spread = len / sigma;
   const weights: number[] = [];
   let norm = 0;
-  if (sigma > 0 && Number.isInteger(len) && len >= 1) {
-    // Index order: position 0 is the oldest bar in the window.
+  if (sigma > 0 && isLength(len)) {
+    // Index order: position 0 is the oldest bar in the lookback.
     for (let position = 0; position < len; position += 1) {
       const gap = position - peak;
       const weight = Math.exp(-(gap * gap) / (2 * spread * spread));
@@ -68,11 +68,11 @@ export function almaTail(len: number, offset = 0.85, sigma = 6): Tail<Value, Val
   }
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.complete() || norm === 0 || weights.length !== len) return NONE;
+      lookback.push(value);
+      if (!lookback.complete() || norm === 0 || weights.length !== len) return NONE;
       let total = 0;
       for (let position = 0; position < len; position += 1) {
-        total += (window.at(len - 1 - position) as number) * (weights[position] as number);
+        total += (lookback.at(len - 1 - position) as number) * (weights[position] as number);
       }
       return result(total / norm);
     },
@@ -88,7 +88,7 @@ export function alma(src: Series, len: number, offset = 0.85, sigma = 6): Value[
  * `linreg(src, len, offset)`: the least squares line through the last `len`
  * points, read `offset` bars back along it, from bar `len - 1`.
  *
- * `x` runs 0 at the oldest bar of the window to `len - 1` at the current one,
+ * `x` runs 0 at the oldest bar of the lookback to `len - 1` at the current one,
  * so the value at the current bar is `intercept + slope * (len - 1)` and a
  * positive `offset` steps back down the line without refitting it.
  *
@@ -97,19 +97,19 @@ export function alma(src: Series, len: number, offset = 0.85, sigma = 6): Value[
  * one point is not a fit.
  */
 export function linregTail(len: number, offset = 0): Tail<Value, Value> {
-  const window = makeWindow(len);
-  // The x values are the same window every bar, so their sums are constants.
+  const lookback = makeLookback(len);
+  // The x values are the same lookback every bar, so their sums are constants.
   const sumX = ((len - 1) * len) / 2;
   const sumXSquared = ((len - 1) * len * (2 * len - 1)) / 6;
   const divisor = len * sumXSquared - sumX * sumX;
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.complete() || divisor === 0) return NONE;
+      lookback.push(value);
+      if (!lookback.complete() || divisor === 0) return NONE;
       let sumY = 0;
       let sumXY = 0;
       for (let position = 0; position < len; position += 1) {
-        const y = window.at(len - 1 - position) as number;
+        const y = lookback.at(len - 1 - position) as number;
         sumY += y;
         sumXY += y * position;
       }

@@ -130,6 +130,15 @@ export interface CheckedCall {
   readonly stateful: boolean;
   /** The per-call-site state region, `compiled-program.md` 2.11. */
   readonly stateId: number | undefined;
+  /**
+   * The arguments whose per-bar values this call site has to retain.
+   *
+   * A user function that reads `src[1]` reads the history of whatever the
+   * caller passed, so the caller writes that expression to a series register
+   * before the call (`compiled-program.md` 2.10 and 2.12). These are the
+   * parameter positions that need one.
+   */
+  readonly seriesArguments: readonly number[];
 }
 
 /** What a higher timeframe read is allowed to know, `stdlib.md` 15.3. */

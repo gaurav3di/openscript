@@ -1,22 +1,22 @@
 /**
- * Totals and counts over a window, and the three functions that deliberately
+ * Totals and counts over a lookback, and the three functions that deliberately
  * ignore absent bars.
  *
- * `sum` propagates absence, as every windowed function does. `sumSkip`,
+ * `sum` propagates absence, as every lookback function does. `sumSkip`,
  * `avgSkip` and `countPresent` do not, and they say so in their names because
- * a function that quietly ignored a gap would report a total over a window it
+ * a function that quietly ignored a gap would report a total over a lookback it
  * never had.
  */
 import type { Flag, Flags, Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
 
-/** `sum(src, len)`: the total over the window, from bar `len - 1`. */
+/** `sum(src, len)`: the total over the lookback, from bar `len - 1`. */
 export function sumTail(len: number): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      return window.sum();
+      lookback.push(value);
+      return lookback.sum();
     },
   };
 }
@@ -60,11 +60,11 @@ export function cum(src: Series): Value[] {
  * a second warmup on top of the average's own.
  */
 export function countTail(len: number): Tail<Flag, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(flag: Flag): Value {
-      window.push(flag === true ? 1 : 0);
-      return window.sum();
+      lookback.push(flag === true ? 1 : 0);
+      return lookback.sum();
     },
   };
 }
@@ -74,13 +74,13 @@ export function count(cond: Flags, len: number): Value[] {
   return fold(countTail(len), cond);
 }
 
-/** `sumSkip(src, len)`: the total over the window, ignoring absent bars. */
+/** `sumSkip(src, len)`: the total over the lookback, ignoring absent bars. */
 export function sumSkipTail(len: number): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      return window.sumPresent();
+      lookback.push(value);
+      return lookback.sumPresent();
     },
   };
 }
@@ -90,13 +90,13 @@ export function sumSkip(src: Series, len: number): Value[] {
   return fold(sumSkipTail(len), src);
 }
 
-/** `countPresent(src, len)`: how many bars of the window had a value. */
+/** `countPresent(src, len)`: how many bars of the lookback had a value. */
 export function countPresentTail(len: number): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      return window.filled() ? window.presentCount() : NONE;
+      lookback.push(value);
+      return lookback.filled() ? lookback.presentCount() : NONE;
     },
   };
 }
@@ -107,20 +107,20 @@ export function countPresent(src: Series, len: number): Value[] {
 }
 
 /**
- * `avgSkip(src, len)`: the mean over the window, ignoring absent bars.
+ * `avgSkip(src, len)`: the mean over the lookback, ignoring absent bars.
  *
- * A window with nothing present in it is absent, not zero: there is no mean of
+ * A lookback with nothing present in it is absent, not zero: there is no mean of
  * no values, and a division by zero is absence by the rule of `stdlib.md`
  * section 2.4.
  */
 export function avgSkipTail(len: number): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.filled()) return NONE;
-      const present = window.presentCount();
-      const total = window.sumPresent();
+      lookback.push(value);
+      if (!lookback.filled()) return NONE;
+      const present = lookback.presentCount();
+      const total = lookback.sumPresent();
       if (present === 0 || !isPresent(total)) return NONE;
       return result(total / present);
     },

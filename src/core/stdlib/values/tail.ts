@@ -34,22 +34,3 @@ export function fold<In, Out>(tail: Tail<In, Out>, inputs: readonly In[]): Out[]
   for (const input of inputs) out.push(tail.next(input));
   return out;
 }
-
-/**
- * A tail built from another tail, with its output passed through a function of
- * this bar's input and that output.
- *
- * Chaining rather than materialising an intermediate series is what keeps the
- * tail path O(1) in the length of history for a study built out of other
- * studies.
- */
-export function mapTail<In, Mid, Out>(
-  tail: Tail<In, Mid>,
-  step: (input: In, value: Mid) => Out,
-): Tail<In, Out> {
-  return {
-    next(input: In): Out {
-      return step(input, tail.next(input));
-    },
-  };
-}

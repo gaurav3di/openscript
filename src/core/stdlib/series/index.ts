@@ -7,7 +7,6 @@ export {
   lowestBars,
   lowestBarsTail,
   lowestTail,
-  spanOf,
 } from './extremes.js';
 
 export type { Pair } from './changes.js';

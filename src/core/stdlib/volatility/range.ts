@@ -16,7 +16,7 @@
  * `stdlib.md` are one bar later than the plain reading would give, which is how
  * the specification says which form they take.
  */
-import type { Bar, Series, Tail, Value } from '../values/index.js';
+import type { Bar, Tail, Value } from '../values/index.js';
 import { NONE, fold, isPresent, result } from '../values/index.js';
 import { rmaTail } from '../averages/index.js';
 
@@ -99,9 +99,4 @@ export function natrTail(len: number): Tail<Bar, Value> {
 /** `natr(len)` over a run of bars. */
 export function natr(bars: readonly Bar[], len = 14): Value[] {
   return fold(natrTail(len), bars);
-}
-
-/** The series a tail over bars produces, for a caller holding bars rather than a source. */
-export function overBars(bars: readonly Bar[], tail: Tail<Bar, Value>): Series {
-  return fold(tail, bars);
 }

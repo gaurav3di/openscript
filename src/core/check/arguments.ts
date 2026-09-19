@@ -10,7 +10,8 @@
  * Six codes live here, and each of them names the call, so the reader is told
  * which of the three calls on the line the caret is about.
  */
-import type { Argument, Call } from '../ast/index.js';
+import type { Argument } from '../ast/index.js';
+import type { Span } from '../span/index.js';
 import type { Checker } from './checker.js';
 import { closestName } from './suggest.js';
 
@@ -56,7 +57,8 @@ function exampleCall(name: string, parameters: readonly ParameterShape[]): strin
  */
 export function bindArguments(
   checker: Checker,
-  call: Call,
+  span: Span,
+  args: readonly Argument[],
   name: string,
   parameters: readonly ParameterShape[],
 ): Binding {
@@ -67,7 +69,7 @@ export function bindArguments(
   let extra = 0;
   let reportedOrder = false;
 
-  for (const argument of call.args) {
+  for (const argument of args) {
     if (argument.label === undefined) {
       if (seenNamed && !reportedOrder) {
         checker.report('OS3005', argument.span, {});
@@ -102,10 +104,10 @@ export function bindArguments(
   }
 
   if (extra > 0) {
-    checker.report('OS3001', call.span, {
+    checker.report('OS3001', span, {
       name,
       expected: arityText(parameters),
-      found: call.args.length,
+      found: args.length,
       signature: signatureText(name, parameters),
     });
   }
@@ -113,7 +115,7 @@ export function bindArguments(
   for (let i = 0; i < parameters.length; i += 1) {
     const parameter = parameters[i];
     if (parameter === undefined || parameter.optional || filled[i] !== undefined) continue;
-    checker.report('OS3012', call.span, {
+    checker.report('OS3012', span, {
       name,
       argument: parameter.name,
       example: exampleCall(name, parameters),

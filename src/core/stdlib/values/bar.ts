@@ -47,13 +47,3 @@ export function hlcc4(bar: Bar): Value {
   if (!isPresent(bar.high) || !isPresent(bar.low) || !isPresent(bar.close)) return NONE;
   return result((bar.high + bar.low + bar.close + bar.close) / 4);
 }
-
-/** The series of one field of a run of bars. */
-export function field(bars: readonly Bar[], name: keyof Bar): Value[] {
-  return bars.map((bar) => bar[name]);
-}
-
-/** The series a per-bar derived price takes over a run of bars. */
-export function derived(bars: readonly Bar[], of: (bar: Bar) => Value): Value[] {
-  return bars.map(of);
-}

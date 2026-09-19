@@ -3,8 +3,8 @@
  *
  * `percentile` interpolates linearly between the two ranks either side, which
  * `stdlib.md` section 9 states. The nearest rank method, which returns an
- * actual member of the window, is the other common choice and gives a visibly
- * different answer for an even length window; it is not what is specified here.
+ * actual member of the lookback, is the other common choice and gives a visibly
+ * different answer for an even length lookback; it is not what is specified here.
  *
  * `covariance` and `correlation` are the population forms, and both are taken
  * in two passes: the mean first, then the deviations from it. The single pass
@@ -14,11 +14,11 @@
  * `stdlib.md` fixes neither arrangement, so this one is chosen and stated.
  */
 import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, makeLookback, result } from '../values/index.js';
 
 import type { Pair } from './changes.js';
 
-/** The window's values, oldest first, as plain numbers. */
+/** The lookback's values, oldest first, as plain numbers. */
 function ordered(read: (back: number) => Value, len: number): number[] {
   const values: number[] = [];
   for (let back = len - 1; back >= 0; back -= 1) values.push(read(back) as number);
@@ -26,17 +26,17 @@ function ordered(read: (back: number) => Value, len: number): number[] {
 }
 
 /**
- * `percentile(src, len, p)`: the value at percentile `p` of the window,
+ * `percentile(src, len, p)`: the value at percentile `p` of the lookback,
  * linearly interpolated, from bar `len - 1`.
  */
 export function percentileTail(len: number, p: number): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.complete()) return NONE;
+      lookback.push(value);
+      if (!lookback.complete()) return NONE;
       if (!(p >= 0 && p <= 100)) return NONE;
-      const sorted = ordered((back) => window.at(back), len).sort((a, b) => a - b);
+      const sorted = ordered((back) => lookback.at(back), len).sort((a, b) => a - b);
       const rank = (p / 100) * (len - 1);
       const below = Math.floor(rank);
       const above = below + 1;
@@ -54,9 +54,9 @@ export function percentile(src: Series, len: number, p: number): Value[] {
 }
 
 /**
- * `median(src, len)`: the middle value of the window, from bar `len - 1`.
+ * `median(src, len)`: the middle value of the lookback, from bar `len - 1`.
  *
- * The 50th percentile by the same interpolation, so an even length window is
+ * The 50th percentile by the same interpolation, so an even length lookback is
  * the mean of its two middles rather than one of them chosen by a rule nobody
  * remembers.
  */
@@ -70,25 +70,25 @@ export function median(src: Series, len: number): Value[] {
 }
 
 /**
- * `percentRank(src, len)`: what percentage of the window this bar's value
+ * `percentRank(src, len)`: what percentage of the lookback this bar's value
  * exceeds, from bar `len - 1`.
  *
- * The window is the last `len` bars including this one, which is what the
- * declared warmup of bar `len - 1` says: a window of the `len` bars before this
+ * The lookback is the last `len` bars including this one, which is what the
+ * declared warmup of bar `len - 1` says: a lookback of the `len` bars before this
  * one would not have its first answer until bar `len`. This bar is therefore
  * one of the values counted, so the reading runs from `100 / len` to 100 rather
  * than from 0.
  */
 export function percentRankTail(len: number): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.complete()) return NONE;
-      const current = window.at(0) as number;
+      lookback.push(value);
+      if (!lookback.complete()) return NONE;
+      const current = lookback.at(0) as number;
       let counted = 0;
       for (let back = len - 1; back >= 0; back -= 1) {
-        if ((window.at(back) as number) <= current) counted += 1;
+        if ((lookback.at(back) as number) <= current) counted += 1;
       }
       return result((counted * 100) / len);
     },
@@ -129,8 +129,8 @@ function moments(a: readonly number[], b: readonly number[], len: number): Momen
 }
 
 function jointTail(len: number, want: 'covariance' | 'correlation'): Tail<Pair, Value> {
-  const left = makeWindow(len);
-  const right = makeWindow(len);
+  const left = makeLookback(len);
+  const right = makeLookback(len);
   return {
     next(pair: Pair): Value {
       left.push(pair.a);

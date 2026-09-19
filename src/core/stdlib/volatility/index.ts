@@ -5,7 +5,6 @@ export {
   gapTrueRangeTail,
   natr,
   natrTail,
-  overBars,
   trueRange,
   trueRangeTail,
 } from './range.js';

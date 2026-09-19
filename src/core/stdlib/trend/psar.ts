@@ -23,8 +23,8 @@ import { NONE, fold, isPresent, result } from '../values/index.js';
 
 /** `psar(start, step, max)`. */
 export function psarTail(start = 0.02, step = 0.02, ceiling = 0.2): Tail<Bar, Value[]> {
-  let bars = 0;
   let previous: Bar | null = null;
+  let seeded = false;
   let long = true;
   let extreme = 0;
   let stop = 0;
@@ -34,23 +34,26 @@ export function psarTail(start = 0.02, step = 0.02, ceiling = 0.2): Tail<Bar, Va
     next(bar: Bar): Value[] {
       const before = previous;
       previous = bar;
-      bars += 1;
-
-      if (bars === 1) return [NONE, NONE];
 
       if (!isPresent(bar.high) || !isPresent(bar.low) || !isPresent(bar.close)) {
         return [NONE, NONE];
       }
 
-      if (bars === 2) {
-        if (before === null || !isPresent(before.high) || !isPresent(before.low)) {
+      // Seeding waits for a pair of complete bars rather than for bar 1 by
+      // number. On clean data that is bar 1, which is the declared warmup; on
+      // data with a hole at the start it is the first bar the seed can honestly
+      // be taken from, rather than a stop placed at whatever the state happened
+      // to hold.
+      if (!seeded) {
+        if (before === null) return [NONE, NONE];
+        if (!isPresent(before.high) || !isPresent(before.low) || !isPresent(before.close)) {
           return [NONE, NONE];
         }
-        if (!isPresent(before.close)) return [NONE, NONE];
         long = bar.close > before.close;
         extreme = long ? bar.high : bar.low;
         stop = long ? before.low : before.high;
         acceleration = start;
+        seeded = true;
         return [result(stop), long ? -1 : 1];
       }
 

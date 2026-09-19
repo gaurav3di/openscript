@@ -59,17 +59,12 @@ export function result(x: number): Value {
  * Element `index` of a series, or absence when the index falls off either end.
  *
  * Reading before the start of the dataset is absent rather than an error, which
- * is what makes `history` and every windowed function fall out of one rule
+ * is what makes `history` and every lookback function fall out of one rule
  * instead of a special case each.
  */
 export function at(values: Series, index: number): Value {
   const value = values[index];
   return value === undefined ? NONE : value;
-}
-
-/** A series of `length` absent bars. */
-export function absentSeries(length: number): Value[] {
-  return new Array<Value>(Math.max(0, length)).fill(NONE);
 }
 
 /**

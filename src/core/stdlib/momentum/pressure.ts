@@ -3,7 +3,7 @@
  * `ultimateOsc` and `awesomeOsc`.
  */
 import type { Bar, Tail, Value } from '../values/index.js';
-import { NONE, fold, hl2, hlc3, isPresent, result } from '../values/index.js';
+import { NONE, at, fold, hl2, hlc3, isPresent, result } from '../values/index.js';
 import { smaTail } from '../averages/index.js';
 import { sumTail } from '../series/index.js';
 import { meanDeviationTail } from '../volatility/index.js';
@@ -38,7 +38,7 @@ export function cci(bars: readonly Bar[], len = 20): Value[] {
 }
 
 /**
- * `ultimateOsc(len1, len2, len3)`: buying pressure blended over three windows,
+ * `ultimateOsc(len1, len2, len3)`: buying pressure blended over three lookbacks,
  * from bar `max(len1, len2, len3)`.
  *
  * Buying pressure is the close above the lower of this bar's low and the
@@ -46,7 +46,7 @@ export function cci(bars: readonly Bar[], len = 20): Value[] {
  * close and the same lower bound. Both need the previous close, so the sums
  * start at bar 1 and the first reading is at bar `max`, not `max - 1`.
  *
- * The weights are 4, 2 and 1 over 7, shortest window heaviest, which is what
+ * The weights are 4, 2 and 1 over 7, shortest lookback heaviest, which is what
  * stops any single length dominating the reading.
  */
 export function ultimateOscTail(len1 = 7, len2 = 14, len3 = 28): Tail<Bar, Value> {
@@ -81,7 +81,9 @@ export function ultimateOscTail(len1 = 7, len2 = 14, len3 = 28): Tail<Bar, Value
           isPresent(top) && isPresent(bottom) && bottom !== 0 ? result(top / bottom) : NONE,
         );
       }
-      const [fast, middle, slow] = averages;
+      const fast = at(averages, 0);
+      const middle = at(averages, 1);
+      const slow = at(averages, 2);
       if (!isPresent(fast) || !isPresent(middle) || !isPresent(slow)) return NONE;
       return result((100 * (4 * fast + 2 * middle + slow)) / 7);
     },

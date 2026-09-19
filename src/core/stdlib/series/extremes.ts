@@ -1,16 +1,16 @@
 /**
- * The window extremes: `highest`, `lowest` and the two that report where the
+ * The lookback extremes: `highest`, `lowest` and the two that report where the
  * extreme was set.
  *
  * `highestBars` and `lowestBars` count bars back, 0 being this bar, which is
  * what `stdlib.md` section 9 says they return. A tie goes to the most recent
- * bar: the window's high was set most recently at that bar, and reporting the
+ * bar: the lookback's high was set most recently at that bar, and reporting the
  * older one would make the answer jump backwards as an equal high rolls in.
  */
 import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, makeLookback, result } from '../values/index.js';
 
-/** Where the extreme sits in a complete window, as bars back from this one. */
+/** Where the extreme sits in a complete lookback, as bars back from this one. */
 function extremeBack(
   read: (back: number) => Value,
   len: number,
@@ -18,7 +18,7 @@ function extremeBack(
 ): number {
   let best = read(len - 1) as number;
   let bestBack = len - 1;
-  // Oldest first, so an equal value later in the window replaces the earlier
+  // Oldest first, so an equal value later in the lookback replaces the earlier
   // one and the answer is the most recent bar that set the extreme.
   for (let position = 1; position < len; position += 1) {
     const back = len - 1 - position;
@@ -32,13 +32,13 @@ function extremeBack(
 }
 
 function extremeTail(len: number, wantHigh: boolean, asBars: boolean): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.complete()) return NONE;
-      const back = extremeBack((k) => window.at(k), len, wantHigh);
-      return asBars ? back : result(window.at(back) as number);
+      lookback.push(value);
+      if (!lookback.complete()) return NONE;
+      const back = extremeBack((k) => lookback.at(k), len, wantHigh);
+      return asBars ? back : result(lookback.at(back) as number);
     },
   };
 }
@@ -63,7 +63,7 @@ export function lowest(src: Series, len: number): Value[] {
   return fold(lowestTail(len), src);
 }
 
-/** `highestBars(src, len)`: how many bars back the window's high was set. */
+/** `highestBars(src, len)`: how many bars back the lookback's high was set. */
 export function highestBarsTail(len: number): Tail<Value, Value> {
   return extremeTail(len, true, true);
 }
@@ -73,7 +73,7 @@ export function highestBars(src: Series, len: number): Value[] {
   return fold(highestBarsTail(len), src);
 }
 
-/** `lowestBars(src, len)`: how many bars back the window's low was set. */
+/** `lowestBars(src, len)`: how many bars back the lookback's low was set. */
 export function lowestBarsTail(len: number): Tail<Value, Value> {
   return extremeTail(len, false, true);
 }
@@ -81,15 +81,4 @@ export function lowestBarsTail(len: number): Tail<Value, Value> {
 /** `lowestBars(src, len)` over a whole series. */
 export function lowestBars(src: Series, len: number): Value[] {
   return fold(lowestBarsTail(len), src);
-}
-
-/**
- * The span of a window, `highest - lowest`, which several studies divide by.
- *
- * Exported because four of them need it and a study that recomputes it is a
- * study that can compute it differently.
- */
-export function spanOf(high: Value, low: Value): Value {
-  if (!isPresent(high) || !isPresent(low)) return NONE;
-  return result(high - low);
 }

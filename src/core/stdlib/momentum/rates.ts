@@ -44,7 +44,7 @@ export function roc(src: Series, len = 9): Value[] {
  * `len`.
  *
  * Unsmoothed, which is the whole point of it: the sums are taken over the
- * window outright rather than through an average, so a turn shows on the bar it
+ * lookback outright rather than through an average, so a turn shows on the bar it
  * happens.
  */
 export function cmoTail(len = 9): Tail<Value, Value> {

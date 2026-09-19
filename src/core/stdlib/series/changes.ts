@@ -7,17 +7,17 @@
  * is common on an instrument with a coarse tick.
  */
 import type { Flag, Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
 
 /** `change(src, len)`: `src - src[len]`, from bar `len`. */
 export function changeTail(len = 1): Tail<Value, Value> {
-  const window = makeWindow(len + 1);
+  const lookback = makeLookback(len + 1);
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.filled()) return NONE;
-      const now = window.at(0);
-      const then = window.at(len);
+      lookback.push(value);
+      if (!lookback.filled()) return NONE;
+      const now = lookback.at(0);
+      const then = lookback.at(len);
       if (!isPresent(now) || !isPresent(then)) return NONE;
       return result(now - then);
     },
@@ -31,11 +31,11 @@ export function change(src: Series, len = 1): Value[] {
 
 /** `history(src, n)`: `src` as it stood `n` bars ago, from bar `n`. */
 export function historyTail(back: number): Tail<Value, Value> {
-  const window = makeWindow(back + 1);
+  const lookback = makeLookback(back + 1);
   return {
     next(value: Value): Value {
-      window.push(value);
-      return window.filled() ? window.at(back) : NONE;
+      lookback.push(value);
+      return lookback.filled() ? lookback.at(back) : NONE;
     },
   };
 }
@@ -46,15 +46,15 @@ export function history(src: Series, back: number): Value[] {
 }
 
 function runTail(len: number, wantUp: boolean): Tail<Value, Flag> {
-  const window = makeWindow(len + 1);
+  const lookback = makeLookback(len + 1);
   return {
     next(value: Value): Flag {
-      window.push(value);
-      if (!window.filled()) return null;
+      lookback.push(value);
+      if (!lookback.filled()) return null;
       // Oldest first, comparing each bar with the one before it.
       for (let back = len - 1; back >= 0; back -= 1) {
-        const now = window.at(back);
-        const before = window.at(back + 1);
+        const now = lookback.at(back);
+        const before = lookback.at(back + 1);
         if (!isPresent(now) || !isPresent(before)) return null;
         if (wantUp ? !(now > before) : !(now < before)) return false;
       }
@@ -95,8 +95,8 @@ function crossTail(direction: Direction): Tail<Pair, Flag> {
   // The two series are kept apart rather than subtracted. A difference would
   // round, and the whole test turns on whether one series was at or below the
   // other, which is the one place a rounded zero would change the answer.
-  const left = makeWindow(2);
-  const right = makeWindow(2);
+  const left = makeLookback(2);
+  const right = makeLookback(2);
   return {
     next(pair: Pair): Flag {
       left.push(pair.a);

@@ -87,7 +87,7 @@ export class Checker {
   scope: Scope;
 
   declaration: CheckedDeclaration | undefined = undefined;
-  readonly inputs: CheckedInput[] = [];
+  readonly inputs: Mutable<CheckedInput>[] = [];
   readonly outputs: CheckedOutput[] = [];
   readonly functions: Mutable<CheckedFunction>[] = [];
   readonly bindings: Mutable<Binding>[] = [];
@@ -103,11 +103,18 @@ export class Checker {
   /** The declarations of every `fn`, collected before any body is checked. */
   readonly functionsByName = new Map<string, number>();
   readonly functionNodes = new Map<string, FunctionDeclaration>();
+  /** Bodies already checked, and the ones being checked, so a cycle stops. */
+  readonly checkedFunctions = new Set<number>();
+  readonly checkingFunctions = new Set<number>();
 
   repaints = false;
   stateCount = 0;
+  /** How deep inside a `req` expression the pass is, `stdlib.md` 15.4. */
+  requestDepth = 0;
   /** The function whose body is being checked, for its own statefulness. */
   currentFunction: Mutable<CheckedFunction> | undefined = undefined;
+  /** What the body being checked returns, gathered as the `return`s are met. */
+  pendingReturns: { readonly type: Type; readonly warmup: Warmup }[] = [];
 
   constructor(file: SourceFile, script: Script, sink: DiagnosticSink) {
     this.file = file;
@@ -139,6 +146,27 @@ export class Checker {
     } finally {
       this.scope = parent;
     }
+  }
+
+  /**
+   * The declaration a name means here, and whether a function body stands
+   * between the two.
+   *
+   * A plain assignment updates an enclosing name (`language.md` 12.2), and a
+   * function body is the one place that does not hold: 12.3's own example makes
+   * an assignment to a file-scope name from inside a `fn` OS2002.
+   */
+  lookupAcross(name: string): {
+    readonly binding: Mutable<Binding> | undefined;
+    readonly crossedFunction: boolean;
+  } {
+    let crossedFunction = false;
+    for (let scope: Scope | undefined = this.scope; scope !== undefined; scope = scope.parent) {
+      const found = scope.names.get(name);
+      if (found !== undefined) return { binding: found, crossedFunction };
+      if (scope.kind === 'function') crossedFunction = true;
+    }
+    return { binding: undefined, crossedFunction };
   }
 
   /** The declaration a name means here, or nothing when no scope holds it. */
@@ -254,6 +282,24 @@ export class Checker {
       callSites: this.callSites,
     };
   }
+}
+
+/**
+ * OS7001: a name the library gives only to a file declared with `strategy()`.
+ *
+ * The message names the line of the `study()` declaration rather than the call,
+ * because that is the line the reader has to change: the call is what they
+ * meant, and the declaration is what refuses it.
+ */
+export function reportStrategyOnly(
+  checker: Checker,
+  name: string,
+  span: Span,
+  strategyOnly: boolean,
+): void {
+  const declaration = checker.declaration;
+  if (!strategyOnly || declaration === undefined || declaration.form === 'strategy') return;
+  checker.report('OS7001', span, { name, line: declaration.node.span.line });
 }
 
 /**

@@ -1,0 +1,338 @@
+/**
+ * What has to happen at a call site before a signature can be matched: check
+ * the arguments, work out which callee the name means, and apply the rules that
+ * belong to one particular call rather than to calls in general.
+ *
+ * Three calls have rules of their own and they are all here. `input` decides
+ * its own type from its default and builds a row of the settings dialog. The
+ * two `req` reads compile their expression against another set of bars, which
+ * changes what may be written inside them and is the only place a script can
+ * repaint. A user function is matched against its declaration rather than
+ * against a library signature.
+ *
+ * This file and `expressions.ts` call each other, because a call holds
+ * expressions and an expression may be a call. That is the shape of the
+ * grammar rather than a tangle: the two are one pass split at the line where
+ * one of them stops being about operators.
+ */
+import type { Argument, Call, Expression } from '../ast/index.js';
+import { withoutGrouping } from '../ast/index.js';
+import { bindArguments } from './arguments.js';
+import { remember, resolveLibraryCall, unresolved } from './calls.js';
+import type { Checker, Placement } from './checker.js';
+import type { CheckedCall, InputKind, RequestMode } from './checked.js';
+import { calleeNameOf, isCompileTimeConstant, isSourceName } from './constant.js';
+import { checkExpression } from './expressions.js';
+import { ensureChecked } from './functions.js';
+import { isLibraryName, isOrderName, isRequestName } from './surface.js';
+import { closestName } from './suggest.js';
+import type { Type } from './types.js';
+import { NUMBER, STRING, UNKNOWN, accepts, elementOf, seriesOf, typeText } from './types.js';
+import { BAR_ZERO, allOf, later, weaken } from './warmup.js';
+
+/** A timeframe is a count and a unit, and the unit letters are case sensitive. */
+const TIMEFRAME = /^[0-9]+(m|h|D|W|M)?$/;
+
+/** The input kinds `stdlib.md` 13.1 names and does not ship in version 1. */
+const PLANNED_KINDS = new Set(['symbol', 'price', 'session']);
+const SHIPPED_KINDS = ['interval', 'time'];
+
+/** The calls `stdlib.md` 15.4 refuses inside a request expression, with OS3006. */
+const DRAWING_CALLS = new Set([
+  'plot',
+  'plotCandles',
+  'fill',
+  'level',
+  'table',
+  'cell',
+  'clear',
+  'signal',
+  'background',
+  'barColor',
+  'alert',
+]);
+
+export function resolveCall(checker: Checker, call: Call, placement: Placement): Type {
+  const name = calleeNameOf(call.callee);
+  if (name === undefined) {
+    checker.report('OS2010', call.span, {
+      name: checker.textOf(call.callee.span),
+      type: typeText(UNKNOWN),
+      suggestion: checker.suggestionFor(checker.textOf(call.callee.span)),
+    });
+    return record(checker, call, unresolved(call, 'call'));
+  }
+
+  const functionIndex = checker.functionsByName.get(name);
+  if (functionIndex !== undefined) {
+    checkArgumentExpressions(checker, call, placement);
+    return record(checker, call, checkUserCall(checker, call, name, functionIndex, placement));
+  }
+
+  if (!isLibraryName(name)) {
+    checkArgumentExpressions(checker, call, placement);
+    checker.report('OS2001', call.callee.span, {
+      name,
+      suggestion: checker.suggestionFor(name),
+    });
+    return record(checker, call, unresolved(call, name));
+  }
+
+  if (checker.requestDepth > 0) refuseInsideRequest(checker, call, name);
+
+  if (isRequestName(name)) return record(checker, call, checkRequest(checker, call, name, placement));
+
+  checkArgumentExpressions(checker, call, placement);
+  const checked = resolveLibraryCall(checker, call, name, placement);
+  if (name !== 'input') return record(checker, call, checked);
+  return record(checker, call, checkInput(checker, call, checked));
+}
+
+function record(checker: Checker, call: Call, checked: CheckedCall): Type {
+  checker.record(call, checked.returns, checked.warmup);
+  return checked.returns;
+}
+
+function checkArgumentExpressions(checker: Checker, call: Call, placement: Placement): void {
+  for (const argument of call.args) checkExpression(checker, argument.value, placement);
+}
+
+/** OS7003 and OS3006: what a request expression may not contain. */
+function refuseInsideRequest(checker: Checker, call: Call, name: string): void {
+  if (isOrderName(name)) checker.report('OS7003', call.span, { name });
+  else if (DRAWING_CALLS.has(name) || name.startsWith('draw.')) {
+    checker.report('OS3006', call.span, { name, construct: 'a request expression' });
+  }
+}
+
+/**
+ * A higher timeframe or other instrument read, `stdlib.md` 15.
+ *
+ * The expression argument is compiled against the requested bars, so it is
+ * checked with the request depth raised: a file-scope name read inside it is
+ * OS6003, because a value computed on this chart's bars has no counterpart on
+ * the requested ones.
+ */
+function checkRequest(
+  checker: Checker,
+  call: Call,
+  name: string,
+  placement: Placement,
+): CheckedCall {
+  const expression = expressionArgument(call, name);
+  for (const argument of call.args) {
+    if (argument === expression) {
+      checker.requestDepth += 1;
+      try {
+        checkExpression(checker, argument.value, placement);
+      } finally {
+        checker.requestDepth -= 1;
+      }
+    } else {
+      checkExpression(checker, argument.value, placement);
+    }
+  }
+
+  const checked = resolveLibraryCall(checker, call, name, placement);
+  const timeframe = timeframeArgument(call, name);
+  const written = timeframe === undefined ? undefined : stringLiteral(timeframe.value);
+
+  if (written !== undefined && !TIMEFRAME.test(written)) {
+    checker.report('OS6001', timeframe?.span ?? call.span, { value: written });
+  }
+
+  const mode = modeOf(call);
+  if (mode === 'lookahead') {
+    checker.report('OS8005', call.span, { mode });
+    checker.repaints = true;
+  }
+  if (checker.declaration?.onUnconfirmed === true) {
+    checker.report('OS8002', call.span, {
+      timeframe: written ?? (timeframe === undefined ? '' : checker.textOf(timeframe.value.span)),
+    });
+  }
+
+  checker.requests.push({
+    id: checker.requests.length,
+    call,
+    name,
+    mode,
+    timeframe: written ?? (timeframe === undefined ? '' : checker.textOf(timeframe.value.span)),
+    repaints: mode === 'lookahead',
+    span: call.span,
+  });
+
+  return checked;
+}
+
+function expressionArgument(call: Call, name: string): Argument | undefined {
+  const labelled = call.args.find((one) => one.label?.text === 'expr');
+  if (labelled !== undefined) return labelled;
+  const positional = call.args.filter((one) => one.label === undefined);
+  return positional[name === 'req.symbol' ? 2 : 1];
+}
+
+function timeframeArgument(call: Call, name: string): Argument | undefined {
+  const labelled = call.args.find((one) => one.label?.text === 'timeframe');
+  if (labelled !== undefined) return labelled;
+  const positional = call.args.filter((one) => one.label === undefined);
+  return positional[name === 'req.symbol' ? 1 : 0];
+}
+
+function modeOf(call: Call): RequestMode {
+  const labelled = call.args.find((one) => one.label?.text === 'mode');
+  const written = labelled === undefined ? undefined : stringLiteral(labelled.value);
+  if (written === 'confirmed' || written === 'developing' || written === 'lookahead') {
+    return written;
+  }
+  // The default is the one mode that never repaints (stdlib.md 15.3).
+  return labelled === undefined ? 'confirmed' : 'unknown';
+}
+
+function stringLiteral(expression: Expression): string | undefined {
+  const inner = withoutGrouping(expression);
+  return inner.kind === 'stringLiteral' ? inner.value : undefined;
+}
+
+/**
+ * `input()`, whose type follows its default, `stdlib.md` 13.1.
+ *
+ * The default is the one place a bare price series stands where a constant is
+ * otherwise required: `input(close, "Source")` names a column rather than
+ * reading one, and the host resolves it before bar 0 like every other input.
+ */
+function checkInput(checker: Checker, call: Call, checked: CheckedCall): CheckedCall {
+  const value = checked.arguments[0];
+  const kind = literalOf(checked, 'kind');
+  const options = argumentOf(checked, 'options');
+  const title = literalOf(checked, 'title');
+
+  if (value !== undefined && !isSourceName(value.value) && !isCompileTimeConstant(checker, value.value)) {
+    checker.report('OS3003', value.span, { option: 'value' });
+  }
+  if (kind !== undefined && PLANNED_KINDS.has(kind)) {
+    checker.report('OS2001', call.span, {
+      name: `input(kind = "${kind}")`,
+      suggestion: closestName(kind, SHIPPED_KINDS),
+    });
+  }
+
+  const given = value === undefined ? UNKNOWN : checker.typeOf(value.value);
+  const source = value !== undefined && isSourceName(value.value);
+  const inputKind = kindOf(given, source, kind, options !== undefined);
+  const returns = returnTypeOf(inputKind, given);
+
+  checker.inputs.push({
+    id: checker.inputs.length,
+    call,
+    name: '',
+    title: title ?? '',
+    kind: inputKind,
+    type: returns,
+    span: call.span,
+  });
+
+  return { ...checked, returns, warmup: BAR_ZERO };
+}
+
+function kindOf(
+  given: Type,
+  source: boolean,
+  kind: string | undefined,
+  hasOptions: boolean,
+): InputKind {
+  if (source) return 'source';
+  if (kind === 'interval') return 'interval';
+  if (kind === 'time') return 'time';
+  const element = elementOf(given);
+  if (element.kind === 'bool') return 'bool';
+  if (element.kind === 'color') return 'color';
+  if (element.kind === 'number') return 'number';
+  return hasOptions ? 'select' : 'string';
+}
+
+function returnTypeOf(kind: InputKind, given: Type): Type {
+  if (kind === 'source') return seriesOf(NUMBER);
+  if (kind === 'time') return NUMBER;
+  if (kind === 'interval' || kind === 'select' || kind === 'string') return STRING;
+  return elementOf(given);
+}
+
+function argumentOf(checked: CheckedCall, name: string): Argument | undefined {
+  const index = checked.entry?.parameters.findIndex((one) => one.name === name) ?? -1;
+  return index < 0 ? undefined : checked.arguments[index];
+}
+
+function literalOf(checked: CheckedCall, name: string): string | undefined {
+  const argument = argumentOf(checked, name);
+  return argument === undefined ? undefined : stringLiteral(argument.value);
+}
+
+/**
+ * A call to a function the file declares, `language.md` 11.2.
+ *
+ * State is allocated per call site and not per function (11.4), so two calls to
+ * one stateful helper are two independent counters, and each of them takes a
+ * state region of its own here.
+ */
+function checkUserCall(
+  checker: Checker,
+  call: Call,
+  name: string,
+  index: number,
+  placement: Placement,
+): CheckedCall {
+  ensureChecked(checker, index);
+  const fn = checker.functions[index];
+  if (fn === undefined) return unresolvedAndRemembered(checker, call, name);
+
+  const shapes = fn.declaration.parameters.map((one) => ({
+    name: one.name.text,
+    optional: one.defaultValue !== undefined,
+  }));
+  const filled = bindArguments(checker, call.span, call.args, name, shapes);
+
+  const series: number[] = [];
+  for (let i = 0; i < fn.parameters.length; i += 1) {
+    const parameter = fn.parameters[i];
+    const argument = filled[i];
+    if (parameter === undefined || argument === undefined) continue;
+    const given = checker.typeOf(argument.value);
+    if (!accepts(parameter.type, given)) {
+      checker.report('OS3011', argument.span, {
+        name,
+        argument: parameter.name,
+        expected: typeText(parameter.type),
+        found: typeText(given),
+      });
+    }
+    if (parameter.readsHistory) series.push(i);
+  }
+
+  if (fn.stateful && placement.branched) checker.report('OS8001', call.span, { name });
+
+  const supplied = filled.filter((one): one is Argument => one !== undefined);
+  const warmup = later(fn.warmup, allOf(supplied.map((one) => checker.warmupOf(one.value))));
+
+  const checked: CheckedCall = {
+    call,
+    name,
+    target: 'user',
+    entry: undefined,
+    fn: index,
+    arguments: filled,
+    returns: fn.returns,
+    warmup: fn.stateful ? weaken(warmup) : warmup,
+    stateful: fn.stateful,
+    stateId: fn.stateful ? checker.takeStateId() : undefined,
+    seriesArguments: series,
+  };
+  remember(checker, checked);
+  return checked;
+}
+
+function unresolvedAndRemembered(checker: Checker, call: Call, name: string): CheckedCall {
+  const checked = unresolved(call, name);
+  remember(checker, checked);
+  return checked;
+}

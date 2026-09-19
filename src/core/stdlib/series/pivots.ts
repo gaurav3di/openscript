@@ -12,20 +12,20 @@
  * of them would make the answer depend on which end the scan started from.
  */
 import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
 
 function pivotTail(left: number, right: number, wantHigh: boolean): Tail<Value, Value> {
   const span = left + right + 1;
-  const window = makeWindow(span);
+  const lookback = makeLookback(span);
   return {
     next(value: Value): Value {
-      window.push(value);
-      if (!window.filled()) return NONE;
-      const candidate = window.at(right);
+      lookback.push(value);
+      if (!lookback.filled()) return NONE;
+      const candidate = lookback.at(right);
       if (!isPresent(candidate)) return NONE;
       for (let back = span - 1; back >= 0; back -= 1) {
         if (back === right) continue;
-        const other = window.at(back);
+        const other = lookback.at(back);
         if (!isPresent(other)) return NONE;
         if (wantHigh ? other >= candidate : other <= candidate) return NONE;
       }

@@ -22,28 +22,28 @@
  * and re-seeding would let one missing bar restart a two hundred bar average.
  */
 import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeWindow, result } from '../values/index.js';
+import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
 
 /** One step of a recurrence, from the previous running value and this bar's. */
 type Step = (previous: number, value: number) => number;
 
 /**
- * Seeded smoothing: the mean of the first complete window, then `step` per bar.
+ * Seeded smoothing: the mean of the first complete lookback, then `step` per bar.
  *
- * The seed window is complete only when it holds `len` present values, so an
+ * The seed lookback is complete only when it holds `len` present values, so an
  * average taken over another study's output starts counting at that study's
  * first value rather than at bar 0. That is what makes the warmups of
  * `stdlib.md` compose.
  */
 function seeded(len: number, step: Step): Tail<Value, Value> {
-  const window = makeWindow(len);
+  const lookback = makeLookback(len);
   let running = 0;
   let started = false;
   return {
     next(value: Value): Value {
       if (!started) {
-        window.push(value);
-        const mean = window.mean();
+        lookback.push(value);
+        const mean = lookback.mean();
         if (!isPresent(mean)) return NONE;
         started = true;
         running = mean;

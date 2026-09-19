@@ -1,5 +1,5 @@
 /**
- * `chop` and `hv`, the two readings that say how the window behaved rather than
+ * `chop` and `hv`, the two readings that say how the lookback behaved rather than
  * how wide it was.
  */
 import type { Bar, Series, Tail, Value } from '../values/index.js';
@@ -10,10 +10,10 @@ import { gapTrueRangeTail } from './range.js';
 import { stdevTail } from './deviation.js';
 
 /**
- * `chop(len)`: a 0 to 100 reading of whether the window trended or chopped,
+ * `chop(len)`: a 0 to 100 reading of whether the lookback trended or chopped,
  * from bar `len`.
  *
- * The distance price actually travelled over the window, against the outright
+ * The distance price actually travelled over the lookback, against the outright
  * range it covered. A market that went straight there travels its range and
  * reads low; one that went back and forth travels several times its range and
  * reads high.
@@ -51,8 +51,8 @@ export function chop(bars: readonly Bar[], len = 14): Value[] {
  * `hv(src, len, periodsPerYear)`: the annualised standard deviation of log
  * returns, from bar `len`.
  *
- * A log return needs the previous bar, so the deviation's window starts at bar
- * 1 and its first value is at bar `len`, one later than a window over levels.
+ * A log return needs the previous bar, so the deviation's lookback starts at bar
+ * 1 and its first value is at bar `len`, one later than a lookback over levels.
  *
  * The result is a proportion, not a percentage: `stdlib.md` section 6 says
  * "annualised standard deviation of log returns" and nothing about scaling it
