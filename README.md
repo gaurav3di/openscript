@@ -17,9 +17,21 @@ can write their own engine for it.
 
 ## Status
 
-Early development. The specification is being written first, and the
-implementation follows it. Nothing here is stable yet. Watch
-[ROADMAP.md](./ROADMAP.md) for what lands when.
+**`0.1.0-alpha.0` parses. It does not yet compute anything.**
+
+That is the honest description of what an install gets you today: a lexer, a
+parser, a syntax tree, and diagnostics carrying a code, a line, a column and a
+fix. It will tell you whether a script is well formed. It will not calculate a
+moving average, draw anything, or place an order.
+
+The registry shows this version under `latest` only because a package must have
+one and this is the first release. The `-alpha.0` on the version is the part to
+read.
+
+The checker and the engine are Phase 2, and the roadmap says what each phase owes
+before it is allowed to finish. The specification is written first and the
+implementation follows it, which is why there is a great deal more specification
+here than there is compiler.
 
 ## What it looks like
 
