@@ -1,6 +1,6 @@
 {
   "name": "openalgo-script",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "An open trading language. Write a study or a strategy once, plot it, backtest it, trade it.",
   "type": "module",
   "license": "Apache-2.0",
@@ -24,14 +24,16 @@
     "check:examples": "node scripts/check-examples.mjs",
     "check:errors": "node scripts/check-error-codes.mjs",
     "test": "node scripts/check-duplication.mjs && node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-modularity.mjs && node scripts/check-names.mjs && npm run build && npm run test:unit",
-    "test:unit": "npm run generate:errors && tsc -p tsconfig.test.json && node --test \"dist-test/tests/**/*.test.js\"",
+    "test:unit": "npm run generate && tsc -p tsconfig.test.json && node --test \"dist-test/tests/**/*.test.js\"",
     "check:layering": "node scripts/check-layering.mjs",
     "check:duplication": "node scripts/check-duplication.mjs",
     "check:modularity": "node scripts/check-modularity.mjs",
     "generate:errors": "node scripts/generate-error-catalogue.mjs",
-    "typecheck": "npm run generate:errors && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "build": "npm run generate:errors && tsc -p tsconfig.json",
-    "prepack": "npm run build"
+    "typecheck": "npm run generate && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "build": "npm run generate && tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "generate:version": "node scripts/generate-version.mjs",
+    "generate": "npm run generate:errors && npm run generate:version"
   },
   "keywords": [
     "trading",

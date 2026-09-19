@@ -144,3 +144,4 @@ export {
 export { lex } from './lex/index.js';
 
 export { parse, parseTokens } from './parse/index.js';
+export { COMPILED_FORMAT_VERSION, VERSION } from './version/index.js';

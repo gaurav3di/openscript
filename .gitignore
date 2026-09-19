@@ -22,3 +22,4 @@ dist-test/
 # checked-in copy would be a second source of truth, which is the one thing the
 # catalogue exists to prevent.
 src/core/catalogue/*.generated.ts
+src/core/version/*.generated.ts
