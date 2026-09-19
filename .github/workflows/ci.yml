@@ -62,6 +62,17 @@ jobs:
       - name: No value set is written out in two files
         run: node scripts/check-duplication.mjs
 
+  modularity:
+    name: modularity check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Small modules, and no reaching inside one from outside
+        run: node scripts/check-modularity.mjs
+
   build:
     name: build and test
     runs-on: ubuntu-latest
