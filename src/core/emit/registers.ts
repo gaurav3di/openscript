@@ -1,0 +1,135 @@
+/**
+ * Which values get a series register, and which of the three regions a name
+ * ends up in.
+ *
+ * The checker answers most of this already: a top-level name whose history the
+ * program reads is a register, a `var` is a cell, everything else is a slot
+ * (`compiled-program.md` 2.10 and 2.11). Two cases are left over, and both are
+ * the emitter's because both are about the shape of the instruction set rather
+ * than about the language.
+ *
+ * **A persistent name whose history is read is both.** `x[1]` on a `var` is
+ * "both" in `language.md` 8.3's own words: the cell carries the value forward
+ * and the register carries the past. Only a register has history, so a `var`
+ * the program indexes needs one beside its cell.
+ *
+ * **A slot cannot be read from another frame.** Slots are per frame (3.2), so a
+ * function body that reads a file-scope name has no instruction that reaches
+ * it. A name recomputed every bar can be given a register instead, which is
+ * addressed the same way from every frame and holds the same value the slot
+ * would have. A `var` cannot be fixed that way, and that case is a gap.
+ */
+import { walk } from '../ast/index.js';
+import type { Binding } from '../check/index.js';
+import type { Emitter } from './context.js';
+
+/** The bar fields an engine fills from the host's bar, `compiled-program.md` 2.10. */
+export const BAR_FIELDS: readonly string[] = [
+  'open',
+  'high',
+  'low',
+  'close',
+  'volume',
+  'time',
+  'hl2',
+  'hlc3',
+  'ohlc4',
+  'hlcc4',
+  'oi',
+];
+
+/** The `bar.*` facts of `language.md` 7.2, which 2.10 makes registers as well. */
+export const BAR_FACTS: readonly string[] = [
+  'bar.index',
+  'bar.count',
+  'bar.isFirst',
+  'bar.isLast',
+  'bar.isConfirmed',
+  'bar.isRealtime',
+  'bar.isNew',
+  'bar.updates',
+];
+
+/** `oi` is a built-in series and 2.10's table of bar fields does not list it. */
+const UNLISTED_BAR_FIELD = 'oi';
+
+export type Placement = 'slot' | 'cell' | 'register';
+
+/**
+ * The register a built-in series is read from, or nothing when the name is not
+ * one.
+ */
+export function registerOfName(e: Emitter, name: string): number | undefined {
+  if (name === UNLISTED_BAR_FIELD) {
+    e.gap(
+      "`oi` is a built-in series of stdlib.md 3.1 and 2.10's table of bar register fields " +
+        'does not list it, so the field name it is filled from is this compiler\'s choice',
+      'compiled-program.md 2.10, against stdlib.md 3.1',
+      undefined,
+      false,
+    );
+    return e.layout.bar(UNLISTED_BAR_FIELD);
+  }
+  if (BAR_FIELDS.includes(name) || BAR_FACTS.includes(name)) return e.layout.bar(name);
+  return undefined;
+}
+
+/** Where a name's value lives, the checker's answer with the two cases above. */
+export function placementOf(e: Emitter, binding: Binding): Placement {
+  if (binding.persistence !== 'none') return 'cell';
+  if (binding.storage === 'register' || e.promoted.has(binding.id)) return 'register';
+  return 'slot';
+}
+
+/** The register a history read of a name reads from, allocating it if needed. */
+export function shadowRegister(e: Emitter, binding: Binding): number {
+  return e.layout.computedFor(binding);
+}
+
+/**
+ * Decides every register before a single instruction is emitted.
+ *
+ * It has to happen first because the prologue and the epilogue that keep a
+ * shadow register in step with its cell are instructions like any other, and
+ * they cannot be written after the list they belong at the ends of.
+ */
+export function prepareRegisters(e: Emitter): void {
+  const readInsideFunction = namesReadInsideFunctions(e);
+
+  for (const binding of e.checked.bindings) {
+    if (binding.kind === 'library' || binding.kind === 'function') continue;
+
+    const crossesFrame = binding.kind === 'file' && readInsideFunction.has(binding.id);
+    const retained = e.options.retain === true && binding.kind === 'file';
+    if (binding.persistence === 'none' && (crossesFrame || retained)) {
+      e.promoted.add(binding.id);
+    }
+
+    const placement = placementOf(e, binding);
+    if (placement === 'register') {
+      e.layout.computedFor(binding);
+      continue;
+    }
+    // A cell or an input slot whose past is read carries a register beside it,
+    // written once per bar so the entry for a bar is the value it ended with.
+    if (binding.readsHistory) {
+      e.layout.computedFor(binding);
+      e.shadowed.add(binding.id);
+    }
+  }
+}
+
+/** Every file-scope name some function body reads, which a slot cannot serve. */
+function namesReadInsideFunctions(e: Emitter): ReadonlySet<number> {
+  const found = new Set<number>();
+  for (const declared of e.checked.functions) {
+    walk(declared.declaration, {
+      enter: (node) => {
+        if (node.kind !== 'nameReference') return;
+        const binding = e.checked.references.get(node);
+        if (binding !== undefined && binding.kind === 'file') found.add(binding.id);
+      },
+    });
+  }
+  return found;
+}

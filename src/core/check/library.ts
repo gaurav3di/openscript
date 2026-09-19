@@ -110,6 +110,8 @@ export interface LibraryEntry {
   readonly whole: Readonly<Record<string, WholeRange>>;
   /** Arguments read once before bar 0, so a bar-dependent one is OS3003. */
   readonly constant: readonly string[];
+  /** Pairs that set the same thing two ways, so giving both is OS3010. */
+  readonly conflicts: readonly (readonly [string, string])[];
 }
 
 export interface EntryOptions {
@@ -121,6 +123,7 @@ export interface EntryOptions {
   readonly values?: Readonly<Record<string, readonly string[]>>;
   readonly whole?: Readonly<Record<string, WholeRange>>;
   readonly constant?: readonly string[];
+  readonly conflicts?: readonly (readonly [string, string])[];
 }
 
 const OBJECT_NAMES: readonly string[] = ['line', 'label', 'box', 'polyline', 'table'];
@@ -234,6 +237,7 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
     values: options.values ?? {},
     whole: options.whole ?? {},
     constant: options.constant ?? [],
+    conflicts: options.conflicts ?? [],
   };
 }
 

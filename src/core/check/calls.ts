@@ -11,7 +11,7 @@
  * Overload resolution is by arity and then by argument type, which is the whole
  * of `stdlib.md` 2.2. It happens once, here, and there is no run-time dispatch.
  */
-import type { Argument, Call, Expression } from '../ast/index.js';
+import type { Argument, Call } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import { bindArguments, arityText, signatureText } from './arguments.js';
 import type { ParameterShape } from './arguments.js';
@@ -20,6 +20,8 @@ import { reportStrategyOnly } from './checker.js';
 import type { CheckedCall } from './checked.js';
 import { isCompileTimeConstant } from './constant.js';
 import type { LibraryEntry } from './library.js';
+import { literalNumber, literalString } from './literals.js';
+import { recordOutput, reportCallWarnings } from './outputs.js';
 import { isTopLevelOnly, libraryEntries } from './surface.js';
 import { closestName } from './suggest.js';
 import type { Type } from './types.js';
@@ -112,23 +114,6 @@ function substitute(type: Type, bound: ReadonlyMap<string, Type>): Type {
     default:
       return type;
   }
-}
-
-/** The value of a number written out, for a warmup and for OS3004. */
-export function literalNumber(expression: Expression): number | undefined {
-  const inner = withoutGrouping(expression);
-  if (inner.kind === 'numberLiteral') return inner.value;
-  if (inner.kind === 'unary' && inner.operator === '-') {
-    const operand = literalNumber(inner.operand);
-    return operand === undefined ? undefined : -operand;
-  }
-  return undefined;
-}
-
-function literalString(expression: Expression | undefined): string | undefined {
-  if (expression === undefined) return undefined;
-  const inner = withoutGrouping(expression);
-  return inner.kind === 'stringLiteral' ? inner.value : undefined;
 }
 
 /**
@@ -265,6 +250,29 @@ export function validateArguments(
       checker.report('OS3003', span, { option: parameter.name });
     }
   }
+
+  reportConflicts(checker, entry, filled);
+}
+
+/**
+ * OS3010: two arguments that state one thing two ways.
+ *
+ * Reconciling them would need a rule, and every rule anybody has proposed for
+ * it surprises somebody, so both are refused and the script says which it
+ * meant. The caret goes under the second of the two, which is the one the
+ * reader is most likely to have added.
+ */
+function reportConflicts(
+  checker: Checker,
+  entry: LibraryEntry,
+  filled: readonly (Argument | undefined)[],
+): void {
+  for (const [first, second] of entry.conflicts) {
+    const a = filled[entry.parameters.findIndex((one) => one.name === first)];
+    const b = filled[entry.parameters.findIndex((one) => one.name === second)];
+    if (a === undefined || b === undefined) continue;
+    checker.report('OS3010', b.span, { first, second });
+  }
 }
 
 function inRange(value: number, min: number | undefined, max: number | undefined): boolean {
@@ -365,73 +373,6 @@ export function resolveLibraryCall(
   recordOutput(checker, entry, checked);
   reportCallWarnings(checker, entry, checked);
   return checked;
-}
-
-/** The forms that reserve a field of the chart descriptor, `compiled-program.md` 2.8. */
-const OUTPUT_FORMS = new Set(['plot', 'plotCandles', 'fill', 'level', 'table']);
-
-/**
- * One entry of the file's fixed shape, recorded in declaration order.
- *
- * The order is the order the calls were written, because that is the order the
- * compiled program's `outputs` carries and the order a legend shows, and a
- * generator that had to sort them would be deciding something the script
- * already decided.
- */
-function recordOutput(checker: Checker, entry: LibraryEntry, checked: CheckedCall): void {
-  if (!OUTPUT_FORMS.has(entry.name)) return;
-  const form = entry.name as 'plot' | 'plotCandles' | 'fill' | 'level' | 'table';
-  const title = literalString(argumentFor(entry, checked, 'title')?.value) ?? '';
-  const value = argumentFor(entry, checked, 'value') ?? argumentFor(entry, checked, 'price');
-  const warmup = value === undefined ? checked.warmup : checker.warmupOf(value.value);
-
-  checker.outputs.push({
-    id: checker.outputs.length,
-    form,
-    title,
-    call: checked.call,
-    warmup,
-    span: checked.call.span,
-  });
-
-  // A column whose value is absent on every bar draws nothing at all, and a
-  // reader deserves to know that before they run the study and wonder.
-  if ((form === 'plot' || form === 'plotCandles') && warmup.kind === 'never') {
-    checker.report('OS8009', checked.call.span, { title: quoted(title) });
-  }
-}
-
-/** The warnings that belong to one particular call rather than to calls at large. */
-function reportCallWarnings(
-  checker: Checker,
-  entry: LibraryEntry,
-  checked: CheckedCall,
-): void {
-  if (entry.name === 'alert' && argumentFor(entry, checked, 'id') === undefined) {
-    checker.report('OS8008', checked.call.span, { line: checked.call.span.line });
-  }
-
-  if (entry.name !== 'plot' || checker.declaration?.overlay !== true) return;
-  for (const option of ['precision', 'format']) {
-    if (argumentFor(entry, checked, option) === undefined) continue;
-    checker.report('OS8007', checked.call.span, {
-      title: quoted(literalString(argumentFor(entry, checked, 'title')?.value) ?? ''),
-      option,
-    });
-  }
-}
-
-function argumentFor(
-  entry: LibraryEntry,
-  checked: CheckedCall,
-  name: string,
-): Argument | undefined {
-  const index = entry.parameters.findIndex((one) => one.name === name);
-  return index < 0 ? undefined : checked.arguments[index];
-}
-
-function quoted(text: string): string {
-  return `"${text}"`;
 }
 
 /** OS3006 and OS3007: a call that describes the file's shape, written inside it. */

@@ -1,0 +1,233 @@
+/**
+ * A checked file in, a compiled program out.
+ *
+ * The order below is the order the format forces, and each step is here rather
+ * than inside a pass because each one needs a total the passes do not have
+ * until they have finished.
+ *
+ * Registers first, because the two instructions that keep a shadow register in
+ * step with a cell have to be the first and the last thing a bar does, and a
+ * prologue cannot be written after the list it belongs at the front of. Inputs
+ * next, because each one owns a slot the engine writes at step 5 and the slots
+ * have to exist before a statement reads one. Then the statements. Then the
+ * bases of every call site, which can only be assigned once the top level's own
+ * cells and state regions are counted.
+ *
+ * The last step is the one worth defending: the emitter walks its own
+ * instruction lists and computes the stack depth exactly as section 3.5 check 5
+ * says an engine will. A compiler that cannot compute that number does not know
+ * whether it emitted a program any engine will load, and finding out from a
+ * verifier in another language is finding out too late.
+ */
+import { CATALOGUE_LANGUAGE_VERSION } from '../catalogue/index.js';
+import type { CheckedScript } from '../check/index.js';
+import type { DiagnosticSink } from '../diagnostics/index.js';
+import type { SourceFile } from '../source/index.js';
+import { COMPILED_FORMAT_VERSION, VERSION } from '../version/index.js';
+import { sourceHash } from './canonical.js';
+import { orderChannels, renumberCode, renumberOutputs } from './channels.js';
+import { walkDepths } from './code.js';
+import { Emitter, Frame } from './context.js';
+import type { EmitOptions } from './context.js';
+import type { Gap } from './gaps.js';
+import { assignBases } from './functions.js';
+import { buildInputs } from './inputs.js';
+import { cellsOf } from './layout.js';
+import { buildLimits, buildMeta } from './meta.js';
+import type { Cell, CompiledProgram, Instruction, StateRegion } from './program.js';
+import { placementOf, prepareRegisters } from './registers.js';
+import { requiresOf } from './requires.js';
+import { emitStatement } from './statements.js';
+
+export interface EmitResult {
+  /** The program, or nothing when a gap stopped a faithful one being produced. */
+  readonly program: CompiledProgram | undefined;
+  readonly gaps: readonly Gap[];
+}
+
+/** The library manifest version, tied to `openscript.language` (2.5). */
+const DEFAULT_MANIFEST = 1;
+
+export function emit(
+  file: SourceFile,
+  checked: CheckedScript,
+  sink: DiagnosticSink,
+  options: EmitOptions = {},
+): EmitResult {
+  const e = new Emitter(file, checked, sink, options);
+  const top = new Frame(true);
+
+  prepareRegisters(e);
+  buildInputs(e, top);
+
+  for (const item of checked.script.items) {
+    if (item.kind === 'functionDeclaration') continue;
+    emitStatement(e, top, item);
+  }
+
+  closeShadowRegisters(e, top);
+  // `HALT` takes the position of whatever came before it, which is 12.2's own
+  // reading of a run of instructions costing one triple.
+  if (top.builder.here === 0) top.builder.at(checked.script.span);
+  top.builder.push('HALT');
+
+  const { cells, states } = assignRegions(e, top);
+  // The channel table is written in the order `outputs` lists its groups, which
+  // is not the order the declarations were met in; `channels.ts` says why.
+  const order = orderChannels(e);
+  const code = renumberCode(top.builder.code, order.moved);
+  const functions = e.functions.map((one) => ({
+    ...one,
+    code: renumberCode(one.code, order.moved),
+  }));
+  checkDepths(e, code);
+  checkLimits(e, code, states.length);
+
+  const program: CompiledProgram = {
+    openscript: { format: COMPILED_FORMAT_VERSION, language: languageOf(checked) },
+    requires: requiresOf(e, code),
+    compiler: { name: 'openscript', version: VERSION },
+    source: { hash: sourceHash(file.text), lines: file.lineCount, file: file.name },
+    meta: buildMeta(e),
+    limits: buildLimits(e),
+    lib: { manifest: options.manifest ?? DEFAULT_MANIFEST, functions: e.libraryFunctions },
+    inputs: e.inputs,
+    channels: order.channels,
+    outputs: renumberOutputs(e, order.moved),
+    consts: e.pool.all,
+    series: e.layout.registers,
+    frame: { slots: top.layout.slotCount },
+    cells,
+    states,
+    functions,
+    callSites: e.sites.map((site) => ({
+      fn: site.fn,
+      argc: site.argc,
+      cellBase: site.cellBase,
+      stateBase: site.stateBase,
+      series: site.series,
+    })),
+    loops: e.loops,
+    code,
+    debug: {
+      pos: top.builder.pos,
+      fnPos: e.functionPos,
+      names: {
+        slots: top.layout.slotNames,
+        cells: cells.map((one) => one.name ?? ''),
+        series: e.layout.registers.map((one) => one.name ?? ''),
+        channels: order.names,
+      },
+      retain: options.retain === true,
+    },
+  };
+
+  return { program: e.gaps.blocked ? undefined : program, gaps: e.gaps.gaps };
+}
+
+function languageOf(checked: CheckedScript): number {
+  const line = checked.script.items.find((item) => item.kind === 'versionLine');
+  return line !== undefined && line.kind === 'versionLine'
+    ? line.version.value
+    : CATALOGUE_LANGUAGE_VERSION;
+}
+
+/**
+ * The one instruction pair that keeps a persistent name's past readable.
+ *
+ * A cell has no history and a register has no persistence, so `x[1]` on a `var`
+ * needs both (`language.md` 8.3). The register's entry for a bar is written
+ * from the cell at the end of the bar rather than at each assignment, because a
+ * bar on which the `var` was not assigned still holds a value, and a register
+ * written only where the source writes the name would be absent there and say
+ * the value had never existed.
+ */
+function closeShadowRegisters(e: Emitter, top: Frame): void {
+  for (const binding of e.checked.bindings) {
+    if (!e.shadowed.has(binding.id)) continue;
+    if (placementOf(e, binding) !== 'cell') continue;
+    if (!top.layout.hasCellFor(binding)) continue;
+    const register = e.layout.registerFor(binding);
+    if (register === undefined) continue;
+    top.builder.at(binding.declaredAt);
+    top.builder.push('LOADC', top.layout.cellFor(binding));
+    top.builder.push('SSTORE', register);
+  }
+}
+
+/**
+ * `cells` and `states`, once the top level and every call path are counted.
+ *
+ * A body numbers its own from zero and the call site adds the base, so the two
+ * tables are the top level's own block followed by one block per site, in the
+ * order the bases were handed out.
+ */
+function assignRegions(
+  e: Emitter,
+  top: Frame,
+): { readonly cells: readonly Cell[]; readonly states: readonly StateRegion[] } {
+  const topCells = top.layout.cellNames.length;
+  const topStates = top.layout.stateFns.length;
+  assignBases(e, topCells, topStates);
+
+  const cells: Cell[] = cellsOf(top.layout, 0);
+  const states: StateRegion[] = top.layout.stateFns.map((fn, index) => ({ id: index, fn }));
+
+  const ordered = [...e.sites].sort((a, b) => a.cellBase - b.cellBase || a.stateBase - b.stateBase);
+  for (const site of ordered) {
+    const frame = site.frame;
+    if (frame === undefined) continue;
+    cells.push(...cellsOf(frame, site.cellBase));
+    frame.stateFns.forEach((fn, index) => {
+      states.push({ id: site.stateBase + index, fn });
+    });
+  }
+
+  cells.sort((a, b) => a.id - b.id);
+  states.sort((a, b) => a.id - b.id);
+  return { cells, states };
+}
+
+/** Section 3.5 check 5, run here so a defect is found where it was written. */
+function checkDepths(e: Emitter, code: readonly Instruction[]): void {
+  const argcOf = (site: number): number => e.sites[site]?.argc ?? 0;
+  const lists: readonly (readonly Instruction[])[] = [code, ...e.functions.map((one) => one.code)];
+
+  for (const list of lists) {
+    const walk = walkDepths(list, argcOf);
+    const at = walk.conflict ?? walk.underflow;
+    if (at === undefined) continue;
+    e.gap(
+      `the stack depth this compiler emitted does not survive its own walk at instruction ${at}, ` +
+        'so an engine would refuse the program at load',
+      'compiled-program.md 3.5 check 5',
+      undefined,
+      true,
+    );
+  }
+}
+
+/**
+ * OS5004 and OS5009, the two limits the compiler rather than the engine finds.
+ *
+ * Both are reported only against a ceiling a host actually declared. A compiler
+ * that invented one would refuse a program every engine present could run.
+ */
+function checkLimits(e: Emitter, code: readonly Instruction[], states: number): void {
+  const span = e.checked.script.span;
+  const maxStates = e.options.maxStates;
+  if (maxStates !== undefined && states > maxStates) {
+    e.sink.report('OS5004', span, {
+      found: states,
+      max: maxStates,
+      first: e.functions[0]?.name ?? '',
+      second: e.functions[1]?.name ?? e.functions[0]?.name ?? '',
+    });
+  }
+
+  const maxInstructions = e.options.maxInstructions;
+  const total = code.length + e.functions.reduce((sum, one) => sum + one.code.length, 0);
+  if (maxInstructions !== undefined && total > maxInstructions) {
+    e.sink.report('OS5009', span, { found: total, max: maxInstructions });
+  }
+}

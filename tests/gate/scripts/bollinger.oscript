@@ -1,0 +1,20 @@
+// A simple mean with rails a multiple of the deviation away, and the channel
+// between them shaded.
+//
+// The two rails are named because a fill joins two declared columns rather than
+// two series, and the basis is not, because nothing reads it back.
+
+version 1
+
+study("Deviation bands", overlay = true, precision = 2)
+
+len  = input(20, "Length", min = 2, max = 500)
+mult = input(2.0, "Deviations", min = 0.1, max = 10)
+src  = input(close, "Source")
+
+b = bollinger(src, len, mult)
+
+plot(b[0], "Basis", orange, width = 2)
+upperPlot = plot(b[1], "Upper", aqua)
+lowerPlot = plot(b[2], "Lower", aqua)
+fill(upperPlot, lowerPlot, fade(aqua, 90))

@@ -1,0 +1,20 @@
+// A strength reading of the last `len` changes, with the two bands a trader
+// watches it against.
+//
+// The reading needs `len` changes and a change needs two bars, so this study
+// starts one bar later than its length suggests. That extra bar is the thing
+// the gate asserts.
+
+version 1
+
+study("Relative strength", precision = 2, range = [0, 100])
+
+len = input(14, "Length", min = 2, max = 200)
+src = input(close, "Source")
+
+strength = rsi(src, len)
+
+level(70, "Overbought", fade(red, 50))
+level(30, "Oversold", fade(lime, 50))
+
+plot(strength, "Strength", purple, width = 2)

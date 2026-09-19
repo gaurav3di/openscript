@@ -43,7 +43,15 @@ const placing: readonly LibraryEntry[] = [
   entry('close(tag?: string, qty?: number, leg?: string) -> nothing', strategyOnly),
   entry(
     'exit(tag?: string, qty?: number, limit?: number, stop?: number, profit?: number, loss?: number, leg?: string) -> nothing',
-    strategyOnly,
+    {
+      ...strategyOnly,
+      // An absolute price and a distance from the entry state the same level,
+      // and reconciling them would need a rule (stdlib.md 17.2).
+      conflicts: [
+        ['limit', 'profit'],
+        ['stop', 'loss'],
+      ],
+    },
   ),
   entry('cancel(tag: string) -> nothing', strategyOnly),
   entry('cancelAll() -> nothing', strategyOnly),

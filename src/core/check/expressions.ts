@@ -16,7 +16,7 @@ import { withoutGrouping } from '../ast/index.js';
 import { resolveCall } from './call-sites.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
-import { literalNumber } from './calls.js';
+import { literalNumber } from './literals.js';
 import { isNamespace, libraryEntries, membersOf } from './surface.js';
 import { closestName } from './suggest.js';
 import type { Type } from './types.js';

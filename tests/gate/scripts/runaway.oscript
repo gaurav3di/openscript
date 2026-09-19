@@ -1,0 +1,24 @@
+// A scan back for the narrowest bar, with the mistake that makes a scan run
+// for ever: the loop reads `back` and the body never advances it, so every turn
+// examines the same bar and the condition can never become false.
+//
+// This script is here to be stopped. What the gate is testing is not that the
+// script is wrong, which is obvious, but that a platform running many people's
+// scripts in one process loses only this one.
+
+version 1
+
+study("Runaway scan", precision = 4)
+
+limits(loops = 2000)
+
+var back      = 0
+var narrowest = 0.0
+
+back      = 0
+narrowest = high - low
+
+while high[back] - low[back] > 0
+    narrowest = min(narrowest, high[back] - low[back])
+
+plot(narrowest, "Narrowest range", aqua, width = 2)

@@ -200,6 +200,49 @@ test('an order function in a study is refused and in a strategy is not', () => {
   assert.deepEqual(strategyCodes('if close > open\n    buy(qty = 1)'), []);
 });
 
+// Catches a checker that lets both colour forms through, where reconciling one
+// colour for the band with one per side would need a rule nobody agrees on.
+test('one colour for the band and one per side cannot both be given', () => {
+  const body = 'a = plot(high, "H")\nb = plot(low, "L")\nfill(a, b, color = aqua, colorUp = lime)';
+  assert.deepEqual(codes(body), ['OS3010']);
+  assert.deepEqual(valuesFor(body, 'OS3010'), { first: 'color', second: 'colorUp' });
+});
+
+// Catches a checker that lets an absolute price and a distance from the entry
+// state the same level, where the two would have to be reconciled.
+test('an absolute exit price and a distance cannot both be given', () => {
+  const body = 'if close > open\n    exit(tag = "e", limit = close, profit = 10)';
+  assert.deepEqual(strategyCodes(body), ['OS3010']);
+});
+
+// Catches a checker that lets a menu open on a value it does not offer.
+test('an input default outside its options is refused', () => {
+  const body = 'mode = input("quick", "Mode", options = ["fast", "slow"])\nplot(close, mode)';
+  assert.deepEqual(codes(body), ['OS3018']);
+  assert.deepEqual(valuesFor(body, 'OS3018'), {
+    default: '"quick"',
+    values: '["fast", "slow"]',
+  });
+});
+
+// Catches a checker that accepts an alert on every update in a file that never
+// runs on a moving bar, where the alert could not fire at all.
+test('an alert on every update needs the declaration to allow it', () => {
+  const body = 'if close > open\n    alert("up", id = "u", frequency = "everyUpdate")';
+  assert.deepEqual(codes(body), ['OS3009']);
+  assert.deepEqual(valuesFor(body, 'OS3009'), {
+    option: 'frequency',
+    value: 'everyUpdate',
+    required: 'onUnconfirmed = true',
+  });
+  assert.deepEqual(
+    rawCodes(
+      'version 1\nstudy("T", onUnconfirmed = true)\nif close > open\n    alert("up", id = "u", frequency = "everyUpdate")\n',
+    ),
+    [],
+  );
+});
+
 // Catches a checker that reports a call's placement under the whole statement.
 test('a misplaced call is reported under the call itself', () => {
   assert.equal(spanFor('if close > open\n    plot(close, "C")', 'OS3006'), '4:5+16');

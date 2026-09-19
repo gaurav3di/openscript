@@ -85,7 +85,16 @@ const declarations: readonly LibraryEntry[] = [
   ),
   entry(
     'fill(plotA: plot, plotB: plot, color?: color, colorUp?: color, colorDown?: color, opacity?: number, overlay?: bool) -> fill',
-    { topLevel: true, constant: ['opacity', 'overlay'] },
+    {
+      topLevel: true,
+      constant: ['opacity', 'overlay'],
+      // One colour for the whole band or one for each side, never both: any
+      // rule for reconciling them surprises somebody (stdlib.md 14.2).
+      conflicts: [
+        ['color', 'colorUp'],
+        ['color', 'colorDown'],
+      ],
+    },
   ),
   entry(
     'level(price: series number, title?: string, color?: color, style?: string, width?: number) -> level',

@@ -1,0 +1,265 @@
+/**
+ * Values the compiler can work out before bar 0, and the folding that gets
+ * there.
+ *
+ * Two parts of the format need this and nothing else does. A constant pool
+ * entry is a value (`compiled-program.md` 2.9), and every declaration field is
+ * written with the value its option resolved to, defaults included (2.3). So a
+ * plot's colour, a study's precision and a table's corner all have to be a
+ * value here or they cannot be carried at all.
+ *
+ * The one thing that is a field and is not a value is the reference form
+ * `{ "input": "<key>" }`, which is why it is a member of this union rather than
+ * something a later stage substitutes. It may stand **in place of** a value and
+ * may not take part in one: `opacity = dim` is carried, `opacity = dim * 2` has
+ * nowhere in the format to live, and folding says so by refusing rather than by
+ * inventing a number from the input's default.
+ *
+ * The colour arithmetic is here because `stdlib.md` 11.2 defines it exactly:
+ * `fade(c, p)` is `withAlpha(c, (100 - p) / 100)`, and every call that computes
+ * a colour rounds the three channels with the language's own rounding, halves
+ * away from zero. Both are written out rather than approximated, because a
+ * colour folded here and the same colour computed by an engine have to be the
+ * same bits.
+ */
+import type { Argument, Call, Expression, NameReference } from '../ast/index.js';
+import { withoutGrouping } from '../ast/index.js';
+import type { Colour, Field } from './program.js';
+import { hexColour, namedColour } from './colours.js';
+
+export type Value =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'bool'; readonly value: boolean }
+  | { readonly kind: 'number'; readonly value: number }
+  | { readonly kind: 'string'; readonly value: string }
+  | { readonly kind: 'colour'; readonly value: Colour }
+  | { readonly kind: 'array'; readonly values: readonly Value[] }
+  /** Carried into a declaration field as the reference of 2.3, never computed with. */
+  | { readonly kind: 'input'; readonly key: string };
+
+export const ABSENT: Value = { kind: 'absent' };
+
+export interface FoldEnvironment {
+  /** What a bare name denotes before bar 0, or nothing when it denotes a bar. */
+  name(reference: NameReference): Value | undefined;
+  /** A resolved call: its library name and its arguments in parameter order. */
+  call(
+    call: Call,
+  ): { readonly name: string; readonly args: readonly (Argument | undefined)[] } | undefined;
+}
+
+/** The language's own rounding, halves away from zero, `stdlib.md` 8.1. */
+export function roundHalfAway(x: number): number {
+  return x < 0 ? -Math.floor(-x + 0.5) : Math.floor(x + 0.5);
+}
+
+/** Normalises a negative zero, which nothing in the language can observe (3.1). */
+function noNegativeZero(x: number): number {
+  return x === 0 ? 0 : x;
+}
+
+type Channels = readonly [number, number, number, number];
+
+function at(colour: Channels, index: number): number {
+  return colour[index] ?? 0;
+}
+
+function colourOf(value: Value | undefined): Colour | undefined {
+  return value !== undefined && value.kind === 'colour' ? value.value : undefined;
+}
+
+function numberOf(value: Value | undefined): number | undefined {
+  return value !== undefined && value.kind === 'number' ? value.value : undefined;
+}
+
+function channel(x: number): number {
+  return roundHalfAway(x);
+}
+
+/**
+ * The colour calls of `stdlib.md` 11.2 that a declaration field can hold.
+ *
+ * `mix` is included because it is the call that produces fractional channels
+ * and is therefore the one where the rounding rule bites; `alpha` is included
+ * because it returns a number and a script may use one in a field.
+ */
+function foldColourCall(
+  name: string,
+  args: readonly (Value | undefined)[],
+): Value | undefined {
+  if (name === 'rgb' || name === 'rgba') {
+    const r = numberOf(args[0]);
+    const g = numberOf(args[1]);
+    const b = numberOf(args[2]);
+    const a = name === 'rgba' ? numberOf(args[3]) : 1;
+    if (r === undefined || g === undefined || b === undefined || a === undefined) return undefined;
+    return { kind: 'colour', value: [channel(r), channel(g), channel(b), a] };
+  }
+  if (name === 'fade' || name === 'withAlpha') {
+    const colour = colourOf(args[0]);
+    const amount = numberOf(args[1]);
+    if (colour === undefined || amount === undefined) return undefined;
+    // fade takes transparency as a percentage and sets the alpha absolutely.
+    const alpha = name === 'fade' ? (100 - amount) / 100 : amount;
+    return { kind: 'colour', value: [colour[0], colour[1], colour[2], alpha] };
+  }
+  if (name === 'alpha') {
+    const colour = colourOf(args[0]);
+    return colour === undefined ? undefined : { kind: 'number', value: colour[3] };
+  }
+  if (name === 'mix') {
+    const a = colourOf(args[0]);
+    const b = colourOf(args[1]);
+    const weight = numberOf(args[2]);
+    if (a === undefined || b === undefined || weight === undefined) return undefined;
+    const blend = (i: number): number => channel(at(a, i) + (at(b, i) - at(a, i)) * weight);
+    return {
+      kind: 'colour',
+      value: [blend(0), blend(1), blend(2), a[3] + (b[3] - a[3]) * weight],
+    } as const;
+  }
+  return undefined;
+}
+
+function foldArithmetic(operator: string, left: Value, right: Value): Value | undefined {
+  if (operator === '+' && left.kind === 'string' && right.kind === 'string') {
+    return { kind: 'string', value: left.value + right.value };
+  }
+  if (left.kind !== 'number' || right.kind !== 'number') return undefined;
+  const a = left.value;
+  const b = right.value;
+  let result: number;
+  switch (operator) {
+    case '+':
+      result = a + b;
+      break;
+    case '-':
+      result = a - b;
+      break;
+    case '*':
+      result = a * b;
+      break;
+    case '/':
+      if (b === 0) return ABSENT;
+      result = a / b;
+      break;
+    case '%':
+      if (b === 0) return ABSENT;
+      result = a % b;
+      break;
+    default:
+      return undefined;
+  }
+  // Any result that is not finite is absent, checked after each operation (3.1).
+  return Number.isFinite(result)
+    ? { kind: 'number', value: noNegativeZero(result) }
+    : ABSENT;
+}
+
+/**
+ * The value an expression has before bar 0, or nothing when it has none.
+ *
+ * Nothing here reports a diagnostic. An expression the checker already accepted
+ * as a compile-time constant and this refuses is a shape the format cannot
+ * carry, and the caller is the one that knows which field it was going into.
+ */
+export function fold(expression: Expression, environment: FoldEnvironment): Value | undefined {
+  const inner = withoutGrouping(expression);
+  switch (inner.kind) {
+    case 'numberLiteral':
+      return { kind: 'number', value: noNegativeZero(inner.value) };
+    case 'stringLiteral':
+      return { kind: 'string', value: inner.value };
+    case 'booleanLiteral':
+      return { kind: 'bool', value: inner.value };
+    case 'noneLiteral':
+      return ABSENT;
+    case 'colorLiteral': {
+      const colour = hexColour(inner.text);
+      return colour === undefined ? undefined : { kind: 'colour', value: colour };
+    }
+    case 'nameReference': {
+      const named = namedColour(inner.name);
+      if (named !== undefined) return { kind: 'colour', value: named };
+      return environment.name(inner);
+    }
+    case 'member': {
+      const object = withoutGrouping(inner.object);
+      if (object.kind !== 'nameReference' || object.name !== 'math') return undefined;
+      if (inner.member.text === 'pi') return { kind: 'number', value: Math.PI };
+      if (inner.member.text === 'e') return { kind: 'number', value: Math.E };
+      return undefined;
+    }
+    case 'arrayLiteral': {
+      const values: Value[] = [];
+      for (const element of inner.elements) {
+        const value = fold(element, environment);
+        if (value === undefined) return undefined;
+        values.push(value);
+      }
+      return { kind: 'array', values };
+    }
+    case 'unary': {
+      const operand = fold(inner.operand, environment);
+      if (operand === undefined) return undefined;
+      if (operand.kind === 'absent') return ABSENT;
+      if (inner.operator === 'not') {
+        return operand.kind === 'bool' ? { kind: 'bool', value: !operand.value } : undefined;
+      }
+      if (operand.kind !== 'number') return undefined;
+      const value = inner.operator === '-' ? -operand.value : operand.value;
+      return { kind: 'number', value: noNegativeZero(value) };
+    }
+    case 'binary': {
+      const left = fold(inner.left, environment);
+      const right = fold(inner.right, environment);
+      if (left === undefined || right === undefined) return undefined;
+      if (left.kind === 'absent' || right.kind === 'absent') return ABSENT;
+      return foldArithmetic(inner.operator, left, right);
+    }
+    case 'ternary': {
+      const condition = fold(inner.condition, environment);
+      if (condition === undefined || condition.kind !== 'bool') return undefined;
+      return fold(condition.value ? inner.whenTrue : inner.whenFalse, environment);
+    }
+    case 'call': {
+      const resolved = environment.call(inner);
+      if (resolved === undefined) return undefined;
+      const args = resolved.args.map((one) =>
+        one === undefined ? undefined : fold(one.value, environment),
+      );
+      return foldColourCall(resolved.name, args);
+    }
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * A folded value as a declaration field, `compiled-program.md` 2.3.
+ *
+ * Absence is null, because absence is what an argument a script named none for
+ * resolves to and null is the effective value rather than a missing one. An
+ * input is carried as its reference and is resolved away before bar 0.
+ */
+export function fieldOf(value: Value | undefined): Field {
+  if (value === undefined) return null;
+  switch (value.kind) {
+    case 'absent':
+      return null;
+    case 'bool':
+      return value.value;
+    case 'number':
+      return value.value;
+    case 'string':
+      return value.value;
+    case 'colour':
+      return value.value;
+    case 'input':
+      return { input: value.key };
+    case 'array': {
+      const numbers = value.values.map((one) => (one.kind === 'number' ? one.value : Number.NaN));
+      return numbers.some((one) => Number.isNaN(one)) ? null : numbers;
+    }
+  }
+}

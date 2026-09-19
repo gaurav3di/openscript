@@ -25,7 +25,7 @@ import type {
   WhileStatement,
 } from '../ast/index.js';
 import { isObjectTypeName, isValueTypeName, typeAnnotationText, withoutGrouping } from '../ast/index.js';
-import { literalNumber } from './calls.js';
+import { literalNumber } from './literals.js';
 import type { Checker, Placement } from './checker.js';
 import { checkCondition, checkExpression } from './expressions.js';
 import { isLibraryName } from './surface.js';

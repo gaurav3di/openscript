@@ -12,7 +12,8 @@
 import type { Expression, LimitsLine, Script, ScriptDeclaration } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import { bindArguments } from './arguments.js';
-import { literalNumber, validateArguments } from './calls.js';
+import { validateArguments } from './calls.js';
+import { literalNumber } from './literals.js';
 import type { Checker } from './checker.js';
 import { TOP_LEVEL } from './checker.js';
 import { checkExpression } from './expressions.js';

@@ -1,0 +1,23 @@
+// A trailing band built from average true range, drawn in the colour of the
+// side it is protecting.
+//
+// Three plots rather than one, because a single column cannot change colour
+// partway along: the faint line is the band itself, and the two coloured ones
+// carry it only while the trend is on their side. Which of the two is present
+// on a bar is the direction, so the study never has to draw a number nobody
+// reads.
+
+version 1
+
+study("Trailing band", overlay = true, precision = 2)
+
+factor = input(3.0, "Band width, in ATR", min = 0.5, max = 20)
+atrLen = input(10, "ATR length", min = 1, max = 200)
+
+s    = supertrend(factor, atrLen)
+band = s[0]
+dir  = s[1]
+
+plot(band, "Band", fade(silver, 70))
+plot(dir == -1 ? band : none, "Band, long", lime, width = 2)
+plot(dir ==  1 ? band : none, "Band, short", red, width = 2)

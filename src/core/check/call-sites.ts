@@ -217,6 +217,8 @@ function checkInput(checker: Checker, call: Call, checked: CheckedCall): Checked
     });
   }
 
+  reportDefaultOutsideOptions(checker, value, options);
+
   const given = value === undefined ? UNKNOWN : checker.typeOf(value.value);
   const source = value !== undefined && isSourceName(value.value);
   const inputKind = kindOf(given, source, kind, options !== undefined);
@@ -233,6 +235,32 @@ function checkInput(checker: Checker, call: Call, checked: CheckedCall): Checked
   });
 
   return { ...checked, returns, warmup: BAR_ZERO };
+}
+
+/**
+ * OS3018: a menu whose default is not one of the choices it offers.
+ *
+ * The dialog has to show something on the first open, and a value outside the
+ * list means either the list is short by one or the default is a typo. Both are
+ * the script's to settle, and guessing either way changes what the study does.
+ */
+function reportDefaultOutsideOptions(
+  checker: Checker,
+  value: Argument | undefined,
+  options: Argument | undefined,
+): void {
+  if (value === undefined || options === undefined) return;
+  const written = stringLiteral(value.value);
+  const list = withoutGrouping(options.value);
+  if (written === undefined || list.kind !== 'arrayLiteral') return;
+
+  const members = list.elements.map((element) => stringLiteral(element));
+  if (members.some((one) => one === undefined) || members.includes(written)) return;
+
+  checker.report('OS3018', value.span, {
+    default: JSON.stringify(written),
+    values: `[${members.map((one) => JSON.stringify(one)).join(', ')}]`,
+  });
 }
 
 function kindOf(

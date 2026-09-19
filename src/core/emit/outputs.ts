@@ -1,0 +1,326 @@
+/**
+ * The declarations that give the file its fixed shape, and the one instruction
+ * per bar each of them still needs.
+ *
+ * **A declaration is not a per-bar instruction.** A `plot` call becomes a fixed
+ * entry in `outputs.plots` plus one `EMIT` per bar, and the two halves are
+ * decided at different times: the entry is settled before bar 0 because a
+ * legend, a settings dialog and a pane have to exist before the first bar runs
+ * (`language.md` 7.1), while the value is whatever the expression produced on
+ * this bar. That split is why a declaration handle is a compile-time value with
+ * nothing to compile into, and an emitter that treated the two alike would
+ * break the type system the checker enforces.
+ *
+ * `table` is the far end of the same idea: it is a declaration with **no**
+ * per-bar instruction at all. Its grid is declared here and its handle is one
+ * of the things 2.11 says a slot holds, which the engine writes as it writes an
+ * input's value.
+ */
+import type { Argument, Call } from '../ast/index.js';
+import { withoutGrouping } from '../ast/index.js';
+import type { Binding } from '../check/index.js';
+import type { Emitter, Frame } from './context.js';
+import { argumentAt } from './context.js';
+import { emitEventCall } from './events.js';
+import { emitExpression } from './expressions.js';
+import {
+  CANDLE_DEFAULTS,
+  FILL_DEFAULTS,
+  LEVEL_DEFAULTS,
+  PLOT_DEFAULTS,
+  PLOT_LINE_STYLE,
+  TABLE_DEFAULTS,
+} from './defaults.js';
+import type { Field } from './program.js';
+import { fieldOf } from './values.js';
+import type { Value } from './values.js';
+
+/** The argument written for one parameter of a declaration call, or nothing. */
+export function argumentFor(e: Emitter, call: Call, name: string): Argument | undefined {
+  const checked = e.callAt(call);
+  if (checked?.entry === undefined) return undefined;
+  return argumentAt(checked, checked.entry, name);
+}
+
+/**
+ * A declaration field: what the script wrote, or the effective default.
+ *
+ * `compiled-program.md` 2.3 wants the value the option resolved to, defaults
+ * included, so an option a script left out is written with its default rather
+ * than omitted. An option the compiler cannot fold has nowhere in the format to
+ * live, and that is a gap rather than a guess.
+ */
+export function fieldFor(
+  e: Emitter,
+  call: Call,
+  name: string,
+  defaults: Readonly<Record<string, Value>>,
+): Field {
+  const argument = argumentFor(e, call, name);
+  if (argument === undefined) return fieldOf(defaults[name]);
+  const value = e.fold(argument.value);
+  if (value !== undefined) return fieldOf(value);
+  e.gap(
+    'a declaration option written as an expression over an input cannot be carried: a field ' +
+      'holds a value or a reference to one input, and this is neither',
+    'compiled-program.md 2.3, against language.md 13.2',
+    argument.span,
+    true,
+  );
+  return null;
+}
+
+/** A colour that is constant lands on the declaration; one that is not, on a channel. */
+function colourFor(
+  e: Emitter,
+  f: Frame,
+  call: Call,
+  name: string,
+  defaults: Readonly<Record<string, Value>>,
+  channelName: string,
+): { readonly colour: Field; readonly channel: number | null } {
+  const argument = argumentFor(e, call, name);
+  if (argument === undefined) return { colour: fieldOf(defaults[name]), channel: null };
+  const value = e.fold(argument.value);
+  if (value !== undefined) return { colour: fieldOf(value), channel: null };
+
+  // A series colour lands on the contract's per-bar colour callback instead
+  // (stdlib.md 14.2), which is how a script paints a histogram by sign.
+  const channel = e.layout.channel('color', false, true, channelName);
+  emitExpression(e, f, argument.value);
+  f.builder.at(call.span);
+  f.builder.push('EMIT', channel);
+  return { colour: null, channel };
+}
+
+export function emitDeclarationCall(
+  e: Emitter,
+  f: Frame,
+  call: Call,
+  name: string,
+  target: Binding | undefined,
+): string | undefined {
+  switch (name) {
+    case 'input':
+      // A row of the settings dialog and a slot the engine writes at step 5 of
+      // every bar. There is no instruction for it (2.6, and 12.2's reading).
+      return undefined;
+    case 'plot':
+      return declarePlot(e, f, call);
+    case 'plotCandles':
+      return declareCandles(e, f, call);
+    case 'fill':
+      declareFill(e, f, call);
+      return undefined;
+    case 'level':
+      declareLevel(e, f, call);
+      return undefined;
+    case 'table':
+      declareTable(e, f, call, target);
+      return undefined;
+    default:
+      emitEventCall(e, f, call, name);
+      return undefined;
+  }
+}
+
+function titleOf(e: Emitter, call: Call): { readonly field: Field; readonly text: string } {
+  const field = fieldFor(e, call, 'title', {});
+  return { field, text: typeof field === 'string' ? field : '' };
+}
+
+function declarePlot(e: Emitter, f: Frame, call: Call): string {
+  const key = `p${e.plots.length}`;
+  const title = titleOf(e, call);
+  const channel = e.layout.channel('number', false, true, title.text);
+
+  const value = argumentFor(e, call, 'value');
+  if (value === undefined) {
+    f.builder.at(call.span);
+    f.builder.push('CONST', e.pool.absent());
+  } else {
+    emitExpression(e, f, value.value);
+  }
+  f.builder.at(call.span);
+  f.builder.push('EMIT', channel);
+
+  const colour = colourFor(e, f, call, 'color', PLOT_DEFAULTS, title.text);
+  const style = fieldFor(e, call, 'style', PLOT_DEFAULTS);
+
+  e.plots.push({
+    key,
+    title: title.field,
+    type: typeof style === 'string' ? style : 'line',
+    channel,
+    color: colour.colour,
+    colorChannel: colour.channel,
+    width: fieldFor(e, call, 'width', PLOT_DEFAULTS),
+    lineStyle: fieldOf(PLOT_LINE_STYLE),
+    offset: fieldFor(e, call, 'offset', PLOT_DEFAULTS),
+    overlay: fieldFor(e, call, 'overlay', PLOT_DEFAULTS),
+    scale: fieldFor(e, call, 'scale', PLOT_DEFAULTS),
+    precision: fieldFor(e, call, 'precision', PLOT_DEFAULTS),
+    priceFormat: fieldFor(e, call, 'format', PLOT_DEFAULTS),
+    ohlc: null,
+  });
+  return key;
+}
+
+/**
+ * `plotCandles`, which is one plot and not four.
+ *
+ * Four declared plots with one of them nominated as the candle's identity would
+ * put four rows in a legend for one column and would need a flag to hide three
+ * of them (2.8). The entry's own channel is the close channel, which is what
+ * makes a band drawn to the handle follow the close column.
+ */
+function declareCandles(e: Emitter, f: Frame, call: Call): string {
+  const key = `p${e.plots.length}`;
+  const title = titleOf(e, call);
+
+  const part = (name: string): number => {
+    const channel = e.layout.channel('number', false, true, `${title.text} ${name}`);
+    const argument = argumentFor(e, call, name);
+    if (argument === undefined) {
+      f.builder.at(call.span);
+      f.builder.push('CONST', e.pool.absent());
+    } else {
+      emitExpression(e, f, argument.value);
+    }
+    f.builder.at(call.span);
+    f.builder.push('EMIT', channel);
+    return channel;
+  };
+
+  const open = part('open');
+  const high = part('high');
+  const low = part('low');
+  const close = part('close');
+
+  const up = colourFor(e, f, call, 'colorUp', CANDLE_DEFAULTS, `${title.text} up`);
+  const down = colourFor(e, f, call, 'colorDown', CANDLE_DEFAULTS, `${title.text} down`);
+  const wick = colourFor(e, f, call, 'wickColor', CANDLE_DEFAULTS, `${title.text} wick`);
+  const border = colourFor(e, f, call, 'borderColor', CANDLE_DEFAULTS, `${title.text} border`);
+
+  e.plots.push({
+    key,
+    title: title.field,
+    type: 'candle',
+    channel: close,
+    color: null,
+    colorChannel: null,
+    width: fieldOf(PLOT_DEFAULTS['width']),
+    lineStyle: fieldOf(PLOT_LINE_STYLE),
+    offset: fieldOf(PLOT_DEFAULTS['offset']),
+    overlay: null,
+    scale: fieldOf(PLOT_DEFAULTS['scale']),
+    precision: null,
+    priceFormat: null,
+    ohlc: {
+      open,
+      high,
+      low,
+      close,
+      colorUp: up.colour,
+      colorDown: down.colour,
+      wickColor: wick.colour,
+      borderColor: border.colour,
+      colorUpChannel: up.channel,
+      colorDownChannel: down.channel,
+      wickColorChannel: wick.channel,
+      borderColorChannel: border.channel,
+    },
+  });
+  return key;
+}
+
+/**
+ * `fill`, which names two declared columns and never two expressions.
+ *
+ * `color` sets both sides of the band and giving it with either of the other
+ * two is OS3010, so the compiler writes that one colour into both fields and an
+ * engine reads one representation of a band rather than two (2.8).
+ */
+function declareFill(e: Emitter, f: Frame, call: Call): void {
+  const between = [keyOfHandle(e, argumentFor(e, call, 'plotA')), keyOfHandle(e, argumentFor(e, call, 'plotB'))] as const;
+  const both = argumentFor(e, call, 'color');
+
+  let up = colourFor(e, f, call, 'colorUp', FILL_DEFAULTS, 'band up');
+  let down = colourFor(e, f, call, 'colorDown', FILL_DEFAULTS, 'band down');
+  if (both !== undefined) {
+    const one = colourFor(e, f, call, 'color', FILL_DEFAULTS, 'band');
+    up = one;
+    down = one;
+  }
+
+  e.fills.push({
+    between: [between[0], between[1]],
+    colorUp: up.colour,
+    colorDown: down.colour,
+    colorUpChannel: up.channel,
+    colorDownChannel: down.channel,
+    opacity: fieldFor(e, call, 'opacity', FILL_DEFAULTS),
+    overlay: fieldFor(e, call, 'overlay', FILL_DEFAULTS),
+  });
+}
+
+function keyOfHandle(e: Emitter, argument: Argument | undefined): string {
+  if (argument === undefined) return '';
+  const inner = withoutGrouping(argument.value);
+  if (inner.kind !== 'nameReference') return '';
+  const binding = e.bindingAt(inner);
+  return binding === undefined ? '' : (e.handleKeys.get(binding.id) ?? '');
+}
+
+/**
+ * `level`, whose price arrives through a channel and is evaluated every bar.
+ *
+ * The level drawn is the one from the last bar executed, which is what lets a
+ * level track the data rather than being a compile-time constant (2.8).
+ */
+function declareLevel(e: Emitter, f: Frame, call: Call): void {
+  const title = titleOf(e, call);
+  const channel = e.layout.channel('number', false, true, title.text);
+  const price = argumentFor(e, call, 'price');
+  if (price === undefined) {
+    f.builder.at(call.span);
+    f.builder.push('CONST', e.pool.absent());
+  } else {
+    emitExpression(e, f, price.value);
+  }
+  f.builder.at(call.span);
+  f.builder.push('EMIT', channel);
+
+  e.levels.push({
+    title: title.field,
+    channel,
+    color: fieldFor(e, call, 'color', LEVEL_DEFAULTS),
+    lineStyle: fieldFor(e, call, 'style', LEVEL_DEFAULTS),
+    lineWidth: fieldFor(e, call, 'width', LEVEL_DEFAULTS),
+  });
+}
+
+/**
+ * `table`, the one declaration with no per-bar instruction.
+ *
+ * Its cells are written by library calls against the handle rather than by
+ * channels, because a grid of two hundred cells would otherwise need two
+ * hundred channels and almost all of them would be absent on almost every bar
+ * (2.8).
+ */
+function declareTable(e: Emitter, f: Frame, call: Call, target: Binding | undefined): void {
+  const slot = target === undefined ? f.layout.slot('') : f.layout.slotFor(target);
+  e.tables.push({
+    key: `t${e.tables.length}`,
+    title: fieldFor(e, call, 'title', {}),
+    slot,
+    position: fieldFor(e, call, 'position', TABLE_DEFAULTS),
+    rows: fieldFor(e, call, 'rows', {}),
+    cols: fieldFor(e, call, 'cols', {}),
+    options: {
+      textColor: fieldFor(e, call, 'textColor', TABLE_DEFAULTS),
+      bgColor: fieldFor(e, call, 'bgColor', TABLE_DEFAULTS),
+      borderWidth: fieldFor(e, call, 'borderWidth', TABLE_DEFAULTS),
+    },
+  });
+}

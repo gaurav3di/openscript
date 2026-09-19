@@ -1,0 +1,14 @@
+// An exponential mean of a chosen source, drawn over the candles.
+//
+// The plainest study in the language, and the one the gate leans on hardest:
+// every later study here is built out of this same seeding rule, so if this
+// line is one bar early everything after it is too.
+
+version 1
+
+study("Exponential mean", overlay = true, precision = 2)
+
+len = input(20, "Length", min = 1, max = 500)
+src = input(close, "Source")
+
+plot(ema(src, len), "Mean", aqua, width = 2)

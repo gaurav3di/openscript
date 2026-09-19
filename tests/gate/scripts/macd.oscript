@@ -1,0 +1,21 @@
+// The gap between a fast and a slow mean, its own average, and the difference
+// between the two drawn as bars.
+//
+// Three outputs from one call, so the shared smoothing is computed once. The
+// signal average is fed the gap series, absences and all, which is why the
+// second and third columns start eight bars after the first rather than with it.
+
+version 1
+
+study("Convergence", precision = 4)
+
+fastLen   = input(12, "Fast length", min = 1, max = 500)
+slowLen   = input(26, "Slow length", min = 1, max = 500)
+signalLen = input(9, "Signal length", min = 1, max = 500)
+src       = input(close, "Source")
+
+m = macd(src, fastLen, slowLen, signalLen)
+
+plot(m[0], "Convergence", aqua, width = 2)
+plot(m[1], "Signal", orange, width = 2)
+plot(m[2], "Histogram", gray, style = "histogram")
