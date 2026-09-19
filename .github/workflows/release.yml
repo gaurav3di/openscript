@@ -69,6 +69,13 @@ jobs:
           const deps = Object.keys(pkg.dependencies ?? {});
           assert.deepEqual(deps, [], `runtime dependencies present: ${deps.join(', ')}`);
           assert.notEqual(pkg.private, true, 'package.json still marks this private');
+
+          // Provenance refuses a package whose repository does not match the
+          // build it came from, and it refuses it AFTER signing an attestation
+          // and writing it to a public transparency log. Checking here turns a
+          // three minute failure at the last line into a ten second one.
+          const repo = pkg.repository?.url ?? '';
+          assert.match(repo, /github\.com/, 'package.json needs a repository url for provenance to verify');
           NODE
 
       # The tag, the manifest, the source and the built artifact must all agree.

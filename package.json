@@ -2,8 +2,24 @@
   "name": "openalgo-script",
   "version": "0.1.0-alpha.1",
   "description": "An open trading language. Write a study or a strategy once, plot it, backtest it, trade it.",
-  "type": "module",
+  "keywords": [
+    "trading",
+    "language",
+    "compiler",
+    "indicators",
+    "backtesting",
+    "technical-analysis"
+  ],
+  "homepage": "https://github.com/marketcalls/openscript#readme",
+  "bugs": {
+    "url": "https://github.com/marketcalls/openscript/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marketcalls/openscript.git"
+  },
   "license": "Apache-2.0",
+  "type": "module",
   "sideEffects": false,
   "exports": {
     ".": {
@@ -37,14 +53,6 @@
     "generate": "npm run generate:errors && npm run generate:version",
     "check:changelog": "node scripts/check-changelog.mjs"
   },
-  "keywords": [
-    "trading",
-    "language",
-    "compiler",
-    "indicators",
-    "backtesting",
-    "technical-analysis"
-  ],
   "engines": {
     "node": ">=22"
   },
