@@ -1,0 +1,74 @@
+// Regular divergence between price and an oscillator: a line drawn between the
+// two oscillator pivots that disagree with the two price extremes under them.
+//
+// Exercises: pivot functions and the lag they carry, the draw namespace, var
+// holding the previous pivot, block scope, and the difference between a bar
+// index, which is safe to subtract inside one run, and a bar time, which is the
+// only thing safe to anchor a drawing to.
+
+version 1
+
+study("RSI divergence", precision = 2, range = [0, 100])
+
+rsiLen    = input(14, "RSI length", min = 2, max = 200)
+leftBars  = input(5,  "Pivot left bars",  min = 1, max = 50)
+rightBars = input(5,  "Pivot right bars", min = 1, max = 50)
+maxSpan   = input(60, "Longest divergence, in bars", min = 5, max = 500)
+
+oscillator = rsi(close, rsiLen)
+
+level(70, "Overbought", fade(red, 50))
+level(50, "Middle", fade(gray, 60))
+level(30, "Oversold", fade(lime, 50))
+plot(oscillator, "RSI", purple, width = 2)
+
+// A pivot is only known rightBars bars after the bar it happened on, so every
+// value this study reads is offset by that much. That lag is the honest cost of
+// a pivot and is not hidden: the marker appears late because the pivot was
+// unknowable earlier.
+pivotUp   = pivotHigh(oscillator, leftBars, rightBars)
+pivotDown = pivotLow(oscillator, leftBars, rightBars)
+
+var lastHighOsc   = none
+var lastHighPrice = none
+var lastHighTime  = none
+var lastHighBar   = none
+
+var lastLowOsc   = none
+var lastLowPrice = none
+var lastLowTime  = none
+var lastLowBar   = none
+
+if not isNone(pivotUp)
+    thisPrice = high[rightBars]
+    thisTime  = time[rightBars]
+    thisBar   = bar.index - rightBars
+    // Both indices come from the same run over the same dataset, so their
+    // difference is a real bar count. The time is what the drawing is anchored
+    // to, because paging in older history renumbers every index and would drag
+    // the line sideways.
+    known  = not isNone(lastHighBar)
+    nearby = known and thisBar - lastHighBar <= maxSpan
+    if nearby and thisPrice > lastHighPrice and pivotUp < lastHighOsc
+        draw.line(lastHighTime, lastHighOsc, thisTime, pivotUp, color = red, width = 2)
+        draw.label(thisTime, pivotUp, "Bearish", color = red, textColor = white)
+        signal("BEARISH")
+    lastHighOsc   = pivotUp
+    lastHighPrice = thisPrice
+    lastHighTime  = thisTime
+    lastHighBar   = thisBar
+
+if not isNone(pivotDown)
+    thisPrice = low[rightBars]
+    thisTime  = time[rightBars]
+    thisBar   = bar.index - rightBars
+    known  = not isNone(lastLowBar)
+    nearby = known and thisBar - lastLowBar <= maxSpan
+    if nearby and thisPrice < lastLowPrice and pivotDown > lastLowOsc
+        draw.line(lastLowTime, lastLowOsc, thisTime, pivotDown, color = lime, width = 2)
+        draw.label(thisTime, pivotDown, "Bullish", color = lime, textColor = black)
+        signal("BULLISH")
+    lastLowOsc   = pivotDown
+    lastLowPrice = thisPrice
+    lastLowTime  = thisTime
+    lastLowBar   = thisBar

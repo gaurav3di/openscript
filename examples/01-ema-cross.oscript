@@ -1,0 +1,40 @@
+// Two exponential moving averages, the band between them, and a marker on the
+// bar where they cross.
+//
+// Exercises: input of a number and of a source, ema, crossUp and crossDown,
+// plot and fill at the top level, signal, and colour names written bare.
+//
+// The crossing is a signal() call rather than a plotted shape because a
+// crossing is an event on one bar, and a column of one value per bar can only
+// express it by being absent on every other bar.
+
+version 1
+
+study("EMA cross", overlay = true, precision = 2)
+
+fastLen = input(9,  "Fast length", min = 1, max = 500)
+slowLen = input(21, "Slow length", min = 1, max = 500)
+src     = input(close, "Source")
+
+fast = ema(src, fastLen)
+slow = ema(src, slowLen)
+
+// Both averages are computed unconditionally at the top level. Computing one
+// inside the branch that uses it would advance its state only on the bars that
+// branch was taken, which is warning OS8001 and a broken line.
+up   = crossUp(fast, slow)
+down = crossDown(fast, slow)
+
+plot(fast, "Fast", aqua, width = 2)
+plot(slow, "Slow", orange, width = 2)
+
+// The band is drawn between the two plotted columns rather than as a third
+// column, so it inherits their warmup: neither average exists before bar 20,
+// the values are absent there, and the fill simply starts where they do.
+fill(fast, slow, fade(aqua, 90))
+
+if up
+    signal("BUY")
+
+if down
+    signal("SELL")

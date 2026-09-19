@@ -1,0 +1,56 @@
+// A coarse timeframe trend read, drawn over a fine timeframe chart, stating in
+// the source which of the three readings it takes.
+//
+// Exercises: req.timeframe and its repaint mode, an expression evaluated on the
+// folded bars rather than on the chart's, barColor and background driven by a
+// regime, and a flip marker that compares a top level name with its own past.
+
+version 1
+
+study("Higher timeframe bias", overlay = true, precision = 2)
+
+biasTf  = input("1D", "Bias timeframe", kind = "interval")
+biasLen = input(20,   "Bias average length", min = 2, max = 500)
+paint   = input(true, "Recolour the candles")
+
+// mode is a literal and not an input, deliberately. The three readings are:
+//
+//   "closed"  the last coarse bar that has finished, held constant across the
+//             one now forming. It never uses a bar that had not happened yet,
+//             so what is on the chart today is what was on it at the time.
+//   "forming" the coarse bar as it stands on this bar: its high so far, its
+//             close so far. Also honest, but the value changes while the coarse
+//             bar is still open, so a signal taken from it can be withdrawn.
+//   "final"   the finished values of the coarse bar, on every bar inside it.
+//             This reads bars from the future and repaints. It exists so that a
+//             study written elsewhere can be reproduced, not because it is a
+//             defensible way to trade.
+//
+// Making this a setting would let a reader change the honesty of the study
+// without reading it, which is exactly the thing the mode is here to prevent.
+biasClose   = req.timeframe(biasTf, close, mode = "closed")
+biasAverage = req.timeframe(biasTf, ema(close, biasLen), mode = "closed")
+
+// The average is computed from the folded bars, not from the chart's bars: a 20
+// period average of daily closes, sampled onto every five minute bar, which is
+// not the same series as a 20 period average of five minute closes.
+up   = not isNone(biasAverage) and biasClose > biasAverage
+down = not isNone(biasAverage) and biasClose < biasAverage
+
+// A step plot, because the value changes once per coarse bar and a straight
+// line sloping between two daily readings would imply intraday values that were
+// never read.
+plot(biasAverage, "Bias average", orange, width = 2, style = "step")
+
+barColor(paint ? (up ? lime : down ? red : none) : none)
+background(up ? fade(lime, 95) : down ? fade(red, 95) : none)
+
+// This file does not set onUnconfirmed, so signals wait for the bar to close.
+// Setting it here would make the compiler warn about the two reads above, and
+// it would be right to: an unconfirmed fine bar reading a coarse bar is where
+// repainting comes from even when the mode is honest.
+if up and not orElse(up[1], false)
+    signal("BIAS UP")
+
+if down and not orElse(down[1], false)
+    signal("BIAS DOWN")

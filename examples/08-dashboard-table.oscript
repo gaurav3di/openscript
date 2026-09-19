@@ -1,0 +1,83 @@
+// A panel pinned to a corner of the chart holding the readings a discretionary
+// trader glances at, rather than a line drawn per bar.
+//
+// Exercises: table at the top level and cell writes per bar, a user function,
+// the condition form of switch, text with fixed decimals, a cell colour decided
+// per bar, and doing the writing only on the bar that is actually visible.
+
+version 1
+
+study("Dashboard", overlay = true)
+
+rsiLen  = input(14, "RSI length", min = 2, max = 200)
+atrLen  = input(14, "ATR length", min = 1, max = 200)
+lookback = input(20, "Range lookback", min = 2, max = 500)
+corner  = input("topRight", "Corner",
+                options = ["topLeft", "topRight", "bottomLeft", "bottomRight"])
+
+// The grid is declared once, before the first bar, for the same reason a plot
+// is: the pane has to know what it is reserving room for before any data
+// arrives. Only the contents of the cells are per bar.
+panel = table(position = corner, rows = 7, columns = 2,
+              textColor = silver, background = fade(black, 25))
+
+oscillator = rsi(close, rsiLen)
+atrValue   = atr(atrLen)
+atrPercent = atrValue / close * 100
+
+highest20 = highest(high, lookback)
+lowest20  = lowest(low, lookback)
+span      = highest20 - lowest20
+rangePct  = span > 0 ? (close - lowest20) / span * 100 : none
+
+trend = ema(close, 20) > ema(close, 50)
+volumeRatio = volume / sma(volume, lookback)
+
+// One place that decides what an absent reading looks like in a cell. A blank
+// cell and a zero are both wrong: the first hides that the study is still
+// warming up, the second invents a number.
+fn show(value, decimals) => isNone(value) ? "warming up" : text(value, decimals)
+
+// The condition form of switch, because the arms test different things rather
+// than matching one subject against several values. zone is declared before the
+// switch: an arm cannot introduce a name that outlives it.
+zone = "neutral"
+switch
+    case oscillator > 70
+        zone = "overbought"
+    case oscillator < 30
+        zone = "oversold"
+    default
+        zone = "neutral"
+
+zoneColor = oscillator > 70 ? red : oscillator < 30 ? lime : silver
+
+// Written only on the newest bar. The panel shows one state, the current one,
+// so writing it on all fifty thousand bars would cost fifty thousand writes to
+// display the last one. The rollback rule makes this safe on a live chart: the
+// newest bar re-executes on every tick and rewrites the same cells.
+if bar.isLast
+    cell(panel, 0, 0, chart.symbol, textColor = white)
+    cell(panel, 0, 1, chart.interval, textColor = white)
+
+    cell(panel, 1, 0, "Trend")
+    // Not trend ? "up" : "down" on its own: an absent condition takes the false
+    // arm, so the panel would read "down" for the first fifty bars of every
+    // chart and mean it.
+    cell(panel, 1, 1, isNone(trend) ? "warming up" : (trend ? "up" : "down"),
+         textColor = isNone(trend) ? silver : (trend ? lime : red))
+
+    cell(panel, 2, 0, "RSI")
+    cell(panel, 2, 1, show(oscillator, 1), textColor = zoneColor)
+
+    cell(panel, 3, 0, "Zone")
+    cell(panel, 3, 1, zone, textColor = zoneColor)
+
+    cell(panel, 4, 0, "ATR, percent of price")
+    cell(panel, 4, 1, show(atrPercent, 2))
+
+    cell(panel, 5, 0, "Position in " + text(lookback, 0) + " bar range")
+    cell(panel, 5, 1, show(rangePct, 0) + " percent")
+
+    cell(panel, 6, 0, "Volume against average")
+    cell(panel, 6, 1, show(volumeRatio, 2), textColor = volumeRatio > 2 ? orange : silver)

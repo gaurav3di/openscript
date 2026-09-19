@@ -1,0 +1,55 @@
+// The high and low of the first minutes of each session, held for the rest of
+// the day, with the first break of either side marked once.
+//
+// Exercises: the session namespace, state that resets on the day's first bar,
+// elapsed time arithmetic in milliseconds, background shading for a regime, and
+// a step plot for a level that only changes while the range is forming.
+
+version 1
+
+study("Opening range", overlay = true, precision = 2)
+
+rangeMinutes = input(15, "Opening range, in minutes", min = 1, max = 240)
+shade        = input(true, "Shade the range")
+
+var openTime  = none
+var rangeHigh = none
+var rangeLow  = none
+var broken    = 0
+
+// Everything resets on the session's first bar rather than on a date change,
+// because a session is what an exchange opens and a calendar day is not: an
+// evening session that runs past midnight is one session and two dates.
+if session.isFirstBar
+    openTime  = time
+    rangeHigh = high
+    rangeLow  = low
+    broken    = 0
+
+// Milliseconds since the open rather than a wall clock comparison, so this
+// script says the same thing in any timezone and needs no calendar at all.
+elapsed = isNone(openTime) ? none : time - openTime
+forming = not isNone(elapsed) and elapsed < rangeMinutes * 60000
+
+if forming and not session.isFirstBar
+    rangeHigh = max(rangeHigh, high)
+    rangeLow  = min(rangeLow, low)
+
+// The first break of either side, once per session. broken is a number rather
+// than a bool so that it carries which side went, which the marker and any
+// strategy built on this both want.
+if not forming and broken == 0 and not isNone(rangeHigh)
+    if close > rangeHigh
+        broken = 1
+        signal("BREAK UP")
+    else if close < rangeLow
+        broken = -1
+        signal("BREAK DOWN")
+
+plot(rangeHigh, "Range high", aqua,   width = 2, style = "step")
+plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
+fill(rangeHigh, rangeLow, shade ? fade(aqua, 93) : none)
+
+// Behind the candles rather than as a fourth line, because "the range is still
+// forming" is a fact about the whole bar and has no price to sit at.
+background(forming ? fade(silver, 92) : none)

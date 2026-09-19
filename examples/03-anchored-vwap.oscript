@@ -1,0 +1,63 @@
+// Volume weighted average price measured from a date the user picks, with one
+// standard deviation bands around it.
+//
+// Exercises: a time input, cumulative state in var, the rollback rule that
+// makes a running total safe on a moving bar, absence as the way a study says
+// "not started yet", and sqrt returning none rather than failing on a negative.
+
+version 1
+
+study("Anchored VWAP", overlay = true, precision = 2)
+
+anchorText = input("2025-01-01 09:15", "Anchor", kind = "time")
+src        = input(hlc3, "Source")
+bandMult   = input(1.0, "Band width, in standard deviations", min = 0.1, max = 5)
+showBands  = input(true, "Show the bands")
+
+// A time input is a wall clock string so that a saved layout restores to the
+// same clock in another zone. It becomes a bar time here, once, and an anchor
+// that cannot be read stays absent: the comparison below is then absent on
+// every bar, nothing accumulates, and the plot is empty rather than wrong.
+anchorTime = date.fromString(anchorText)
+
+var priceVolume  = 0.0
+var squareVolume = 0.0
+var totalVolume  = 0.0
+var started      = false
+
+if not started and time >= anchorTime
+    started = true
+
+// Three running sums rather than an array of every bar since the anchor. The
+// rollback rule restores all three to their previous bar values before the
+// moving bar is re-executed, so the totals count bars and not ticks, and a
+// live chart agrees with a backtest of the same data.
+if started
+    priceVolume  += src * volume
+    squareVolume += src * src * volume
+    totalVolume  += volume
+
+ready = started and totalVolume > 0
+vwap  = ready ? priceVolume / totalVolume : none
+
+// The second moment about the mean can come out very slightly negative on a
+// long run of near identical prices, which is floating point and not data, so
+// it is floored at zero before the root. Without the floor sqrt would return
+// none and put a one bar hole in both bands.
+variance = ready ? max(squareVolume / totalVolume - vwap * vwap, 0) : none
+dev      = ready ? sqrt(variance) : none
+
+upper = showBands ? vwap + bandMult * dev : none
+lower = showBands ? vwap - bandMult * dev : none
+
+plot(vwap,  "Anchored VWAP", orange, width = 2)
+plot(upper, "Upper band", aqua)
+plot(lower, "Lower band", aqua)
+fill(upper, lower, fade(aqua, 92))
+
+// The anchor bar itself, so it is obvious where the measurement starts.
+// orElse is needed on bar 0: started[1] is absent there, not none is none, and
+// an absent condition takes the false branch, so an anchor on the very first
+// bar of the dataset would go unmarked.
+if started and not orElse(started[1], false)
+    signal("ANCHOR")

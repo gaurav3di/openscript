@@ -1,0 +1,90 @@
+// Supply and demand boxes drawn where price turned, extended right while they
+// hold, and deleted when price closes through them or they get too old.
+//
+// Exercises: drawing objects a script creates, mutates and deletes over many
+// bars; arrays held in var; a descending for loop with step -1 so removal is
+// safe; continue; and the parallel arrays a script has to keep because a
+// drawing object cannot be read back.
+
+version 1
+
+study("Supply and demand zones", overlay = true, precision = 2)
+
+leftBars  = input(5,  "Pivot left bars",  min = 1, max = 50)
+rightBars = input(5,  "Pivot right bars", min = 1, max = 50)
+maxAge    = input(200, "Delete a zone after this many bars", min = 10, max = 5000)
+maxZones  = input(12,  "Live zones per side", min = 1, max = 100)
+
+// One array of drawing objects and four of plain numbers describing them. The
+// numbers are not a convenience: a drawing object can be written to and deleted
+// but not read back, so the script has to remember what it drew in order to
+// decide later whether price has broken it.
+var zones      = []
+var zoneTop    = []
+var zoneBottom = []
+var zoneSide   = []
+var zoneBar    = []
+
+// Counted downwards so that removing element i does not renumber an element the
+// loop has yet to visit. Ascending with a removal inside is the classic way to
+// skip half a list, and step -1 costs one word to make impossible.
+for i = size(zones) - 1 to 0 step -1
+    top    = element(zoneTop, i)
+    bottom = element(zoneBottom, i)
+    side   = element(zoneSide, i)
+    age    = bar.index - element(zoneBar, i)
+
+    // A supply zone dies when price closes above it, a demand zone when price
+    // closes below. Closing through, not touching: a wick into a zone is the
+    // zone working, and deleting on a touch would delete every zone that ever
+    // did its job.
+    broken = side > 0 ? close > top : close < bottom
+
+    if broken or age > maxAge
+        draw.delete(element(zones, i))
+        remove(zones, i)
+        remove(zoneTop, i)
+        remove(zoneBottom, i)
+        remove(zoneSide, i)
+        remove(zoneBar, i)
+        continue
+
+    // Extended to this bar's own time rather than past it, because the interval
+    // between bars is not a fact the script has, and guessing it would leave the
+    // right edge of every box in a slightly different place on every timeframe.
+    draw.setEnd(element(zones, i), time, bottom)
+    draw.setTooltip(element(zones, i), (side > 0 ? "Supply" : "Demand") +
+                    ", " + text(age, 0) + " bars old")
+
+pivotUp   = pivotHigh(high, leftBars, rightBars)
+pivotDown = pivotLow(low, leftBars, rightBars)
+
+// A zone spans the extreme of the turning bar and the far edge of its body, so
+// it is the part of the move nobody traded through rather than the whole bar.
+if not isNone(pivotUp) and size(zones) < maxZones * 2
+    startTime = time[rightBars]
+    zoneHigh  = high[rightBars]
+    zoneLow   = max(open[rightBars], close[rightBars])
+    shape = draw.box(startTime, zoneHigh, time, zoneLow,
+                     color = red, fill = fade(red, 85), text = "Supply")
+    push(zones, shape)
+    push(zoneTop, zoneHigh)
+    push(zoneBottom, zoneLow)
+    push(zoneSide, 1)
+    push(zoneBar, bar.index - rightBars)
+
+if not isNone(pivotDown) and size(zones) < maxZones * 2
+    startTime = time[rightBars]
+    zoneHigh  = min(open[rightBars], close[rightBars])
+    zoneLow   = low[rightBars]
+    shape = draw.box(startTime, zoneHigh, time, zoneLow,
+                     color = lime, fill = fade(lime, 85), text = "Demand")
+    push(zones, shape)
+    push(zoneTop, zoneHigh)
+    push(zoneBottom, zoneLow)
+    push(zoneSide, -1)
+    push(zoneBar, bar.index - rightBars)
+
+// This study declares no plot at all. Nothing it produces is one value per bar,
+// and inventing a column to hold a count would put a flat line through the
+// middle of the price scale to say something the boxes already say.

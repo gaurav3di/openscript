@@ -1,0 +1,83 @@
+// Two option legs sold together and managed as one position: one stop, one
+// target, one clock exit, all measured on the sum of the two prices rather than
+// on either leg.
+//
+// Exercises: orders that name an instrument other than the chart's, two legs
+// entered and exited together, a stop on a value that is not a price on this
+// chart, a calendar test, and the state a multi leg script has to keep for
+// itself because the position facts are single instrument.
+
+version 1
+
+strategy("Short premium, combined stop", precision = 2,
+         capital = 500000, qtyType = "units", qty = 1,
+         product = "intraday", pyramiding = 1, closeOnSessionEnd = true,
+         fillOn = "nextOpen", slippage = 1,
+         commissionType = "perTrade", commission = 20)
+
+callLeg     = input("", "Call leg", kind = "symbol")
+putLeg      = input("", "Put leg",  kind = "symbol")
+lots        = input(1,  "Lots per leg", min = 1, max = 100)
+tradeDay    = input(4,  "Weekday to trade, 1 is Monday", min = 1, max = 7)
+entryMinute = input(20, "Enter this many minutes after the open", min = 0, max = 1440)
+exitMinute  = input(330, "Flat this many minutes after the open", min = 1, max = 1440)
+stopPct     = input(30, "Stop, in percent of the entry premium", min = 1, max = 500)
+targetPct   = input(50, "Target, in percent of the entry premium", min = 1, max = 99)
+
+callPrice = req.instrument(callLeg, close, exchange = chart.exchange)
+putPrice  = req.instrument(putLeg,  close, exchange = chart.exchange)
+
+// The position is the sum, so the sum is what is managed. Stopping each leg
+// separately is the classic way to take two losses on a day the two legs were
+// hedging each other.
+premium  = callPrice + putPrice
+legQty   = lots * chart.lotSize
+
+var openTime      = none
+var entryPremium  = none
+var shortNow      = false
+var doneToday     = false
+
+if session.isFirstBar
+    openTime  = time
+    doneToday = false
+
+elapsed = isNone(openTime) ? none : time - openTime
+
+// Days of the week rather than a date list, because the day this strategy wants
+// is a weekly recurrence and a list of dates goes stale.
+rightDay = date.dayOfWeek(time) == tradeDay
+priced   = not isNone(premium)
+afterEntry = not isNone(elapsed) and elapsed >= entryMinute * 60000
+afterExit  = not isNone(elapsed) and elapsed >= exitMinute * 60000
+
+if rightDay and priced and afterEntry and not shortNow and not doneToday
+    order.sell(symbol = callLeg, exchange = chart.exchange, qty = legQty, id = "call")
+    order.sell(symbol = putLeg,  exchange = chart.exchange, qty = legQty, id = "put")
+    entryPremium = premium
+    shortNow     = true
+    doneToday    = true
+
+// Positive when the seller is losing, which is the direction the stop cares
+// about, so the two comparisons below read the way they are spoken.
+movePct = shortNow and priced ? (premium - entryPremium) / entryPremium * 100 : none
+
+if shortNow and not isNone(movePct)
+    if movePct >= stopPct
+        order.closeAll()
+        shortNow = false
+        signal("STOP")
+    else if movePct <= -targetPct
+        order.closeAll()
+        shortNow = false
+        signal("TARGET")
+
+if shortNow and afterExit
+    order.closeAll()
+    shortNow = false
+    signal("TIME")
+
+plot(premium, "Combined premium", orange, width = 2)
+plot(shortNow ? entryPremium : none, "Entry premium", fade(silver, 40), style = "step")
+plot(shortNow ? entryPremium * (1 + stopPct / 100) : none, "Stop", red, style = "step")
+plot(shortNow ? entryPremium * (1 - targetPct / 100) : none, "Target", lime, style = "step")
