@@ -421,3 +421,13 @@ first bar, stop guessing and open `stdlib.md`. Every entry states it.
 - [../spec/README.md](../spec/README.md) for how the specification documents fit together
 - [../examples/README.md](../examples/README.md) for twelve complete scripts and what each one proves
 - [../CONTRIBUTING.md](../CONTRIBUTING.md) for how to propose a change to a page or to the language
+
+## Integrating OpenScript into a platform
+
+For a broker, an exchange or any platform that wants its traders writing scripts.
+What you get, what you supply, and the three routes to adopting it.
+
+- [integrating/README.md](./integrating/README.md) - which route fits you
+- [integrating/running-the-engine.md](./integrating/running-the-engine.md) - install it and implement the host interface
+- [integrating/your-own-engine.md](./integrating/your-own-engine.md) - implement the format in your own language
+- [integrating/backtesting.md](./integrating/backtesting.md) - what a backtest gives you and what you fill in
