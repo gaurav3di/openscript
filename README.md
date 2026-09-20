@@ -17,21 +17,34 @@ can write their own engine for it.
 
 ## Status
 
-**`0.1.0-alpha.0` parses. It does not yet compute anything.**
+**`0.2.0` runs studies. It does not yet backtest, and it ships no editor.**
 
-That is the honest description of what an install gets you today: a lexer, a
-parser, a syntax tree, and diagnostics carrying a code, a line, a column and a
-fix. It will tell you whether a script is well formed. It will not calculate a
-moving average, draw anything, or place an order.
+What an install gets you today: the compiler, the engine, and the chart adapter.
+A script compiles in milliseconds in a browser tab and computes, bar by bar, the
+same numbers everywhere. One hundred and one independently written studies
+compile, load and run, and five of them match arithmetic transcribed from the
+specification alone, bit for bit, warmups included.
 
-The registry shows this version under `latest` only because a package must have
-one and this is the first release. The `-alpha.0` on the version is the part to
-read.
+What it does **not** do yet, stated plainly because the registry page is the
+first thing a stranger reads:
 
-The checker and the engine are Phase 2, and the roadmap says what each phase owes
-before it is allowed to finish. The specification is written first and the
-implementation follows it, which is why there is a great deal more specification
-here than there is compiler.
+- **No backtest and no report.** A strategy can place orders through a host, and
+  the order ledger refuses what the specification says to refuse, but the
+  equity curve, the drawdown, the trade list and the run you can reproduce
+  months later are Phase 5 and are not here.
+- **No editor.** The six headless language functions, highlight, complete,
+  diagnose, hover, signature and format, are Phase 4 and are not built. You get
+  a compiler, not an authoring experience.
+- **No second engine.** The Python engine and the conformance suite that would
+  prove two engines agree are Phase 6. Until an engine somebody else wrote
+  passes that suite, the portability claim is a design, not a result.
+
+The version is `0.2.0` rather than `1.0` because of that list. The studies
+surface is the part that is finished, and it is the part to build on.
+
+`ROADMAP.md` says what each phase owes before it is allowed to finish. The
+specification is written first and the implementation follows it, which is why
+there is still more specification here than compiler.
 
 ## What it looks like
 
@@ -198,12 +211,12 @@ fails the build.
 | Small modules with a stated surface | `scripts/check-modularity.mjs`. A module's index is its only door | Enforced |
 | Every error is documented, with a code, a cause and a fix | `scripts/check-error-codes.mjs` reads every file in the tree, and the code type is generated from the catalogue so an invented code will not compile. `scripts/check-catalogue-tests.mjs` compares the catalogue a reader opens with the file the compiler is generated from, string for string, so the two cannot say different things | Enforced |
 | No fact is stated in two places | `scripts/check-duplication.mjs` | Enforced, with recorded debt |
-| The compiled program is implementable without reading our code | `spec/compiled-program.md` and `spec/host-interface.md` | Written |
+| The compiled program is implementable without reading our code | `spec/compiled-program.md` and `spec/host-interface.md`. Every engine test drives a host built from those pages rather than one we wrote | Written, and used |
 | Two engines agree to the last decimal | The conformance suite, run against both. A disagreement blocks a release | Phase 6 gate |
-| A runaway script stops | Instruction, memory and wall clock budgets, enforced by the engine that owns the loop | Phase 2 gate |
-| A failing script does not take anything else down | One script's failure is a diagnostic on that script | Phase 2 gate |
+| A runaway script stops | Instruction, memory and wall clock budgets, counters in the loop the engine owns. `tests/engine/budget.test.ts` | Enforced |
+| A failing script does not take anything else down | One script's failure is a diagnostic on that script and reaches nothing else | Enforced |
 | A saved script never stops working | The language version is declared per file and old front ends are retained | Phase 7, with a test per retained version |
-| Performance | A benchmark with a number, in continuous integration | Phase 2 gate |
+| Performance | Six benchmarks with recorded budgets, run by `npm test` and in continuous integration. A regression past a budget fails the build | Enforced |
 
 The rows marked as gates are not promises we intend to keep. They are conditions a
 phase does not finish without, and each one is written into the roadmap beside the

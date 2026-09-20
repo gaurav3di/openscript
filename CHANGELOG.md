@@ -7,7 +7,33 @@ nothing, fails the build before it can become permanent.
 
 ---
 
-## Unreleased
+## 0.2.0
+
+**This release is the studies surface, finished.** A script compiles in a browser
+tab in milliseconds and computes, bar by bar, the same numbers everywhere. One
+hundred and one independently written studies compile, load and run; five of
+them match arithmetic transcribed from `stdlib.md` section 20 alone, bit for
+bit, warmups included. The chart adapter turns a compiled study into an
+indicator descriptor, and a stored setting now reaches a declaration option
+through it.
+
+**Upgrade for studies. Do not upgrade expecting a backtest or an editor.** There
+is no equity curve, no drawdown, no trade list and no reproducible run: that is
+Phase 5. There are no editor functions: that is Phase 4. There is no second
+engine and no conformance suite, so the portability claim is still a design
+rather than a result: that is Phase 6. `README.md` says the same in the same
+words, because the registry page must not overstate.
+
+**The order surface changed a great deal and is not finished.** A strategy can
+place orders through a host and the ledger refuses what the specification says
+to refuse, but six rounds of adversarial work on it each found a real defect,
+and the entries below are mostly that work. If you are building on orders, read
+them. If you are building on studies, the short version is that nothing in the
+study path changed under you.
+
+Previously published as `0.1.0-alpha.0` and `0.1.0-alpha.1`, which parsed and
+did not compute. This version takes `latest`.
+
 
 **A bracket now names the position the strategy is actually holding.** `exit()`
 and `order.bracket()` hand the host the position reference they protect, and
