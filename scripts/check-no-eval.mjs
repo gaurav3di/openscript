@@ -1,35 +1,58 @@
 /**
- * The no-eval check: the first line, no longer the only one.
+ * The no-eval check: what it enforces, which is less than it used to claim.
+ *
+ * ## Read this before quoting this check at anybody
+ *
+ * Two claims live in this repository, they are different sizes, and the larger
+ * one must not be allowed to cover the smaller. This file is the smaller one.
+ *
+ * **The shipped engine cannot build code out of text.** Nothing under `src` may
+ * import a module from the runtime's own namespace, so the package a platform
+ * installs cannot reach a virtual machine, a worker or a child process at all:
+ * not by a spelling this scan missed, and not by one nobody has thought of yet.
+ * It is unreachable by construction rather than unmatched by a pattern. The two
+ * names that remain, the string evaluator and the function builder, are refused
+ * outright by the runtime setting an adopter turns on. That claim is enforced by
+ * `check-layering.mjs`, which has refused those imports since before the first
+ * source file existed, and by the adopter's own process.
+ *
+ * **This repository's tooling is a separate and weaker question, and it is the
+ * one this file answers.** It reads every file the project holds and reports a
+ * form before anybody runs it. It is a scan, it has been beaten four times, and
+ * it will be beaten again. It is a first line, not a guarantee.
+ *
+ * ## What the setting this runs under actually does
+ *
+ * It refuses two names, wherever a code path really executes and however they
+ * were spelled. It does not close a virtual machine module, a data URL import,
+ * a module assembled from bytes or a child process handed source text, all of
+ * which were measured running under it. `lib/runtime.mjs` has the measurement.
+ * So neither this scan nor that setting may say that a generator cannot run
+ * here. What can be said is what is written above, and it is stronger.
+ *
+ * ## Why the scan stays
+ *
+ * **It answers the other half.** It reads every file, including the ones nothing
+ * executes and the branches no test reaches, and it catches a form before
+ * anybody runs it rather than when somebody does. A generator on an unreached
+ * branch throws for whoever reaches it first, which may be a consumer.
  *
  * **Read this before widening a pattern here.** This file scanned source text
- * for a construct, and it was got past in three consecutive rounds: seven ways,
- * then five, then three more, every form really executing. Each round was
- * answered with wider patterns and each wider set was beaten. A watched name can
- * be spelled arbitrarily many ways, and a list of spellings only ever has to be
- * beaten once more, so scanning text was never going to be the enforcement.
+ * for a construct, and it was got past in four consecutive rounds: seven ways,
+ * then five, then three more, then a live generator planted in the test runner
+ * itself, which executed on every run while this printed that nothing here
+ * builds code out of text. Each round was answered with wider patterns and each
+ * wider set was beaten. A watched name can be spelled arbitrarily many ways, and
+ * a list of spellings only ever has to be beaten once more, so scanning text was
+ * never going to be the enforcement.
  *
- * **The enforcement is the runtime.** The suite runs under a setting that
- * refuses to compile text at all, so a generator throws the moment its code path
- * executes, whatever it was spelled as and however it was reached. That is in
- * `lib/runtime.mjs`, with what it does and does not promise. This program runs
- * under it too, and starts itself again under it if it was not.
- *
- * **This scan stays, because it answers the other half.** It reads every file,
- * including the ones nothing executes and the branches no test reaches, and it
- * catches a form before anybody runs it rather than when somebody does. Neither
- * covers the other. What has changed is which one is load bearing.
- *
- * Rule one of this project is that nothing here builds code out of text, and
- * until this file existed it was the one rule nothing enforced. A reviewer
- * established that the rule held by grepping, which is a statement about one
- * afternoon and about no commit after it.
- *
- * Everything else rests on it. The compiler emits data, so the language runs
- * inside an application whose content security policy refuses code built from
- * text, and a platform can run many customers' scripts in one process with an
- * instruction budget the engine really owns rather than hopes for. A single
- * generated function anywhere in what ships makes every one of those sentences
- * false, quietly, with the whole suite still green.
+ * Rule one of this project is that nothing here builds code out of text. Under
+ * it the compiler emits data, so the language runs inside an application whose
+ * content security policy refuses code built from text, and a platform can run
+ * many customers' scripts in one process with an instruction budget the engine
+ * really owns rather than hopes for. A single generated function anywhere in
+ * what ships makes every one of those sentences false, quietly, with the whole
+ * suite still green.
  *
  * ## The check is attacked before it is trusted, and then attacked again
  *
@@ -57,13 +80,23 @@
  * bypass with a pattern answers that bypass. Ask instead which of the three the
  * bypass used, because a list of spellings only ever has to be beaten once more.
  *
+ * The fourth round added a fourth thing, and it was not a spelling either. The
+ * generator was planted in the test runner, where it executed on every run, and
+ * it was invisible twice over: the mask read a legal name as a keyword and
+ * erased the rest of the line behind it, and the runtime guard that should have
+ * refused it had been turned off in every process by an environment value that
+ * merely mentioned the setting's name. Both are fixed where they broke, and both
+ * are forms in the corpus now.
+ *
  * So the run below does not begin by reading files. It begins by putting every
  * form in `lib/no-eval-attacks.mjs` through the rules in `lib/no-eval-rules.mjs`
  * and refusing to go on unless each one is caught, unless each innocent form
- * beside it is left alone, and unless every rule there is the reason some form
- * is caught. A rule edited into uselessness, a marker renamed, a pattern that
- * can never match: all of them stop the build here rather than turning the
- * guarantee off and leaving the tick green.
+ * beside it is left alone, unless every rule there is the reason some form is
+ * caught, and unless every environment value there is read the way the runtime
+ * reads it. A rule edited into uselessness, a marker renamed, a pattern that can
+ * never match, a guard that says yes to a setting the runtime never saw: all of
+ * them stop the build here rather than turning the guarantee off and leaving the
+ * tick green. That is `lib/no-eval-selftest.mjs`.
  *
  * ## What is inspected
  *
@@ -109,28 +142,12 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { NOT_THE_PROJECT, filesUnder, projectFiles } from './lib/files.mjs';
 import { NO_CODE_FROM_STRINGS, insistOnRefusing } from './lib/runtime.mjs';
-import {
-  ATTACKS,
-  INNOCENT,
-  SHELL_ATTACKS,
-  SHELL_INNOCENT,
-  SHIPPED_ONLY,
-} from './lib/no-eval-attacks.mjs';
-import {
-  BUILT_COMMAND,
-  BUILT_SPECIFIER,
-  EXPECTED_MARK,
-  RULES,
-  SHELL_RULES,
-  STRING_RULES,
-  findings,
-  markerAsWritten,
-  shellFindings,
-} from './lib/no-eval-rules.mjs';
+import { selfTest } from './lib/no-eval-selftest.mjs';
+import { findings, shellFindings } from './lib/no-eval-rules.mjs';
 
 // Under the setting, or started again under it. Everything below reads files,
-// and this line is why the program doing the reading could not build code out of
-// text either, whoever started it and however they spelled the command.
+// and this line is why the two names the setting refuses are refused in the
+// program doing the reading, whoever started it and however they spelled them.
 insistOnRefusing();
 
 /** What ships to a consumer, and is read at the stricter of the two settings. */
@@ -185,21 +202,6 @@ const DATA_NAMES = new Set([
   '.nvmrc',
 ]);
 
-/**
- * The patterns are written against the marker the masker emits, so a change to
- * that spelling would leave every one of them matching nothing. This repository
- * has already shipped one check that could never match anything, so the
- * assumption is stated rather than assumed. The corpus run underneath it proves
- * the rest.
- */
-if (!markerAsWritten()) {
-  console.error(
-    `The string marker has changed, and the patterns in scripts/lib/no-eval-rules.mjs are\n` +
-      `written against "${EXPECTED_MARK}".\nRefusing to run patterns that would match nothing.`,
-  );
-  process.exit(1);
-}
-
 // ---------------------------------------------------------------------------
 // The inventory: what kind of file is this
 // ---------------------------------------------------------------------------
@@ -225,68 +227,11 @@ function kindOf(file) {
 // The check attacks itself first
 // ---------------------------------------------------------------------------
 
-/** Every rule this check has, so the corpus can be asked to exercise each one. */
-const EVERY_RULE = [...RULES, ...STRING_RULES, ...SHELL_RULES, BUILT_SPECIFIER, BUILT_COMMAND];
-
-/**
- * Every form in the corpus, through the rules above, before any file is read.
- *
- * An attack that is not caught and an innocent form that is fail the same way,
- * because a pattern loose enough to match everything is not a guard either. And
- * a rule that catches nothing in the corpus fails too: a pattern that can never
- * match is the exact failure this repository has already shipped once, and it
- * looks identical to a rule that works until somebody tests it.
- */
-function selfTest() {
-  const wrong = [];
-  const fired = new Set();
-
-  const run = (text, opts) => {
-    const found = findings('<corpus>', text, opts);
-    for (const one of found) fired.add(one.rule);
-    return found.length > 0;
-  };
-  const check = (what, text, opts, expected) => {
-    if (run(text, opts) !== expected) {
-      wrong.push(`${expected ? 'not caught' : 'caught wrongly'}: ${what}`);
-    }
-  };
-
-  for (const text of ATTACKS) check(text, text, { shipped: false }, true);
-  for (const text of INNOCENT) check(text, text, { shipped: false }, false);
-  for (const text of SHIPPED_ONLY) {
-    check(`${text} (in what ships)`, text, { shipped: true }, true);
-    check(`${text} (in the tooling)`, text, { shipped: false }, false);
-  }
-  for (const text of SHELL_ATTACKS) {
-    const found = shellFindings('<corpus>', text, null);
-    for (const one of found) fired.add(one.rule);
-    if (found.length === 0) wrong.push(`not caught: ${text}`);
-  }
-  for (const text of SHELL_INNOCENT) {
-    if (shellFindings('<corpus>', text, null).length > 0) wrong.push(`caught wrongly: ${text}`);
-  }
-
-  for (const rule of EVERY_RULE) {
-    if (fired.has(rule)) continue;
-    wrong.push(`no form in the corpus is caught by the rule that says it "${rule.say}"`);
-  }
-
-  if (wrong.length === 0) return;
-  console.error(
-    'The no-eval check no longer does what it says. Its own attack corpus disagrees\n' +
-      'with its rules in these places:\n\n' +
-      wrong.map((line) => `  ${line}`).join('\n') +
-      '\n\nEvery form in scripts/lib/no-eval-attacks.mjs really executes code built from\n' +
-      'text, or really does not. Fix the rule rather than the corpus: a guard nobody\n' +
-      'has attacked is a guard nobody has tested. A rule that catches nothing in the\n' +
-      'corpus needs a form written for it, because until one exists nothing says the\n' +
-      'pattern can match at all.',
-  );
-  process.exit(1);
-}
-
-selfTest();
+// Every form in `lib/no-eval-attacks.mjs` through the rules in
+// `lib/no-eval-rules.mjs`, every innocent form beside it left alone, every rule
+// the reason some form is caught, and every environment value read the way the
+// runtime reads it. In `lib/no-eval-selftest.mjs`, with what each half proves.
+const corpus = selfTest();
 
 // ---------------------------------------------------------------------------
 // The run
@@ -441,19 +386,22 @@ if (hits > 0) {
   process.exit(1);
 }
 
-const attacks = ATTACKS.length + SHIPPED_ONLY.length + SHELL_ATTACKS.length;
 const total = sourceFiles.length + builtFiles.length + toolingFiles.length;
 const commands = Object.keys(manifest.scripts ?? {}).length;
 const walked =
   inventory.code.length + inventory.command.length + inventory.data.length + builtWalked;
 console.log(
-  `No-eval check passed, under ${NO_CODE_FROM_STRINGS}, which is what enforces rule one; ` +
-    `this scan is the first line and not the enforcement. ${attacks} attack forms caught by its ` +
-    `own rules first, every one of ${EVERY_RULE.length} rules exercised, then ${walked} files ` +
-    `walked, of which ${total} were read as code (${sourceFiles.length} source, ` +
+  `No-eval check passed, over this repository's own text, under ${NO_CODE_FROM_STRINGS}, ` +
+    `which refuses two names here and closes no other door. ${corpus.attacks} attack forms ` +
+    `caught by its own rules first, every one of ${corpus.rules} rules exercised, ` +
+    `${corpus.settings} environment values read the way the runtime reads them, then ` +
+    `${walked} files walked, of which ${total} were read as code (${sourceFiles.length} source, ` +
     `${builtFiles.length} built, ${toolingFiles.length} tooling) and ${inventory.data.length} are ` +
     `data and named as such, plus ${commands} build commands and ${steps.length} build steps, ` +
     `including the programs they feed in. The tree is walked rather than asked about, and the ` +
     `only thing left out of it is ${[...NOT_THE_PROJECT].join(' and ')}. ` +
-    `Nothing builds code out of text.`,
+    `No form this scan knows about was found. What is guaranteed about the package a ` +
+    `platform installs is checked next door: scripts/check-layering.mjs refuses every import ` +
+    `of a module from the runtime's own namespace under src, so the shipped engine has no ` +
+    `virtual machine, no worker and no child process to reach.`,
 );

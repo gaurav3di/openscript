@@ -24,11 +24,17 @@
  * none leaves it absent rather than answered by the bar spacing, which the
  * specification does not promise is uniform.
  *
- * **Absence, never a guess.** A host that states no session, no timezone or
- * hours that do not parse leaves both facts absent, which is what 4.1's record
- * says a script sees: absent, and the per-bar session facts absent with it.
- * Absence is a value a script can test, and a guessed session start would
- * anchor every session study in this language to a minute nobody chose.
+ * **Absence, never a guess.** A host that states no session leaves both facts
+ * absent, which is what 4.1's record says a script sees: absent, and the per-bar
+ * session facts absent with it. Absence is a value a script can test, and a
+ * guessed session start would anchor every session study in this language to a
+ * minute nobody chose.
+ *
+ * **A record that contradicts itself is refused instead**, at load, by
+ * `recordProblem` below. A session with no zone to read its wall clock in, or
+ * one spelled in a form the record does not take, is a host that believes it
+ * stated a session, and answering that with the same absence an honest record
+ * gives is how a host loses every session study and is told nothing.
  */
 import { fieldsIn } from '../../stdlib/index.js';
 import { standingIn } from './hours.js';
@@ -78,6 +84,49 @@ function hoursOf(stated: SessionHours | undefined): Hours | null {
   if (from === null || to === null) return null;
   const listed = stated.days;
   return { from, to, days: Array.isArray(listed) ? [...listed] : null };
+}
+
+/**
+ * What the record is missing before any session fact can be read from it.
+ *
+ * `host-interface.md` 4.1 marks every fact here optional and 4.3 says what a
+ * script sees when the session is one of them: absence, which a script can test.
+ * That is the answer for a host that schedules no session, and it is not the
+ * answer for the three records below, each of which is a host that believes it
+ * stated one:
+ *
+ * - **A session and no timezone.** `start` and `end` are wall clock, so a
+ *   window with no zone to read it in is not a window. Nothing about the record
+ *   says which hours were meant, and every session study on that host draws
+ *   nothing.
+ * - **A session whose clock times are not `"HH:MM"`.** `"9:00"` is the spelling
+ *   a host writes first and the one the record does not take.
+ * - **Days outside one to seven.** Monday is 1 (`stdlib.md` 12.2), so a host
+ *   numbering Sunday as 0 states a week the instrument never opens in.
+ *
+ * Each of the three is reported at load rather than answered with absence,
+ * because absence there is indistinguishable from the honest case and the honest
+ * case is the one a reader will assume. This decides nothing about what a bare
+ * read of an instrument fact returns, which is issue 0002 and is open: a record
+ * the host contradicts itself in is a different question from a fact it did not
+ * state.
+ */
+export function recordProblem(
+  stated: SessionHours | undefined,
+  zone: string | null,
+): string | undefined {
+  if (zone !== null && fieldsIn(0, zone) === null) return 'a timezone the calendar can read';
+  if (stated === undefined || stated === null) return undefined;
+  if (zone === null) return 'a timezone, which the session it states is read in';
+  if (hoursOf(stated) === null) return 'a session whose start and end are spelled HH:MM';
+  const days = stated.days;
+  if (days === undefined || days === null) return undefined;
+  const numbered = (one: unknown): boolean =>
+    typeof one === 'number' && Number.isInteger(one) && one >= 1 && one <= 7;
+  if (days.length === 0 || !days.every(numbered)) {
+    return 'session days numbered 1 to 7, where Monday is 1';
+  }
+  return undefined;
 }
 
 /** Reads one run's session facts, one bar at a time. */

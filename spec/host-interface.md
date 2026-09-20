@@ -241,7 +241,7 @@ Twelve facts. This table is where they are defined; `compiled-program.md` sectio
 | `symbol` | string | No | `""`, by `stdlib.md` section 3.4 | `chart.symbol` |
 | `exchange` | string | No | Absent | `chart.exchange` |
 | `interval` | string | No | Absent, and the two derived facts are absent with it | `chart.interval` |
-| `timezone` | string | No | Absent | `chart.timezone`, and every calendar and session call that defaults to it |
+| `timezone` | string | **With a `session`** | Absent | `chart.timezone`, and every calendar and session call that defaults to it |
 | `tickSize` | number | No | Absent | `chart.tickSize`, `roundToTick` |
 | `lotSize` | number | No | Absent | `chart.lotSize`, `order.roundToLot` |
 | `pointValue` | number | No | Absent | `chart.pointValue` |
@@ -250,6 +250,12 @@ Twelve facts. This table is where they are defined; `compiled-program.md` sectio
 | `hasVolume` | bool | **Yes** | There is no absent case: this is the one fact a host must state | `chart.hasVolume` |
 | `hasOpenInterest` | bool | No | Absent | `chart.hasOpenInterest` |
 | `session` | window | No | Absent, and the per-bar session facts are absent with it, section 4.3 | the `session` namespace |
+
+`hasVolume` is the one fact required of every host, and section 4.2 says why.
+`timezone` is required of a host that states a `session` and of no other, for the
+reason section 4.3 gives: the session is wall clock, so a window with no zone to
+read it in states nothing. A host that states one without the other is refused at
+load with OS6012 naming the timezone.
 
 Value spellings:
 
@@ -331,6 +337,35 @@ strategy that must be flat by the close acts on that rather than on the appearan
 of a new bar, which arrives too late. A host that states a session it does not
 actually schedule breaks the one guarantee the field exists for.
 
+**A stated session is checked against itself at load.** A window is wall clock
+and a wall clock is read in a zone, so three records are a host that believes it
+stated a session and did not, and each is refused at load with OS6012 naming what
+is missing rather than answered with the absence an honest record gives:
+
+| The record | What is missing |
+|---|---|
+| A `session` and no `timezone` | The zone its `start` and `end` are read in |
+| A `start` or an `end` not spelled `"HH:MM"` | The spelling this section fixes: `"9:00"` is the one a host writes first, and it is not a time here |
+| A `days` entry outside 1 to 7, or an empty list | The numbering of `date.dayOfWeek`, where Monday is 1 |
+
+A `timezone` no calendar can read is the same failure one field earlier, and is
+refused the same way. An IANA zone name is what section 4.1 fixes, and a fixed
+offset is not one.
+
+**A host that states no session at all is not one of those three.** It is the
+honest record of an instrument whose schedule the host does not hold, the per-bar
+session facts are absent, and a script tests for that with `isNone`
+(`stdlib.md` section 12.4). The difference between that record and the three
+above is the difference between a fact nobody stated and a fact stated wrongly,
+and only the second can be told apart from the first by reading the record.
+
+What follows for a host, and it is the one sentence in this section a host loses
+a study to: **a session study is only as good as the session.** `vwap` restarts
+at the session's first bar, `session.isFirstBar` and `session.isLastBar` are
+derived from the window, and a host that holds a schedule and does not state it
+gets every one of them absent on every bar, with nothing on the chart to say why,
+because that is exactly what an instrument with no schedule looks like.
+
 Two limits of version 1, written here rather than papered over:
 
 - **One window per instrument.** An instrument that trades a morning and an
@@ -369,6 +404,16 @@ Withholding a fact the host holds is choosing between two behaviours, an error a
 an absent value, when the user wanted neither and the host could have supplied the
 number.
 
+**Optional is not the same for every fact on that table.** Withholding
+`tickSize` gives a script an absent value it can test and a user a study that
+still draws. Withholding the `session`, or the `timezone` a session is read in,
+removes a family of per-bar facts and every study anchored to them, and the
+result on the screen is an empty pane. The record cannot tell the two apart after
+the fact, so the interface splits them before it: a session with nothing to read
+it in is refused at load, section 4.3, and a host that holds a schedule states
+it, conformance item 3. Neither is a decision about what a bare read of an
+instrument fact returns, which is the open question above.
+
 ---
 
 ## 5. Bars for another instrument or timeframe
@@ -393,11 +438,60 @@ silently empty line through it.
 
 | Field | Type | Means |
 |---|---|---|
-| `id` | number or string | The engine's handle for this request, unique within the run. Every answer, every refusal and every cancellation carries it back |
+| `id` | number | The engine's handle for this request, unique within the run. Every answer, every refusal and every cancellation carries it back |
+| `read` | string | `"symbol"` for another instrument, `"timeframe"` for the chart's own instrument on another interval |
 | `instrument` | identity | The instrument, as section 9 defines an identity: opaque, and either the chart's own or one the host resolved |
 | `exchange` | string | Where it trades. The chart's exchange when the script named none (`stdlib.md` section 15.1) |
 | `timeframe` | string | A canonical timeframe string (`stdlib.md` section 15.2) |
-| `from`, `to` | number | The instant range the answer must cover, UTC milliseconds: the range the chart's bars cover, extended backwards by the warmup the requested expression needs |
+| `mode` | string | `"confirmed"`, `"developing"` or `"lookahead"` (`stdlib.md` section 15.3) |
+| `warmup` | number | How many requested bars of history the expression needs before its first value, absent where the compiler had no number |
+
+**Every identity on that table is resolved, and none of it is a rule to apply.**
+The compiled program spells a read of the chart's own instrument, and an
+exchange the script did not name, as an omission (`compiled-program.md` section
+2.16), and the engine fills both from the instrument record of duty 2 before it
+asks. So `instrument` is an identity a host can resolve and `exchange` is a venue
+it can resolve it on, on every request, including the ones the script wrote
+nothing in. A host handed the omission instead would be applying a language
+default against a record it supplied itself, and the first time the two
+disagreed a script would be answered about an instrument nobody named.
+
+One absence is left, and it is deliberate: a `"symbol"` read whose identity a
+setting was supposed to supply and did not. The chart's own is never substituted
+there, because a read of another instrument that quietly became a read of this
+one is a line on a chart nobody asked for. A host with no identity to resolve
+refuses that read with OS6007, section 5.4.
+
+**`read` is what a host may decline.** A read of the chart's own instrument at a
+coarser interval is one the engine can satisfy from the bars it already holds
+(section 5.1), so a host that serves no answer to a `"timeframe"` read has
+declined nothing: the engine folds. Serving one is still allowed, and a host with
+its own coarser bars for the chart's instrument serves them the same way it
+serves another instrument's. A `"symbol"` read is the one an engine cannot
+satisfy, so nothing to serve there is a refusal, section 5.4.
+
+**`mode` says whether the newest requested bar may be one still forming.** A
+`"confirmed"` read never takes the value of a requested bar that has not closed,
+so a host that can only serve closed bars serves that read in full. The other two
+take the bar the chart is inside, so a host whose answer stops at the last closed
+bar leaves them absent on the bars a user is looking at. `stdlib.md` section 15.3
+is what each mode means; it is carried rather than restated because a host that
+marks a repainting study on its own surface reads the mark from here.
+
+**The range is the host's, and this is the arithmetic.** A request carries no
+`from` and no `to`, because the whole set is settled before bar 0 and at that
+moment the engine has been handed no bars: it has no span to state. The host has
+one, because the bars are the host's. So the range an answer must cover is the
+range the chart's own bars cover, extended backwards by `warmup` requested bars
+and forwards to the end of the requested bar the newest chart bar falls in. The
+length of a requested bar comes from the timeframe string, `stdlib.md` section
+15.2.
+
+`warmup` is a floor and not a promise: a length that came from a setting is not
+known until the setting resolves, and an absent `warmup` says the compiler had no
+number at all. A host that extends backwards by less gets a read that is absent
+for longer, never a wrong number, which is the whole reason it is stated as a
+count of bars rather than as an instant a host would have to trust.
 
 **The whole set of requests is known at load.** A request's identity is fixed
 before bar 0, and a request whose symbol or timeframe changed mid-run is OS6013.
@@ -425,6 +519,11 @@ the requested timeframe, oldest first, covering the requested range.
   requested range it does not have by extending, padding or synthesising bars: a
   range it cannot cover is OS6008, which is a sentence a user can act on, and
   invented bars are not.
+- **OS6008 is nothing over the range the chart covers, and not history that
+  stops short of the warmup.** A host whose stored history begins after the
+  warmup asked for serves what it has: the read is absent for longer and every
+  value it does produce is right, which is what makes `warmup` a floor. Refusing
+  there would take away a study that would have drawn.
 
 ### 5.4 Refusal
 
@@ -892,8 +991,10 @@ Each of these is a statement someone else can check.
    for a real zero, never a default tick size, never a price carried forward. What
    it does not know, it does not state.
 3. **Instrument facts.** Supplies the record of section 4.1: the fact that table
-   marks required is always stated, and every other is stated when the host has it
-   and absent when it does not.
+   marks required is always stated, every other is stated when the host has it and
+   absent when it does not, and a stated `session` comes with the `timezone` it is
+   read in and the spellings of section 4.3. A schedule the host holds and does
+   not state is the one withheld fact that removes a study rather than a value.
 4. **Bar state.** States on every execution the facts `language.md` section 7.2
    gives the host, states none of the rest, builds bars itself from whatever its
    feed carries, and never hands back a confirmed bar unconfirmed.
@@ -902,9 +1003,10 @@ Each of these is a statement someone else can check.
    OS6006 for a capability tag it does not provide, OS5003 for a `limits()` option
    above its ceiling, OS5006 for outstanding requests above it.
 6. **Requests.** Answers or refuses each one with a code from the catalogue and the
-   reason in the source's own words, never with an empty answer; cancels every
-   outstanding request when a run ends, and delivers nothing to a run that has
-   ended.
+   reason in the source's own words, never with an empty answer; covers the range
+   of section 5.2, which it works out from its own bars and the request's
+   `warmup`; cancels every outstanding request when a run ends, and delivers
+   nothing to a run that has ended.
 7. **Orders.** Carries `intentId` back on every frame, sends the cumulative frames
    of section 7.2, uses the vocabulary of `stdlib.md` section 17.7 or maps its own
    onto it, never reports a state it does not understand as terminal, and carries a

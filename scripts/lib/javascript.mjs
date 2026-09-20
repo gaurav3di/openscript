@@ -52,6 +52,16 @@
  * costs a report about a pattern, which somebody sees and answers. The errors
  * are not the same size, so the ambiguous cases are code.
  *
+ * **A word in front of a slash is the same ambiguity, and for a round it was
+ * not treated as one.** A slash was read as opening a literal after any word on
+ * a keyword list, and three of those words are legal names: a variable called
+ * `of`, and `yield` and `await` outside the places that reserve them. A word
+ * from the list read as a property was worse, because every reserved word is a
+ * legal property name, so `node.return / 2` erased everything up to the next
+ * slash on the line, a live generator with it. A word is a keyword here only
+ * where a keyword can stand, and the three that can also be names were taken
+ * off the list.
+ *
  * **A template literal is both.** Its text is a string and each substitution is
  * code, so the two are masked differently, which is the difference between
  * catching a construct inside an interpolation and not looking there at all.
@@ -87,8 +97,24 @@ const IDENT = /[A-Za-z0-9_$]/;
 const BEFORE_REGEX = new Set(
   ['', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', ';', '+', '-', '*', '%', '^', '~', '<', '>'],
 );
+/**
+ * And after these words, none of which can be a name.
+ *
+ * Every word here is reserved everywhere, so a slash behind one cannot be a
+ * division: there is no value in front of it to divide. Three words that used to
+ * be on this list are gone, and their absence is the point rather than an
+ * oversight. `of`, `yield` and `await` are legal names in ordinary code, so a
+ * slash behind one of them is exactly as ambiguous as a slash behind any other
+ * name, and it is read as a division for the reason given at the top: guessing
+ * a literal and being wrong erases the rest of the line.
+ *
+ * A word out of this list is only a keyword where a keyword can stand. After a
+ * dot it is a property name, and `readIdentifier` is asked to say which, because
+ * `node.return / 2` is a division and reading it as a literal swallowed
+ * everything up to the next slash on the line.
+ */
 const BEFORE_REGEX_WORDS = new Set(
-  'return typeof instanceof in of new delete void case do else yield await'.split(' '),
+  'return typeof instanceof in new delete void case do else'.split(' '),
 );
 
 const newlinesIn = (text) => text.replace(/[^\n]/g, '');
@@ -299,8 +325,12 @@ export function maskCode(text) {
     if (IDENT_START.test(c) || c === '\\') {
       const { name, end } = readIdentifier(text, i);
       if (name !== '') {
+        // A name behind a dot is a property and never a keyword, so a slash
+        // after it divides. Both spellings of a member read end in the dot by
+        // the time this sees them, so one test covers both.
+        const property = prevChar === '.';
         out.push(name);
-        prevWord = name;
+        prevWord = property ? '' : name;
         prevChar = name[name.length - 1];
         prevBefore = '';
         i = end;

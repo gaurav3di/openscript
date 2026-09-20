@@ -120,8 +120,8 @@ function collect(
       query: {
         id: request.id,
         read: request.read,
-        symbol: identityOf(request.symbol, inputs, host),
-        exchange: identityOf(request.exchange, inputs, host),
+        instrument: instrumentOf(request, inputs, host),
+        exchange: exchangeOf(request, inputs, host),
         timeframe: timeframe.text,
         mode: request.mode,
         warmup: request.warmup,
@@ -131,6 +131,48 @@ function collect(
     if (nested !== undefined) return nested;
   }
   return undefined;
+}
+
+/**
+ * The instrument a read asks about, with the format's own default applied.
+ *
+ * 2.16 spells a read of the chart's own instrument as a `null` `symbol`, so
+ * resolving it here is applying the format's rule rather than inventing one:
+ * the host is handed the identity it gave for the chart, which is what
+ * `host-interface.md` 5.2 says a request carries.
+ *
+ * **The default belongs to a `"timeframe"` read and to nothing else.** A
+ * `"symbol"` read whose identity did not resolve, because the setting behind it
+ * holds something that is not an instrument, stays absent. Falling back there
+ * would turn a read of another instrument into a second read of this one, and
+ * the study would draw a line nobody asked for with nothing to say it had
+ * substituted anything.
+ */
+function instrumentOf(
+  request: Request,
+  inputs: readonly ResolvedInput[],
+  host: EngineHost,
+): string | null {
+  const named = identityOf(request.symbol, inputs, host);
+  if (named !== null) return named;
+  return request.read === 'timeframe' ? host.instrument?.symbol ?? null : null;
+}
+
+/**
+ * Where a read's instrument trades, with `stdlib.md` 15.1's default applied.
+ *
+ * `req.symbol`'s signature defaults `exchange` to `chart.exchange`, and 2.16
+ * spells the omission as `null`, "means the chart's exchange". A host handed
+ * that `null` would have to apply the rule against the record it supplied, and
+ * a host that applied it differently, or not at all, would resolve an
+ * instrument on a venue the script never named. So it is applied once, here.
+ */
+function exchangeOf(
+  request: Request,
+  inputs: readonly ResolvedInput[],
+  host: EngineHost,
+): string | null {
+  return identityOf(request.exchange, inputs, host) ?? host.instrument?.exchange ?? null;
 }
 
 /** The chart's own interval as a timeframe, when the host stated a usable one. */
@@ -186,7 +228,7 @@ export function undatableReason(query: RequestQuery): string {
 
 /** The instrument a reason names: the one the read asked for, or the chart's. */
 function named(query: RequestQuery): string {
-  return query.symbol ?? 'the chart\'s instrument';
+  return query.instrument ?? 'the chart\'s instrument';
 }
 
 /**

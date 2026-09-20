@@ -115,7 +115,7 @@ export class Station {
       // A read of the chart's own instrument at a coarser interval is folded
       // from the bars the engine already holds, which is the read
       // `host-interface.md` 5.1 says it can satisfy without a host.
-      if (query.read === 'timeframe' || query.symbol === null) return undefined;
+      if (query.read === 'timeframe') return undefined;
       const need = needFor(query, bars);
       if (need === undefined) return undefined;
       const key = keyOf(need);
@@ -333,7 +333,7 @@ function answerOf(entry: Entry | undefined): RequestAnswer {
  * calendar month would need the instrument's zone to be stated here as well.
  */
 function needFor(query: RequestQuery, bars: readonly ChartBar[]): Need | undefined {
-  const symbol = query.symbol;
+  const symbol = query.instrument;
   const first = bars[0];
   const last = bars[bars.length - 1];
   if (symbol === null || first === undefined || last === undefined) return undefined;

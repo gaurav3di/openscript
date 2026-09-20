@@ -66,14 +66,39 @@ export type EffectRoute = (effect: PendingEffect, bar: number) => void;
  * request's identity is fixed before bar 0, which is what lets a host fetch in
  * parallel, cache by instrument and timeframe, and have the answers in hand
  * before the first bar runs.
+ *
+ * **Every field here is resolved.** The compiled program writes each of the
+ * three identity fields as a value, a setting to read or a chart fact to read
+ * (`compiled-program.md` 2.16), and two of its spellings mean "the chart's
+ * own": a `null` `symbol` on a `"timeframe"` read, and a `null` `exchange` on
+ * either. Both are resolved against the instrument record before this crosses,
+ * so a host is handed an identity to resolve rather than a rule to apply. A
+ * host that had to apply the rule itself would need the record it already
+ * supplied, and the two would disagree the first time one of them was wrong.
+ *
+ * **There is no range on this shape, and 5.2 says why.** The whole set is known
+ * at load, and at load the engine has been handed no bars, so it has no span to
+ * extend. `warmup` is what it does know, counted in requested bars, and the host
+ * turns it into instants from the chart's own bars.
  */
 export interface RequestQuery {
   /** The engine's handle, which every answer and every refusal carries back. */
   readonly id: number;
   readonly read: 'timeframe' | 'symbol';
-  /** The instrument, or nothing on a read of the chart's own. */
-  readonly symbol: string | null;
-  /** Where it trades, or nothing when the script named none. */
+  /**
+   * The instrument, as `host-interface.md` 9 defines an identity: the one the
+   * script named, or the chart's own on a read of the chart's own instrument.
+   *
+   * Absent only where a `"symbol"` read's identity did not resolve to a string,
+   * which is a setting holding something that is not an instrument. The chart's
+   * own is never substituted there: a read of another instrument that quietly
+   * became a read of this one is a line on a chart nobody asked for.
+   */
+  readonly instrument: string | null;
+  /**
+   * Where it trades: the exchange the script named, or the chart's own when it
+   * named none, which is `stdlib.md` 15.1's documented default.
+   */
   readonly exchange: string | null;
   /** A timeframe string, `stdlib.md` 15.2, resolved from the program. */
   readonly timeframe: string;

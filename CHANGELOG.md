@@ -9,6 +9,37 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A request now carries what the host interface page says it carries.** A host
+built from `spec/host-interface.md` section 5.2 alone could not implement duty 3:
+the table printed six fields, three of which never arrived, and the request
+carried three more the table did not print. The request is now `id`, `read`,
+`instrument`, `exchange`, `timeframe`, `mode` and `warmup`, on the page and in
+the engine. `symbol` is `instrument`, which is what the page calls it and what
+section 9 says it is; `read`, `mode` and `warmup` are documented, because the
+engine sends them and they are each worth having; and `from` and `to` are gone
+from the page, because the whole set of requests is settled before bar 0 and at
+that moment the engine holds no bars and has no span to state. The page now gives
+the arithmetic instead: the chart's own span, extended backwards by `warmup`
+requested bars, worked out by the host, which is the side that has the bars.
+
+**A read of another instrument is now told which exchange to resolve it on.**
+`req.symbol`'s `exchange` defaults to `chart.exchange` in `stdlib.md` 15.1, the
+compiled format spells the omission as an absence meaning the chart's own, and
+the engine passed the absence straight through. A host was therefore left to
+resolve an instrument on no venue at all wherever a script did not name one,
+which is a different contract wherever a ticker is listed twice. The engine now
+resolves it, along with the identity of a read of the chart's own instrument,
+so every request carries an identity and a venue rather than a rule to apply.
+
+**An instrument record that contradicts itself is now refused at load.** A host
+that stated a `session` and no `timezone`, a session spelled `"9:00"` rather than
+`"09:00"`, or days numbered from Sunday as zero, lost `vwap` and every session
+study on every bar with nothing reported anywhere, because that is exactly what
+an instrument with no schedule looks like. Each of the three is OS6012 at load
+naming what is missing, and so is a timezone no calendar can read. A host that
+states no session at all is unchanged and still conforming: the per-bar session
+facts are absent and a script tests for them.
+
 **An alert's message now carries the bar that fired it.** A study that computed
 `"crossed up at " + text(close, 2)` sent a notification reading "Crossed up", the
 declared title, on every alert this adapter has ever raised. The message is a

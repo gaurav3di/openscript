@@ -33,6 +33,7 @@ about a function, this one wins. Error codes quoted here are defined in
 17. [Orders, legs and strategy risk](#17-orders-legs-and-strategy-risk)
 18. [The chart contract map](#18-the-chart-contract-map)
 19. [What is deliberately not here](#19-what-is-deliberately-not-here)
+20. [The arithmetic](#20-the-arithmetic)
 
 ---
 
@@ -150,11 +151,18 @@ engine to see the future.
 
 ### 2.6 Rounding and reproducibility
 
-Every function in this document is specified as an exact arithmetic recipe over
-binary64 in source order, under the determinism rule of `language.md` section
-7.6. Where a smoothing function needs a seed, the seed is stated in the entry.
+Every function in this document is an exact arithmetic recipe over binary64 in
+source order, under the determinism rule of `language.md` section 7.6. **Section
+20 is that recipe**: the seed, the step, the accumulation order and what is
+summed before what, for every function whose result depends on the order of its
+operations, and a statement that the order does not matter for the rest. A
+warmup, an argument and a purpose are what an entry in sections 3 to 17 holds; a
+second engine needs section 20 as well, and reading only the entry is how two
+engines come to disagree in the last bit while both look right.
+
 Where a statistic can be defined two ways, the entry says which one and the other
-is available through a named argument. Nothing here is "the usual definition".
+is available through a named argument. Nothing here is "the usual definition",
+and section 20 names the arrangement it is not wherever one is in common use.
 
 ### 2.7 Where a call lands in the chart contract
 
@@ -2027,10 +2035,858 @@ band stops, a level is not drawn, a bar keeps its own colour, a cell is blank.
   `language.md` section 5.3 and are not restated.
 - **Maps and matrices.** Reserved and unimplemented, `language.md` section 14.2.
   Nothing in this document depends on them.
-- **Per-function formulas.** Each entry states the arguments, the result, the
-  warmup and the purpose. The exact arithmetic, the seeding and the worked
-  example live in the library manifest, which the compiler, the editor's
-  autocomplete and the generated reference all read, so there is one source and
-  it cannot drift from the implementation.
-- **An alphabetical index.** It is generated from the same manifest rather than
-  maintained by hand here, for the same reason.
+- **Per-function formulas, in the entry.** A row states the arguments, the
+  result, the warmup and the purpose, and stops there, because a table cell is
+  not a place to write an accumulation order. The arithmetic is in section 20
+  instead, for every function whose result depends on the order of its
+  operations, and section 20.10 names the ones whose result does not.
+- **An alphabetical index.** The catalogue is grouped by what a function is for,
+  which is how somebody looking for one searches. An index over the same names
+  is a generated artefact and is not maintained by hand in this document.
+
+---
+
+## 20. The arithmetic
+
+Sections 3 to 17 say what a call takes, what it returns and the first bar it can
+honestly return it on. This section says how the number is arrived at: the seed,
+the step, the accumulation order, and what is added to what before what.
+
+The two are different promises and only one of them was written down. A second
+engine can satisfy every warmup in this document, agree with every description in
+it, and still differ from this one in the last bit of every average on the chart,
+because a sum has an order as well as a value and binary64 addition is not
+associative. Section 8 of `compiled-program.md` makes that difference a release
+blocker. This section is what it refers to.
+
+### 20.1 What this section fixes
+
+- **Every operation is under `compiled-program.md` sections 8.1 and 8.2**:
+  binary64, round to nearest with ties to even, evaluated in the order written,
+  with no reassociation, no distribution and no fused multiply and add. Each line
+  below rounds where it is written and the next line reads the rounded value.
+- **An arrangement here is normative even where another is mathematically
+  equal.** That is the whole reason the section exists. Where a second
+  arrangement is in common use, the entry names it and says it is not this one.
+- **A function this section does not name does not depend on the order of its
+  operations.** Section 20.10 says which those are and why, so an implementer can
+  tell a silence that means "no constraint" from a silence that means "nobody
+  wrote it down".
+- **Absence is not arithmetic.** Which bars are absent follows from the warmup in
+  the call's own entry and from the propagation rule of `language.md` section
+  6.7. This section states an absence only where the arithmetic itself chooses
+  one, as a division whose divisor is zero does.
+
+Throughout, a **window** of length `len` is the values of the last `len` bars,
+and it is indexed from the newest:
+
+```text
+w[0]         the value this bar contributed
+w[1]         the value the bar before it contributed
+w[len - 1]   the oldest value still in the window
+```
+
+**Oldest first** means the index runs from `len - 1` down to `0`. That is the
+iteration order of `compiled-program.md` section 8.2, and it is the order a
+reader assumes when they see a window written out.
+
+### 20.2 The two shapes everything else is built from
+
+Almost every length taking function in the library is one of these two, or is
+built out of them. Getting these two right is most of the work of a second
+engine.
+
+#### 20.2.1 The window sum
+
+```text
+total = 0
+total = total + w[len - 1]
+total = total + w[len - 2]
+...
+total = total + w[0]
+```
+
+`total` is a binary64 value after each line and is read back rounded on the next
+one. The window mean is `total / len`, one division applied to the finished sum,
+never a running mean.
+
+**The sum is taken fresh over the window on every bar.** The incremental
+alternative, carrying a total forward and subtracting the value that leaves the
+window, is the same quantity in exact arithmetic and a different number in
+binary64: its error accumulates without bound over a long history and it is not
+bit-identical to a fresh sum on any bar. `compiled-program.md` section 8.3
+refuses it outright, and no function in this library defines the incremental form
+as its reference. The anchored running totals of section 20.6 are not an
+exception: they have no window to sum, so they are a different quantity rather
+than a cheaper way to compute the same one.
+
+The cost is `len` additions per bar, bounded by the length the script asked for
+rather than by how much history is loaded.
+
+#### 20.2.2 The seeded recurrence
+
+Every seeded average in the library seeds the same way.
+
+```text
+before the seed bar   absent
+on the seed bar       running = the window mean of 20.2.1, and that is the value
+on a later bar        running = step(running, value), and that is the value
+```
+
+The seed bar is the first bar on which the window holds `len` values that are all
+present. Over a source that is itself absent during its own warmup, that is the
+first bar with `len` present values behind it, which is what makes the warmups of
+this document compose rather than having to be asserted one by one.
+
+**A hole after the seed freezes the recurrence**: an absent input produces an
+absent output and leaves `running` untouched, so the next present bar continues
+from where the last present bar left off. Consuming absence as zero would drag
+the average toward nothing, and re-seeding would let one missing bar restart a
+two hundred bar average.
+
+Seeding from bar 0 instead, with the first value as the running value, is the
+common and cheaper alternative. It is not this one. It draws a line where there
+should be a gap and stays materially wrong until the seed decays away.
+
+### 20.3 Moving averages and trend
+
+**`sma(src, len)`** is the window sum of 20.2.1 divided by `len`.
+
+**`ema(src, len)`** is the seeded recurrence of 20.2.2 with
+
+```text
+weight = 2 / (len + 1)
+rest   = 1 - weight
+step   = value * weight + running * rest
+```
+
+`weight` and `rest` are computed once from `len` and are the same two values on
+every bar. The new value is multiplied first and the running value second, and
+the two products are added in that order.
+
+**`rma(src, len)`** is the seeded recurrence of 20.2.2 with
+
+```text
+step = (running * (len - 1) + value) / len
+```
+
+**This is not the shape of `ema` with a weight of `1 / len`.** The two are the
+same function in exact arithmetic and two different numbers in binary64, and the
+difference propagates into the strength reading, the average true range, the
+trailing band and the directional index, which are the readings a chart is most
+often asked to reproduce. A recipe of `value * (1 / len) + running * (1 - 1 / len)`
+is a conforming implementation of a different function. Neither is
+`running + (value - running) / len`, which is a third arrangement of the same
+algebra and a third set of last bits.
+
+**`wma(src, len)`** accumulates oldest first, so weight 1 is added first and
+weight `len` last, and the divisor is computed as written:
+
+```text
+divisor = (len * (len + 1)) / 2
+total   = 0
+total   = total + w[len - 1] * 1
+total   = total + w[len - 2] * 2
+...
+total   = total + w[0] * len
+result  = total / divisor
+```
+
+The weight on `w[k]` is `len - k`, formed as a multiplication of the value by the
+whole number weight, not by a precomputed fraction. Dividing each term by
+`divisor` as it is added is a different number.
+
+**`swma(src)`** takes its four weights in the same oldest first order and divides
+once at the end:
+
+```text
+result = (w[3] + 2 * w[2] + 2 * w[1] + w[0]) / 6
+```
+
+The two middle terms are formed as `2 * value`, and the four terms are added left
+to right.
+
+**`vwma(src, len)`** forms this bar's product first and sums the products:
+
+```text
+product     = src * volume, formed on the bar and pushed into its own window
+numerator   = the window sum of the products
+denominator = the window sum of the volumes
+result      = numerator / denominator
+```
+
+Both sums are the fresh oldest first sum of 20.2.1. The result is absent where
+the denominator is zero. Dividing each sum by `len` first and then dividing one
+by the other is the same quantity with two extra roundings in it, and it is not
+this arrangement.
+
+**`hma(src, len)`** is three linearly weighted means, each the arrangement above:
+
+```text
+half   = floor(len / 2), held at a minimum of 1
+outer  = round(sqrt(len)), the rounding of section 8.1, held at a minimum of 1
+raw    = 2 * wma(src, half) - wma(src, len)
+result = wma(raw, outer)
+```
+
+`raw` is formed left to right and is fed to the outer mean absences and all, so
+the outer mean fills on the first `outer` values `raw` produced. The inner length
+is a gap in section 4 rather than a reading of it: see 20.11.
+
+**`dema(src, len)`** and **`tema(src, len)`** are formed left to right from
+exponential means each fed the previous one's output, absences and all:
+
+```text
+dema = 2 * e1 - e2
+tema = 3 * e1 - 3 * e2 + e3
+```
+
+where `e1` is `ema(src, len)`, `e2` is `ema(e1, len)` and `e3` is `ema(e2, len)`.
+`tema` is three terms added left to right, and is not `3 * (e1 - e2) + e3`.
+
+**`alma(src, len, offset, sigma)`** builds its kernel from the position in the
+window, with position 0 the oldest, and runs two passes over that same order:
+
+```text
+peak   = offset * (len - 1)
+spread = len / sigma
+for position = 0 to len - 1:
+    gap              = position - peak
+    weight[position] = exp(-(gap * gap) / (2 * spread * spread))
+    norm             = norm + weight[position]
+for position = 0 to len - 1:
+    total = total + w[len - 1 - position] * weight[position]
+result = total / norm
+```
+
+The denominator of the exponent is formed as `2 * spread * spread`, left to
+right. The kernel depends only on the position, so an engine may build it once,
+provided the values it builds are the ones these lines produce. This is the one
+average whose value depends on `exp`: see 20.11.
+
+**`linreg(src, len, offset)`** fits over `x` running 0 at the oldest bar of the
+window to `len - 1` at this one. The sums over `x` are constants of `len` and are
+formed as written:
+
+```text
+sumX        = ((len - 1) * len) / 2
+sumXSquared = ((len - 1) * len * (2 * len - 1)) / 6
+divisor     = len * sumXSquared - sumX * sumX
+for position = 0 to len - 1:
+    y     = w[len - 1 - position]
+    sumY  = sumY + y
+    sumXY = sumXY + y * position
+slope     = (len * sumXY - sumX * sumY) / divisor
+intercept = (sumY - slope * sumX) / len
+result    = intercept + slope * (len - 1 - offset)
+```
+
+The two accumulations run in one pass over the window, oldest first. The result
+is absent where `divisor` is zero, which is every window of length 1: a line
+fitted to one point is not a fit.
+
+**`ma(src, len, type)`** is exactly the named average's arithmetic, with a state
+region of its own per type, so a run that switched type mid-history starts the
+new average from its own seed rather than from what the old one left behind.
+
+**`supertrend(factor, atrLen)`** takes its width from the average true range and
+its midpoint from the bar:
+
+```text
+midpoint = (high + low) / 2
+rawUpper = midpoint + factor * width
+rawLower = midpoint - factor * width
+upper = rawUpper when rawUpper < previousUpper or previousClose > previousUpper,
+        otherwise previousUpper
+lower = rawLower when rawLower > previousLower or previousClose < previousLower,
+        otherwise previousLower
+```
+
+On the first bar both bands are the raw bands. The line then follows one band
+until price closes through it: while it is following the upper band it stays
+there when the close is at or below `upper` and moves to `lower` otherwise, and
+while it is following the lower band it stays there when the close is at or above
+`lower` and moves to `upper` otherwise. The comparison is inclusive on the side
+the band is held, which decides the flip bar on an exact touch.
+
+The bar the width is first available on seeds the state and reports absence,
+because the carry forward and the flip test both read the previous bar's close
+and the previous bar's bands and there is no previous bar of either. Reporting
+that bar would be reporting a direction chosen by a seeding rule rather than by
+the data.
+
+**`psar(start, step, max)`** seeds from the first pair of complete bars: the
+direction is up when this bar's close is above the previous bar's, the stop
+starts at the previous bar's low when it is up and at its high when it is not,
+and the acceleration starts at `start`. That bar reports the seed itself. On
+every later bar the stop moves first:
+
+```text
+stop = stop + acceleration * (extreme - stop)
+```
+
+then the flip test, then the extreme test:
+
+- Long, and `stop` is above this bar's low: the direction becomes short, `stop`
+  becomes the extreme reached, the extreme becomes this bar's low, and the
+  acceleration returns to `start`. Short, and `stop` is below this bar's high:
+  the mirror of it.
+- Long, and this bar's high is above the extreme: the extreme becomes this bar's
+  high and the acceleration becomes `min(acceleration + step, max)`. Short, and
+  this bar's low is below the extreme: the mirror of it.
+
+The multiply and add on the first line is one rounding of the product and one of
+the sum, in that order, and is not
+`(1 - acceleration) * stop + acceleration * extreme`.
+
+**`adx(diLen, adxLen)`** measures directional movement against the gap aware true
+range of 20.5, so all three smoothed quantities cover the same bars:
+
+```text
+up       = high - previousHigh
+down     = previousLow - low
+upMove   = up   when up > down and up > 0,   otherwise 0
+downMove = down when down > up and down > 0, otherwise 0
+```
+
+Each of `upMove`, `downMove` and the gap aware true range is smoothed with `rma`
+at `diLen`, and then
+
+```text
+plusDI  = (smoothedUp / smoothedRange) * 100
+minusDI = (smoothedDown / smoothedRange) * 100
+spread  = (abs(plusDI - minusDI) / (plusDI + minusDI)) * 100
+result  = rma(spread, adxLen)
+```
+
+**The division comes before the multiplication by 100 on all three lines.** The
+other association, `100 * a / b`, is the one the readings of 20.4 use and it is a
+different number here. `spread` is 0 rather than absent where the two sum to
+zero, and the two directional readings are absent where the smoothed range is
+zero.
+
+**`aroon(len)`** measures over a window of `len + 1` bars, so an extreme set
+`len` bars ago is still inside it and a reading of 0 is reachable:
+
+```text
+up   = (100 * (len - barsSinceHigh)) / len
+down = (100 * (len - barsSinceLow)) / len
+```
+
+where the two ages are counted over that wider window, under the tie rule of
+20.10.
+
+**`ichimoku(convLen, baseLen, spanLen)`** builds each of its first four lines
+from the outright extremes of a window:
+
+```text
+midpoint = (windowHigh + windowLow) / 2
+```
+
+The third element is the mean of the two midpoints already computed at the
+shorter two lengths, `(first + second) / 2`, and not a midpoint recomputed over a
+window of its own. The fifth is this bar's close, reported undisplaced.
+
+### 20.4 Momentum and oscillators
+
+**`rsi(src, len)`** splits the one bar change and smooths each side with `rma`:
+
+```text
+delta       = src - src[1]
+up          = max(delta, 0)
+down        = max(-delta, 0)
+averageUp   = rma(up, len)
+averageDown = rma(down, len)
+result      = 100 - 100 / (1 + averageUp / averageDown)
+```
+
+`down` is formed by negating the change and taking the larger of that and zero,
+so a rising bar contributes an exact zero to the down side.
+
+**The result is 100 when `averageDown` is zero**, which also covers a window that
+never moved and in which both averages are zero. The ratio has no value there,
+and every reference reading is 100.
+
+**The arrangement of the last line is normative.** Two others are in circulation
+and neither is this one. `100 * up / (up + down)` is mathematically equal and
+lands one unit in the last place away on ordinary data. Rounding the ratio into a
+named intermediate first and then writing `100 - (100 / (1 + ratio))` is the same
+expression with an extra rounding in it, and is also not this one. The order is:
+the ratio, then one added to it, then 100 divided by that, then subtracted from
+100.
+
+**`stoch(len, smoothK, smoothD)`** places the close in the window's outright
+range, which is the bars' own highs and lows and not the close's extremes:
+
+```text
+raw = (100 * (close - windowLow)) / (windowHigh - windowLow)
+k   = sma(raw, smoothK)
+d   = sma(k, smoothD)
+```
+
+The span is formed once and the result is absent where it is zero. **Here the
+multiplication by 100 comes first**, which is the opposite of the directional
+index of 20.3 and is deliberate: each is the association its own reading has
+always carried, and matching one to the other would move every value of one of
+them.
+
+**`stochRsi(src, rsiLen, stochLen, smoothK, smoothD)`** is the same three lines
+with the strength reading in place of the close, and with the window high and the
+window low taken from the strength reading itself rather than from the bars.
+
+**`williamsR(len)`** is the same position on the other scale, and is formed from
+the distance below the window high rather than as the stochastic reading less one
+hundred:
+
+```text
+result = (-100 * (windowHigh - close)) / (windowHigh - windowLow)
+```
+
+**`macd(src, fast, slow, signal)`** and **`ppo(src, fast, slow, signal)`** differ
+only in the first line:
+
+```text
+macd line = emaFast - emaSlow
+ppo line  = (100 * (emaFast - emaSlow)) / emaSlow
+trigger   = ema(line, signal)
+histogram = line - trigger
+```
+
+The signal average is fed the line absences and all, so it seeds on the first
+`signal` values the line produced, which is where its warmup comes from. The
+histogram is the difference of the two values as reported, not recomputed from
+the averages.
+
+**`cci(len)`** divides by the mean absolute deviation, not by the standard
+deviation, and the constant is applied to the deviation rather than to the
+numerator:
+
+```text
+deviation = the mean over the window, oldest first, of abs(w[k] - windowMean)
+result    = (typical - windowMean) / (0.015 * deviation)
+```
+
+The 0.015 is calibrated against the mean absolute deviation, and substituting a
+standard deviation changes every reading while still producing a plausible line.
+Writing the numerator as `(typical - windowMean) / 0.015 / deviation` is two
+divisions where this is one multiplication and one division.
+
+**`roc(src, len)`**, **`trix(src, len)`** and **`tsi(src, longLen, shortLen)`**
+scale by 100 before dividing:
+
+```text
+roc  = (100 * (src - src[len])) / src[len]
+trix = (100 * (smoothed - smoothed[1])) / smoothed[1]
+tsi  = (100 * doubleSmoothedChange) / doubleSmoothedSize
+```
+
+`trix` smooths with three exponential means, each fed the previous one's output,
+and takes the one bar percentage change of the third. The other reading in
+circulation takes the change of the logarithm of the average instead; it is a
+different number and it is not what section 5 describes. `tsi` smooths the one
+bar change twice, with the long length first and the short length second, and
+smooths the absolute size of that change the same way in its own pair of state
+regions.
+
+**`cmo(src, len)`** sums the two sides over the window outright, with no
+smoothing between:
+
+```text
+rise   = the window sum of max(delta, 0)
+fall   = the window sum of max(-delta, 0)
+result = (100 * (rise - fall)) / (rise + fall)
+```
+
+The denominator is formed once, and the result is absent where it is zero.
+
+**`dpo(src, len)`** removes the simple mean as it stood `floor(len / 2) + 1` bars
+ago, which is what the declared warmup requires:
+
+```text
+result = src - sma(src, len)[floor(len / 2) + 1]
+```
+
+**`ultimateOsc(len1, len2, len3)`** forms both per-bar terms against the previous
+close, sums each over three windows, and blends the three ratios:
+
+```text
+floorOf   = min(low, previousClose)
+ceilingOf = max(high, previousClose)
+pressure  = close - floorOf
+range     = ceilingOf - floorOf
+average   = the window sum of pressure / the window sum of range, at each length
+result    = (100 * (4 * fast + 2 * middle + slow)) / 7
+```
+
+The three weighted terms are added left to right, shortest window first, and the
+division by 7 is applied once at the end.
+
+**`mom(src, len)`** and **`awesomeOsc(fast, slow)`** are a single subtraction
+each, and are named here only so that the absence of a recipe is not read as an
+oversight: `mom` is `src - src[len]`, and `awesomeOsc` is the fast simple mean of
+the bar midpoint less the slow one, in that order.
+
+### 20.5 Volatility and ranges
+
+**`trueRange()`** is the largest of three:
+
+```text
+result = max(high - low, abs(high - previousClose), abs(low - previousClose))
+```
+
+On the oldest bar of the dataset it is `high - low`, which is section 6's stated
+exception to absence propagation.
+
+**The gap aware form is a separate quantity.** It is the same three terms with no
+exception on the oldest bar, and it is what `chop` and the directional index use.
+Section 6 says which of the two a function takes by declaring its warmup one bar
+later than the plain reading would give. It is not a call a script can make.
+
+**`atr(len)`** is `rma` over `trueRange`, that first bar included. **`natr(len)`**
+is `(100 * atr) / close`.
+
+**`variance(src, len, sample)`** is two passes, the mean first and the deviations
+from it second, both oldest first:
+
+```text
+mean    = the window mean of 20.2.1
+squares = 0
+squares = squares + (w[len - 1] - mean) * (w[len - 1] - mean)
+...
+squares = squares + (w[0] - mean) * (w[0] - mean)
+result  = squares / len          when sample is false
+result  = squares / (len - 1)    when sample is true
+```
+
+Each deviation is squared as a product of the deviation with itself. **The one
+pass arrangement is not permitted**: subtracting the square of the mean from the
+mean of the squares is mathematically equal, loses most of its significant digits
+on a price series where the values are large and their spread is small, and can
+return a negative variance that then has to be floored at zero. An implementation
+that needs a floor to stay real is computing a different quantity.
+
+**`stdev(src, len, sample)`** is the square root of that variance, taken once at
+the end.
+
+**`bollinger(src, len, mult)`**, **`keltner(len, mult, atrLen, maType)`** and the
+two readings taken from the first are formed as written:
+
+```text
+upper     = basis + mult * width
+lower     = basis - mult * width
+bbWidth   = (upper - lower) / basis
+bbPercent = (src - lower) / (upper - lower)
+```
+
+where `width` is the population standard deviation for the first and the average
+true range for the second. The multiplier is applied to the width and the product
+added to the basis, which is one rounding of the product and one of the sum.
+`bbWidth` and `bbPercent` are computed from the bands as reported rather than
+from the basis and the width again, so a study that plots all three and a study
+that plots one reading agree to the last bit. The span in `bbPercent` is formed
+once.
+
+**`donchian(len)`** takes the outright extremes of the window, and its middle
+element is `(upper + lower) / 2`.
+
+**`chop(len)`** compares the distance travelled with the range covered:
+
+```text
+distance = the window sum of the gap aware true range
+span     = windowHigh - windowLow
+result   = (100 * log10(distance / span)) / log10(len)
+```
+
+The ratio is formed first, then its logarithm, then the multiplication by 100,
+then the division by the logarithm of the length. The result is absent where the
+span or the distance is not above zero, and where `len` is 1 and the scale is
+zero. This reading depends on `log10`: see 20.11.
+
+**`hv(src, len, periodsPerYear)`** is the population standard deviation of the
+one bar log return, annualised by one multiplication:
+
+```text
+logReturn = log(src / src[1])
+result    = stdev(logReturn, len, false) * sqrt(periodsPerYear)
+```
+
+The ratio is formed before the logarithm is taken. The result is a proportion and
+is not scaled by a hundred: section 6 says annualised standard deviation of log
+returns and says nothing about a percentage, so a study that wants a percentage
+axis multiplies at the plot, where a reader can see it happen. This reading
+depends on `log`: see 20.11.
+
+### 20.6 Volume
+
+The running totals of this section are anchored accumulations rather than
+windows, so each carries its total forward and adds one term per bar. That is
+what the quantity is, not a cheaper way to compute a window sum, and the refusal
+of a carried total in 20.2.1 does not reach them.
+
+**`vwap(src)`** and **`vwapAnchor(src, resetWhen)`** are one calculation. Both
+totals are reset to zero on an anchor bar, before that bar's own term is added,
+so the anchor bar is the first bar of the new average rather than the last bar of
+the old one:
+
+```text
+flow   = flow + src * volume
+traded = traded + volume
+result = flow / traded
+```
+
+**`obv()`** adds the whole of the bar's volume on a higher close and subtracts
+the whole of it on a lower one, and contributes nothing on an unchanged close. It
+is seeded at zero on the first bar, which therefore reads 0.
+
+**`ad()`** and **`cmf(len)`** share one per-bar term:
+
+```text
+span = high - low
+term = (((close - low) - (high - close)) / span) * volume
+```
+
+The two bracketed differences are formed first and subtracted, then divided by
+the span, then multiplied by the volume. A bar whose span is not above zero
+contributes an exact 0 rather than ending the total. `ad` is the running total of
+that term. `cmf` is the window sum of the term divided by the window sum of the
+volume, each the fresh sum of 20.2.1.
+
+**`adOsc(fast, slow)`** is the fast exponential mean of the running total less
+the slow one, in that order. The averages run over the running total, not over
+the per-bar term.
+
+**`pvt()`** adds a proportion of the volume:
+
+```text
+total = total + ((close - previousClose) / previousClose) * volume
+```
+
+The proportion is formed and rounded before it meets the volume. The total starts
+at zero before the first change, so the first bar is absent and the second
+already carries its own term.
+
+**`mfi(len)`** is the strength reading of 20.4 computed on money flow, with
+window sums in place of the smoothing:
+
+```text
+flow   = typical * volume
+rise   = the window sum of flow on bars where the typical price rose, else 0
+fall   = the window sum of flow on bars where it fell, else 0
+result = 100 - 100 / (1 + rise / fall)
+```
+
+The arrangement of the last line is the one 20.4 fixes, and the result is 100
+where `fall` is zero, for the reason given there. A bar whose typical price is
+unchanged contributes an exact zero to both sides.
+
+**`eom(len)`** forms its per-bar term and then takes a simple mean of it:
+
+```text
+term   = (midpointChange * (high - low)) / volume
+result = sma(term, len)
+```
+
+The product is formed before the division. **There is no scaling constant**: see
+20.11.
+
+**`forceIndex(len)`** is the exponential mean of the one bar close change times
+the volume, the product formed per bar and fed to the average.
+**`relativeVolume(len)`** is the bar's volume divided by the simple mean of the
+volume.
+
+### 20.7 Maths and rounding
+
+**`round(x)`** compares the fractional part rather than adding a half:
+
+```text
+below    = floor(x)
+fraction = x - below
+result   = below + 1   when fraction > 0.5
+result   = below       when fraction < 0.5
+result   = below + 1   when fraction is exactly 0.5 and x is above zero
+result   = below       when fraction is exactly 0.5 and x is not
+```
+
+**`floor(x + 0.5)` is not this function.** It is the usual shortcut and it is
+wrong for the value just below a half, where adding 0.5 rounds up to the next
+representable number before the floor ever runs and the answer comes out one too
+high. The last two lines are what halves away from zero means at a negative
+value, where `floor` has already produced the downward answer.
+
+**`round(x, decimals)`**, **`roundToStep(x, step)`** and **`roundToTick(price)`**
+scale, round and scale back, with one rounding in the middle:
+
+```text
+scale              = pow(10, decimals)
+round(x, decimals) = round(x * scale) / scale
+roundToStep(x, s)  = round(x / s) * s
+roundToTick(p)     = roundToStep(p, the instrument's tick size)
+```
+
+**`math.toDegrees(x)`** is `(x * 180) / pi` and **`math.toRadians(x)`** is
+`(x * pi) / 180`: multiply first, divide second. The other association is a
+different number at most arguments.
+
+**`mod(a, b)`** is written out in section 8.1 and the formula there is the
+arithmetic: the division, then the floor, then the multiplication, then the
+subtraction.
+
+### 20.8 Series helpers
+
+**`sum(src, len)`** is the window sum of 20.2.1, and **`count(cond, len)`** is
+that sum over a window of ones and zeros, so a count is an addition of whole
+numbers and is exact.
+
+**`cum(src)`** is a running total from the first bar. An absent bar produces an
+absent bar out and leaves the total where it was.
+
+**`sumSkip(src, len)`** is the same oldest first sum with the absent bars passed
+over, and **`avgSkip(src, len)`** is that sum divided by the number of bars that
+had a value, counted over the same window. Dividing by `len` would be a different
+quantity.
+
+**`percentile(src, len, p)`** and **`median(src, len)`** interpolate linearly
+between the two ranks either side:
+
+```text
+sorted = the window's values in ascending order
+rank   = (p / 100) * (len - 1)
+below  = floor(rank)
+result = sorted[below]                                    when below is the last rank
+result = sorted[below] + (rank - below) * (sorted[below + 1] - sorted[below])
+```
+
+`median` is this at `p` of 50 and nothing else, so an even length window is the
+mean of its two middles rather than one of them chosen by a rule nobody
+remembers. The nearest rank method, which returns an actual member of the window,
+is the other common choice and is not this one.
+
+**`percentRank(src, len)`** counts this bar's own value among the window, so the
+reading runs from `100 / len` to 100 rather than from 0:
+
+```text
+counted = how many of the window's values are at or below w[0]
+result  = (counted * 100) / len
+```
+
+**`covariance(a, b, len)`** and **`correlation(a, b, len)`** are the population
+forms, taken in two passes over both windows, oldest first, with the two means
+formed first:
+
+```text
+meanA    = sumA / len
+meanB    = sumB / len
+cross    = cross    + (a[k] - meanA) * (b[k] - meanB)
+squaresA = squaresA + (a[k] - meanA) * (a[k] - meanA)
+squaresB = squaresB + (b[k] - meanB) * (b[k] - meanB)
+
+covariance  = cross / len
+correlation = covariance / (sqrt(squaresA / len) * sqrt(squaresB / len))
+```
+
+The three accumulations run in one pass over the window, in that order. **The
+correlation divides by a product of two square roots, and not by the square root
+of a product**: those are mathematically equal and differ in the last bit, and
+this is the one stated. The single pass arrangement, summing squares and cross
+products and subtracting at the end, is refused for the reason 20.5 gives for the
+variance.
+
+### 20.9 Colour
+
+**`mix(a, b, weight)`** interpolates from the first colour toward the second,
+channel by channel, the alpha included:
+
+```text
+channel = from + (to - from) * weight
+```
+
+**This is not `from * (1 - weight) + to * weight`.** The two are mathematically
+equal and differ in the last bit, and this is the one stated. Neither is the
+safer of the two at an endpoint: the arrangement above returns the first colour
+exactly at a weight of 0 and need not return the second exactly at a weight of 1,
+and the other one is exact at both ends and inexact between them. Choosing on
+that ground would be choosing on the case a blend is never asked for. The three
+colour channels are then rounded to whole numbers and clamped as section 11.2
+requires, and the alpha is clamped without being rounded.
+
+**`fade(color, percent)`** is the identity section 11.2 states, and that identity
+is the arithmetic as well as the meaning: in its `(100 - percent) / 100` the
+subtraction happens before the division. Forming the alpha as
+`1 - percent / 100` instead is mathematically equal and is a different number at
+most percentages, 33 among them, so it is not this one. Scaling the alpha the
+colour already carried, rather than setting it, is a third answer again, and it
+is the one that breaks the nesting identity 11.2 states.
+
+The rounding of a computed channel, and the one way conversion of an alpha to a
+byte at the contract boundary, are section 11.2's and are not restated here. Both
+use the `round` of 20.7.
+
+### 20.10 Where the order does not matter
+
+A function named here has one arrangement and no choice to record. An implementer
+can write it the obvious way and be bit-identical.
+
+- **The comparisons.** `highest`, `lowest` and the two that report an age, the
+  outright extremes inside the channel and trend studies, `min`, `max` and
+  `clamp` select a value and compute nothing. The only thing a scan can differ on
+  is a tie, and the tie rules are section 9's: an extreme goes to the most recent
+  bar that set it, so an equal value later in the window replaces the earlier
+  one, and a pivot is strict on both sides so a run of equal values holds no
+  pivot.
+- **The single operations.** `abs`, `sign`, `floor`, `ceil` and `trunc` are one
+  operation each, as are `change`, `history` and the bare comparisons. `sqrt` is
+  correctly rounded by IEEE-754, so it is bit-identical on every conforming
+  platform without a portable implementation of its own.
+- **The bookkeeping.** `barsSince`, `valueWhen`, `countPresent`, the crossing
+  tests and the run tests compare and count rather than accumulate. The crossing
+  tests keep the two series apart rather than subtracting, which matters because
+  the test turns on whether one was at or below the other and a rounded zero
+  would change the answer.
+- **The derived prices.** The four of section 3.1 have their order of operations
+  fixed in `compiled-program.md` section 2.10, which is where an engine reads
+  them, so it is not restated here.
+- **The calendar, the session and the strings.** Sections 10 and 12 are exact
+  integer and text operations with no accumulation in them.
+
+### 20.11 What this section cannot pin down yet
+
+Each of these is a gap in the specification rather than a choice made here, and
+each is a place two conforming engines may still differ. None of them is reached
+by the studies the release gate compares bit for bit.
+
+1. **The transcendental functions have no portable reference algorithm.**
+   `compiled-program.md` section 8.3 requires that `exp`, `log`, `pow`, the
+   trigonometric namespace and anything built on them not use the platform's own
+   maths library, because a platform implementation is correct to within about an
+   ulp and differs between platforms in the last bit. No such algorithm is
+   written down anywhere in this specification, so there is nothing to implement
+   against and the requirement cannot be met today. The functions of this library
+   that reach one are `alma` through `exp`, `hv` through `log` and `chop` through
+   `log10`. `sqrt` is exempt, for the reason 20.10 gives. The only use of `pow`
+   in the library's own arithmetic is `pow(10, decimals)` in 20.7, whose true
+   value is exactly representable for every decimal count from 0 to 22, so an
+   implementation that returns the representable value agrees; a script's own
+   `pow` call carries the full risk.
+2. **The inner length of `hma` is not stated.** Section 4 fixes the outer length
+   as `round(sqrt(len))`, which the declared warmup confirms, and says nothing
+   about the inner one. The declared warmup holds for any inner length at or
+   below `len`, so nothing in this document settles it. The arrangement in 20.3
+   is the one this implementation uses, recorded as an implementation choice
+   rather than presented as a reading of section 4.
+3. **`eom` has no scaling constant.** Implementations of this reading usually
+   multiply by a large divisor whose only job is to bring the number into a
+   readable range, and they do not agree on it. Section 7 declares no such
+   argument, so there is none here and the reading is the quantity itself. That
+   leaves it very small on a liquid instrument.
+4. **`psar` has no clamp.** Some published versions forbid the stop from entering
+   the previous two bars' range. Section 4 does not mention it, and 20.3 is the
+   algorithm the plain description gives.
+5. **The basis source of `keltner` is not stated.** Section 6 writes the call
+   without a source argument and describes it as the same picture built from the
+   average true range, which fixes the width and not what the basis averages.
+   This implementation averages the close. That is an implementation choice, and
+   an engine that averaged the typical price instead would satisfy every word of
+   the entry and draw a different line.
+6. **The exact channel values of the named colours** are fixed by section 11.1
+   and are part of the conformance suite, and are not written out in this
+   document. Until they are, an implementer takes them from the suite.

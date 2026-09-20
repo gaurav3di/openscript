@@ -15,11 +15,12 @@ import { BAR_FIELDS } from './bars.js';
 import { limitsWith } from './budget.js';
 import type { Clock, EngineLimits } from './budget.js';
 import { Engine } from './engine.js';
-import { malformed } from './errors.js';
+import { NO_POSITION, failure, malformed } from './errors.js';
 import type { EngineHost } from './host.js';
 import { resolveInputs, utcTime } from './inputs.js';
 import type { TimeResolver } from './inputs.js';
 import { planRequests } from './request-plan.js';
+import { recordProblem } from './session/index.js';
 import { capabilitiesFor, verify } from './verify.js';
 
 export interface LoadOptions {
@@ -65,6 +66,20 @@ export function load(program: unknown, options: LoadOptions = {}): LoadResult {
         `series[${unknownField.id}].field`,
         `${String(unknownField.field)} is not a bar field this engine can fill`,
       ),
+    };
+  }
+
+  // The instrument record is read once and is the same for every program, so a
+  // record that contradicts itself is refused here rather than turning into an
+  // absence each study explains for itself.
+  const record = recordProblem(host.instrument?.session, host.instrument?.timezone ?? null);
+  if (record !== undefined) {
+    return {
+      ok: false,
+      diagnostic: failure('OS6012', NO_POSITION, {
+        fact: record,
+        symbol: host.instrument?.symbol ?? 'the chart\'s instrument',
+      }),
     };
   }
 

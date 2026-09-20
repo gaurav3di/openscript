@@ -12,6 +12,6 @@
  * reach them, and a third caller reading them raw would be a third spelling.
  */
 export type { SessionFacts, SessionHours, SessionReader } from './record.js';
-export { NO_SESSION, sessionReader } from './record.js';
+export { NO_SESSION, recordProblem, sessionReader } from './record.js';
 
 export { sessionHolds } from './spec.js';

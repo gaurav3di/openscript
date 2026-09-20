@@ -7,7 +7,7 @@ This document defines the **compiled program**: the plain data structure an
 OpenScript compiler emits and an engine executes. It is the contract that lets a
 second engine exist. Someone who has never seen our implementation must be able to
 write a conforming engine, in a language of their choosing, from the
-specification documents `spec/README.md` lists and the library manifest alone.
+specification documents `spec/README.md` lists alone.
 
 A compiled program is data. It is never code in any host language, it contains no
 expressions to be interpreted by a host compiler, and an engine never calls `eval`,
@@ -688,9 +688,9 @@ section 8.2). Both survive from bar to bar; both start uninitialised, and
 | `id` | number | State region index |
 | `fn` | number | Index into `lib.functions` |
 
-The contents of a state region are defined by the library manifest, not here. What
-this document requires of the manifest is that a state region is **snapshottable by
-a mechanical copy**: a fixed record of numbers, booleans and strings, plus at most
+The contents of a state region are defined by the library, `stdlib.md` section 20,
+not here. What this document requires of the library is that a state region is
+**snapshottable by a mechanical copy**: a fixed record of numbers, booleans and strings, plus at most
 one queue of values with a bounded length. An engine must be able to copy and
 restore a region without knowing which function owns it, because the rollback and
 replay rules of section 6 apply to every region at once.
@@ -1441,10 +1441,10 @@ engine that grows one here becomes the only engine that runs that script.
 There is no instruction for unary plus. `+x` on a number is the identity and its
 type is checked at compile time, so it compiles to nothing at all.
 
-There is no exponent instruction. `pow(x, y)` is a library call, and the library
-manifest pins its algorithm, because a power computed by a platform's own maths
-library is the single most likely place for two engines to differ in the last bit
-(section 8.3).
+There is no exponent instruction. `pow(x, y)` is a library call, and `stdlib.md`
+pins its arithmetic, because a power computed by a platform's own maths library is
+the single most likely place for two engines to differ in the last bit (section
+8.3, and the gap `stdlib.md` section 20.11 records against it).
 
 ### 4.6 Comparison
 
@@ -2211,19 +2211,27 @@ somebody a mismatched backtest somewhere.
 The library is where determinism is actually won or lost, because a moving average
 is a sum and a sum has an order.
 
-- **A library function's result is defined by the reference accumulation order in
-  the library manifest.** An engine may use any algorithm that is bit-identical to
+- **A library function's result is defined by the accumulation order `stdlib.md`
+  section 20 states.** An engine may use any algorithm that is bit-identical to
   it, and no other. Specifically, an incremental rolling sum that subtracts the
   outgoing value and adds the incoming one is **not** bit-identical to a fresh sum
-  over the window, so it is permitted only for a function whose manifest defines
-  the incremental form as the reference.
+  over the window, so it is permitted only for a function that section 20 defines
+  the incremental form for, and section 20.2.1 defines it for none of them. The
+  anchored running totals of section 20.6 are not this: they have no window to
+  sum, so they are a different quantity rather than a cheaper way to compute the
+  same one.
 - **Transcendental functions do not use the platform's maths library.** `exp`,
   `log`, `pow`, the trigonometric functions and anything built on them are computed
-  by the portable reference algorithm named in the manifest. A platform's own
+  by a portable reference algorithm rather than by the host's. A platform's own
   implementation is correct to within an ulp or so and differs between platforms in
   the last bit, which is precisely the difference this project has declared a
   release blocker. The cost is a slower `pow`; the alternative is a chart and a
   backtest that disagree in the fourth decimal and no way to say which is right.
+  **No such algorithm is written down anywhere yet**, so this is the one rule in
+  section 8 an engine cannot satisfy today. `stdlib.md` section 20.11 records the
+  gap and names the library readings that reach one. `sqrt` is not among them and
+  is not at risk: IEEE-754 requires it to be correctly rounded, so every
+  conforming platform returns the same bits.
 - **Number to string conversion is specified.** `text(x)` produces the shortest
   decimal string that reads back as the same binary64 value. `text(x, d)` rounds to
   `d` decimals, ties away from zero, and always emits exactly `d` digits after the
@@ -2231,8 +2239,8 @@ is a sum and a sum has an order.
   conversion and half up is what a reader of a price expects, and because the
   choice has to be written down somewhere or two engines will label the same bar
   differently.
-- **String to number is specified** by the manifest, and returns absent for
-  anything it does not parse.
+- **String to number is specified** by `language.md` section 5.3, and returns
+  absent for anything it does not parse.
 
 ### 8.4 Nothing outside the program
 
@@ -2496,7 +2504,7 @@ persists across bars, a branch, a marker, a plot and warmup, and five lines cann
 
 `sma(src, len)` is absent until it has seen `len` values, and is otherwise the sum
 of the last `len` values in oldest to newest order, divided by `len`. That order is
-the manifest's, and section 8.3 is why it is written down.
+`stdlib.md` section 20.2.1's, and section 8.3 is why it is written down.
 
 ### 12.2 The compiled program
 
@@ -2791,9 +2799,10 @@ following hold, and the conformance suite tests each one.
 **Determinism**
 
 - [ ] Does nothing in section 8's list of prohibitions.
-- [ ] Matches the reference accumulation order for every library function.
-- [ ] Uses the manifest's reference algorithms for transcendental functions rather
-      than the platform's.
+- [ ] Matches the accumulation order of `stdlib.md` section 20 for every library
+      function.
+- [ ] Uses a portable reference algorithm for the transcendental functions rather
+      than the platform's, once one exists (`stdlib.md` section 20.11).
 - [ ] Produces byte-identical output to the reference engine on every conformance
       case.
 

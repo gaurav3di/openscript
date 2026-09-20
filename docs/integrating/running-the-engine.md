@@ -123,8 +123,8 @@ It is deliberately ignorant, and that is what lets it run anywhere:
 
 ## What it does guarantee
 
-- **No `eval`, no generated code.** It walks data, so it runs under a strict
-  content security policy with nothing for a security team to approve.
+- **The engine cannot build code out of text.** Scoped precisely below, because
+  the sentence is usually said too widely and then it is not true.
 - **A script cannot reach anything.** It can only do what the instruction set
   exposes. No network, no filesystem, no access to the object graph of the
   process it runs in. There is nothing to escape from, because nothing was ever
@@ -139,39 +139,83 @@ It is deliberately ignorant, and that is what lets it run anywhere:
 Those five are why a platform can run many customers' scripts in one process,
 which is the thing an `eval` based design cannot offer at any price.
 
-## Do not take our word for the first one
+## The first guarantee, at its real size
 
-The first guarantee is the one the other four lean on, and it is the one you can
-stop trusting us about. Server side runtimes have a switch that turns off code
-generation from strings for the whole process:
+The first one is what the other four lean on, so here is exactly what it says
+and exactly what enforces it.
+
+**The code we ship cannot reach a code generator.** Every door to one is a
+module: the runtime's virtual machine, a worker, a child process, a debugger
+channel. Nothing in the package imports a module from the runtime's own
+namespace, so none of those doors is in the graph at all. This is not a pattern
+that might be spelled around. The module is not there, and a check refuses to
+let one in: `scripts/check-layering.mjs` reads every source file, refuses any
+import of that namespace at either spelling, and refuses any load whose
+specifier is not written down. It runs on every build, it has enforced this
+since before the first source file existed, and it is attacked with a corpus of
+forms before it reads a file.
+
+**The two names that remain are refused by a switch you turn on.** With the
+modules out of reach, what is left is the string evaluator and the function
+builder, which need no import. Server-side runtimes have a switch that refuses
+both for a whole process:
 
 ```
 --disallow-code-generation-from-strings
 ```
 
-Start the process that runs the engine with it. The string evaluator and the
-function builder then throw wherever they are called, whoever wrote the code and
-however the name was spelled, because the switch turns off the runtime's own
-permission to compile text rather than looking for a name. We run our entire
-test suite under it for exactly that reason, and an engine that needed code
-generation would fail on your first script rather than on your tenth thousandth.
+Start the process that runs the engine with it. Both then throw wherever they
+are called, whoever wrote the code and however the name was spelled, because the
+switch turns off the runtime's own permission to compile text rather than
+looking for a name. We run our entire test suite under it.
 
 **This is worth more than any promise in this document.** A sentence here
-describes what we intended. The switch is your process refusing, and it keeps
-refusing after an upgrade you did not read the changelog for, and after a
-dependency you did not choose to add.
+describes what we intended. The check and the switch are the thing refusing, and
+they keep refusing after an upgrade you did not read the changelog for, and
+after a dependency you did not choose to add.
 
-Two things it does not do, so that you know the shape of what you have:
+## What that switch does not do, measured
 
-- It covers the process you set it on. A child process you start gets its own
-  settings, so set it there too.
-- It stops code being built from text. It is not a sandbox: everything else the
-  process can reach, it can still reach. The engine's own isolation is what
-  keeps a script away from that, and it is the second guarantee above.
+Said plainly, because it is usually claimed wider than it is. In a process
+started with the switch, every one of these still ran when we measured it:
 
-If you run our engine in a browser instead, the same refusal is what a content
-security policy without `unsafe-eval` already gives you. The engine is built to
-run under one, and needs nothing added to yours.
+- text run in a new context, a function compiled from source, a script object
+  built and run, all from the runtime's virtual machine module
+- a module imported from a data URL, whose body is source text
+- a module assembled out of bytes
+- a child process, handed source text on its command line
+
+So the switch is not "code generation is off". It is two names, in one process.
+That is enough for our engine, because our engine cannot import any of the
+modules in that list. It is not enough for code that can.
+
+## What is yours to do
+
+Five things, and none of them are difficult. The first three are the guarantee
+above holding in your process rather than in ours.
+
+1. **Set the switch on the process that runs the engine**, and on the ones it
+   starts. A child process gets its own settings. The environment variable your
+   runtime reads its options from is inherited by every descendant and a flag on
+   a command line is not, so set both if you fork. Set it as a whole option, not
+   inside a longer value: a runtime reads that variable as a list of options,
+   and a value that merely contains the switch's spelling sets nothing.
+2. **Keep the modules in that list away from anything that evaluates a user's
+   text.** That is your code, not ours, and the switch will not do it for you.
+3. **Serve a worker as a file, not as a blob.** A content security policy that
+   allows scripts from your own origin refuses a worker built from a blob URL.
+   Our engine needs nothing added to your policy, and `unsafe-eval` is not
+   required for any part of it.
+4. **Do not hand the compiler or the engine anything but bars and a program.**
+   Both are pure data. Neither reads your filesystem, your network or your
+   clock.
+5. **Treat a compiled program as data you may cache**, keyed by a hash, and
+   recompile only when the script changes.
+
+In a browser the first two are already answered: a content security policy
+without `unsafe-eval` refuses the same two names, and a tab has no virtual
+machine module, no child process and no worker that evaluates text. The engine
+is built to run under such a policy as it stands.
 
 ## When to stop reading this page
 

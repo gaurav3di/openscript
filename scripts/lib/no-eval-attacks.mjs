@@ -51,11 +51,26 @@
  * pattern is the answer.
  *
  * So the scan is no longer the enforcement. The suite runs under a runtime
- * setting that refuses to compile text at all, and a generator throws the moment
- * its code path executes however it was spelled. See `lib/runtime.mjs`. The
- * forms below are still every one of them fixed at the mask, because the scan
- * reads files nothing executes and catches a form before anybody runs it, but it
- * is now the first line rather than the only one.
+ * setting that refuses two names however they are spelled. See `lib/runtime.mjs`
+ * for what that covers and what it leaves open, which is more than it sounds.
+ * The forms below are still every one of them fixed at the mask, because the
+ * scan reads files nothing executes and catches a form before anybody runs it,
+ * but it is now the first line rather than the only one.
+ *
+ * ## What the fourth round changed, which is the claim rather than the corpus
+ *
+ * A live generator was planted in the test runner itself, where it executed on
+ * every run while this scan printed that nothing here builds code out of text.
+ * It got in through the mask again, behind a word, and it stayed invisible
+ * because the guard it should have run into had been turned off in every process
+ * by an environment value that merely mentioned the setting's name.
+ *
+ * Both are forms below now. The larger fix was neither: the sentence these
+ * checks printed was bigger than what they enforce, and no corpus catches an
+ * overstatement. What is enforced for the package a platform installs is that
+ * nothing under `src` may import a module from the runtime's own namespace, so
+ * there is no virtual machine, no worker and no child process to reach. That is
+ * `check-layering.mjs`, and it is where the strong claim is checkable.
  *
  * ## Why these are strings and not files
  *
@@ -214,6 +229,20 @@ export const ATTACKS = [
   // The same ambiguity one character further back: an operator that ends an
   // expression, with the division behind it.
   'const step = count++ / total; eval(body); const rest = 1 / 2;',
+
+  // And the same ambiguity in front of a word rather than a punctuation mark.
+  // The mask read a slash after any word on a keyword list as opening a
+  // literal, and `of` is a legal name, so a variable called `of` erased the
+  // rest of the line and the call on it. `yield` and `await` are names too,
+  // wherever the code around them does not reserve them.
+  'const share = of / total; eval(body); const rest = 1 / 2;',
+  'const wait = await / 2; setTimeout("tick()", 0); const rest = 1 / 2;',
+
+  // A word from that list read as a property, which is worse, because every
+  // reserved word is a legal property name and no code has to be contrived to
+  // reach one. A parser has a `return` and an `in`, and both divide.
+  'const share = node.return / total; eval(body); const rest = 1 / 2;',
+  'const part = counts.in / counts.all; eval(body); const rest = 1 / 2;',
 ];
 
 /**
@@ -265,6 +294,13 @@ export const INNOCENT = [
   // for and has to keep allowing.
   'const SPEC = "./plugin.js"; const mod = await import(SPEC);',
   'const mod = await import(node.specifier);',
+
+  // The words that are still keywords, where a slash behind one really does
+  // open a literal. Taking one of these off the list would leave the pattern
+  // below read as code and reported, which is the failure in the other
+  // direction from the divisions above.
+  'const ok = typeof /eval/ === "object";',
+  'for (const part of parts) if (part.length > 0) return /Function/.test(part);',
 ];
 
 /**
@@ -308,4 +344,48 @@ export const SHELL_INNOCENT = [
   'npm run check:no-eval',
   'node --test dist-test/tests/unit/lex-tokens.test.js',
   'git config core.hooksPath .githooks',
+];
+
+/**
+ * Environment values that look like the setting and do not turn it on.
+ *
+ * A corpus for the other guard, and it belongs beside these because it is the
+ * same failure in a different file. The runtime helper asked whether the
+ * environment value **contained** the setting's spelling, so one variable whose
+ * value merely mentions it, a process title or a path named after it, answered
+ * yes. Every program here then believed it was refusing while it was not, and
+ * handed that same environment to every child it started. The guarantee was off
+ * everywhere and every check still printed that it was on.
+ *
+ * The last two are the runtime's own way of turning the setting back off, which
+ * also contains the spelling, so a search for a substring reports a refusing
+ * process where the runtime was told the opposite. Whichever comes last wins, so
+ * the order of these matters and is the reason the whole value is read.
+ */
+export const SETTING_ABSENT = [
+  '',
+  '   ',
+  '--title=x--disallow-code-generation-from-strings',
+  '--title="--disallow-code-generation-from-strings"',
+  '--require=./--disallow-code-generation-from-strings.js',
+  "'--disallow-code-generation-from-strings'",
+  '--no-disallow-code-generation-from-strings',
+  '--disallow-code-generation-from-strings --no-disallow-code-generation-from-strings',
+];
+
+/**
+ * Environment values that really do turn it on, so the guard is not simply
+ * tightened into always saying no.
+ *
+ * Each of these was measured against the runtime rather than reasoned about: a
+ * double quote groups and is stripped, a single quote and a backslash are
+ * ordinary characters, and the last mention of the setting or of its negation
+ * decides.
+ */
+export const SETTING_PRESENT = [
+  '--disallow-code-generation-from-strings',
+  '  --disallow-code-generation-from-strings  ',
+  '"--disallow-code-generation-from-strings"',
+  '--max-old-space-size=4096 --disallow-code-generation-from-strings',
+  '--no-disallow-code-generation-from-strings --disallow-code-generation-from-strings',
 ];

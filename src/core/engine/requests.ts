@@ -182,7 +182,7 @@ function build(parts: RequestParts, request: Request, plan: RequestPlan): Read {
   let nested: RequestSet | undefined;
   const facts: HostFacts = {
     ...parts.facts,
-    symbol: () => plan.query.symbol ?? parts.facts.symbol(),
+    symbol: () => plan.query.instrument ?? parts.facts.symbol(),
     exchange: () => plan.query.exchange ?? parts.facts.exchange(),
     interval: () => plan.query.timeframe,
     requestReady: (id: Value) => nested?.answered(id) ?? false,

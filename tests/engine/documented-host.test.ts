@@ -37,46 +37,17 @@ import { test } from 'node:test';
 import { load } from '../../src/core/engine/index.js';
 import type { Engine, Value } from '../../src/core/engine/index.js';
 
+import { PAGE_INSTRUMENT } from './page-host.js';
+import type { PageBar, PageState } from './page-host.js';
 import { asWire, compile } from './support.js';
 
 /**
- * The instrument record, section 4.1, spelled as that section's example spells
- * one: a canonical timeframe string, an area and location zone, an instrument
- * type from the seven the section lists, and the session of 4.3.
+ * The instrument record, section 4.1, and the bar and state shapes of 3.1 and
+ * 6.4, are `page-host.ts`: the page typed out, shared with the suite that tests
+ * the hand-over of duty 3, so the two cannot come to disagree about what the
+ * document prints.
  */
-const INSTRUMENT = {
-  symbol: 'SAMPLE',
-  exchange: 'SAMPLE_VENUE',
-  interval: '60',
-  timezone: 'UTC',
-  tickSize: 0.05,
-  lotSize: 25,
-  pointValue: 1,
-  currency: 'XXX',
-  instrumentType: 'future',
-  hasVolume: true,
-  hasOpenInterest: false,
-  session: { start: '09:00', end: '17:30', days: [1, 2, 3, 4, 5] },
-} as const;
-
-/** A bar, section 3.1. Seven fields and no eighth. */
-interface PageBar {
-  readonly time: number;
-  readonly open: number;
-  readonly high: number;
-  readonly low: number;
-  readonly close: number;
-  readonly volume: number;
-  readonly oi: number;
-}
-
-/** The bar state, section 6.4: the four facts the host states, every execution. */
-interface PageState {
-  readonly isNew: boolean;
-  readonly isConfirmed: boolean;
-  readonly isRealtime: boolean;
-  readonly updates: number;
-}
+const INSTRUMENT = PAGE_INSTRUMENT;
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
