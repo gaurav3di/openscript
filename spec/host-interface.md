@@ -774,6 +774,15 @@ positions therefore looks a bracket's reference up only when it is not `0`, and
 the same is true of a cancellation, which names an order and no position at all.
 An engine that minted one here would hand over a reference no order ever carries.
 
+Where the leg holds more than one position, which it does whenever an order that
+opposes it is outstanding, the one named is the newest the leg's own fills have
+settled anything on, and the position being opened only where nothing has
+settled at all (`stdlib.md` section 17.7). So the reference on a bracket is
+always one some order of the same run also carries, and always one the strategy
+holds something on when it is not `0`. A host may rely on both: a `0` here means
+there is nothing to protect yet, and never that the engine could not work out
+which position was meant.
+
 **A distance is carried as a distance.** `profit` and `loss` are measured from
 the entry of the order the intent's tag names, and that entry is a fill: it
 reaches the destination before it reaches the engine, and on the bar the script

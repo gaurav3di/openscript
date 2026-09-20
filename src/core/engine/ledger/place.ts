@@ -60,6 +60,7 @@
 import type { OrderCall } from './call.js';
 import { closableUnits, closingFor, closingSide } from './closable.js';
 import type { OrderIntent, OrderType } from './intent.js';
+import { protecting } from './holdings.js';
 import { isTerminal } from './row.js';
 import { NOTHING, adding, entering, flattening } from './sizing.js';
 import type { MappedOrder, Placement, PlacingContext } from './sizing.js';
@@ -124,7 +125,13 @@ function bracketing(
       // script whose first call is `exit()` opened on reference 2 and the
       // bracket named a reference no order ever carried
       // (`host-interface.md` 7.1).
-      positionRef: ctx.attached() ?? 0,
+      //
+      // **Asked of the book, because what the leg holds is not what was minted
+      // last.** The reference minted last is cleared when that one reference
+      // returns to zero, so a leg still holding an older position reported none
+      // and a bracket went out carrying `0`, which is the one value 7.1 tells a
+      // host means there is nothing to look up (`holdings.ts`, `protecting`).
+      positionRef: protecting(ctx) ?? 0,
     }),
   ];
 }

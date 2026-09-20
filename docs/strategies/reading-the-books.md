@@ -61,6 +61,13 @@ first `exit()` of a run carries. A cancellation names an order and carries `0`
 always. Look a reference up only when it is not `0`, and `host-interface.md`
 section 7.1 is where that is written for whoever builds the other side.
 
+Because a leg can hold more than one position at a time, "the position the leg is
+holding" needs a choice made, and the choice is the newest reference the leg's
+own fills have settled anything on. Only where nothing has settled at all is the
+answer the position being opened, which is what an `exit()` written beside the
+entry it protects carries. So when a bracket's reference is not `0`, your books
+hold something on it.
+
 ## Statuses, and what terminal means
 
 The status words, and which of them are terminal, are the vocabulary of

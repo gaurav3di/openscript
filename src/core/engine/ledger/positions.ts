@@ -24,38 +24,11 @@ interface Held {
   size: number;
   /** Signed cost of the open position, so cost over size is its average. */
   cost: number;
-  /** Whether this position has ever held anything, which is what ends it. */
-  opened: boolean;
 }
 
 export class Positions {
   private readonly held = new Map<number, Held>();
   private next = 1;
-  /** The position an order placed now attaches to, or none while flat. */
-  private attaching: number | null = null;
-
-  /**
-   * The position an instruction that orders nothing is labelled with, or none.
-   *
-   * The position being opened or held now, and **nothing is minted for it**.
-   * This is not how an order picks its position and it was: an order attached
-   * to whatever was current went on a reference whose sign was not its own,
-   * which is issue 0018. Which position an order is sent against is decided
-   * from what the leg holds including what is working (`holdings.ts`), and this
-   * is left for the one caller that sends no order at all, a bracket, which
-   * sets a level on the leg and moves nothing.
-   *
-   * **Absent while the leg holds nothing**, which is a bracket set before the
-   * position it protects exists: the commonest shape there is, an `exit()` on
-   * the same bar as the entry, and a script whose first call is `exit()` or
-   * `order.bracket()`. Minting there took a reference for an instruction that
-   * appends no row and moves nothing, so the entry after it opened on the next
-   * one and the bracket named a position no order ever carried, which is a
-   * number a host reconciling the two cannot find on the other side.
-   */
-  attached(): number | null {
-    return this.attaching;
-  }
 
   /**
    * The settled size of one position reference, signed the way a position is.
@@ -80,14 +53,13 @@ export class Positions {
   mint(): number {
     const ref = this.next;
     this.next += 1;
-    this.held.set(ref, { size: 0, cost: 0, opened: false });
-    this.attaching = ref;
+    this.held.set(ref, { size: 0, cost: 0 });
     return ref;
   }
 
   /** Step 6 of the fold: `units` at `price` settle against one position. */
   settle(ref: number, units: number, price: number): void {
-    const position = this.held.get(ref) ?? { size: 0, cost: 0, opened: false };
+    const position = this.held.get(ref) ?? { size: 0, cost: 0 };
     this.held.set(ref, position);
     const before = position.size;
 
@@ -106,12 +78,6 @@ export class Positions {
       const held = Math.sign(after) === Math.sign(before) ? average : price;
       position.cost = after === 0 ? 0 : after * held;
     }
-
-    if (position.size !== 0) position.opened = true;
-    // The position ends when its own quantity returns to zero through settled
-    // fills. The leg going flat is not the test: during a flip the outgoing
-    // position reaching zero leaves the replacement attaching.
-    if (this.attaching === ref && position.size === 0 && position.opened) this.attaching = null;
   }
 
   /** The leg's net position in units, `0` while flat. */

@@ -9,6 +9,26 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A bracket now names the position the strategy is actually holding.** `exit()`
+and `order.bracket()` hand the host the position reference they protect, and
+`host-interface.md` 7.1 tells a host to look that reference up only when it is
+not `0`, because `0` means the leg holds nothing yet. The reference was a slot
+on the position book rather than an answer worked out from it: set when a
+reference was minted, cleared when that one reference returned to zero, and
+never pointed at another. So a leg holding two positions, whose newer one closed
+while the older one was still held, reported holding none, and the bracket went
+out carrying `0` while the strategy held ten units. The same slot read the other
+way named a reference nothing ever opened: a reference minted for an order the
+destination then refused stayed the answer for every bracket after it, so the
+intent carried a number a host reconciling against its own positions cannot find
+on the other side. Neither needed an unusual destination. One entry, one
+opposing entry large enough to open a second position and an ordinary partial
+fill reach the first. **The reference is now derived from the leg's own book**:
+the newest position its fills have settled anything on, and the position it is
+opening only where nothing has settled at all, which is the order `stdlib.md`
+17.7 states the two in. Both pages now say which position is named where a leg
+holds more than one.
+
 **The arithmetic manifest now measures what it prints, and a check keeps it
 that way.** `stdlib.md` section 20 is the page a second engine implements its
 arithmetic from, and the way it goes wrong is always the same: a figure is

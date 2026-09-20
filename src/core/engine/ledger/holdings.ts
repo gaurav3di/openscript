@@ -247,6 +247,48 @@ export function outgoingFor(
 }
 
 /**
+ * The position a bracket protects, or none where the leg holds none,
+ * `stdlib.md` 17.7 and `host-interface.md` 7.1.
+ *
+ * **Holding first, opening second, which is the order 17.7 states them in.** A
+ * bracket appends no row and moves no position, so it has nothing of its own to
+ * name: it names what the leg has, and what the leg has is what its own fills
+ * settled. Only where nothing has settled at all is the answer the position the
+ * leg is opening, which is the ordinary shape of an `exit()` written beside the
+ * entry it protects.
+ *
+ * **The newest of them where the leg holds more than one**, which it does
+ * whenever an order that opposes it is outstanding. The newest is the one an
+ * entry on that side would join (`joining`), so a bracket set after an entry
+ * names the position that entry is in.
+ *
+ * **Derived here rather than kept as the last reference minted.** A stored slot
+ * answered neither question: it was set by the mint and cleared when that one
+ * reference returned to zero, so a leg whose newer position closed while an
+ * older one was still held was reported as holding none, and `exit()` handed a
+ * host `0` with ten units on the books. The mirror of it is the same slot read
+ * the other way: a reference minted for an order the destination then refused
+ * stayed the answer, and the bracket named a position that never opened while
+ * the leg's own sat on another reference. Neither needs a slot to answer, and
+ * both are wrong in the direction a host cannot check: `0` says the leg holds
+ * nothing, and 7.1 tells a host to look a reference up only when it is not `0`.
+ */
+export function protecting(ctx: Book): number | null {
+  let held: number | null = null;
+  const seen = new Set<number>();
+  for (const row of ctx.rows()) {
+    if (seen.has(row.positionRef)) continue;
+    seen.add(row.positionRef);
+    // Rows are oldest first and references are minted in order, so the last one
+    // this loop keeps is the newest reference something has settled on.
+    if (ctx.sizeOf(row.positionRef) !== 0) held = row.positionRef;
+  }
+  if (held !== null) return held;
+  const book = holdings(ctx);
+  return book.length === 0 ? null : (book[book.length - 1] as Holding).ref;
+}
+
+/**
  * The reference an order that adds to a position joins, or none to mint one.
  *
  * The newest open reference on that side, so that two entries sent on two bars

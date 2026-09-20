@@ -1960,6 +1960,19 @@ opened on the next one and the bracket named a reference no order ever carried,
 which is a number a host reconciling the two cannot find on the other side.
 `host-interface.md` section 7.1 says what reaches the host when there is none.
 
+**Holding first, opening second, and the newest where a leg holds more than
+one.** A leg holds more than one position whenever an order that opposes it is
+outstanding, so "the position the leg is holding" needs a choice made: it is the
+newest reference the leg's own settled fills have put something on, and only
+where nothing has settled at all is it the position the leg is opening. The
+newest is the one an entry on that side would join, so a bracket set after an
+entry names the position that entry is in. **It is not the reference minted
+last**, which is a different fact and answers neither question: a leg whose
+newer position closed while an older one was still held reported holding none,
+so an `exit()` went out carrying `0` with the strategy's units still on the
+books, and a reference minted for an order the destination then refused stayed
+the answer for every bracket after it, naming a position that never opened.
+
 **Every position a leg holds can be brought back to zero**, which is what makes
 the sentence above a rule rather than a hope. An order on the side that reduces
 a position, at the size that position holds, ends it, and a reducing order the

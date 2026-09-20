@@ -41,6 +41,7 @@ import {
   crossings,
   ended,
   frame,
+  partial,
   ranAnswering,
   reversed,
   runFor,
@@ -370,4 +371,123 @@ test('a bracket carries the position it protects, or none', () => {
   const beside = run.sent[2] as OrderIntent;
   assert.equal(beside.kind, 'bracket');
   assert.equal(beside.positionRef, 1, 'a bracket beside an entry names the position it opens');
+});
+
+/** The leg's settled net, folded from the ledger's own filled quantities. */
+function legOf(run: Run): number {
+  return run.engine
+    .orders()
+    .reduce((total, row) => total + (row.side === 'buy' ? row.filledQty : -row.filledQty), 0);
+}
+
+/**
+ * A bracket names the position the leg is holding, not the reference minted
+ * last.
+ *
+ * `stdlib.md` 17.7 and `host-interface.md` 7.1. The reference a bracket carries
+ * was a slot on the position book: set by the mint, cleared when that one
+ * reference returned to zero, and never pointed at another. A leg holding two
+ * positions, whose newer one closes while the older is still held, was then
+ * reported as holding none, and `exit()` handed a host `0`, which is the one
+ * value 7.1 tells a host means there is no position to look up. Nothing in this
+ * suite failed on it: 1427 tests passed over a bracket that named nothing while
+ * the strategy carried six units.
+ *
+ * Nothing unusual is needed to reach it. One entry, one opposing entry large
+ * enough to open a second position, an ordinary partial fill on the order that
+ * reduces the first, and the second position closing.
+ */
+test('a bracket names the position the leg is still holding', () => {
+  const run = runFor([
+    ...PROBE,
+    'if bar.index == 0',
+    '    buy(qty = 10)',
+    'if bar.index == 1',
+    '    sell(qty = 15)',
+    'if bar.index == 2',
+    '    buy(qty = 5)',
+    'if bar.index == 3',
+    '    exit(profit = 4, loss = 2)',
+  ]);
+  const stopped = ranAnswering(run, 5, {
+    1: [frame(1, 10, 100)],
+    2: [partial(2, 4, 100), frame(3, 5, 100)],
+    3: [frame(4, 5, 100)],
+  });
+  assert.equal(stopped, undefined);
+  const bracket = run.sent.find((one) => one.kind === 'bracket') as OrderIntent;
+  assert.notEqual(bracket, undefined);
+  // Six of the first entry are still held: ten filled, four of the fifteen sold.
+  assert.equal(legOf(run), 6, 'the leg still holds the first position');
+  assert.equal(bracket.positionRef, 1, 'the bracket names the position the leg holds');
+});
+
+/**
+ * And it never names a reference that holds nothing while the leg holds one.
+ *
+ * The same slot read the other way. A reference minted for an order the
+ * destination then refused stayed the answer for every bracket after it, so the
+ * bracket named a position that never opened while the leg's own sat on an
+ * older reference. A host reconciling the two finds a number on the intent and
+ * nothing on the other side, which is exactly what 7.1's rule about `0` exists
+ * to prevent.
+ */
+test('a bracket never names a reference nothing ever opened', () => {
+  const run = runFor([
+    ...PROBE,
+    'if bar.index == 0',
+    '    buy(qty = 10)',
+    'if bar.index == 1',
+    '    sell(qty = 15)',
+    'if bar.index == 2',
+    '    exit(profit = 4, loss = 2)',
+  ]);
+  const stopped = ranAnswering(run, 4, {
+    1: [frame(1, 10, 100)],
+    2: [ended(2, 'rejected'), ended(3, 'rejected')],
+  });
+  assert.equal(stopped, undefined);
+  const bracket = run.sent.find((one) => one.kind === 'bracket') as OrderIntent;
+  assert.notEqual(bracket, undefined);
+  assert.equal(legOf(run), 10, 'the leg holds the entry the destination filled');
+  assert.equal(bracket.positionRef, 1, 'the bracket names the position, not the refused order');
+  const settled = run.engine
+    .orders()
+    .filter((row) => row.positionRef === bracket.positionRef)
+    .reduce((total, row) => total + (row.side === 'buy' ? row.filledQty : -row.filledQty), 0);
+  assert.notEqual(settled, 0, 'the reference a bracket names is one the leg holds something on');
+});
+
+/**
+ * Holding first and opening second, which is the order `stdlib.md` 17.7 states
+ * the two in.
+ *
+ * A leg holds more than one position whenever an order that opposes it is
+ * outstanding, and then the two halves of that sentence give different answers:
+ * one reference carries what the leg's fills settled and another is being
+ * opened against it. The position a bracket protects is the one the leg has,
+ * not the one an opposing entry is on its way to open. Taking the book's newest
+ * entry first inverts it, and this is the shape that says so.
+ */
+test('a bracket protects what the leg holds, not what is being opened against it', () => {
+  const run = runFor([
+    ...PROBE,
+    'if bar.index == 0',
+    '    buy(qty = 10)',
+    'if bar.index == 1',
+    '    sell(qty = 15)',
+    'if bar.index == 2',
+    '    exit(profit = 4, loss = 2)',
+  ]);
+  const stopped = ranAnswering(run, 4, { 1: [frame(1, 10, 100)] });
+  assert.equal(stopped, undefined);
+  const opening = run.sent.filter((one) => one.kind === 'place' && one.side === 'sell');
+  assert.deepEqual(
+    opening.map((one) => one.positionRef),
+    [1, 2],
+    'the opposing entry takes ten off the position and opens a second with five',
+  );
+  const bracket = run.sent.find((one) => one.kind === 'bracket') as OrderIntent;
+  assert.equal(legOf(run), 10, 'nothing of the opposing entry has settled');
+  assert.equal(bracket.positionRef, 1, 'the bracket names the position the leg holds');
 });

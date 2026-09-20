@@ -73,8 +73,6 @@ export interface PlacingContext extends Closing, Book {
   readonly bar: IntentBar;
   /** The average price of the open position, absent while flat. */
   avgPrice(): number | null;
-  /** The position an instruction that orders nothing is labelled with. */
-  attached(): number | null;
   /** A fresh position, for the replacement half of a flip. */
   mint(): number;
 }

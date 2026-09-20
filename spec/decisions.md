@@ -3922,6 +3922,71 @@ which is what the page claims of them.
 
 ---
 
+## 54. Which position a bracket names, and why it cannot be a stored slot
+
+**Question.** Decision 52 part five settled that a bracket carries the position
+the leg is holding or opening and `0` where the leg holds none, and stopped
+minting one. It left the answer where it found it: a field on the position book
+holding the reference minted most recently, set by `mint` and cleared when that
+one reference returned to zero. Is that field an answer to the question the
+sentence asks?
+
+**It is not, and it is wrong in both directions.** The field records which
+reference was minted last, and the sentence asks what the leg holds. The two
+part company the moment a leg holds more than one position, which it does
+whenever an order that opposes it is outstanding, and that is the ordinary shape
+this section has spent five rounds on rather than an exotic one.
+
+**Reported as holding none while holding something.** `buy(qty = 10)` filled,
+`sell(qty = 15)` divided into ten against the first position and five opening a
+second, an ordinary partial fill of four on the first order, and `buy(qty = 5)`
+closing the second. The second reference returns to zero, the field it set is
+cleared, and the leg is still holding six of the first. An `exit()` on the next
+bar went out with `positionRef` of `0`, which `host-interface.md` 7.1 tells a
+host means there is no position to look up. A host resting protective orders
+against it has nothing to rest them against, and the reading is not recoverable
+from anything else on the intent.
+
+**Naming a position that never opened.** The same field read the other way. A
+reference minted for an order the destination then refuses is never cleared,
+because nothing settles on it, so it stays the answer for every bracket after
+it. `buy(qty = 10)` filled and `sell(qty = 15)` refused in both halves leaves
+the leg holding ten on reference 1, and the bracket carried reference 2, which
+holds nothing and never will. That is the same defect decision 52 part five
+removed at the mint, arriving through the field instead.
+
+**Decision. The reference is derived from the leg's own book, holding first and
+opening second**, which is the order 17.7 states them in, and the newest where
+the leg holds more than one. The newest is the reference an entry on that side
+would join, so a bracket set after an entry names the position that entry is in.
+Nothing is stored: `holdings.ts`'s `protecting` reads the rows and the position
+book, which is the same pair every other question in this file is answered from,
+and `Positions` loses the field and the `opened` flag that existed only to clear
+it. Two properties follow and a host may rely on both: the reference on a
+bracket is one some order of the same run also carries, and where it is not `0`
+the strategy holds something on it.
+
+**How it was found.** Not by reading. A host written from `host-interface.md`
+alone, driving the engine and folding every property from the intents it was
+handed and the frames it sent back, over fifteen hundred generated scripts: five
+brackets carried `0` while the leg held a position. The two shapes above are
+those runs reduced by hand. Nothing in the suite failed: 1427 tests passed over
+a bracket naming nothing while the strategy carried six units, which is what
+happens when a fix is scoped to the sentence that was wrong rather than to the
+question underneath it.
+
+**Changes required.**
+
+- `src/core/engine/ledger/holdings.ts`: `protecting`, new.
+- `src/core/engine/ledger/place.ts`: `bracketing` asks it.
+- `src/core/engine/ledger/positions.ts`: the stored slot and the `opened` flag go.
+- `src/core/engine/ledger/sizing.ts`, `ledger.ts`: the context loses `attached`.
+- `spec/stdlib.md` 17.7 and `spec/host-interface.md` 7.1: which position is
+  named where a leg holds more than one.
+- `tests/engine/parts.test.ts`: the two shapes above.
+
+---
+
 ---
 
 ## Applier index
