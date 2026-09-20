@@ -179,7 +179,16 @@ export interface ChartAlertContext extends ChartSurfaceContext {
 export interface ChartAlertSpec {
   readonly id: string;
   readonly title: string;
-  readonly message?: string;
+  /**
+   * The notification's text, computed for the bar that fired.
+   *
+   * The chart takes either a fixed string or a function of the same context
+   * `when` was judged on, and it calls the function only for a bar `when`
+   * accepted. This adapter writes only the function: a declared alert's message
+   * is an expression evaluated on the bar, so a fixed string could only ever be
+   * the title again, which is what this used to hand over.
+   */
+  message?(ctx: ChartAlertContext): string;
   when(ctx: ChartAlertContext): boolean;
 }
 

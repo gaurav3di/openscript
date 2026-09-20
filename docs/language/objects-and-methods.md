@@ -117,15 +117,23 @@ else's study.
 | `draw.setTextColor(obj, color)` | label, box | Change the text colour |
 | `draw.setFillColor(obj, color)` | box, polyline | Change the fill |
 | `draw.setWidth(obj, width)` | line, box, polyline | Change the thickness |
-| `draw.setStyle(obj, style)` | line, box | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setStyle(obj, style)` | line | `"solid"`, `"dashed"` or `"dotted"` |
 | `draw.setExtend(line, left, right)` | line | Continue the line to the pane edge |
-| `draw.setTooltip(obj, text)` | all | Detail shown while the pointer rests on it |
+| `draw.setTooltip(obj, text)` | label, box | Detail shown while the pointer rests on it |
 | `draw.delete(obj)` | all | Remove one object |
 | `draw.deleteAll()` | all | Remove every object this script created |
 | `draw.count()` | n/a | How many objects this script currently holds |
 
 Every one of these may appear anywhere in a script: inside an `if`, inside a
 loop, inside a function. They are per-bar events, not declarations.
+
+**The "applies to" column is the type of the argument, and the compiler holds
+you to it.** A kind is on the list when its creation call takes that property:
+only `draw.line` takes a `style`, only `draw.label` and `draw.box` take a
+`tooltip`, only a line and a box have a second anchor. A call that passes
+another kind, or a number, is OS3011 at that argument. It used to compile: the
+engine wrote the property onto the object, no surface read it, and the script
+drew nothing and was told nothing.
 
 ## Handles
 

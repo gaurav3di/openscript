@@ -14,6 +14,7 @@
 import type { Binary, Expression, Index, Member, NameReference, Unary } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import { resolveCall } from './call-sites.js';
+import { warmupOfElement } from './call-warmup.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
 import { allowHandle, handleAllowed, refuseHandle } from './handles.js';
@@ -399,7 +400,8 @@ function checkIndex(checker: Checker, expression: Index, placement: Placement): 
   if (elementOf(target).kind === 'array') {
     const array = elementOf(target);
     const element = array.kind === 'array' ? array.element : UNKNOWN;
-    return checker.record(expression, element, targetWarmup);
+    const warmup = elementWarmup(checker, expression) ?? targetWarmup;
+    return checker.record(expression, element, warmup);
   }
 
   const held = elementOf(target).kind;
@@ -417,6 +419,29 @@ function checkIndex(checker: Checker, expression: Index, placement: Placement): 
   const warmup: Warmup =
     back === undefined ? weaken(targetWarmup) : delayed(targetWarmup, back);
   return checker.record(expression, elementOf(target), warmup);
+}
+
+/**
+ * The warmup of one output of a multi-output call, where this reads one.
+ *
+ * `stdlib.md` 2.3 gives each element its own warmup, and the array's is the
+ * earliest of them, so `m[1]` read through the array's would claim a value for
+ * bars where the signal line is still absent and a read built on it would ask a
+ * host for too little history. Nothing here when the index is not a written
+ * number or the call states one warmup for every element: the array's is then
+ * the element's, and the caller uses it.
+ */
+function elementWarmup(checker: Checker, expression: Index): Warmup | undefined {
+  const index = literalNumber(expression.index);
+  if (index === undefined || !Number.isInteger(index) || index < 0) return undefined;
+  const inner = withoutGrouping(expression.target);
+  const call =
+    inner.kind === 'call'
+      ? checker.callSites.get(inner)
+      : inner.kind === 'nameReference'
+        ? checker.multiOutputOf(inner.name)
+        : undefined;
+  return call === undefined ? undefined : warmupOfElement(checker, call, index);
 }
 
 /** The four cases of language.md 5.2, and nothing else. */

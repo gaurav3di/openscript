@@ -27,6 +27,7 @@ import type {
 import { isObjectTypeName, isValueTypeName, typeAnnotationText, withoutGrouping } from '../ast/index.js';
 import { literalNumber } from './literals.js';
 import type { Checker, Placement } from './checker.js';
+import type { CheckedCall } from './checked.js';
 import { checkCondition, checkExpression } from './expressions.js';
 import { allowHandle } from './handles.js';
 import { isLibraryName } from './surface.js';
@@ -127,12 +128,11 @@ export function checkStatement(
   }
 }
 
-/** The placement inside a construct, for OS3006's message and OS8001's rule. */
+/** The placement inside a construct, for OS3006's message. */
 function inside(placement: Placement, construct: string, loop = false): Placement {
   return {
     topLevel: false,
     construct,
-    branched: true,
     inLoop: placement.inLoop || loop,
   };
 }
@@ -168,6 +168,7 @@ function checkAssignment(checker: Checker, statement: Assignment, placement: Pla
       existing.type = fixed;
     });
     existing.warmup = earlier(existing.warmup, warmup);
+    checker.holdsMultiOutput(existing.id, callHeldBy(checker, statement.value));
     return;
   }
 
@@ -188,11 +189,18 @@ function checkAssignment(checker: Checker, statement: Assignment, placement: Pla
   const kind = checker.scope === checker.fileScope ? 'file' : 'block';
   const binding = checker.declare(target, kind, type, warmup);
   const inner = withoutGrouping(statement.value);
+  checker.holdsMultiOutput(binding.id, callHeldBy(checker, statement.value));
   if (inner.kind === 'call') {
     const call = checker.callSites.get(inner);
     if (call?.name === 'input') adoptInput(checker, binding.id, target.text);
     if (type.kind === 'handle') binding.handle = type.handle;
   }
+}
+
+/** The library call a name is being given, where it is given one directly. */
+function callHeldBy(checker: Checker, value: Expression): CheckedCall | undefined {
+  const inner = withoutGrouping(value);
+  return inner.kind === 'call' ? checker.callSites.get(inner) : undefined;
 }
 
 /** Gives the input the name it was assigned to, which is also its default title. */

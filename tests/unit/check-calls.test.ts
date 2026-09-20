@@ -247,3 +247,84 @@ test('an alert on every update needs the declaration to allow it', () => {
 test('a misplaced call is reported under the call itself', () => {
   assert.equal(spanFor('if close > open\n    plot(close, "C")', 'OS3006'), '4:5+16');
 });
+
+// Catches the parameter that took whatever it was given. A setter written
+// `obj: any` accepted a label where a line belongs, the engine wrote an anchor
+// the label has no field for, and the script drew nothing and was told nothing.
+// The kinds a setter takes are the kinds whose creation call takes that
+// property, which is `stdlib.md` 14.4 read down its own table.
+test('a setter given an object of the wrong kind is refused, naming the kinds it takes', () => {
+  const body = 'tag = draw.label(time, close, "x")\ndraw.setFrom(tag, time, close)';
+  assert.deepEqual(codes(body), ['OS3011']);
+  assert.deepEqual(valuesFor(body, 'OS3011'), {
+    name: 'draw.setFrom',
+    argument: 'obj',
+    expected: 'line or box',
+    found: 'label',
+  });
+  // The caret sits on the argument, not on the call: the call is right and one
+  // of its arguments is wrong.
+  assert.equal(spanFor(body, 'OS3011'), '4:14+3');
+});
+
+// Catches the worse half of the same defect: a value that is not an object at
+// all reached the engine, which did nothing with it, on every bar, in silence.
+test('a setter given something that is not an object is refused', () => {
+  const body = 'draw.setColor(5, red)';
+  assert.deepEqual(codes(body), ['OS3011']);
+  assert.deepEqual(valuesFor(body, 'OS3011'), {
+    name: 'draw.setColor',
+    argument: 'obj',
+    expected: 'line, label, box or polyline',
+    found: 'number',
+  });
+});
+
+// Catches a set that lets everything through, which is the same as `any` with
+// more words. Each of these is the kind that carries the property being written.
+test('a setter takes every kind that carries the property, and no others', () => {
+  const held =
+    'seg = draw.line(time, close, time, open)\n' +
+    'tag = draw.label(time, close, "x")\n' +
+    'zone = draw.box(time, high, time, low)\n' +
+    'path = draw.polyline([time], [close])\n';
+  // The three handles a case does not mutate are never read, which is its own
+  // warning and not what this test is about.
+  const typing = (call: string): readonly string[] =>
+    codes(`${held}${call}`).filter((one) => one !== 'OS8010');
+
+  assert.deepEqual(typing('draw.setFrom(zone, time, close)'), [], 'a box has two anchors');
+  assert.deepEqual(typing('draw.setText(zone, "x")'), [], 'a box carries text');
+  assert.deepEqual(typing('draw.setFillColor(path, red)'), [], 'a polyline has a fill');
+  assert.deepEqual(typing('draw.setWidth(path, 2)'), [], 'a polyline has a width');
+  assert.deepEqual(typing('draw.setColor(tag, red)'), [], 'every kind has a colour');
+  assert.deepEqual(typing('draw.setTooltip(tag, "why")'), [], 'a label has a tooltip');
+
+  assert.deepEqual(typing('draw.setFillColor(seg, red)'), ['OS3011'], 'a line has no fill');
+  assert.deepEqual(typing('draw.setWidth(tag, 2)'), ['OS3011'], 'a label has no width');
+  assert.deepEqual(typing('draw.setStyle(zone, "dashed")'), ['OS3011'], 'a box has no style');
+  assert.deepEqual(typing('draw.setTooltip(seg, "why")'), ['OS3011'], 'a line has no tooltip');
+  assert.deepEqual(typing('draw.setPoints(zone, [time], [close])'), ['OS3011']);
+  assert.deepEqual(typing('draw.setAt(seg, time, close)'), ['OS3011']);
+});
+
+// Catches a set that answers OS3011 for a declaration handle. A handle has no
+// value on a bar at all, which is a different mistake with a different fix, and
+// OS3019's own example in the catalogue is this call.
+test('a declaration handle given to a setter keeps its own code', () => {
+  const body = 'upper = plot(close, "U")\ndraw.setColor(upper, red)';
+  assert.deepEqual(codes(body), ['OS3019']);
+  assert.deepEqual(valuesFor(body, 'OS3019'), {
+    name: 'draw.setColor',
+    argument: 'obj',
+    expected: 'line, label, box or polyline',
+    found: 'plot',
+  });
+});
+
+// Catches a set that refuses absence. An absent handle is a gap like every other
+// absence reaching a drawing surface, and it is what the fix for OS4005 asks a
+// script to produce.
+test('a setter given an absent handle is not a type error', () => {
+  assert.deepEqual(codes('var seg = none\ndraw.setColor(seg, red)'), []);
+});

@@ -25,6 +25,7 @@ import {
   arrayOf,
   handleType,
   objectType,
+  objectsType,
   seriesOf,
 } from './types.js';
 
@@ -89,11 +90,22 @@ export interface LibraryParameter {
   /**
    * The default, written as `stdlib.md`'s own tables write it, or nothing.
    *
-   * An omitted argument is emitted as the constant this text names, so the
-   * default is a compile-time fact and no engine carries a table of them
-   * (`compiled-program.md` 4.10). A parameter with no text here is emitted as
-   * absent and the emitter records the gap, which is the state every optional
-   * parameter was in before any of them said what they default to.
+   * An omitted argument is filled from this text, so the default is a
+   * compile-time fact and no engine carries a table of them
+   * (`compiled-program.md` 4.10). The text is a literal (`14`, `"ema"`,
+   * `false`, `none`) or a library name the compiler reads at the call
+   * (`hlc3`, `chart.timezone`); the emitter decides which, because a default
+   * is a value and values are the emitter's.
+   *
+   * **Nothing here is not "no default".** It means the specification states no
+   * value for this parameter: either it states words rather than a value, as
+   * `leg = the only leg` does, or it states nothing at all. Both are recorded
+   * with their reason in `spec/default-exceptions.json`, and
+   * `scripts/check-defaults.mjs` refuses any optional parameter that is in
+   * neither that file nor this field. The two together are what stop a default
+   * from being dropped again: an argument omitted from a call used to reach an
+   * engine as absence, every function built on it answered absence on every
+   * bar, and nothing anywhere reported it.
    */
   readonly defaultText: string | undefined;
 }
@@ -106,6 +118,16 @@ export interface LibraryEntry {
   readonly parameters: readonly LibraryParameter[];
   readonly returns: Type;
   readonly warmup: WarmupRule;
+  /**
+   * A rule per output, for an entry whose outputs warm up at different bars.
+   *
+   * `stdlib.md` 2.3 gives each element of a multi-output call its own warmup,
+   * and several of them differ: a signal line is later than the line it
+   * smooths. Empty where the specification states one bar for every element,
+   * because then `warmup` above is already that bar and a second copy of it
+   * would be a fact stated twice.
+   */
+  readonly elements: readonly WarmupRule[];
   /** Holds per-bar state, so a call inside a branch is OS8001. */
   readonly stateful: boolean;
   /** Top level only: OS3006, or OS3007 for `input`. */
@@ -126,6 +148,7 @@ export interface LibraryEntry {
 
 export interface EntryOptions {
   readonly warmup?: WarmupRule;
+  readonly elements?: readonly WarmupRule[];
   readonly stateful?: true;
   readonly topLevel?: true;
   readonly strategyOnly?: true;
@@ -148,6 +171,12 @@ const HANDLE_NAMES: readonly string[] = ['plot', 'fill', 'level'];
  * that `push(arr, v)` can say that `v` is whatever `arr` holds and `orElse`
  * can say it gives back what it was given. Both are resolved at the call site
  * and neither ever reaches a name's type.
+ *
+ * `line | box` is not either of those and is not a general union: it is the set
+ * of object kinds one parameter accepts, which is what a `draw` setter takes,
+ * and it is checked like any other declared type. `any` used to stand there,
+ * and an `any` that means "one of these two" accepts a label and a number as
+ * readily, which is the defect it is written to end.
  */
 export const ANY: Type = UNKNOWN;
 
@@ -159,6 +188,7 @@ function parseType(text: string): Type {
   if (trimmed.startsWith('array<') && trimmed.endsWith('>')) {
     return arrayOf(parseType(trimmed.slice(6, -1)));
   }
+  if (trimmed.includes('|')) return parseObjectSet(trimmed);
   switch (trimmed) {
     case 'number':
       return NUMBER;
@@ -180,6 +210,25 @@ function parseType(text: string): Type {
       if (HANDLE_NAMES.includes(trimmed)) return handleType(trimmed as HandleKind);
       throw new Error(`library signature names no such type: ${trimmed}`);
   }
+}
+
+/**
+ * `line | box`, as a set of object kinds.
+ *
+ * Every member has to be an object kind, there have to be two or more of them,
+ * and no kind may be written twice: each of those is a signature somebody wrote
+ * by hand, and a set that quietly accepted a misspelling would be a parameter
+ * that accepts less than the specification says while reading as though it
+ * accepts it.
+ */
+function parseObjectSet(text: string): Type {
+  const kinds = text.split('|').map((one) => one.trim());
+  const known = kinds.every((one) => OBJECT_NAMES.includes(one));
+  const distinct = new Set(kinds).size === kinds.length;
+  if (!known || !distinct || kinds.length < 2) {
+    throw new Error(`library signature names no such set of object types: ${text}`);
+  }
+  return objectsType(kinds as ObjectKind[]);
 }
 
 /** Split on commas that are not inside angle brackets. */
@@ -208,7 +257,7 @@ function splitParameters(text: string): readonly string[] {
  * default, and `= value` after the type says what that default is, written the
  * way `stdlib.md`'s tables write it so the two can still be compared by eye.
  * The text is carried, never interpreted here: the emitter turns it into a
- * constant, because that is where a default belongs (4.10).
+ * value, because that is where a default belongs (4.10).
  */
 export function entry(signature: string, options: EntryOptions = {}): LibraryEntry {
   const arrow = signature.indexOf('->');
@@ -234,6 +283,11 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
       if (defaultText !== undefined && !optional) {
         throw new Error(`library parameter has a default and no question mark: ${part}`);
       }
+      // An empty default is a signature that was split somewhere unintended,
+      // and it would reach the emitter as a value nobody wrote.
+      if (defaultText !== undefined && defaultText.length === 0) {
+        throw new Error(`library parameter has an empty default: ${part}`);
+      }
       parameters.push({
         name: optional ? written.slice(0, -1) : written,
         type: parseType(equals < 0 ? rest : rest.slice(0, equals)),
@@ -249,6 +303,7 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
     parameters,
     returns,
     warmup: options.warmup ?? { kind: 'delay', bars: 0 },
+    elements: options.elements ?? [],
     stateful: options.stateful === true,
     topLevel: options.topLevel === true,
     strategyOnly: options.strategyOnly === true,
@@ -263,6 +318,11 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
 /** `bar `len - 1`` and its relatives, the commonest warmup shape in the library. */
 export function fromLength(param: string, add: number, scale = 1): WarmupRule {
   return { kind: 'params', params: [param], scale, add, exact: true };
+}
+
+/** A sum of lengths, as `bar `len + smoothK - 2`` and its relatives state it. */
+export function fromLengths(params: readonly string[], add: number): WarmupRule {
+  return { kind: 'params', params, scale: 1, add, exact: true };
 }
 
 /** A warmup this module bounds below rather than reproducing the formula for. */

@@ -160,6 +160,34 @@ test('a string past the character ceiling is OS5008', () => {
   assert.equal(last.diagnostic?.values['max'], 25);
 });
 
+/**
+ * A decimal count a script computed, against the same ceiling.
+ *
+ * `text(x, d)` writes one character per decimal place asked for, so a `d` from
+ * a setting or an expression is a string length the script chose. Catches a
+ * conversion that answers a count it cannot honour with a string anyway,
+ * truncated or malformed, which is a label nobody can act on where a code would
+ * have named the line. The length is worked out before the string is built, as
+ * `str.repeat` does it, so a count no engine could hold is reported rather than
+ * allocated; that part is not what this test can prove, only what it rests on.
+ */
+test('a fixed decimal conversion past the character ceiling is OS5008', () => {
+  const engine = running(
+    [
+      'version 1',
+      '',
+      'study("Wide")',
+      '',
+      'signal(text(close, 40))',
+      'plot(close, "c", aqua)',
+    ].join('\n'),
+    { limits: { stringLength: 25 } },
+  );
+  const last = engine.append(flat(10), { isConfirmed: true });
+  assert.equal(last.diagnostic?.code, 'OS5008');
+  assert.equal(last.diagnostic?.values['max'], 25);
+});
+
 test('a failed bar stops the script and every later bar reports the same failure', () => {
   // 5.1: an error during step 6 stops the bar, and the engine does not continue
   // to the next bar with a half executed state. Catches an engine that carries

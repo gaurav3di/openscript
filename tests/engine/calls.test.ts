@@ -5,6 +5,11 @@
  * `CALL_FN` with its per call path bases, `HISTP` reading the register a call
  * site bound, the `for x in` form the compiler builds out of a `while`, and the
  * object lifetime OS4005 protects.
+ *
+ * The last two are about a call site that is jumped over rather than called.
+ * `language.md` 11.4 says its state is left untouched and its series absent for
+ * that bar, which is the behaviour OS8001 warns about, and the warning is worth
+ * nothing if the thing it warns about is not what the engine does.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -161,4 +166,72 @@ test('a drawing object a script never named is still drawn', () => {
   for (const close of [10, 11, 12]) engine.append(flat(close), { isConfirmed: true });
   assert.equal(engine.drawings().length, 1);
   assert.equal(engine.drawings()[0]?.kind, 'label');
+});
+
+test('a stateful call in a ternary arm advances only on the bars the arm runs', () => {
+  // `language.md` 11.4: a call site that does not execute leaves its series
+  // absent and its state untouched, and 9.5 evaluates only the taken arm. The
+  // two together mean the average below is taken over the bars the guard let
+  // through and not over the last two bars.
+  //
+  // Catches an engine that hoists the arm out of the branch, or that carries
+  // the previous value forward across a skipped bar. Either one would publish
+  // a number a reader would take for a two bar average: bar 2 would read 11,
+  // the average of 8 and 14, rather than 13, the average of the 12 and the 14
+  // the call actually received.
+  const seen = column(
+    [
+      'version 1',
+      '',
+      'study("Guarded")',
+      '',
+      'v = close > 10 ? sma(close, 2) : none',
+      '',
+      'plot(v, "v", aqua)',
+    ].join('\n'),
+    [12, 8, 14, 16],
+  );
+  assert.deepEqual(seen, [null, null, 13, 15]);
+
+  // The same call under an `if`, which is the form the specification works
+  // through, produces the same column. One rule, two spellings.
+  const branch = column(
+    [
+      'version 1',
+      '',
+      'study("Branch")',
+      '',
+      'v = none',
+      'if close > 10',
+      '    v = sma(close, 2)',
+      '',
+      'plot(v, "v", aqua)',
+    ].join('\n'),
+    [12, 8, 14, 16],
+  );
+  assert.deepEqual(branch, seen);
+});
+
+test('a stateful call the short circuit skips does not advance', () => {
+  // 4.7: `or` evaluates its right operand only when the left one has not
+  // already decided the answer. The running total on the right therefore counts
+  // the bars the guard was false, so it passes 1 on the third bar rather than
+  // on the second.
+  //
+  // Catches an engine that evaluates both operands and then combines them,
+  // which reads as correct on every script without state on the right and
+  // silently shifts this one by a bar.
+  const seen = column(
+    [
+      'version 1',
+      '',
+      'study("Short")',
+      '',
+      'n = close > 10 or cum(1) > 1',
+      '',
+      'plot(n ? 1 : 0, "n", aqua)',
+    ].join('\n'),
+    [12, 8, 9, 9],
+  );
+  assert.deepEqual(seen, [1, 0, 1, 1]);
 });

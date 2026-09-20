@@ -13,11 +13,14 @@
  * is, and that is the point: a second implementation of any of it would be a
  * second thing to keep in step with the specification.
  *
- * **Three hooks read the calculation and do not repeat it.** Markers, the grid
- * and the drawing objects are all produced once, while the engine is in hand,
- * and left in the run record `produced.ts` keeps. The chart calls each hook
- * after every calculation, so asking twice gives one answer and a study with a
- * grid costs the same over a hundred thousand bars as over ten.
+ * **The hooks that follow a calculation read it and do not repeat it.** Markers,
+ * the grid, the drawing objects and each alert's message channel are taken once,
+ * while the engine is in hand, and left in the run record `produced.ts` keeps.
+ * The chart calls each hook after every calculation, so asking twice gives one
+ * answer and a study with a grid costs the same over a hundred thousand bars as
+ * over ten. A message is the channel itself rather than a copy of it: an alert
+ * asks about one bar, and building a column of strings to answer that would cost
+ * the history.
  *
  * **The id is the source hash, not the title.** A saved layout stores the
  * descriptor id and the settings, and two scripts can easily share a title while
@@ -27,7 +30,7 @@
  * identities passes its own id instead.
  */
 import type { CompiledProgram } from '../../core/emit/index.js';
-import { buildAlerts } from './alerts.js';
+import { alertMessages, buildAlerts } from './alerts.js';
 import { valuesFrom } from './columns.js';
 import type {
   ChartBar,
@@ -102,6 +105,7 @@ export function descriptorFor(
       markers: buildMarkers(program, lookup, bars, ran.columns, markerColour),
       table: buildTable(program, lookup, ran.tables),
       drawings: buildDrawings(ran.drawings),
+      messages: alertMessages(program, ran.columns),
     });
   };
   // A study's own group is its category, and a host may name one for a script

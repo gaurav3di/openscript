@@ -41,6 +41,23 @@ export type Type =
   | { readonly kind: 'array'; readonly element: Type }
   | { readonly kind: 'handle'; readonly handle: HandleKind }
   | { readonly kind: 'object'; readonly object: ObjectKind }
+  /**
+   * The object kinds one parameter accepts, and nothing else.
+   *
+   * `draw.setFrom` moves the first anchor of a line or of a box, and neither a
+   * single object type nor `any` says that: the first is too narrow to write
+   * and the second takes a label, a number and everything else, which is how a
+   * setter applied to the wrong object came to compile, run on every bar and
+   * draw nothing with nothing reported.
+   *
+   * It is a set of object kinds rather than a union of arbitrary types because
+   * a set is what the eleven signatures that need it mean, and nothing else in
+   * version 1 needs more. A general union would have to answer what it means
+   * for a series, an array element and a name's type, and no entry is asking.
+   * This type therefore appears in a library signature and never as the type of
+   * an expression, so nothing downstream has to hold one.
+   */
+  | { readonly kind: 'objects'; readonly objects: readonly ObjectKind[] }
   /** The absence of a result. Not a type a name can hold; see language.md 5.1. */
   | { readonly kind: 'nothing' }
   /**
@@ -79,6 +96,18 @@ export function objectType(object: ObjectKind): Type {
   return { kind: 'object', object };
 }
 
+/** The set of object kinds a parameter accepts, for a signature that takes two. */
+export function objectsType(objects: readonly ObjectKind[]): Type {
+  return { kind: 'objects', objects };
+}
+
+/** The object kinds a type stands for, or nothing when it stands for none. */
+function objectKindsOf(type: Type): readonly ObjectKind[] | undefined {
+  if (type.kind === 'object') return [type.object];
+  if (type.kind === 'objects') return type.objects;
+  return undefined;
+}
+
 /** The value behind a series, and the type itself when it is not one. */
 export function elementOf(type: Type): Type {
   return type.kind === 'series' ? type.element : type;
@@ -113,6 +142,8 @@ export function typeText(type: Type): string {
       return type.handle;
     case 'object':
       return type.object;
+    case 'objects':
+      return kindList(type.objects);
     case 'nothing':
       return 'nothing';
     case 'variable':
@@ -122,6 +153,19 @@ export function typeText(type: Type): string {
     default:
       return type.kind;
   }
+}
+
+/**
+ * A set of object kinds as a reader sees it: `a line or a box`.
+ *
+ * Written out rather than abbreviated because this is the whole of what OS3011
+ * can tell somebody who passed the wrong object: the sentence has to name what
+ * the setter does take, and a reader who is told `object` learns nothing.
+ */
+function kindList(kinds: readonly ObjectKind[]): string {
+  if (kinds.length === 0) return 'nothing';
+  if (kinds.length === 1) return kinds[0] as string;
+  return `${kinds.slice(0, -1).join(', ')} or ${kinds[kinds.length - 1] as string}`;
 }
 
 /**
@@ -136,6 +180,15 @@ export function sameType(left: Type, right: Type): boolean {
   const b = elementOf(right);
   if (a.kind === 'unknown' || b.kind === 'unknown') return true;
   if (a.kind === 'variable' || b.kind === 'variable') return true;
+  // A set of object kinds is compared before the tags are, because an object
+  // and a set the object is in are the same type to every rule that asks. A
+  // kind outside the set is not, which is the whole point of writing the set.
+  if (a.kind === 'objects' || b.kind === 'objects') {
+    const wanted = objectKindsOf(a);
+    const given = objectKindsOf(b);
+    if (wanted === undefined || given === undefined) return false;
+    return given.some((one) => wanted.includes(one));
+  }
   if (a.kind !== b.kind) return false;
   if (a.kind === 'array' && b.kind === 'array') return sameType(a.element, b.element);
   if (a.kind === 'handle' && b.kind === 'handle') return a.handle === b.handle;

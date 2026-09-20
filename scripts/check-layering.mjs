@@ -19,10 +19,25 @@
  * An adapter is the only place that is allowed to know two worlds at once, which
  * is what makes it the piece a broker replaces rather than the piece they patch.
  *
+ * ## And one rule about the machine rather than the module graph
+ *
+ * `compiled-program.md` section 8.4 says there is no locale: number formatting,
+ * string comparison and case conversion are defined by the manifest and by
+ * Unicode, never by an environment setting. It is the same kind of rule as the
+ * layering, enforced here because it is the same kind of damage: a machine
+ * configured differently produces a different answer, and the machine that is
+ * configured differently is the one nobody is looking at.
+ *
+ * It was not a hypothetical. Diagnostics were ordered with a locale comparison
+ * as the tie after the offset, so two engines in two locales could print the
+ * same diagnostics in two orders, and the generated error catalogue was sorted
+ * the same way, which decides the bytes of a generated source file.
+ *
  * Run: node scripts/check-layering.mjs
  */
 import { readFileSync } from 'node:fs';
 import { filesMatching, nothingFound } from './lib/files.mjs';
+import { maskCode } from './lib/javascript.mjs';
 
 /**
  * What each layer may reach for. `outside` names the bare package specifiers a
@@ -64,6 +79,34 @@ const LAYERS = [
 ];
 
 const DOM_GLOBALS = /\b(document|window|navigator|localStorage|HTMLElement)\b/;
+
+/**
+ * Where the no-locale rule applies: what ships, and what generates what ships.
+ *
+ * The tooling is in because a generated source file has to be the same bytes on
+ * every machine that builds it, and a sort is where that stops being true.
+ */
+const DETERMINISM = ['src', 'scripts'];
+
+/**
+ * Operations whose answer is a machine setting, with no way to say otherwise.
+ *
+ * Both of these read the ambient locale and neither takes a written-down one at
+ * the call site in any form worth relying on, so they are refused rather than
+ * argued about.
+ */
+const AMBIENT_LOCALE = /\blocaleCompare\b|\btoLocale[A-Z][A-Za-z]*\b/g;
+
+/**
+ * Locale-aware machinery constructed without saying which locale.
+ *
+ * Not banned outright, because reading an area and location zone out of the
+ * runtime's own time zone database is the one thing here that needs it, and
+ * `stdlib.md` section 12.1 requires exactly that. Constructed with a locale
+ * written down it is deterministic; constructed without one it is the machine's
+ * setting wearing a constructor.
+ */
+const LOCALE_AWARE = /\bnew\s+Intl\s*\.\s*[A-Za-z]+\s*\(/g;
 const IMPORT = /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]|\brequire\(\s*['"]([^'"]+)['"]\s*\)|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 function sourceFiles() {
@@ -140,10 +183,63 @@ for (const file of files) {
   }
 }
 
+/** The text between a bracket and its partner, or null if it is never closed. */
+function balanced(code, open) {
+  let depth = 0;
+  for (let i = open; i < code.length; i += 1) {
+    const c = code[i];
+    if (c === '(') depth += 1;
+    else if (c === ')') {
+      depth -= 1;
+      if (depth === 0) return code.slice(open + 1, i);
+    }
+  }
+  return null;
+}
+
+const lineAt = (code, index) => code.slice(0, index).split('\n').length;
+
+/**
+ * The no-locale rule, over masked code so that prose about it is not it.
+ *
+ * Masked rather than grepped raw: this file names every construct it refuses,
+ * and a check that had to exempt the file doing the checking would have a hole
+ * in it exactly the shape of a check.
+ */
+const determinismFiles = filesMatching(/\.(ts|tsx|js|mjs|cjs)$/, DETERMINISM);
+
+for (const file of determinismFiles) {
+  const { code } = maskCode(readFileSync(file, 'utf8'));
+
+  AMBIENT_LOCALE.lastIndex = 0;
+  let m;
+  while ((m = AMBIENT_LOCALE.exec(code)) !== null) {
+    hits++;
+    console.error(
+      `${file}:${lineAt(code, m.index)}: uses "${m[0]}", whose answer is a machine setting. ` +
+        `compiled-program.md 8.4: no locale, ever. Compare with < and >, which is code point ` +
+        `order and the same order everywhere, and convert case with the invariant operation.`,
+    );
+  }
+
+  LOCALE_AWARE.lastIndex = 0;
+  while ((m = LOCALE_AWARE.exec(code)) !== null) {
+    const argument = balanced(code, m.index + m[0].length - 1);
+    if (argument !== null && argument.trimStart().startsWith('_STR_')) continue;
+    hits++;
+    console.error(
+      `${file}:${lineAt(code, m.index)}: builds "${m[0].trim()}" without naming a locale, so it ` +
+        `takes the machine's. compiled-program.md 8.4: pass the locale as a literal first ` +
+        `argument, the way the time zone reader does, or do not use it.`,
+    );
+  }
+}
+
 if (hits > 0) {
   console.error(
     `\n${hits} layering violation${hits === 1 ? '' : 's'}. A platform has to be able to take the ` +
-      `language without the chart, the chart without the language, and either without the editor.`,
+      `language without the chart, the chart without the language, and either without the editor, ` +
+      `and two engines have to agree whatever machine they are running on.`,
   );
   process.exit(1);
 }
@@ -151,5 +247,6 @@ if (hits > 0) {
 console.log(
   files.length === 0
     ? `Layering check: ${nothingFound('source file under src/')}. The rule is in place; nothing exercised it.`
-    : `Layering check passed: ${files.length} source files, every import inside its layer.`,
+    : `Layering check passed: ${files.length} source files, every import inside its layer, and ` +
+        `${determinismFiles.length} files of source and tooling that read no locale.`,
 );

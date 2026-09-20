@@ -75,11 +75,15 @@ export function emitCall(e: Emitter, f: Frame, call: Call): void {
  * A library call: every argument in parameter order, then `CALL_LIB`.
  *
  * Named arguments, argument order and defaults are entirely a compile-time
- * matter (4.10), so an engine never sees a name and never consults a signature.
- * What this compiler cannot do is the last of those three. The library surface
- * the checker carries records **which** parameters are optional and not what
- * each one defaults to, so an argument a script left out is emitted as absent
- * rather than as the value `stdlib.md` gives it.
+ * matter (4.10), so an engine never sees a name, never consults a signature and
+ * never holds a table of defaults. All three happen here.
+ *
+ * **An omitted argument is filled, not dropped.** It used to be emitted as
+ * absent, because the surface recorded which parameters were optional and not
+ * what each one defaulted to, and the cost of that was the whole reason this
+ * paragraph exists: a lookback of an absent length answers absence on every
+ * bar for ever, so `atr()` written exactly as `stdlib.md` prints it compiled
+ * clean, loaded clean, ran to the last bar and drew nothing at all.
  */
 function emitLibraryCall(
   e: Emitter,
@@ -103,20 +107,7 @@ function emitLibraryCall(
       emitExpression(e, f, argument.value);
       continue;
     }
-    const parameter = entry.parameters[i];
-    const value = parameter === undefined ? undefined : defaultOf(parameter);
-    if (value === undefined) {
-      e.gap(
-        'an omitted optional argument is emitted as absent, because the library surface records ' +
-          'which parameters are optional and not what each one defaults to',
-        'compiled-program.md 4.10, against stdlib.md section 1',
-        call.span,
-        false,
-      );
-    }
-    f.builder.at(call.span);
-    const constant = value === undefined ? undefined : e.pool.of(value);
-    f.builder.push('CONST', constant ?? e.pool.absent());
+    emitDefault(e, f, call, entry.parameters[i]);
   }
 
   f.builder.at(call.span);
@@ -125,16 +116,79 @@ function emitLibraryCall(
 }
 
 /**
- * The constant an omitted argument becomes, from the default its signature
- * declares.
+ * The argument a script left out, from the default its signature declares.
  *
- * The text is read here rather than in the checker because a default is a
- * value, and values are the emitter's: 4.10 puts named arguments, argument
- * order and defaults entirely at compile time, so the program carries the
- * number a script left out and no engine holds a table of them. A default the
- * signature does not declare, or one whose text does not match its type, is
- * nothing: the caller emits absence and records the gap rather than guessing at
- * a value that would then be this compiler's invention.
+ * A default is a value, and values are the emitter's: 4.10 puts named
+ * arguments, argument order and defaults entirely at compile time. Most are a
+ * constant. A handful are a name the compiler reads at the call instead, which
+ * 4.10 also provides for: a default that is an expression rather than a literal
+ * is compiled into the call site, and `vwap(src = hlc3)` is that case in a
+ * library the specification writes as a table.
+ *
+ * A default that is neither is a defect in the surface and it blocks. Emitting
+ * absence there is what produced a study with no values on any bar and nothing
+ * reported anywhere, and a program that is not emitted is the honest form of
+ * that. `scripts/check-defaults.mjs` is what stops it reaching here at all.
+ */
+function emitDefault(
+  e: Emitter,
+  f: Frame,
+  call: Call,
+  parameter: LibraryParameter | undefined,
+): void {
+  f.builder.at(call.span);
+
+  if (parameter === undefined || parameter.defaultText === undefined) {
+    // The specification states no value for this argument: `leg = the only
+    // leg` names the file's own declaration rather than a value the library
+    // knows. Absence is what it carries, and whatever receives it decides.
+    // Each one is recorded with its reason in `spec/default-exceptions.json`,
+    // and nothing else may be in this state.
+    e.gap(
+      'an omitted optional argument is emitted as absent, because the specification states no ' +
+        'value for it and names the declaration that decides instead',
+      'compiled-program.md 4.10, against stdlib.md section 1',
+      call.span,
+      false,
+    );
+    f.builder.push('CONST', e.pool.absent());
+    return;
+  }
+
+  const value = defaultOf(parameter);
+  const constant = value === undefined ? undefined : e.pool.of(value);
+  if (constant !== undefined) {
+    f.builder.push('CONST', constant);
+    return;
+  }
+  if (emitNamedRead(e, f, parameter.defaultText)) return;
+
+  e.gap(
+    `the library surface gives a default of \`${parameter.defaultText}\` which is neither a ` +
+      "value of the parameter's type nor a library name that can be read, so there is nothing " +
+      'to fill the argument with',
+    'compiled-program.md 4.10, against stdlib.md section 1',
+    call.span,
+    true,
+  );
+  f.builder.push('CONST', e.pool.absent());
+}
+
+/**
+ * The constant a default's text names, or nothing when it names no constant.
+ *
+ * Nothing is not a failure here: `hlc3` and `chart.timezone` are defaults the
+ * specification states and neither is a literal of its parameter's type, so the
+ * caller reads them instead. What this must never do is guess. A text that is
+ * not a value of this type is not turned into one, because a value this
+ * compiler invented would be indistinguishable, on the chart, from the value
+ * the specification meant.
+ *
+ * A named colour stays a constant, unlike every other bare library name. That
+ * is deliberate and it is the one place the two paths disagree: the channels
+ * are settled here for a drawing's default and read from the manifest for a
+ * colour a script wrote (`stdlib.md` 11.1). Reversing it would change programs
+ * that are already compiled and compared byte for byte.
  */
 function defaultOf(parameter: LibraryParameter): Value | undefined {
   const text = parameter.defaultText;
@@ -263,21 +317,32 @@ function emitUserCall(
 export function emitLibraryValue(e: Emitter, f: Frame, node: NameReference | Member): void {
   const name = node.kind === 'nameReference' ? node.name : memberName(node);
   f.builder.at(node.span);
+  if (emitNamedRead(e, f, name)) return;
+  f.builder.push('CONST', e.pool.absent());
+}
 
+/**
+ * One bare library read, by name, or false when the name is not one.
+ *
+ * Two callers, and they are the same read: a name a script wrote, and a name a
+ * signature gives as a default. A default that is an expression is compiled
+ * into the call site (4.10), and for this library an expression is always one
+ * of these names, so `vwap()` emits exactly what `vwap(hlc3)` emits rather than
+ * something close to it. The caller positions the span before calling.
+ */
+function emitNamedRead(e: Emitter, f: Frame, name: string): boolean {
   const register = registerOfName(e, name);
   if (register !== undefined) {
     f.builder.push('SLOAD', register);
-    return;
+    return true;
   }
 
   const entry = libraryEntries(name).find((one) => !one.callable);
-  if (entry === undefined) {
-    f.builder.push('CONST', e.pool.absent());
-    return;
-  }
+  if (entry === undefined) return false;
   const index = e.libraryFunction(entry);
   const state = entry.stateful ? f.layout.state(index) : -1;
   f.builder.push('CALL_LIB', index, 0, state);
+  return true;
 }
 
 function memberName(node: Member): string {

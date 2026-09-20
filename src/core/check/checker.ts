@@ -35,6 +35,7 @@ import type {
   Mutable,
   Storage,
 } from './checked.js';
+import { conditionalCalls } from './conditional.js';
 import { libraryNames } from './surface.js';
 import { closestName } from './suggest.js';
 import type { Type } from './types.js';
@@ -58,14 +59,20 @@ export interface Scope {
   readonly loopVariable: string | undefined;
 }
 
-/** What surrounds the statement being checked, for OS3006 and OS8001. */
+/**
+ * What surrounds the statement being checked, for OS3006.
+ *
+ * Whether the thing being checked runs on every bar is deliberately not here.
+ * It is a fact about a node rather than about the path the pass took to reach
+ * it, and half of what makes a call conditional is an operator rather than a
+ * statement, so `conditional.ts` answers it from the tree and this carries only
+ * what a pass can know.
+ */
 export interface Placement {
   /** True only for a statement written directly in the file, `language.md` 15.3. */
   readonly topLevel: boolean;
   /** The enclosing construct, named in OS3006's message. */
   readonly construct: string | undefined;
-  /** Inside an `if`, a `switch` arm or a loop body, which is what OS8001 reads. */
-  readonly branched: boolean;
   /** Inside a `for` or `while` body, where `break` and `continue` are legal. */
   readonly inLoop: boolean;
 }
@@ -73,7 +80,6 @@ export interface Placement {
 export const TOP_LEVEL: Placement = {
   topLevel: true,
   construct: undefined,
-  branched: false,
   inLoop: false,
 };
 
@@ -108,6 +114,16 @@ export class Checker {
   readonly references = new Map<NameReference, Binding>();
   readonly targets = new Map<Name, Binding>();
   readonly callSites = new Map<Call, CheckedCall>();
+  /**
+   * The multi-output call a name holds, by binding, for `m[1]`.
+   *
+   * A warmup is recorded against an expression, and an element's warmup is not
+   * a fact about the array expression: it is a fact about the call the name was
+   * given, which `m[1]` has to reach two statements later. Only the calls whose
+   * outputs warm up at different bars are kept, because for every other one the
+   * array's warmup is already the element's.
+   */
+  private readonly multiOutputs = new Map<number, CheckedCall>();
 
   /** The declarations of every `fn`, collected before any body is checked. */
   readonly functionsByName = new Map<string, number>();
@@ -125,12 +141,27 @@ export class Checker {
   /** What the body being checked returns, gathered as the `return`s are met. */
   pendingReturns: { readonly type: Type; readonly warmup: Warmup }[] = [];
 
+  /** Every call site a bar can pass without evaluating, `language.md` 11.4. */
+  private readonly conditional: ReadonlySet<Call>;
+
   constructor(file: SourceFile, script: Script, sink: DiagnosticSink) {
     this.file = file;
     this.script = script;
     this.sink = sink;
     this.fileScope = { kind: 'file', names: new Map(), parent: undefined, loopVariable: undefined };
     this.scope = this.fileScope;
+    this.conditional = conditionalCalls(script);
+  }
+
+  /**
+   * Whether this call site can be skipped on a bar, which is what OS8001 asks.
+   *
+   * Asked of the call rather than of the pass that reached it, so the answer is
+   * the same wherever the call was written: inside an `if`, in a ternary arm,
+   * or on the right of an `and` that short-circuited.
+   */
+  isConditional(call: Call): boolean {
+    return this.conditional.has(call);
   }
 
   report<Code extends DiagnosticCode>(
@@ -235,6 +266,28 @@ export class Checker {
     this.scope.names.set(name.text, binding);
     this.targets.set(name, binding);
     return binding;
+  }
+
+  /**
+   * Remembers, or forgets, the multi-output call a name was just given.
+   *
+   * Forgetting on a reassignment rather than keeping the first call is what
+   * stops `m[1]` from being answered about a call the name no longer holds:
+   * the array's own warmup is the fallback, and it is a floor for every
+   * element.
+   */
+  holdsMultiOutput(binding: number, call: CheckedCall | undefined): void {
+    if (call === undefined || call.entry === undefined || call.entry.elements.length === 0) {
+      this.multiOutputs.delete(binding);
+      return;
+    }
+    this.multiOutputs.set(binding, call);
+  }
+
+  /** The multi-output call this name holds here, when it holds one. */
+  multiOutputOf(name: string): CheckedCall | undefined {
+    const binding = this.lookup(name);
+    return binding === undefined ? undefined : this.multiOutputs.get(binding.id);
   }
 
   record(expression: Expression, type: Type, warmup: Warmup): Type {

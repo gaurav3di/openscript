@@ -36,10 +36,14 @@
  * the watched conditions, and the lifecycle a read of another instrument fetches
  * through.
  *
- * **Three things a study computes have no field on the descriptor to land in**,
- * and they are left out rather than approximated: an alert's per-bar message,
- * the frequency it repeats at, and a second declared grid. Each is named in the
- * file that would have written it.
+ * **Some of what a study declares has no field on the descriptor to land in**,
+ * and it is left out rather than approximated. Which parts, and why each one
+ * has nowhere to go, is recorded in `spec/chart-narrowings.json`;
+ * `scripts/check-chart-surface.mjs` reads that record against the declarations
+ * of a compiled program and fails on anything dropped that is not in it, so a
+ * narrowing can no longer be added by forgetting to mention one. An alert's
+ * per-bar message was on that list for the life of this module and is now
+ * carried: the file that would have written it is the file that says so.
  *
  * Every member is narrowed to what the adapter can emit. A narrower type is
  * still assignable to the library's wider one, and a value this adapter cannot

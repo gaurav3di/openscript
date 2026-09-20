@@ -26,8 +26,17 @@ fastTotal = sum(span, fastLen)
 midTotal  = sum(span, midLen)
 slowTotal = sum(span, slowLen)
 
-fast = fastTotal == 0 ? none : sum(buying, fastLen) / fastTotal
-mid  = midTotal  == 0 ? none : sum(buying, midLen)  / midTotal
-slow = slowTotal == 0 ? none : sum(buying, slowLen) / slowTotal
+// Every total is taken at the top level, including the three on top of the
+// division. A windowed total holds state, and a call site that does not run on
+// a bar does not advance it, so writing one inside a ternary arm would give it
+// a window made of the bars the guard let through and a first reading late by
+// the length of that window. The compiler reports OS8001 on that shape.
+fastFlow = sum(buying, fastLen)
+midFlow  = sum(buying, midLen)
+slowFlow = sum(buying, slowLen)
+
+fast = fastTotal == 0 ? none : fastFlow / fastTotal
+mid  = midTotal  == 0 ? none : midFlow  / midTotal
+slow = slowTotal == 0 ? none : slowFlow / slowTotal
 
 plot(100 * (4 * fast + 2 * mid + slow) / 7, "Oscillator", red, width = 2)

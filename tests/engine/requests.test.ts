@@ -322,6 +322,49 @@ test('another instrument is folded onto the chart bars by time', () => {
   assert.equal(failed[0], 0, 'an answered read reports no reason');
 });
 
+/**
+ * The number a host extends its fetch range backwards by.
+ *
+ * A read whose expression needs thirty bars of the requested timeframe and asks
+ * a host for none gets thirty requested bars of nothing, or, on a host that
+ * starts the average at the first bar it fetched, thirty bars of a number
+ * computed from too little history. The second is the one nobody sees. So the
+ * lengths written inside the expression have to reach the query, whether the
+ * entry states its warmup exactly or bounds it.
+ */
+test('the history a read asks for backwards counts the lengths inside it', () => {
+  const asked: { warmup: number | null }[] = [];
+  const spy = (source: string): number | null => {
+    asked.length = 0;
+    ran(source, 4, {
+      ...CHART,
+      requestBars: (query) => {
+        asked.push({ warmup: query.warmup });
+        return { bars: hourly(2, Date.UTC(2025, 0, 6, 9, 0, 0)) };
+      },
+    });
+    return asked[0]?.warmup ?? null;
+  };
+  const exact = `version 1
+study("Exact", overlay = true)
+o = req.symbol("BBB", "1h", ema(close, 20))
+plot(o, "O")
+`;
+  const bounded = `version 1
+study("Bounded", overlay = true)
+o = req.symbol("BBB", "1h", hma(close, 20))
+plot(o, "O")
+`;
+  const element = `version 1
+study("Element", overlay = true)
+o = req.symbol("BBB", "1h", macd(close)[1])
+plot(o, "O")
+`;
+  assert.equal(spy(exact), 19, 'an exact length reaches the host');
+  assert.equal(spy(bounded), 18, 'and so does one the entry only bounds');
+  assert.equal(spy(element), 33, 'an element asks for the history that element needs');
+});
+
 test('the whole set of requests is handed to the host once, before bar 0', () => {
   const asked: unknown[] = [];
   ran(OTHER, 4, {
@@ -501,6 +544,54 @@ plot(close, "Close")
   assert.ok(daily && closes);
   assert.equal(daily[5], null);
   assert.equal(closes[5], 105, 'the rest of the study kept drawing');
+});
+
+/**
+ * The same dead read, through the two calls that exist to explain one.
+ *
+ * A study that draws nothing while `req.isReady` says it is ready and
+ * `req.error` says nothing is wrong is the worst version of this: the trader
+ * has looked at the blank pane already and been sent to look somewhere else.
+ * Nothing that arrives later supplies a timezone the instrument record does not
+ * hold, so the read is not waiting: it is finished, and it says why.
+ *
+ * The assertion names the fact rather than the sentence. The words are the
+ * catalogue's and are allowed to improve; that the reason names the timezone is
+ * this engine's answer and is the promise.
+ */
+test('a daily read with no instrument timezone says why it can never answer', () => {
+  const source = `version 1
+study("Daily", overlay = true)
+d = req.timeframe("1D", close)
+plot(d, "D")
+plot(req.isReady(d) ? 1 : 0, "Ready")
+plot(str.contains(req.error(d), "timezone") ? 1 : 0, "Named")
+plot(str.length(req.error(d)), "Length")
+`;
+  const [daily, ready, named, length] = ran(source, 6, {
+    instrument: { symbol: 'AAA', exchange: 'XX', interval: '5' },
+  });
+  assert.ok(daily && ready && named && length);
+  assert.equal(daily[5], null, 'the read is still absent');
+  assert.equal(ready[5], 0, 'a read that can never answer is not ready');
+  assert.equal(named[5], 1, 'and the reason names the fact the host did not supply');
+  assert.ok((length[5] as number) > 0);
+});
+
+/** An intraday read is counted rather than dated, so no zone is needed. */
+test('an intraday read on a host with no timezone is ready and has no reason', () => {
+  const source = `version 1
+study("Hourly", overlay = true)
+h = req.timeframe("1h", close)
+plot(req.isReady(h) ? 1 : 0, "Ready")
+plot(str.length(req.error(h)), "Length")
+`;
+  const [ready, length] = ran(source, 24, {
+    instrument: { symbol: 'AAA', exchange: 'XX', interval: '5' },
+  });
+  assert.ok(ready && length);
+  assert.equal(ready[0], 1);
+  assert.equal(length[0], 0);
 });
 
 test('a daily read with a timezone folds by the calendar', () => {

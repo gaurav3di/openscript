@@ -9,6 +9,78 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**An alert's message now carries the bar that fired it.** A study that computed
+`"crossed up at " + text(close, 2)` sent a notification reading "Crossed up", the
+declared title, on every alert this adapter has ever raised. The message is a
+string per bar, so it cannot travel in the table of numbers a calculation
+returns, and it was left out on the ground that nothing carried it across. The
+chart's own entry takes a function of the same context its condition was judged
+on, and that context carries the settings object, which is how every other hook
+here finds the run it is reading. So the message is read from the run at the bar
+that fired, and an alert whose message was absent on that bar still falls back to
+the title, which is what a chart does for an entry that states no message at all.
+
+**A `draw` setter now takes only the objects it can move.** Eleven of the
+fourteen setters declared their object argument as "whatever you give me",
+because the real type is a set of kinds and there was no way to write one. So
+`draw.setFrom(aLabel, t, p)` compiled, wrote an anchor a label has no field for,
+drew nothing and reported nothing, and `draw.setColor(5, red)` compiled as
+readily. Each setter now names the kinds that carry the property it writes, which
+is the kinds whose creation call takes that argument, and a call that misses is
+OS3011 at that argument with the kinds it does take in the sentence. A
+declaration handle in the same place keeps OS3019. Two documentation tables
+promised more than any kind carries, `setStyle` on a box and `setTooltip` on a
+line, and they now say what is drawn.
+
+**A second declared grid is still dropped, and the drop is now written down and
+checked.** A chart pane has one grid and the language declares as many as it
+likes, so a study with two panels draws one, and nothing said so anywhere. The
+refusal that belongs there cannot be written: it needs a catalogue code for a
+host that cannot draw something a study declares, the catalogue has none, and
+this project reports the gap rather than inventing one. It is reported in
+`issues/0011`, with the sentence the entry should carry, and the documentation
+for tables now tells a reader that the first declared grid is the one drawn.
+
+Meanwhile the class is checked instead of promised. `spec/chart-narrowings.json`
+records every field and every count the chart adapter does not carry, each with
+its reason, and `scripts/check-chart-surface.mjs` compiles a study that declares
+two of everything, builds a descriptor from it, and fails the build on a declared
+field the record does not mention, a record entry the compiled format no longer
+has, a narrowing recorded with no reason, and any declaration dropped whose limit
+is not recorded. It also reads the mapping back out of a run, so a field recorded
+as carried cannot be a claim. The record began with eight narrowings, one of them
+found by writing it: a band whose colour is computed per bar has no per-bar colour
+in a chart's band and is drawn in the first plot's colour.
+
+**Every documented default now reaches the call.** `atr()`, `rsi(close)`,
+`bollinger(close)`, `macd(close)`, `stoch()`, `psar()`, `supertrend()`, `adx()`,
+`keltner()`, `donchian()`, `cci()`, `williamsR()` and the rest: twenty-nine calls
+out of thirty-one, written exactly as the library reference prints them,
+compiled with nothing reported, loaded with nothing reported, ran to the last bar
+and drew no value on any bar. The reference gives each of those arguments a
+default, the surface recorded only that the argument was optional, and an
+argument left out reached the engine as absence, where a lookback of an absent
+length answers absence for ever. Only the calls whose length was written out drew
+anything.
+
+The hundred and sixty missing defaults are now written into the surface, taken
+from the reference, and an omitted argument is filled with the value the
+reference prints. `vwap()` reads `hlc3`, a calendar call reads the chart's
+timezone, and a grid cell written with no alignment is aligned left, each exactly
+as writing the argument out would have done. A warmup follows its default too: an
+omitted length used to weaken a study's warmup to a floor, so `atr()` promised
+"no earlier than" where `atr(14)` promises bar 13. Both now promise bar 13.
+
+A check refuses the class rather than the instance. An optional parameter must
+either carry the default the specification states, spelled as the specification
+spells it, or be recorded in `spec/default-exceptions.json` with what the
+specification says in place of a value and why that is not one. Neither is a
+defect and both is a contradiction, and a default the surface invented or one
+that has drifted from the specification fails the build as well. Seventeen
+parameters are recorded: the leg an order acts on and the size the `strategy()`
+declaration sets, which the library has no value for, and one row that states no
+mode where the two beside it do.
+
 **The library the reference page promises now runs.** Ninety-five names compiled
 and were then refused at load with an error that named a function and gave no
 reason. Every one of them is settled: it either runs or says it is planned at the
@@ -294,6 +366,21 @@ the package carried a file no source produced, no test covered and nothing here
 explains. Every build now names and removes any such file before it compiles,
 in both outputs, reading the directories from the compiler's own configuration
 rather than from a copy of them.
+
+**OS8001 now reaches a call that could be written past it.** The warning for a
+stateful call that runs on some bars and not others was decided by the pass that
+walks statements, so it saw an `if`, a `switch` arm and a loop body and nothing
+else. `v = trending ? ema(close, 20) : none` compiled with nothing reported and
+drew an average of the bars the guard let through, presented as an average. The
+warning now covers a ternary arm, both of them; the right operand of `and` and
+`or`, which is skipped whenever the left one has already decided the answer; the
+condition of an `else if`; and the values of a `case` arm after the first. Each
+of those is a place a bar can pass without evaluating the call, and the engine
+always ran them that way. What was missing was the compiler saying so.
+
+A file that compiled clean before can report OS8001 now. Nothing it computes has
+changed, and the fix is the one the warning already names: take the call at the
+top level and use its result inside the guard.
 
 ## 0.1.0-alpha.1
 

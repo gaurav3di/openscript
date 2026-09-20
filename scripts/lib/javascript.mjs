@@ -24,6 +24,16 @@
  * oldest way round a check like this is to write the name in a string and reach
  * it through a computed member access.
  *
+ * **The name is decided after the escapes are resolved.** A literal is the text
+ * the runtime builds from it, not the characters typed between the quotes, and
+ * for one round of this check that difference was the hole: `"\x65val"` and
+ * `"eval"` and a literal broken over two lines with a backslash all build
+ * the watched name, and all three were an ordinary `_STR_` to every rule
+ * downstream. A mask that decides what a name is by looking at the spelling can
+ * be beaten by respelling it, which is the whole trick the mask exists to take
+ * away. So `decoded` is what the runtime would hold, and `value` is what the
+ * file says, because a report quotes the file.
+ *
  * **A template literal is both.** Its text is a string and each substitution is
  * code, so the two are masked differently, which is the difference between
  * catching a construct inside an interpolation and not looking there at all.
@@ -58,9 +68,61 @@ const newlinesIn = (text) => text.replace(/[^\n]/g, '');
 
 const markFor = (value) => (MARKED.includes(value) ? `${MARK}${value}_` : MARK);
 
+/** The single characters an escape stands for, where it is not itself. */
+const CONTROL = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', 0: '\0' };
+
+/** The three numeric escapes, which are the ones that can hide a letter. */
+const HEX_X = /^\\x([0-9a-fA-F]{2})/;
+const HEX_U = /^\\u([0-9a-fA-F]{4})/;
+const HEX_BRACED = /^\\u\{([0-9a-fA-F]{1,6})\}/;
+
+/**
+ * A literal's contents as the runtime would build them.
+ *
+ * Only the escapes that can hide a letter matter here: the numeric ones, the
+ * line continuation, and the rule that a backslash before anything else is that
+ * character. Getting an exotic case slightly wrong costs a spelling in a report;
+ * not decoding at all costs the whole guarantee, because a watched name spelled
+ * `"\x65val"` is a different string from `eval` to every comparison downstream.
+ */
+export function decodeEscapes(raw) {
+  if (!raw.includes('\\')) return raw;
+  let out = '';
+  for (let i = 0; i < raw.length; i += 1) {
+    if (raw[i] !== '\\') {
+      out += raw[i];
+      continue;
+    }
+    const next = raw[i + 1];
+    if (next === undefined) return out;
+    if (next === '\n') {
+      // A literal continued on the next line: the backslash and the newline are
+      // both gone from what the runtime holds.
+      i += 1;
+      continue;
+    }
+    if (next === 'x' || next === 'u') {
+      const rest = raw.slice(i);
+      const hex = HEX_X.exec(rest) ?? HEX_U.exec(rest) ?? HEX_BRACED.exec(rest);
+      if (hex !== null) {
+        out += String.fromCodePoint(Number.parseInt(hex[1], 16));
+        i += hex[0].length - 1;
+        continue;
+      }
+    }
+    out += Object.hasOwn(CONTROL, next) ? CONTROL[next] : next;
+    i += 1;
+  }
+  return out;
+}
+
 /**
  * The text with everything that is not code replaced, and the string literals
  * handed back separately.
+ *
+ * Each literal comes back as `value`, the characters the file holds, and
+ * `decoded`, what the runtime would build from them. A rule about what a string
+ * means reads `decoded`; a report quotes `value`.
  *
  * Newlines are preserved exactly, so a line number taken from the masked text is
  * the line the file really has. Columns are not preserved, which is why a caller
@@ -80,8 +142,9 @@ export function maskCode(text) {
   let prevWord = '';
 
   const emitChunk = () => {
-    strings.push({ index: chunkAt, value: chunk });
-    out.push(markFor(chunk) + newlinesIn(chunk));
+    const decoded = decodeEscapes(chunk);
+    strings.push({ index: chunkAt, value: chunk, decoded });
+    out.push(markFor(decoded) + newlinesIn(chunk));
     chunk = '';
     prevChar = '_';
     prevWord = '';

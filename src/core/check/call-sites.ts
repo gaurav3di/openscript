@@ -67,7 +67,7 @@ export function resolveCall(checker: Checker, call: Call, placement: Placement):
   const functionIndex = checker.functionsByName.get(name);
   if (functionIndex !== undefined) {
     checkArgumentExpressions(checker, call, placement);
-    return record(checker, call, checkUserCall(checker, call, name, functionIndex, placement));
+    return record(checker, call, checkUserCall(checker, call, name, functionIndex));
   }
 
   if (!isLibraryName(name)) {
@@ -321,7 +321,6 @@ function checkUserCall(
   call: Call,
   name: string,
   index: number,
-  placement: Placement,
 ): CheckedCall {
   ensureChecked(checker, index);
   const fn = checker.functions[index];
@@ -356,7 +355,7 @@ function checkUserCall(
     if (parameter.readsHistory) series.push(i);
   }
 
-  if (fn.stateful && placement.branched) checker.report('OS8001', call.span, { name });
+  if (fn.stateful && checker.isConditional(call)) checker.report('OS8001', call.span, { name });
 
   const supplied = filled.filter((one): one is Argument => one !== undefined);
   const warmup = later(fn.warmup, allOf(supplied.map((one) => checker.warmupOf(one.value))));

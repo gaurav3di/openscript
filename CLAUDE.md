@@ -6,8 +6,10 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Seven checks enforce these. `npm test` runs all of them, and so does every pull
-request.
+Ten checks enforce these, and each one of them is a rule somebody broke once.
+`npm test` runs all of them, and so does every pull request. The count is here to
+be corrected when it changes, not to be trusted: `package.json`'s `test` script
+is the list.
 
 1. **No `eval`, no `Function` constructor, no dynamic code construction.** The
    compiler emits data. This is what lets the language run inside an application
@@ -18,8 +20,12 @@ request.
 3. **Layering.** A module is a directory and its index is its only door. Nothing
    under `src/core` may import a package or touch a browser global. An adapter is
    the only place allowed to know two worlds at once.
-4. **No file over 500 lines.** A file past it is usually two things that were
-   never separated.
+4. **No code file over 500 lines**, wherever it sits: source, tooling or test. A
+   file past it is usually two things that were never separated. A document is
+   prose and is not counted. One already over it is recorded in
+   `spec/modularity-exceptions.json` with the length it was recorded at, which is
+   a ceiling it cannot grow past and a row that has to go the moment it is
+   earned out.
 5. **Name nobody.** No outside product, platform, company, trademark, market index
    or real instrument, anywhere: not in source, comments, documentation, examples,
    test names or commit messages. Describe prior art generically. Examples use

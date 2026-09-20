@@ -393,6 +393,20 @@ Only the taken arm is evaluated, which is what makes the ternary safe as a guard
 ratio = down > 0 ? up / down : none
 ```
 
+A call that holds state is the one thing to keep out of an arm, for the same
+reason it is kept out of the right operand of an `or`. Only the taken arm runs,
+so a windowed total written inside one fills its window from the bars the guard
+let through and from no others, and its first reading arrives a window late. The
+number that draws is real and looks like the total anyone asked for, which is why
+the compiler reports OS8001 on it. Take the call at the top level and put its
+result in the arm:
+
+```
+flow   = sum(term, len)
+traded = sum(volume, len)
+share  = traded > 0 ? flow / traded : none
+```
+
 **A `none` condition takes the false arm**, the same rule as `if`. That is the one
 place absence is absorbed rather than propagated, and it is unavoidable because
 execution has to go somewhere. It is safe here in a way that returning `false` from

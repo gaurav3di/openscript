@@ -22,26 +22,36 @@
  * valued logic reaching a surface, and it is the most common reason a new alert
  * looks dead.
  *
- * **Two things a declared alert carries have no field on the chart's entry, and
- * are left out rather than approximated.**
+ * **The message is computed on the bar that fired, and it travels.** It is a
+ * string per bar, so it cannot ride the table of numbers the calculation
+ * returns, and the entry's own field takes a function of the same context the
+ * predicate was judged on: the bars, the columns, the settings and the bar's
+ * index. The settings are the study instance (`produced.ts`), so the message
+ * reads the run's own string channel there, at the one bar it is asked about,
+ * and the alert a user receives carries the numbers the script put in it.
  *
- * The **message** is computed on the bar that fired, so it is a string per bar,
- * and the chart's entry takes either a fixed string or a function of the bars,
- * the columns and the settings. None of those reaches the per-instance store
- * where this adapter keeps a run's strings, so the message the script wrote
- * cannot travel and the entry carries the declared title instead. This is the
- * one output of the language that the descriptor narrows rather than carries.
+ * A message the bar published nothing for falls back to the declared title,
+ * which is what the chart itself does for an entry that states no message. That
+ * is the honest answer for the one case that reaches it: `message` is a required
+ * argument, so the string is absent only where the expression that built it was,
+ * and absence reaching a surface draws nothing of its own (`language.md` 6.7).
  *
- * The **frequency** (`stdlib.md` 16.2) has no field at all. The chart evaluates
- * each entry once for each new bar, which is `"oncePerBar"`; `"once"` would need
- * state that lives as long as the study instance and `"everyUpdate"` would need
- * the entry to be evaluated again on a bar that is still moving, and the entry is
- * handed neither.
+ * **One thing a declared alert carries still has no field on the chart's entry**
+ * and is left out rather than approximated. The **frequency** (`stdlib.md` 16.2)
+ * has nowhere to land: the chart evaluates each entry once for each new bar,
+ * which is `"oncePerBar"`; `"once"` would need state that lives as long as the
+ * study instance and `"everyUpdate"` would need the entry to be evaluated again
+ * on a bar that is still moving, and the entry is handed neither. It is recorded
+ * with its reason in `spec/chart-narrowings.json`, which
+ * `scripts/check-chart-surface.mjs` refuses to let grow in silence.
  */
 import type { CompiledProgram } from '../../core/emit/index.js';
 import type { ColumnSpec } from './columns.js';
 import { stringField } from './fields.js';
 import type { InputLookup } from './fields.js';
+import type { MessageColumn } from './produced.js';
+import { producedFor } from './produced.js';
+import type { Columns } from './run.js';
 import type { ChartAlertContext, ChartAlertSpec } from './surfaces.js';
 
 /** The key one alert's condition column travels under. */
@@ -54,6 +64,23 @@ export interface AlertBuild {
   readonly columns: readonly ColumnSpec[];
 }
 
+/**
+ * Each declared alert's message channel, as the run left it.
+ *
+ * Indexed by the alert's position in `outputs.alerts`, so an entry the program
+ * declares without a message channel holds an empty column rather than shifting
+ * the ones after it.
+ */
+export function alertMessages(
+  program: CompiledProgram,
+  columns: Columns,
+): readonly MessageColumn[] {
+  return program.outputs.alerts.map((declared) => {
+    const channel = declared.messageChannel;
+    return channel === null ? [] : (columns[channel] ?? []);
+  });
+}
+
 /** The rows a user subscribes to, fixed before the first bar. */
 export function buildAlerts(program: CompiledProgram, lookup: InputLookup): AlertBuild {
   const alerts: ChartAlertSpec[] = [];
@@ -62,12 +89,28 @@ export function buildAlerts(program: CompiledProgram, lookup: InputLookup): Aler
     const declared = program.outputs.alerts[index];
     if (declared === undefined) continue;
     const key = alertKey(index);
+    const title = stringField(declared.title, lookup, '');
     columns.push({ key, channel: declared.condChannel, part: 'flag' });
     alerts.push({
       id: declared.key,
-      title: stringField(declared.title, lookup, ''),
+      title,
+      // A program whose alert has no message channel states no message, and the
+      // chart's own default for that is the title. Declaring a function that
+      // returned the title anyway would hide that fact behind this adapter.
+      ...(declared.messageChannel === null
+        ? {}
+        : {
+            message: (ctx: ChartAlertContext): string =>
+              messageAt(producedFor(ctx.settings).messages[index], ctx.index) ?? title,
+          }),
       when: (ctx: ChartAlertContext): boolean => ctx.values[key]?.[ctx.index] === 1,
     });
   }
   return { alerts, columns };
+}
+
+/** The message one bar published, or nothing where it published none. */
+function messageAt(column: MessageColumn | undefined, index: number): string | undefined {
+  const value = column?.[index];
+  return typeof value === 'string' ? value : undefined;
 }

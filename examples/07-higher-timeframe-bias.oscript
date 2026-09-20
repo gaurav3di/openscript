@@ -28,9 +28,20 @@ paint   = input(true, "Recolour the candles")
 //                that a study written elsewhere can be reproduced, not because
 //                it is a defensible way to trade.
 //
-// "confirmed" is the default, which is why a read that says nothing cannot
-// repaint, and the other two are warned about: "developing" carries OS8002 and
-// "lookahead" carries OS8005.
+// "confirmed" is the default and the only one of the three that never repaints,
+// which is why a read that says nothing cannot.
+//
+// One of the other two is warned about, not both. "lookahead" carries OS8005,
+// and it also marks the compiled study as repainting so the host can say so in
+// the legend, because a warning in an editor nobody opens again is not a
+// disclosure. "developing" carries no warning of its own: the mode word written
+// out on the line is its disclosure, which is the whole reason it has to be
+// written out.
+//
+// OS8002 is a different rule and is about this file rather than about a mode. It
+// is reported on a higher timeframe read in a file that sets
+// onUnconfirmed = true, whatever that read's mode, because that pair repaints
+// the confirmed history as well.
 //
 // Making this a setting would let a reader change the honesty of the study
 // without reading it, which is exactly the thing the mode is here to prevent.
@@ -52,9 +63,9 @@ barColor(paint ? (up ? lime : down ? red : none) : none)
 background(up ? fade(lime, 95) : down ? fade(red, 95) : none)
 
 // This file does not set onUnconfirmed, so signals wait for the bar to close.
-// Setting it here would make the compiler warn about the two reads above, and
-// it would be right to: an unconfirmed fine bar reading a coarse bar is where
-// repainting comes from even when the mode is honest.
+// Setting it here would make the compiler report OS8002 on the two reads above,
+// and it would be right to: an unconfirmed fine bar reading a coarse bar is
+// where repainting comes from even when the mode is honest.
 if up and not orElse(up[1], false)
     signal("BIAS UP")
 

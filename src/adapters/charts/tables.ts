@@ -29,9 +29,24 @@
  *
  * **A chart pane holds one grid and the language declares as many as it likes.**
  * The descriptor has one `table` hook, so the first declared grid is the one
- * drawn and any after it are not. That is a gap in the descriptor rather than a
- * choice worth making here, and a study whose second grid never appears would
- * otherwise be a study with no explanation.
+ * drawn and any after it are not. That is a gap in the chart's own contract
+ * rather than a choice worth making here: there is no second hook to write to,
+ * and merging two grids into one would put cells somewhere the script never
+ * asked for.
+ *
+ * **What ought to happen is a refusal, and it cannot be written yet.** A study
+ * whose second grid never appears is a study with no explanation, so the second
+ * `table()` should be refused where it is written, naming the limit. Every
+ * diagnostic in this project carries a catalogue code and the catalogue has
+ * none for "the chart cannot draw something this study declares"; inventing one
+ * here is the one thing that is not allowed, so the gap is reported instead, in
+ * `issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md`, with the
+ * sentence it should carry.
+ *
+ * Until it lands, the drop is at least no longer silent inside this repository:
+ * it is recorded in `spec/chart-narrowings.json` with its reason, and
+ * `scripts/check-chart-surface.mjs` fails the build if this adapter ever drops
+ * anything else a compiled program declares without recording it there.
  */
 import type { CompiledProgram, Grid as DeclaredGrid } from '../../core/emit/index.js';
 import type { Grid, GridCell } from '../../core/engine/index.js';
@@ -55,7 +70,15 @@ const CORNERS: Readonly<Record<string, ChartTablePosition>> = {
 
 const ALIGNMENTS: readonly string[] = ['left', 'center', 'right'];
 
-/** The grid a chart draws, from the declaration and the engine's buffer. */
+/**
+ * The grid a chart draws, from the declaration and the engine's buffer.
+ *
+ * The buffer is paired with the declaration by the key both of them carry
+ * rather than by position. The engine reads its grids in declaration order, so
+ * the two agree today, and a pairing by position is one reordering away from
+ * drawing one grid's cells into another grid's shape, which would be a wrong
+ * table that looks like a right one.
+ */
 export function buildTable(
   program: CompiledProgram,
   lookup: InputLookup,
@@ -63,7 +86,7 @@ export function buildTable(
 ): ChartGrid | null {
   const declared = program.outputs.tables[0];
   if (declared === undefined) return null;
-  return oneTable(declared, lookup, written[0]);
+  return oneTable(declared, lookup, written.find((one) => one.key === declared.key));
 }
 
 function oneTable(

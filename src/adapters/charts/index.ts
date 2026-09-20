@@ -20,9 +20,11 @@
  * objects a script mutates over time, the watched conditions, and the lifecycle
  * a read of another instrument fetches through.
  *
- * Three things a study can express have no field on the descriptor to land in,
- * and each is named where it would have been written: an alert's per-bar message
- * and its frequency, in `alerts.ts`, and a second declared grid, in `tables.ts`.
+ * What a study can express and this descriptor has no field for is recorded,
+ * with its reason, in `spec/chart-narrowings.json`, and each one is also named
+ * in the file that would have written it. `scripts/check-chart-surface.mjs`
+ * reads that record against a compiled program, so the list cannot grow in
+ * silence.
  */
 export { descriptorFor } from './descriptor.js';
 

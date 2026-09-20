@@ -265,7 +265,7 @@ an oscillator reading, not a price.
 
 ## Tooltips
 
-`tooltip` on the constructor, or `draw.setTooltip(obj, text)` later, attaches
+`tooltip` on the constructor, or `draw.setTooltip(obj: label | box, text)` later, attaches
 detail that appears while the pointer rests on the object. Boxes and labels both
 take one.
 

@@ -87,3 +87,45 @@ test('ordered walks the file top to bottom, whatever order the stages ran in', (
     [400, 20],
   );
 });
+
+/**
+ * Catches an order that leans on a machine setting or on the sort being stable.
+ *
+ * `compiled-program.md` 8.4 says there is no locale: string comparison is
+ * defined by the manifest and by Unicode, never by an environment setting. The
+ * tie after the offset was a locale comparison, so two engines configured for
+ * two collations could print the same diagnostics in two orders, and a reader
+ * comparing them would have no way to say which was right.
+ *
+ * The span's length is in the comparison for the second half of the same
+ * property: without it, two diagnostics sharing a code and an offset tie, and a
+ * tie is settled by whether the runtime's sort happens to be stable, which is a
+ * property of the engine rather than of the language. Reporting the same set in
+ * two different orders has to be impossible, not merely unlikely.
+ */
+test('the order is total: offset, then span length, then code point', () => {
+  const bag = new DiagnosticBag();
+  bag.report('OS8010', at(20, 5, 3, 1), { name: 'len', line: 3 });
+  bag.report('OS1007', at(20, 1, 3, 1), {});
+  bag.report('OS1006', at(20, 5, 3, 1), {});
+
+  assert.deepEqual(
+    bag.ordered().map((diagnostic) => `${diagnostic.code}:${diagnostic.span.length}`),
+    ['OS1007:1', 'OS1006:5', 'OS8010:5'],
+  );
+});
+
+test('two orderings of the same reports are the same order', () => {
+  const forwards = new DiagnosticBag();
+  forwards.report('OS1006', at(40, 1, 5, 1), {});
+  forwards.report('OS8010', at(40, 1, 5, 1), { name: 'len', line: 5 });
+
+  const backwards = new DiagnosticBag();
+  backwards.report('OS8010', at(40, 1, 5, 1), { name: 'len', line: 5 });
+  backwards.report('OS1006', at(40, 1, 5, 1), {});
+
+  assert.deepEqual(
+    forwards.ordered().map((diagnostic) => diagnostic.code),
+    backwards.ordered().map((diagnostic) => diagnostic.code),
+  );
+});

@@ -325,3 +325,73 @@ plot(close, "Close")
   assert.equal(descriptor.barColors, undefined);
   assert.equal(descriptor.background, undefined);
 });
+
+// Catches the entry that hands the chart its declared title and nothing else,
+// which is what every notification this adapter produced used to carry. The
+// point of computing a message from the bar that fired is that the message
+// carries the numbers; a title alone says only that something happened.
+test('an alert carries the message the bar that fired computed', () => {
+  const descriptor = descriptorOfSource(MARKED);
+  const data = alternating(10);
+  const surface = run(descriptor, data, instance(), contextOf(10, {}));
+  const watched = (descriptor.alerts ?? [])[0] as ChartAlertSpec;
+
+  assert.equal(typeof watched.message, 'function', 'a message computed per bar is a function');
+  assert.deepEqual(
+    [0, 2, 4].map((index) => watched.message?.({ ...surface, index })),
+    ['up at 101.00', 'up at 103.00', 'up at 105.00'],
+    'the bar that fired, not the first bar and not the title',
+  );
+  assert.notEqual(watched.message?.({ ...surface, index: 0 }), watched.title);
+});
+
+// Catches a message read from whichever run happened last. Two studies of one
+// script recompute one after the other, and the alert context carries the
+// settings object precisely so the second one's numbers do not reach the first.
+test('two instances of one study carry their own alert messages', () => {
+  const descriptor = descriptorOfSource(MARKED);
+  const first = run(descriptor, alternating(4), instance(), contextOf(4, {}));
+  const second = run(descriptor, alternating(10), instance(), contextOf(10, {}));
+  const watched = (descriptor.alerts ?? [])[0] as ChartAlertSpec;
+  assert.equal(watched.message?.({ ...first, index: 2 }), 'up at 103.00');
+  assert.equal(watched.message?.({ ...second, index: 8 }), 'up at 109.00');
+});
+
+// Catches a message that answers the empty string, or the word "none", for a bar
+// whose message was absent. The chart's own answer for an entry that states no
+// message is the title, so absence takes the same answer rather than a new one.
+test('a bar whose message was absent falls back to the declared title', () => {
+  const descriptor = descriptorOfSource(`version 1
+
+study("Absent")
+
+alert(close > open ? "up at " + text(close, 2) : none, id = "u", title = "Went up")
+
+plot(close, "Close")
+`);
+  const surface = run(descriptor, alternating(4), instance(), contextOf(4, {}));
+  const watched = (descriptor.alerts ?? [])[0] as ChartAlertSpec;
+  assert.equal(watched.message?.({ ...surface, index: 0 }), 'up at 101.00');
+  assert.equal(watched.message?.({ ...surface, index: 1 }), 'Went up', 'a falling bar wrote none');
+});
+
+// Catches an adapter that carries the second declared grid nowhere and says
+// nothing about it. One hook draws one grid; what is dropped and why is recorded
+// in spec/chart-narrowings.json and checked by scripts/check-chart-surface.mjs.
+test('a study declaring two grids draws the first one', () => {
+  const descriptor = descriptorOfSource(`version 1
+
+study("Two grids")
+
+first = table("First", 1, 1, position = "topLeft")
+second = table("Second", 1, 1, position = "bottomRight")
+cell(first, 0, 0, "one")
+cell(second, 0, 0, "two")
+
+plot(close, "Close")
+`);
+  const surface = run(descriptor, alternating(3), instance(), contextOf(3, {}));
+  const grid = descriptor.table?.(surface) as ChartGrid;
+  assert.equal(grid.rows[0]?.[0]?.text, 'one', 'the first declared grid, paired by its own key');
+  assert.equal(grid.options?.position, 'top-left');
+});

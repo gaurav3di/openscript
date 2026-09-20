@@ -1,6 +1,6 @@
 # 0008 Every documented default in the calculation library is dropped at the call
 
-Status: open
+Status: closed 2026-09-20
 Opened: 2026-09-20
 Found by: the phase three gate, writing the first study that omitted an optional
 argument the specification says has a default
@@ -102,3 +102,52 @@ It is not the emitter's gap being wrong. The gap says precisely what is missing
 and names both specifications. It is that a gap is a note between the people
 writing this project and a user never sees one, so a non-blocking gap on a path
 a user reaches every day is a silent wrong answer.
+
+## What was changed
+
+Option 1, with option 2 as the build's answer to anything it misses.
+
+**The defaults are in the surface.** A hundred and sixty optional parameters
+across `library-bars.ts`, `library-series.ts`, `library-output.ts` and
+`library-orders.ts` now carry the default `stdlib.md` prints, spelled as the
+table spells it so the two still compare by eye. With the twenty-one the four
+`draw` calls already carried, that is a hundred and eighty-one of the hundred and
+ninety-eight optional parameters outside a declaration call.
+
+**Four of them are not constants.** `vwap(src = hlc3)`, `zone = chart.timezone`
+on the calendar, `exchange = chart.exchange` on a symbol read and
+`price = close` on the sizing helpers are names the compiler reads at the call,
+which `compiled-program.md` 4.10 already provides for: a default that is an
+expression is compiled into the call site. `emit/calls.ts` emits the same read a
+written argument would have emitted, so `vwap()` and `vwap(hlc3)` are now the
+same program instruction for instruction.
+
+**The warmup follows the default.** `warmupOfCall` read a length only from a
+written argument, so an omitted one weakened the warmup to a floor: `atr()`
+promised "no earlier than bar 0" where `atr(14)` promised bar 13. It reads the
+default now, and a warmup is a promise about exactly which bars are absent
+rather than a bound.
+
+**The declaration calls are not in this.** `plot`, `level`, `fill`, `table`,
+`plotCandles`, `input`, `signal` and `alert` do not pass their optional
+arguments to anything: each becomes a field of a declaration in `outputs`,
+written with the value it resolved to (2.3), and those values already have one
+home in `src/core/emit/defaults.ts`. Carrying them in the surface as well would
+be the same fact in two files.
+
+**The class is closed by `scripts/check-defaults.mjs`**, which `npm test` runs
+after the build. An optional parameter must carry the default the specification
+states, or be recorded in `spec/default-exceptions.json` with what the
+specification says in place of a value and why that is not one. Neither is a
+defect, both is a contradiction, a default the surface invented is a defect, and
+a default that has drifted from the specification is a defect. The declaration
+calls are excluded by the set the emitter exports rather than by a list here, so
+the exclusion cannot grow to cover a call whose defaults nobody recorded
+anywhere.
+
+Seventeen parameters are recorded as stating no value. Sixteen are the leg an
+order acts on and the size the `strategy()` declaration sets, which are facts
+about the file rather than about the library. The seventeenth is `req.candle`'s
+`mode`, whose row in 15.1 prints no default where the two reads beside it in the
+same table print `mode = "confirmed"`. That is reported rather than guessed: a
+mode this compiler invented would be a repainting rule nobody wrote down.

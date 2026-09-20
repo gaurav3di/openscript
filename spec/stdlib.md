@@ -592,6 +592,14 @@ been true. Zero would read as "it happened on this bar".
 | `str.format(template, values)` (planned) | `string` | Substitution into a template |
 | `str.match(s, pattern)` (planned) | `bool` | Pattern matching, once a pattern syntax is specified |
 
+`text(x, decimals)` writes a positional decimal at every magnitude: a sign where
+the value is negative, at least one digit before the point, and exactly
+`decimals` digits after it. It never switches to an exponent. A reader asked for
+a fixed number of decimal places and an exponent is not one, and a conversion
+that changed shape above a threshold would be a label that read correctly until
+the day a cumulative volume crossed it. A conversion whose result would pass the
+string ceiling is OS5008, measured before the string is built rather than after.
+
 None of these has a warmup: a string operation on a present string produces a
 value on bar 0.
 
@@ -1091,26 +1099,38 @@ Mutation, deletion and counting:
 
 | Call | Returns | For |
 |---|---|---|
-| `draw.setFrom(obj, t, p)` | nothing | Move a line's or box's first anchor |
-| `draw.setTo(obj, t, p)` | nothing | Move its second anchor |
-| `draw.setBounds(obj, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
+| `draw.setFrom(obj: line | box, t, p)` | nothing | Move a line's or box's first anchor |
+| `draw.setTo(obj: line | box, t, p)` | nothing | Move its second anchor |
+| `draw.setBounds(obj: line | box, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
 | `draw.setAt(label, t, p)` | nothing | Move a label |
 | `draw.setPoints(polyline, times, prices)` | nothing | Replace a polyline's path |
-| `draw.setText(obj, text)` | nothing | Change a label's or box's caption |
-| `draw.setColor(obj, color)` | nothing | Change the line or border colour |
-| `draw.setTextColor(obj, color)` | nothing | Change the text colour |
-| `draw.setFillColor(obj, color)` | nothing | Change a box's or polyline's fill |
-| `draw.setWidth(obj, width)` | nothing | Change the line thickness |
-| `draw.setStyle(obj, style)` | nothing | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setText(obj: label | box, text)` | nothing | Change a label's or box's caption |
+| `draw.setColor(obj: line | label | box | polyline, color)` | nothing | Change the line or border colour |
+| `draw.setTextColor(obj: label | box, color)` | nothing | Change the text colour |
+| `draw.setFillColor(obj: box | polyline, color)` | nothing | Change a box's or polyline's fill |
+| `draw.setWidth(obj: line | box | polyline, width)` | nothing | Change the line thickness |
+| `draw.setStyle(obj: line, style)` | nothing | `"solid"`, `"dashed"` or `"dotted"` |
 | `draw.setExtend(line, left, right)` | nothing | Continue a line to the pane edge |
-| `draw.setTooltip(obj, text)` | nothing | Detail shown while the pointer rests on the object |
-| `draw.delete(obj)` | nothing | Remove one object |
+| `draw.setTooltip(obj: label | box, text)` | nothing | Detail shown while the pointer rests on the object |
+| `draw.delete(obj: line | label | box | polyline)` | nothing | Remove one object |
 | `draw.deleteAll()` | nothing | Remove every object this script created |
 | `draw.count()` | `number` | How many objects this script currently holds |
 
+**A setter names the object kinds it takes.** They are the kinds that carry the
+property being written: only a line and a box have two anchors to move, only a
+label and a box carry text, only a box and a polyline have a fill, and only a
+line has a style. A setter given another kind, or given something that is not an
+object at all, is OS3011 at that argument, before any bar runs. The alternative
+was a parameter that took whatever it was given, and under it
+`draw.setFrom(aLabel, t, p)` wrote an anchor onto a label, drew nothing and said
+nothing, which is the failure this language is written to make impossible.
+
 A setter given an object that has been deleted is OS4005 rather than a silent no
 operation, because a script mutating a deleted object has lost track of its own
-state and will keep doing so.
+state and will keep doing so. A setter given `none` does nothing, because an
+absent handle is a gap like every other absence reaching a drawing surface
+(`language.md` section 6.7), and it is what the fix for OS4005 asks a script to
+produce.
 
 An object created on a bar that is then re-executed is subject to the rollback
 rule of `language.md` section 7.5: the object set is restored to what it was at
@@ -1211,6 +1231,13 @@ is OS6009, carrying the host's own reason. Each of them puts that reason in
 `req.error(...)` and leaves the host free to offer a retry. OS6002 is the finer
 timeframe of section 15.2 and is never one of these; `errors.md` section 6
 records the reassignment.
+
+A read the engine cannot fold surfaces the same way. A day, week or month read
+is dated in the instrument's timezone (section 12.1), so a host that stated none
+leaves it absent on every bar of the run: `req.isReady` is false and `req.error`
+carries OS6012 naming the timezone. A read that is waiting and a read that will
+never answer look the same on a chart, and only one of them is worth waiting
+for.
 
 **Count: 6 entries, of which 2 are planned.**
 

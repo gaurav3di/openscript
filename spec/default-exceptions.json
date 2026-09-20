@@ -1,0 +1,90 @@
+{
+  "note": "Every optional parameter in the library surface that carries no default, each with what the specification states in its place and why that is not a value. An optional parameter with no default used to be indistinguishable from one whose default nobody had recorded, and the second kind compiled to a study with no values on any bar and nothing reported at compile, at load or at run. These are the first kind. Anything not listed here must carry the default stdlib.md states, and scripts/check-defaults.mjs fails the build on either: a parameter missing from both, or a parameter in both. This list only shrinks.",
+  "exceptions": [
+    {
+      "parameter": "buy.leg",
+      "states": "the only leg",
+      "reason": "The leg is the file's own rather than the library's. With one declared leg the call means that leg, and with more than one, leaving it out is OS3012 because there is no leg an engine could invent (stdlib.md 17.2). The surface has no value to carry either way."
+    },
+    {
+      "parameter": "sell.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.2."
+    },
+    {
+      "parameter": "close.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.2."
+    },
+    {
+      "parameter": "exit.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.2."
+    },
+    {
+      "parameter": "order.place.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.3."
+    },
+    {
+      "parameter": "order.reverse.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.3."
+    },
+    {
+      "parameter": "order.bracket.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.3."
+    },
+    {
+      "parameter": "order.roundToLot.leg",
+      "states": "the only leg",
+      "reason": "As buy.leg, stdlib.md 17.3."
+    },
+    {
+      "parameter": "buy.qty",
+      "states": "the declaration's",
+      "reason": "The size comes from the strategy declaration's own qty and qtyType (stdlib.md 17.2), which is a fact about the file and not about the library, so the surface has no number to carry."
+    },
+    {
+      "parameter": "sell.qty",
+      "states": "the declaration's",
+      "reason": "As buy.qty, stdlib.md 17.2."
+    },
+    {
+      "parameter": "leg.fixed.qty",
+      "states": "the declaration's",
+      "reason": "As buy.qty, stdlib.md 17.6."
+    },
+    {
+      "parameter": "leg.relative.qty",
+      "states": "the declaration's",
+      "reason": "As buy.qty, stdlib.md 17.6."
+    },
+    {
+      "parameter": "leg.fixed.product",
+      "states": "the declaration's",
+      "reason": "The product comes from the strategy declaration, stdlib.md 17.6."
+    },
+    {
+      "parameter": "leg.relative.product",
+      "states": "the declaration's",
+      "reason": "The product comes from the strategy declaration, stdlib.md 17.6."
+    },
+    {
+      "parameter": "leg.enter.qty",
+      "states": "the leg's",
+      "reason": "The size is the one the leg was declared with, stdlib.md 17.6, which the surface cannot see."
+    },
+    {
+      "parameter": "leg.enter.side",
+      "states": "the leg's",
+      "reason": "The side is the one the leg was declared with, stdlib.md 17.6, which the surface cannot see."
+    },
+    {
+      "parameter": "req.candle.mode",
+      "states": "",
+      "reason": "A gap in the specification rather than a decision. The row for req.candle in stdlib.md 15.1 prints mode with no default, where the two reads beside it in the same table print mode = \"confirmed\". The mode is the whole subject of 15.3 and the call is meaningless without one, so this is almost certainly the row and not the rule. It is recorded rather than guessed: a default this compiler invented would be a repainting rule nobody wrote down. The entry is planned, so no script can reach it yet."
+    }
+  ]
+}

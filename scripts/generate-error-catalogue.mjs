@@ -96,7 +96,10 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-const entries = [...catalogue.entries].sort((a, b) => a.code.localeCompare(b.code));
+// By code point, never by locale. This sort decides the order of the generated
+// source, so a machine with different collation rules would produce a different
+// file from the same catalogue, and the two builds would not be the same build.
+const entries = [...catalogue.entries].sort((a, b) => (a.code < b.code ? -1 : a.code > b.code ? 1 : 0));
 const banner = (what) =>
   `// Generated from spec/errors.json by scripts/generate-error-catalogue.mjs.\n` +
   `// ${what}\n` +

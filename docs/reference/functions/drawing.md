@@ -369,20 +369,20 @@ compatibility promise means this form keeps working when it does.
 
 | Call | Returns | For |
 |---|---|---|
-| `draw.setFrom(obj, t, p)` | nothing | Move a line's or box's first anchor |
-| `draw.setTo(obj, t, p)` | nothing | Move its second anchor |
-| `draw.setBounds(obj, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
+| `draw.setFrom(obj: line | box, t, p)` | nothing | Move a line's or box's first anchor |
+| `draw.setTo(obj: line | box, t, p)` | nothing | Move its second anchor |
+| `draw.setBounds(obj: line | box, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
 | `draw.setAt(label, t, p)` | nothing | Move a label |
 | `draw.setPoints(polyline, times, prices)` | nothing | Replace a polyline's path |
-| `draw.setText(obj, text)` | nothing | Change a label's or box's caption |
-| `draw.setColor(obj, color)` | nothing | Change the line or border colour |
-| `draw.setTextColor(obj, color)` | nothing | Change the text colour |
-| `draw.setFillColor(obj, color)` | nothing | Change a box's or polyline's fill |
-| `draw.setWidth(obj, width)` | nothing | Change the line thickness |
-| `draw.setStyle(obj, style)` | nothing | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setText(obj: label | box, text)` | nothing | Change a label's or box's caption |
+| `draw.setColor(obj: line | label | box | polyline, color)` | nothing | Change the line or border colour |
+| `draw.setTextColor(obj: label | box, color)` | nothing | Change the text colour |
+| `draw.setFillColor(obj: box | polyline, color)` | nothing | Change a box's or polyline's fill |
+| `draw.setWidth(obj: line | box | polyline, width)` | nothing | Change the line thickness |
+| `draw.setStyle(obj: line, style)` | nothing | `"solid"`, `"dashed"` or `"dotted"` |
 | `draw.setExtend(line, left, right)` | nothing | Continue a line to the pane edge |
-| `draw.setTooltip(obj, text)` | nothing | Detail shown while the pointer rests on the object |
-| `draw.delete(obj)` | nothing | Remove one object |
+| `draw.setTooltip(obj: label | box, text)` | nothing | Detail shown while the pointer rests on the object |
+| `draw.delete(obj: line | label | box | polyline)` | nothing | Remove one object |
 | `draw.deleteAll()` | nothing | Remove every object this script created |
 | `draw.count()` | `number` | How many objects this script currently holds |
 
@@ -393,6 +393,14 @@ draw.setText(tag, "high " + text(rangeHigh, 2))
 if draw.count() > 200
     draw.deleteAll()
 ```
+
+**A setter takes the kinds that have the property it writes.** Only a line and a
+box have two anchors, only a label and a box carry text, only a box and a
+polyline have a fill, only a line has a style. Pass another kind, or something
+that is not an object at all, and the call is refused at compile time with
+OS3011 naming the kinds it does take. Before that was written down, passing a
+label where a line belonged compiled, ran on every bar and drew nothing, with
+nothing anywhere to read.
 
 A setter given an object that has already been deleted is a runtime error
 (OS4005) rather than a silent no operation, because a script mutating a deleted

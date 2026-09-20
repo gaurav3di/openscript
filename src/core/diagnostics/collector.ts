@@ -4,6 +4,18 @@ import { diagnosticFor, isError } from './diagnostic.js';
 import type { Diagnostic } from './diagnostic.js';
 
 /**
+ * Two codes in code point order, which is the same order everywhere.
+ *
+ * `<` on two strings compares UTF-16 code units and reads no environment
+ * setting, which is exactly what `language.md` 9.3 fixes for the language's own
+ * string comparison. The engine's own output obeys the rule it gives scripts.
+ */
+function byCodePoint(left: string, right: string): number {
+  if (left < right) return -1;
+  return left > right ? 1 : 0;
+}
+
+/**
  * What a stage is handed so it can report.
  *
  * A stage takes the narrow interface rather than the bag, so a stage can be
@@ -77,11 +89,25 @@ export class DiagnosticBag implements DiagnosticSink {
    *
    * Stages report in the order they run, so a checker warning about line 2
    * arrives after a parser error about line 40. A reader reads top to bottom.
+   *
+   * **The order is total, and it depends on nothing outside the program.** Two
+   * engines handed the same diagnostics have to print them in the same order, so
+   * the tie after the offset is the span's length and then the code compared by
+   * code point. It was a locale comparison, which `compiled-program.md` 8.4
+   * forbids by name: the same two codes order differently under different
+   * collation rules, and the machine that is set up differently is the one
+   * nobody is looking at. Length is in the comparison because without it two
+   * diagnostics sharing a code and an offset tie, and a tie leaves the answer to
+   * whether the sort happens to be stable, which is a property of the engine
+   * rather than of the language. With it, nothing can tie: the bag already
+   * refuses a second diagnostic with the same code, offset and length.
    */
   ordered(): readonly Diagnostic[] {
     return [...this.#items].sort(
       (left, right) =>
-        left.span.offset - right.span.offset || left.code.localeCompare(right.code),
+        left.span.offset - right.span.offset ||
+        left.span.length - right.span.length ||
+        byCodePoint(left.code, right.code),
     );
   }
 }

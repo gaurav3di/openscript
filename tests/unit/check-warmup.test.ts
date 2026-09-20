@@ -90,3 +90,35 @@ test('an output carries the first bar its column can draw', () => {
   assert.equal(output?.title, 'E');
   assert.deepEqual(output?.warmup, { kind: 'at', bar: 19 });
 });
+
+// Catches the loop whose result was thrown away: an entry whose length is a
+// floor rather than an exact count was worth its `add` bars and nothing else,
+// so the lengths written at the call site counted for zero. A floor of bar 0 is
+// a request that tells a host to fetch no history at all.
+test('an entry that bounds its warmup still counts the lengths it was given', () => {
+  assert.equal(warmupOfName('h = hma(close, 20)\nplot(h, "H")', 'h'), 'at least 18');
+  assert.equal(warmupOfName('m = ma(close, 30)\nplot(m, "M")', 'm'), 'at least 29');
+  assert.equal(warmupOfName('t = tsi(close)\nplot(t, "T")', 't'), 'at least 37');
+  assert.equal(warmupOfName('a = adx()\nplot(a[1], "A")', 'a'), 'at least 14');
+});
+
+// Catches an element read through the array's warmup. stdlib.md 2.3 gives each
+// output of a multi-output call its own, and the array's is the earliest of
+// them: a signal line read at the gap's warmup claims a value for eight bars
+// where it is absent, and a read built on it fetches eight bars too few.
+test('each output of a multi-output call carries its own warmup', () => {
+  const macd = 'm = macd(close)\ngap = m[0]\nsmoothed = m[1]\nplot(gap, "G")\nplot(smoothed, "S")';
+  assert.equal(warmupOfName(macd, 'gap'), 'at 25');
+  assert.equal(warmupOfName(macd, 'smoothed'), 'at 33');
+  const written = 'x = adx()[0]\ny = adx()[1]\nplot(x, "X")\nplot(y, "Y")';
+  assert.equal(warmupOfName(written, 'x'), 'at 27');
+  assert.equal(warmupOfName(written, 'y'), 'at 14');
+});
+
+// Catches an element warmup taken from a call the name no longer holds, and an
+// index the compiler cannot read: both fall back to the array's warmup, which
+// is a floor for every element rather than a number about one of them.
+test('an element the compiler cannot name falls back to the array warmup', () => {
+  const moved = 'i = input(1, "I")\nm = macd(close)\nv = m[i]\nplot(v, "V")';
+  assert.equal(warmupOfName(moved, 'v'), 'at 25');
+});

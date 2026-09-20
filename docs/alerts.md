@@ -320,6 +320,15 @@ template and predicate. From there:
    handed to the host.
 4. The host delivers it wherever that subscription says, and records it.
 
+**A host may carry less of the declaration than the program holds.** The chart
+adapter in this repository carries the id, the title, the predicate and the
+message, and it has nowhere to put `frequency`: a chart judges every subscribed
+condition once for each bar that is new since it last looked, which is
+`"oncePerBar"`. So a `"once"` alert on a chart fires once per bar rather than
+once for the life of the study, and an `"everyUpdate"` one fires once per bar as
+well. What each host carries and what it cannot is recorded, with the reason, in
+[spec/chart-narrowings.json](../spec/chart-narrowings.json).
+
 Routing, retries, quiet hours, how many messages a minute and where they go are
 the host's business, not the language's. A script that tried to name a
 destination would only work on the host that had that destination, and the same
@@ -340,6 +349,7 @@ release, and until it arrives the only delivery a script declares is an alert.
 | `"a" + 5` refused with OS2003 | No implicit conversion between a string and a number | `"a" + text(5)` |
 | Subscriptions stopped matching after an edit | The alert had no `id`, so its derived name moved | Give every alert a stable `id` |
 | `"everyUpdate"` refused | It needs `onUnconfirmed = true` in the declaration | Set it, or use `"oncePerBar"` |
+| A `"once"` alert fires on every bar that meets it | A chart has one firing rule and it is once per new bar | Hold a `var` flag and test it in the condition |
 | Two alerts with the same `id` | A subscription is kept under the id, so two of them is OS3017 | Rename one |
 | An `id` taken from an `input()` | A name that moves when a setting changes is not a name a subscription can be kept under, so it is derived instead and warned about with OS8008 | Write the id out |
 

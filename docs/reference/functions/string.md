@@ -56,7 +56,10 @@ cell(panel, 1, 1, text(atr(14), 2))
 ```
 
 This is the function to reach for when a number is being displayed. It changes
-the characters, not the value, so the calculation keeps full precision. Use
+the characters, not the value, so the calculation keeps full precision. The
+result is always written out in full, however large the number: a price or a
+cumulative volume that grows past the size where a runtime would switch to
+exponential notation still reads as digits and a point. Use
 `round(x, decimals)` from [math.md](./math.md) only when the rounded number is
 the thing you actually mean, such as a quantity in whole lots or a price on an
 order.
@@ -67,6 +70,7 @@ order.
 | `text(1234.5678, 0)` | `"1235"` |
 | `text(2.5, 0)` | `"3"` |
 | `text(-2.5, 0)` | `"-3"` |
+| `text(1e21, 2)` | `"1000000000000000000000.00"` |
 | `text(true)` | `"true"` |
 | `text(none)` | `"none"` |
 | `"a" + none` | `none` |

@@ -261,7 +261,6 @@ function runBody(
   checkStatements(checker, body.statements, {
     topLevel: false,
     construct: 'a function body',
-    branched: false,
     inLoop: false,
   });
 

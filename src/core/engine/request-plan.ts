@@ -24,7 +24,7 @@ import { NO_POSITION, failure } from './errors.js';
 import type { EngineHost, RequestAnswer, RequestQuery, RequestRefusal } from './host.js';
 import type { ResolvedInput } from './inputs.js';
 import type { Request, RequestField } from './types.js';
-import { foldRefusal, parseTimeframe } from './timeframe.js';
+import { foldRefusal, isIntraday, parseTimeframe } from './timeframe.js';
 import type { Timeframe } from './timeframe.js';
 
 /** What a read holds once its identity, its timeframe and its source are fixed. */
@@ -155,6 +155,41 @@ export function askHost(plan: RequestPlan, host: EngineHost): RequestAnswer | un
 }
 
 /**
+ * Whether this read can date a bucket at all.
+ *
+ * A day, week or month request is folded by the calendar, and a calendar
+ * boundary is a civil date read in a zone (`timeframe.ts`). A host that stated
+ * no timezone leaves the fold with no key for any bar, so the read is absent on
+ * every bar of the run and will be on every future one: nothing that arrives
+ * later supplies a fact the instrument record does not hold.
+ *
+ * That is a dead read, and a dead read a study cannot explain is the worst of
+ * the three: the trader has already looked at the blank pane. So it is answered
+ * here rather than left as absence, and `req.isReady` and `req.error` say it.
+ */
+export function undatable(plan: RequestPlan): boolean {
+  return !isIntraday(plan.timeframe) && plan.zone === null;
+}
+
+/**
+ * What `req.error(read)` says about a read with no zone to date its buckets.
+ *
+ * OS6012's own message, because the zone is an instrument fact the host did not
+ * supply and that is exactly what this read needs and cannot default. Nothing
+ * is raised: a fact the host did not state leaves the read absent, and this is
+ * the sentence that explains the absence rather than a second answer to the
+ * question `host-interface.md` 4.5 leaves open.
+ */
+export function undatableReason(query: RequestQuery): string {
+  return diagnosticFor('OS6012', NO_POSITION, { fact: 'a timezone', symbol: named(query) }).message;
+}
+
+/** The instrument a reason names: the one the read asked for, or the chart's. */
+function named(query: RequestQuery): string {
+  return query.symbol ?? 'the chart\'s instrument';
+}
+
+/**
  * The reason a refusal reads as through `req.error(read)`.
  *
  * The catalogue's own message, filled with the identity the read asked for and
@@ -163,7 +198,7 @@ export function askHost(plan: RequestPlan, host: EngineHost): RequestAnswer | un
  * this instrument" is actionable and "the request failed" is not.
  */
 export function reasonFor(refusal: RequestRefusal, query: RequestQuery): string {
-  const symbol = query.symbol ?? 'the chart\'s instrument';
+  const symbol = named(query);
   const exchange = query.exchange ?? 'the chart\'s exchange';
   const reason = refusal.reason ?? 'the host gave no reason';
   switch (refusal.code) {

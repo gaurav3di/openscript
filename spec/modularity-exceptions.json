@@ -1,0 +1,26 @@
+{
+  "why": "Files over the 500 line limit that are recorded rather than split, each with the length it was recorded at. The length is a ceiling, not a pass: scripts/check-modularity.mjs fails the build on a file that grows past its recorded number, and fails it again on a row whose file has come back inside the limit and is still listed. The list only shrinks.",
+  "longFiles": [
+    {
+      "file": "tests/emit/format.test.ts",
+      "lines": 502,
+      "reason": "Recorded the day the length rule stopped being enforced against src alone. It is the whole of compiled-program.md section 3.5 read back out of an emitted program, one test per numbered check, so the seam is the section rather than two things fused. Split it along that section the next time a check is added to it."
+    },
+    {
+      "file": "tests/engine/library.test.ts",
+      "lines": 730,
+      "reason": "Recorded the day the length rule stopped being enforced against src alone. Two things in one file already: every library entry compared against the numeric library bit for bit, and the surveys that assert the engine, the checker and the target scripts agree on which entries exist. The surveys are the half to move."
+    },
+    {
+      "file": "tests/engine/objects.test.ts",
+      "lines": 529,
+      "reason": "Recorded the day the length rule stopped being enforced against src alone. The drawing object lifecycle, from creation through mutation and deletion to the ceiling, with the rollback cases in the middle. The ceiling cases are the half to move."
+    },
+    {
+      "file": "tests/engine/requests.test.ts",
+      "lines": 738,
+      "reason": "Recorded the day the length rule stopped being enforced against src alone. Higher timeframe folding and another instrument's bars are two subjects sharing one fixture, and the fixture is what has kept them in one file. Move the host answered reads out with a shared fixture beside them."
+    }
+  ],
+  "deepImports": []
+}

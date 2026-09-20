@@ -22,8 +22,29 @@
  *    it is almost always two things that were never separated, and the moment to
  *    notice is while splitting is still cheap.
  *
- * Exceptions are recorded with a reason, in the file named below, on the same
- * terms as every other check here: the list only shrinks.
+ * The first two rules are about `src`, because a module with a door is what
+ * `src` is made of and a test directory is not.
+ *
+ * **The third is about every file of code this project has**, wherever it sits:
+ * source, tooling, or test. It used to be about `src` alone while the
+ * conventions stated it without a scope, and the gap did exactly what a gap
+ * does. Four test files were over the limit, two of them written in the phase
+ * that found this, and the rule everybody believed was in force was in force
+ * over none of them. A document and a check that disagree are worse than either
+ * alone: the document is read as a promise and the check is trusted to keep it.
+ *
+ * A document is not code and is not counted. A specification section runs as
+ * long as the thing it specifies, and a limit on prose would be a limit on
+ * saying the whole of something once.
+ *
+ * ## An exception is a ceiling, not a pass
+ *
+ * Exceptions are recorded with a reason, in the file named below, and each one
+ * carries the length it was recorded at. Over that length the build fails, so a
+ * file already past the limit cannot grow further while it waits to be split.
+ * Under the limit the build fails too, so a row that has been earned out has to
+ * be deleted rather than left behind as cover. That is what "the list only
+ * shrinks" has to mean if it is to be a check rather than an intention.
  *
  * Run: node scripts/check-modularity.mjs [--list]
  */
@@ -72,26 +93,68 @@ function resolve(fromFile, spec) {
 }
 
 const allowed = existsSync(ALLOW_PATH) ? JSON.parse(readFileSync(ALLOW_PATH, 'utf8')) : {};
-const longFiles = new Map((allowed.longFiles ?? []).map((e) => [e.file, e.reason]));
+const longFiles = new Map((allowed.longFiles ?? []).map((e) => [e.file, e]));
 const deepImports = new Set((allowed.deepImports ?? []).map((e) => `${e.from} -> ${e.to}`));
 
 const files = sourceFiles();
+const codeFiles = filesMatching(SOURCE);
 const modules = new Set(files.map(moduleOf));
 const hasIndex = new Set(files.filter((f) => INDEX.test(f)).map(moduleOf));
 
 const problems = [];
 
-for (const file of files) {
-  const text = readFileSync(file, 'utf8');
-  const lines = text.split('\n').length;
+/** Every code file the project has, against the length limit and its ceilings. */
+const measured = new Map();
 
-  if (lines > MAX_LINES && !longFiles.has(file)) {
+for (const file of codeFiles) {
+  const lines = readFileSync(file, 'utf8').split('\n').length;
+  measured.set(file, lines);
+  const recorded = longFiles.get(file);
+
+  if (recorded === undefined) {
+    if (lines <= MAX_LINES) continue;
     problems.push(
       `${file}: ${lines} lines, over the ${MAX_LINES} limit. A file this long is usually two ` +
         `things that were never separated. Split it, or record it in ${ALLOW_PATH} with the reason.`,
     );
+    continue;
   }
 
+  if (typeof recorded.lines !== 'number') {
+    problems.push(
+      `${file}: its row in ${ALLOW_PATH} states no length. An exception without one is a pass ` +
+        `rather than a ceiling, and the file can then grow for ever. Record the length it is at.`,
+    );
+    continue;
+  }
+  if (lines > recorded.lines) {
+    problems.push(
+      `${file}: ${lines} lines, and its exception in ${ALLOW_PATH} was recorded at ` +
+        `${recorded.lines}. An exception is a ceiling: a file already over the limit does not ` +
+        `grow further while it waits to be split. Split it, or take the ${lines - recorded.lines} ` +
+        `added line${lines - recorded.lines === 1 ? '' : 's'} back out.`,
+    );
+    continue;
+  }
+  if (lines <= MAX_LINES) {
+    problems.push(
+      `${file}: ${lines} lines, inside the ${MAX_LINES} limit, and still recorded in ` +
+        `${ALLOW_PATH}. Delete the row: an exception nobody needs is cover for the next file ` +
+        `that does, and the list only shrinks.`,
+    );
+  }
+}
+
+for (const [file] of longFiles) {
+  if (measured.has(file)) continue;
+  problems.push(
+    `${ALLOW_PATH} records ${file}, which is not a code file this check reads. A row for a file ` +
+      `that moved or went is an exception guarding nothing. Delete it, or correct the path.`,
+  );
+}
+
+for (const file of files) {
+  const text = readFileSync(file, 'utf8');
   const mine = moduleOf(file);
   IMPORT.lastIndex = 0;
   let m;
@@ -126,9 +189,20 @@ for (const dir of modules) {
   }
 }
 
+if (codeFiles.length === 0) {
+  console.error(
+    `Modularity check: ${nothingFound('code file')}. The length rule is over every file of ` +
+      `code this project has, so a run that found none read nothing. Refusing to report a pass.`,
+  );
+  process.exit(1);
+}
+
 if (process.argv.includes('--list')) {
   for (const p of problems) console.log(p);
-  console.log(`\n${problems.length} modularity problems across ${files.length} source files.`);
+  console.log(
+    `\n${problems.length} modularity problems across ${files.length} source files and ` +
+      `${codeFiles.length} code files.`,
+  );
   process.exit(0);
 }
 
@@ -141,9 +215,13 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
+const ceilings = longFiles.size;
 console.log(
   files.length === 0
     ? `Modularity check: ${nothingFound('source file under src/')}. The rules are in place; nothing exercised them.`
     : `Modularity check passed: ${files.length} files in ${modules.size} modules, every cross-module ` +
-        `import through an index, none over ${MAX_LINES} lines.`,
+        `import through an index; ${codeFiles.length} code files under the ${MAX_LINES} line limit` +
+        (ceilings === 0
+          ? '.'
+          : `, bar ${ceilings} recorded in ${ALLOW_PATH} and held at the length each was recorded at.`),
 );

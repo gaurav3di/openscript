@@ -1,11 +1,15 @@
 /**
- * Example shadowing check.
+ * Example check: what an example declares, and what its comments claim.
  *
  * Every fenced OpenScript example in the documentation is read the way the
  * checker reads a file, and any name the example declares that already exists
  * in the global scope is reported as OS2002 (`language.md` sections 12.3 and
  * 12.4). A documentation example that does not compile teaches a habit the
  * compiler then refuses, which costs the reader more than the example gave.
+ *
+ * The second half of the file is about the comments rather than the code, and
+ * is there because a wrong sentence beside working code has now cost two rounds.
+ * See "What a comment claims about a diagnostic" below.
  *
  * There is no compiler in this repository yet, so this check is the one stage
  * of it that can be run today: the scope pass. It does not type check, it does
@@ -147,6 +151,22 @@ function stripped(line) {
   return out;
 }
 
+/** The other half of `stripped`: the comment, and nothing else on the line. */
+function commentOf(line) {
+  let inString = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inString) {
+      if (c === '\\') i++;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') { inString = true; continue; }
+    if (c === '/' && line[i + 1] === '/') return line.slice(i + 2);
+  }
+  return null;
+}
+
 const DECL = /^\s*(?:live\s+)?(?:var\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*(?::\s*[A-Za-z_][A-Za-z0-9_<>, ]*)?\s*(?:=|\+=|-=|\*=|\/=|%=)(?!=)/;
 const FOR_DECL = /^\s*for\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/;
 const FN_DECL = /^\s*fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)/;
@@ -199,6 +219,143 @@ function declarations(body, firstLine) {
 }
 
 // ---------------------------------------------------------------------------
+// What a comment claims about a diagnostic
+// ---------------------------------------------------------------------------
+
+/**
+ * A comment beside correct code, stating the opposite of what the code does.
+ *
+ * This has now cost two rounds. A comment is not compiled, nothing tests it, and
+ * a reader trusts it precisely because it sits next to code that works. The one
+ * shape of it that a machine can settle is a comment that pairs a value with a
+ * diagnostic code, because the catalogue says what each code is about: an
+ * example claimed that one higher timeframe mode carried a warning that is
+ * actually about a declaration option, and the modes and the codes are both in
+ * `spec/errors.json`.
+ *
+ * Two rules, both over comments in example scripts and in the fenced examples of
+ * the documentation, which is where such a sentence is read as instruction.
+ *
+ * **A code an example names exists.** A retired or invented code sends a reader
+ * looking for a cause that cannot occur.
+ *
+ * **A code an example attributes to a value is a code that entry is about.** If
+ * a comment says that `"developing"` carries a code, the word `developing` has
+ * to appear somewhere in that entry: its message, its cause, its fix or its
+ * example. This is deliberately narrow. It settles the sentence that pairs two
+ * named things, and it says nothing about prose it cannot check, because a rule
+ * that guessed at the rest would be turned off the first week.
+ */
+const CATALOGUE = JSON.parse(readFileSync(join(ROOT, 'spec', 'errors.json'), 'utf8'));
+const ENTRIES = new Map(CATALOGUE.entries.map((entry) => [entry.code, entry]));
+
+const NAMED_CODE = /\bOS\d{4}\b/g;
+const ATTRIBUTION = /"([^"\n]{1,48})"\s+(?:carries|raises|gives|reports|produces|means)\s+(OS\d{4})\b/g;
+
+/** Everything one entry is about, as one piece of text to look a word up in. */
+function entryText(entry) {
+  const example = entry.example ?? {};
+  return [
+    entry.title,
+    entry.message,
+    entry.cause,
+    entry.fix,
+    example.before ?? '',
+    example.after ?? '',
+    Object.values(entry.placeholders ?? {}).join(' '),
+  ]
+    .join('\n')
+    .toLowerCase();
+}
+
+/** Runs of comment lines, flattened, each with the line the run starts on. */
+function commentRuns(body, firstLine) {
+  const runs = [];
+  let held = [];
+  let start = 0;
+  const close = () => {
+    if (held.length > 0) runs.push({ line: start, text: held.join(' ') });
+    held = [];
+  };
+  for (let i = 0; i < body.length; i++) {
+    const comment = commentOf(body[i]);
+    if (comment === null) {
+      close();
+      continue;
+    }
+    if (held.length === 0) start = firstLine + i;
+    held.push(comment.trim());
+  }
+  close();
+  return runs;
+}
+
+/** What one example's comments claim, and what is wrong with it. */
+function claimProblems(body, firstLine) {
+  const out = [];
+  for (const run of commentRuns(body, firstLine)) {
+    NAMED_CODE.lastIndex = 0;
+    let m;
+    while ((m = NAMED_CODE.exec(run.text)) !== null) {
+      if (ENTRIES.has(m[0])) continue;
+      out.push({
+        line: run.line,
+        say:
+          `names ${m[0]}, which spec/errors.json does not hold. A code an example quotes has to ` +
+          `be one a reader can look up, or the sentence sends them after a cause that cannot occur`,
+      });
+    }
+    ATTRIBUTION.lastIndex = 0;
+    while ((m = ATTRIBUTION.exec(run.text)) !== null) {
+      const entry = ENTRIES.get(m[2]);
+      if (entry === undefined) continue;
+      if (entryText(entry).includes(m[1].toLowerCase())) continue;
+      out.push({
+        line: run.line,
+        say:
+          `says "${m[1]}" carries ${m[2]}, and nothing in that entry mentions "${m[1]}": its ` +
+          `title, message, cause, fix and example are about something else. A comment stating ` +
+          `the opposite of what the code does is believed, because it sits beside code that works`,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * The claim rules, attacked before they are trusted.
+ *
+ * Both of the rules above match nothing in a clean tree, which is the state a
+ * rule can rot in undetected: this repository has already shipped a pattern that
+ * could never match anything and reported a clean result for a year. So each is
+ * given a sentence it must refuse and one it must accept, every run.
+ */
+function claimSelfTest() {
+  const cases = [
+    { text: ['// "lookahead" carries OS8005 and marks the study as repainting.'], wrong: 0 },
+    { text: ['// "confirmed" is the default, and it never repaints.'], wrong: 0 },
+    { text: ['// "developing" carries OS8002.'], wrong: 1 },
+    { text: ['// See OS9999 for the rule this example breaks.'], wrong: 1 },
+  ];
+  const broken = [];
+  for (const one of cases) {
+    const found = claimProblems(one.text, 1).length;
+    if (found !== one.wrong) {
+      broken.push(`${one.text[0]} (${found} reported, ${one.wrong} expected)`);
+    }
+  }
+  if (broken.length === 0) return;
+  console.error(
+    'The claim rules in this file no longer do what they say:\n\n' +
+      broken.map((line) => `  ${line}`).join('\n') +
+      '\n\nA rule that can no longer match is indistinguishable from a clean tree.',
+  );
+  process.exit(1);
+}
+
+claimSelfTest();
+
+// ---------------------------------------------------------------------------
 // Walk and report
 // ---------------------------------------------------------------------------
 
@@ -213,6 +370,7 @@ function walk(dir, out = []) {
 
 const globals = loadGlobals();
 let hits = 0;
+let claims = 0;
 let examples = 0;
 
 for (const source of SOURCES) {
@@ -233,19 +391,37 @@ for (const source of SOURCES) {
             `global scope. Rename it; the library keeps the short name.`,
         );
       }
+      for (const claim of claimProblems(block.body, block.firstLine)) {
+        claims++;
+        console.error(`${where}:${claim.line}: a comment ${claim.say}.`);
+      }
     }
   }
 }
 
-if (hits > 0) {
-  console.error(
-    `\n${hits} example declaration${hits === 1 ? '' : 's'} shadow${hits === 1 ? 's' : ''} a ` +
-      `built-in name. An example that does not compile teaches a habit the compiler refuses.`,
-  );
+if (hits > 0 || claims > 0) {
+  if (hits > 0) {
+    console.error(
+      `
+${hits} example declaration${hits === 1 ? '' : 's'} shadow${hits === 1 ? 's' : ''} a ` +
+        `built-in name. An example that does not compile teaches a habit the compiler refuses.`,
+    );
+  }
+  if (claims > 0) {
+    console.error(
+      `
+${claims} comment${claims === 1 ? '' : 's'} in an example state${claims === 1 ? 's' : ''} ` +
+        `something about a diagnostic that the catalogue does not. A wrong sentence beside correct ` +
+        `code is read as the authority on it, and it is read as the authority precisely because ` +
+        `the code beside it works.`,
+    );
+  }
   process.exit(1);
 }
 
 console.log(
   `Example check passed: ${examples} example${examples === 1 ? '' : 's'} declare no name ` +
-    `that the library already owns (${globals.size} globals read from the specification).`,
+    `that the library already owns (${globals.size} globals read from the specification), and ` +
+    `every diagnostic code an example comment names is one of the ${ENTRIES.size} the catalogue ` +
+    `holds and is about what the comment says it is about.`,
 );

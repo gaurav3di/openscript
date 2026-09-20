@@ -54,7 +54,7 @@ import type { ResolvedInput } from './inputs.js';
 import type { HostFacts, ManifestEntry } from './library/index.js';
 import type { Registers } from './registers.js';
 import { RequestBody, bodyProgram } from './request-body.js';
-import { askHost, reasonFor } from './request-plan.js';
+import { askHost, reasonFor, undatable, undatableReason } from './request-plan.js';
 import type { RequestPlan } from './request-plan.js';
 import { bucketKeyOf } from './timeframe.js';
 import type { CompiledProgram, Request } from './types.js';
@@ -208,6 +208,18 @@ function build(parts: RequestParts, request: Request, plan: RequestPlan): Read {
     spanAt: parts.spanAt,
   });
 
+  // A reason is the read saying why it will never answer. A refusal is the
+  // host's; a calendar fold with no zone to date a bucket in is the engine's,
+  // and it is stated here rather than left as an absence the study cannot
+  // explain. The host's own words win where both hold: a source that refused is
+  // the fix the user can act on first.
+  const reason =
+    refused !== undefined
+      ? reasonFor(refused, plan.query)
+      : undatable(plan)
+        ? undatableReason(plan.query)
+        : '';
+
   return {
     plan,
     register: request.series,
@@ -216,9 +228,11 @@ function build(parts: RequestParts, request: Request, plan: RequestPlan): Read {
     // A fold of the chart's own bars needs nothing from the host, so it is
     // answered the moment it is planned. A read the host is still fetching is
     // not: the read is absent, `req.isReady` is false, and the study keeps
-    // drawing everything that does not depend on it.
-    ready: answer === undefined ? plan.query.read === 'timeframe' : 'bars' in answer,
-    reason: refused === undefined ? '' : reasonFor(refused, plan.query),
+    // drawing everything that does not depend on it. A read with a reason is
+    // never ready: it is not waiting for anything.
+    ready:
+      reason === '' && (answer === undefined ? plan.query.read === 'timeframe' : 'bars' in answer),
+    reason,
     cursor: 0,
     openKey: undefined,
     openFrom: 0,

@@ -15,11 +15,25 @@ import {
   delayBars,
   entry,
   fromLength,
+  fromLengths,
   wholeRange,
 } from './library.js';
-import type { LibraryEntry } from './library.js';
+import type { LibraryEntry, WarmupRule } from './library.js';
 
 const stateful = { stateful: true } as const;
+
+/**
+ * `[gap, signal, histogram]`, which two entries return on the same terms.
+ *
+ * The gap is there once the slower mean is, and the signal and the histogram
+ * wait for the mean of the gap: `slow + signal - 2`, the bar `stdlib.md` states
+ * for both of them.
+ */
+const GAP_AND_SIGNAL: readonly WarmupRule[] = [
+  fromLength('slow', -1),
+  fromLengths(['slow', 'signal'], -2),
+  fromLengths(['slow', 'signal'], -2),
+];
 
 /** The three colour channels of stdlib.md 11.2, which are whole 0 to 255. */
 const CHANNELS = { r: wholeRange(0, 255), g: wholeRange(0, 255), b: wholeRange(0, 255) };
@@ -59,36 +73,48 @@ const trend: readonly LibraryEntry[] = [
   }),
   entry('swma(src: series number) -> series number', { ...stateful, warmup: delayBars(3) }),
   entry(
-    'alma(src: series number, len: number, offset?: number, sigma?: number) -> series number',
+    'alma(src: series number, len: number, offset?: number = 0.85, sigma?: number = 6) -> series number',
     { ...stateful, warmup: fromLength('len', -1) },
   ),
-  entry('linreg(src: series number, len: number, offset?: number) -> series number', {
+  entry('linreg(src: series number, len: number, offset?: number = 0) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('ma(src: series number, len: number, type?: string) -> series number', {
+  entry('ma(src: series number, len: number, type?: string = "sma") -> series number', {
     ...stateful,
     warmup: atLeastLength(['len'], -1),
     values: { type: ['sma', 'ema', 'wma', 'rma', 'hma', 'vwma'] },
   }),
-  entry('supertrend(factor?: number, atrLen?: number) -> array<number>', {
+  entry('supertrend(factor?: number = 3, atrLen?: number = 10) -> array<number>', {
     ...stateful,
     warmup: fromLength('atrLen', 0),
   }),
-  entry('psar(start?: number, step?: number, max?: number) -> array<number>', {
+  entry('psar(start?: number = 0.02, step?: number = 0.02, max?: number = 0.2) -> array<number>', {
     ...stateful,
     warmup: delayBars(1),
   }),
-  entry('adx(diLen?: number, adxLen?: number) -> array<number>', {
+  entry('adx(diLen?: number = 14, adxLen?: number = 14) -> array<number>', {
     ...stateful,
     warmup: atLeastLength(['diLen'], 0),
+    elements: [
+      fromLengths(['diLen', 'adxLen'], -1),
+      fromLength('diLen', 0),
+      fromLength('diLen', 0),
+    ],
   }),
-  entry('aroon(len?: number) -> array<number>', { ...stateful, warmup: fromLength('len', 0) }),
-  entry('ichimoku(convLen?: number, baseLen?: number, spanLen?: number) -> array<number>', {
+  entry('aroon(len?: number = 14) -> array<number>', { ...stateful, warmup: fromLength('len', 0) }),
+  entry('ichimoku(convLen?: number = 9, baseLen?: number = 26, spanLen?: number = 52) -> array<number>', {
     ...stateful,
     warmup: atLeastLength(['convLen'], -1),
+    elements: [
+      fromLength('convLen', -1),
+      fromLength('baseLen', -1),
+      fromLength('baseLen', -1),
+      fromLength('spanLen', -1),
+      fromLength('baseLen', -1),
+    ],
   }),
-  entry('kama(src: series number, len: number, fast?: number, slow?: number) -> series number', {
+  entry('kama(src: series number, len: number, fast?: number = 2, slow?: number = 30) -> series number', {
     planned: true,
   }),
   entry('zlema(src: series number, len: number) -> series number', { planned: true }),
@@ -97,141 +123,152 @@ const trend: readonly LibraryEntry[] = [
 ];
 
 const momentum: readonly LibraryEntry[] = [
-  entry('rsi(src: series number, len?: number) -> series number', {
+  entry('rsi(src: series number, len?: number = 14) -> series number', {
     ...stateful,
     warmup: fromLength('len', 0),
   }),
-  entry('stoch(len?: number, smoothK?: number, smoothD?: number) -> array<number>', {
+  entry('stoch(len?: number = 14, smoothK?: number = 1, smoothD?: number = 3) -> array<number>', {
     ...stateful,
     warmup: atLeastLength(['len', 'smoothK'], -2),
+    elements: [
+      fromLengths(['len', 'smoothK'], -2),
+      fromLengths(['len', 'smoothK', 'smoothD'], -3),
+    ],
   }),
   entry(
-    'stochRsi(src: series number, rsiLen?: number, stochLen?: number, smoothK?: number, smoothD?: number) -> array<number>',
-    { ...stateful, warmup: atLeastLength(['rsiLen', 'stochLen', 'smoothK'], -2) },
+    'stochRsi(src: series number, rsiLen?: number = 14, stochLen?: number = 14, smoothK?: number = 3, smoothD?: number = 3) -> array<number>',
+    {
+      ...stateful,
+      warmup: atLeastLength(['rsiLen', 'stochLen', 'smoothK'], -2),
+      // One element and not two: `stdlib.md` states the bar for element 0 and
+      // not for the line smoothed out of it, and element 1 takes the entry's
+      // own floor rather than a formula nobody wrote down.
+      elements: [fromLengths(['rsiLen', 'stochLen', 'smoothK'], -2)],
+    },
   ),
   entry(
-    'macd(src: series number, fast?: number, slow?: number, signal?: number) -> array<number>',
-    { ...stateful, warmup: fromLength('slow', -1) },
+    'macd(src: series number, fast?: number = 12, slow?: number = 26, signal?: number = 9) -> array<number>',
+    { ...stateful, warmup: fromLength('slow', -1), elements: GAP_AND_SIGNAL },
   ),
   entry(
-    'ppo(src: series number, fast?: number, slow?: number, signal?: number) -> array<number>',
-    { ...stateful, warmup: fromLength('slow', -1) },
+    'ppo(src: series number, fast?: number = 12, slow?: number = 26, signal?: number = 9) -> array<number>',
+    { ...stateful, warmup: fromLength('slow', -1), elements: GAP_AND_SIGNAL },
   ),
-  entry('cci(len?: number) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
-  entry('mom(src: series number, len?: number) -> series number', {
+  entry('cci(len?: number = 20) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
+  entry('mom(src: series number, len?: number = 10) -> series number', {
     ...stateful,
     warmup: fromLength('len', 0),
   }),
-  entry('roc(src: series number, len?: number) -> series number', {
+  entry('roc(src: series number, len?: number = 9) -> series number', {
     ...stateful,
     warmup: fromLength('len', 0),
   }),
-  entry('williamsR(len?: number) -> series number', {
+  entry('williamsR(len?: number = 14) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('tsi(src: series number, longLen?: number, shortLen?: number) -> series number', {
+  entry('tsi(src: series number, longLen?: number = 25, shortLen?: number = 13) -> series number', {
     ...stateful,
     warmup: atLeastLength(['longLen', 'shortLen'], -1),
   }),
-  entry('trix(src: series number, len?: number) -> series number', {
+  entry('trix(src: series number, len?: number = 18) -> series number', {
     ...stateful,
     warmup: fromLength('len', -2, 3),
   }),
-  entry('cmo(src: series number, len?: number) -> series number', {
+  entry('cmo(src: series number, len?: number = 9) -> series number', {
     ...stateful,
     warmup: fromLength('len', 0),
   }),
-  entry('dpo(src: series number, len?: number) -> series number', {
+  entry('dpo(src: series number, len?: number = 21) -> series number', {
     ...stateful,
     warmup: atLeastLength(['len'], 0),
   }),
-  entry('ultimateOsc(len1?: number, len2?: number, len3?: number) -> series number', {
+  entry('ultimateOsc(len1?: number = 7, len2?: number = 14, len3?: number = 28) -> series number', {
     ...stateful,
     warmup: atLeastLength(['len1'], 0),
   }),
-  entry('awesomeOsc(fast?: number, slow?: number) -> series number', {
+  entry('awesomeOsc(fast?: number = 5, slow?: number = 34) -> series number', {
     ...stateful,
     warmup: fromLength('slow', -1),
   }),
-  entry('fisher(len?: number) -> array<number>', { planned: true }),
-  entry('rvi(src: series number, len?: number) -> array<number>', { planned: true }),
+  entry('fisher(len?: number = 9) -> array<number>', { planned: true }),
+  entry('rvi(src: series number, len?: number = 10) -> array<number>', { planned: true }),
   entry(
-    'coppock(src: series number, roc1?: number, roc2?: number, wmaLen?: number) -> series number',
+    'coppock(src: series number, roc1?: number = 14, roc2?: number = 11, wmaLen?: number = 10) -> series number',
     { planned: true },
   ),
 ];
 
 const volatility: readonly LibraryEntry[] = [
   entry('trueRange() -> series number'),
-  entry('atr(len?: number) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
-  entry('natr(len?: number) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
-  entry('stdev(src: series number, len: number, sample?: bool) -> series number', {
+  entry('atr(len?: number = 14) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
+  entry('natr(len?: number = 14) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
+  entry('stdev(src: series number, len: number, sample?: bool = false) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('variance(src: series number, len: number, sample?: bool) -> series number', {
+  entry('variance(src: series number, len: number, sample?: bool = false) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('bollinger(src: series number, len?: number, mult?: number) -> array<number>', {
+  entry('bollinger(src: series number, len?: number = 20, mult?: number = 2) -> array<number>', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('bbWidth(src: series number, len?: number, mult?: number) -> series number', {
+  entry('bbWidth(src: series number, len?: number = 20, mult?: number = 2) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('bbPercent(src: series number, len?: number, mult?: number) -> series number', {
+  entry('bbPercent(src: series number, len?: number = 20, mult?: number = 2) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
   entry(
-    'keltner(len?: number, mult?: number, atrLen?: number, maType?: string) -> array<number>',
+    'keltner(len?: number = 20, mult?: number = 2, atrLen?: number = 10, maType?: string = "ema") -> array<number>',
     { ...stateful, warmup: atLeastLength(['len'], -1) },
   ),
-  entry('donchian(len?: number) -> array<number>', {
+  entry('donchian(len?: number = 20) -> array<number>', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
-  entry('chop(len?: number) -> series number', { ...stateful, warmup: fromLength('len', 0) }),
-  entry('hv(src: series number, len?: number, periodsPerYear?: number) -> series number', {
+  entry('chop(len?: number = 14) -> series number', { ...stateful, warmup: fromLength('len', 0) }),
+  entry('hv(src: series number, len?: number = 20, periodsPerYear?: number = 252) -> series number', {
     ...stateful,
     warmup: fromLength('len', 0),
   }),
-  entry('massIndex(len?: number) -> series number', { planned: true }),
+  entry('massIndex(len?: number = 25) -> series number', { planned: true }),
 ];
 
 const volume: readonly LibraryEntry[] = [
-  entry('vwap(src?: series number) -> series number', { ...stateful, warmup: DATA_DRIVEN }),
+  entry('vwap(src?: series number = hlc3) -> series number', { ...stateful, warmup: DATA_DRIVEN }),
   entry('vwapAnchor(src: series number, resetWhen: series bool) -> series number', {
     ...stateful,
     warmup: DATA_DRIVEN,
   }),
   entry('obv() -> series number', stateful),
   entry('ad() -> series number', stateful),
-  entry('adOsc(fast?: number, slow?: number) -> series number', {
+  entry('adOsc(fast?: number = 3, slow?: number = 10) -> series number', {
     ...stateful,
     warmup: fromLength('slow', -1),
   }),
-  entry('mfi(len?: number) -> series number', { ...stateful, warmup: fromLength('len', 0) }),
-  entry('cmf(len?: number) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
+  entry('mfi(len?: number = 14) -> series number', { ...stateful, warmup: fromLength('len', 0) }),
+  entry('cmf(len?: number = 20) -> series number', { ...stateful, warmup: fromLength('len', -1) }),
   entry('pvt() -> series number', { ...stateful, warmup: delayBars(1) }),
-  entry('eom(len?: number) -> series number', { ...stateful, warmup: fromLength('len', 0) }),
-  entry('forceIndex(len?: number) -> series number', {
+  entry('eom(len?: number = 14) -> series number', { ...stateful, warmup: fromLength('len', 0) }),
+  entry('forceIndex(len?: number = 13) -> series number', {
     ...stateful,
     warmup: fromLength('len', 0),
   }),
-  entry('relativeVolume(len?: number) -> series number', {
+  entry('relativeVolume(len?: number = 20) -> series number', {
     ...stateful,
     warmup: fromLength('len', -1),
   }),
   entry('nvi() -> series number', { planned: true }),
   entry('pvi() -> series number', { planned: true }),
-  entry('klinger(fast?: number, slow?: number, signal?: number) -> array<number>', {
+  entry('klinger(fast?: number = 34, slow?: number = 55, signal?: number = 13) -> array<number>', {
     planned: true,
   }),
-  entry('volumeProfile(rows?: number, from?: number) -> array<number>', { planned: true }),
+  entry('volumeProfile(rows?: number = 24, from?: number = none) -> array<number>', { planned: true }),
   entry('cvd() -> series number', { planned: true }),
 ];
 
@@ -278,7 +315,7 @@ const helpers: readonly LibraryEntry[] = [
     warmup: delayBars(1),
   }),
   entry('barsSince(cond: series bool) -> series number', { ...stateful, warmup: DATA_DRIVEN }),
-  entry('valueWhen(cond: series bool, src: T, occurrence?: number) -> T', {
+  entry('valueWhen(cond: series bool, src: T, occurrence?: number = 0) -> T', {
     ...stateful,
     warmup: DATA_DRIVEN,
   }),
@@ -306,11 +343,11 @@ const helpers: readonly LibraryEntry[] = [
   entry('history(src: T, n: number) -> T', { ...stateful, warmup: fromLength('n', 0) }),
   entry('pivotHigh(src: series number, left: number, right: number) -> series number', {
     ...stateful,
-    warmup: { kind: 'params', params: ['left', 'right'], scale: 1, add: 0, exact: true },
+    warmup: fromLengths(['left', 'right'], 0),
   }),
   entry('pivotLow(src: series number, left: number, right: number) -> series number', {
     ...stateful,
-    warmup: { kind: 'params', params: ['left', 'right'], scale: 1, add: 0, exact: true },
+    warmup: fromLengths(['left', 'right'], 0),
   }),
   entry('median(src: series number, len: number) -> series number', {
     ...stateful,

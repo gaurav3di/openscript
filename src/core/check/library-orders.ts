@@ -45,16 +45,16 @@ export const ORDER_NAMES: readonly string[] = [
 
 const placing: readonly LibraryEntry[] = [
   entry(
-    'buy(qty?: number, limit?: number, stop?: number, tag?: string, leg?: string) -> nothing',
+    'buy(qty?: number, limit?: number = none, stop?: number = none, tag?: string = "", leg?: string) -> nothing',
     strategyOnly,
   ),
   entry(
-    'sell(qty?: number, limit?: number, stop?: number, tag?: string, leg?: string) -> nothing',
+    'sell(qty?: number, limit?: number = none, stop?: number = none, tag?: string = "", leg?: string) -> nothing',
     strategyOnly,
   ),
-  entry('close(tag?: string, qty?: number, leg?: string) -> nothing', strategyOnly),
+  entry('close(tag?: string = none, qty?: number = none, leg?: string) -> nothing', strategyOnly),
   entry(
-    'exit(tag?: string, qty?: number, limit?: number, stop?: number, profit?: number, loss?: number, leg?: string) -> nothing',
+    'exit(tag?: string = "", qty?: number = none, limit?: number = none, stop?: number = none, profit?: number = none, loss?: number = none, leg?: string) -> nothing',
     {
       ...strategyOnly,
       // An absolute price and a distance from the entry state the same level,
@@ -71,12 +71,12 @@ const placing: readonly LibraryEntry[] = [
 
 const orders: readonly LibraryEntry[] = [
   entry(
-    'order.place(side: string, qty: number, type?: string, price?: number, trigger?: number, tag?: string, leg?: string) -> nothing',
+    'order.place(side: string, qty: number, type?: string = "market", price?: number = none, trigger?: number = none, tag?: string = "", leg?: string) -> nothing',
     { ...strategyOnly, values: { side: SIDES, type: ORDER_TYPES } },
   ),
-  entry('order.reverse(qty?: number, tag?: string, leg?: string) -> nothing', strategyOnly),
+  entry('order.reverse(qty?: number = none, tag?: string = "", leg?: string) -> nothing', strategyOnly),
   entry(
-    'order.bracket(tag?: string, profit?: number, loss?: number, leg?: string) -> nothing',
+    'order.bracket(tag?: string = "", profit?: number = none, loss?: number = none, leg?: string) -> nothing',
     strategyOnly,
   ),
   entry('order.working(tag: string) -> series bool', { ...strategyOnly, planned: true }),
@@ -90,7 +90,7 @@ const orders: readonly LibraryEntry[] = [
     warmup: DATA_DRIVEN,
   }),
   entry('order.rejection(tag: string) -> series string', { ...strategyOnly, planned: true }),
-  entry('order.qtyForCash(cash: number, price?: number) -> number', {
+  entry('order.qtyForCash(cash: number, price?: number = close) -> number', {
     ...strategyOnly,
     planned: true,
   }),
@@ -98,11 +98,11 @@ const orders: readonly LibraryEntry[] = [
     ...strategyOnly,
     planned: true,
   }),
-  entry('order.qtyForEquityPercent(percent: number, price?: number) -> number', {
+  entry('order.qtyForEquityPercent(percent: number, price?: number = close) -> number', {
     ...strategyOnly,
     planned: true,
   }),
-  entry('order.roundToLot(qty: number, direction?: string, leg?: string) -> number', {
+  entry('order.roundToLot(qty: number, direction?: string = "down", leg?: string) -> number', {
     ...strategyOnly,
     planned: true,
     values: { direction: DIRECTIONS },
@@ -159,7 +159,7 @@ const position: readonly LibraryEntry[] = [
 
 const legs: readonly LibraryEntry[] = [
   entry(
-    'leg.fixed(name: string, symbol: string, exchange?: string, product?: string, qty?: number, side?: string) -> nothing',
+    'leg.fixed(name: string, symbol: string, exchange?: string = chart.exchange, product?: string, qty?: number, side?: string = "buy") -> nothing',
     {
       ...strategyOnly,
       planned: true,
@@ -169,7 +169,7 @@ const legs: readonly LibraryEntry[] = [
     },
   ),
   entry(
-    'leg.relative(name: string, underlying: string, kind: string, expiryRank?: number, expiryCycle?: string, strikeOffset?: number, right?: string, reference?: number, exchange?: string, product?: string, qty?: number, side?: string) -> nothing',
+    'leg.relative(name: string, underlying: string, kind: string, expiryRank?: number = 0, expiryCycle?: string = none, strikeOffset?: number = 0, right?: string = none, reference?: number = none, exchange?: string = chart.exchange, product?: string, qty?: number, side?: string = "buy") -> nothing',
     {
       ...strategyOnly,
       planned: true,
@@ -221,16 +221,16 @@ const legs: readonly LibraryEntry[] = [
   }),
   entry('leg.stop(name: string, price: number) -> nothing', { ...strategyOnly, planned: true }),
   entry('leg.target(name: string, price: number) -> nothing', { ...strategyOnly, planned: true }),
-  entry('leg.trail(name: string, distance: number, arm?: number) -> nothing', {
+  entry('leg.trail(name: string, distance: number, arm?: number = none) -> nothing', {
     ...strategyOnly,
     planned: true,
   }),
   entry(
-    'leg.enter(name: string, side?: string, qty?: number, limit?: number, stop?: number, tag?: string) -> nothing',
+    'leg.enter(name: string, side?: string, qty?: number, limit?: number = none, stop?: number = none, tag?: string = "") -> nothing',
     { ...strategyOnly, planned: true, values: { side: SIDES } },
   ),
   entry(
-    'leg.exit(name: string, qty?: number, limit?: number, stop?: number, tag?: string) -> nothing',
+    'leg.exit(name: string, qty?: number = none, limit?: number = none, stop?: number = none, tag?: string = "") -> nothing',
     { ...strategyOnly, planned: true },
   ),
 ];
@@ -239,7 +239,7 @@ const book: readonly LibraryEntry[] = [
   entry('book.stop(amount: number) -> nothing', { ...strategyOnly, planned: true }),
   entry('book.target(amount: number) -> nothing', { ...strategyOnly, planned: true }),
   entry(
-    'book.lockProfit(arm: number, lock: number, step?: number, advance?: number) -> nothing',
+    'book.lockProfit(arm: number, lock: number, step?: number = none, advance?: number = none) -> nothing',
     { ...strategyOnly, planned: true },
   ),
   entry('book.trailStopsToEntry(at: number) -> nothing', { ...strategyOnly, planned: true }),
@@ -250,7 +250,7 @@ const book: readonly LibraryEntry[] = [
   }),
   entry('book.entryWindow(spec: string) -> nothing', { ...strategyOnly, planned: true }),
   entry('book.exitAt(time: string) -> nothing', { ...strategyOnly, planned: true }),
-  entry('book.squareOffAtExpiry(minutesBefore?: number) -> nothing', {
+  entry('book.squareOffAtExpiry(minutesBefore?: number = 0) -> nothing', {
     ...strategyOnly,
     planned: true,
   }),
@@ -258,8 +258,8 @@ const book: readonly LibraryEntry[] = [
   entry('book.profit -> series number', { ...strategyOnly, planned: true }),
   entry('book.dayProfit -> series number', { ...strategyOnly, planned: true }),
   entry('book.isOpen -> series bool', { ...strategyOnly, planned: true }),
-  entry('book.enter(tag?: string) -> nothing', { ...strategyOnly, planned: true }),
-  entry('book.exit(tag?: string) -> nothing', { ...strategyOnly, planned: true }),
+  entry('book.enter(tag?: string = "") -> nothing', { ...strategyOnly, planned: true }),
+  entry('book.exit(tag?: string = "") -> nothing', { ...strategyOnly, planned: true }),
 ];
 
 export const ORDER_ENTRIES: readonly LibraryEntry[] = [

@@ -135,6 +135,7 @@ function contextFor(heap: Heap): CallContext & { state: Record<string, unknown>;
     guard: {
       array: () => undefined,
       string: (_span: unknown, text: string) => text,
+      chars: () => undefined,
       drawing: () => undefined,
       badArgument: (): never => {
         throw new Error('badArgument');
@@ -470,6 +471,39 @@ test('the multi value studies match the numeric library', () => {
     numeric.keltner(BARS, 5, 2, 4, 'ema'),
     'keltner',
   );
+});
+
+/**
+ * `text(x, d)` at a magnitude the runtime writes with an exponent.
+ *
+ * A price and a cumulative volume both reach the size where a runtime's own
+ * decimal conversion switches to exponential form, and a formatter that split
+ * the digits of `1e+22` returned `1e+.22`: a label with nonsense in it, on a
+ * chart, with nothing reported anywhere. The conversion is positional at every
+ * magnitude, which is the only rule under which the digits it splits are
+ * digits.
+ *
+ * The rows below are the boundary and each side of it, and the ordinary values
+ * are here because the fix must not move them by a digit.
+ */
+test('a fixed decimal conversion is positional at every magnitude', () => {
+  const rows: readonly (readonly [number, number, string])[] = [
+    [3.14159, 2, '3.14'],
+    [-0.4, 0, '0'],
+    [-2.5, 0, '-3'],
+    [9.99, 1, '10.0'],
+    [1e20, 2, '100000000000000000000.00'],
+    [1e21, 0, `1${'0'.repeat(21)}`],
+    [1e21, 2, `1${'0'.repeat(21)}.00`],
+    [-1e21, 3, `-1${'0'.repeat(21)}.000`],
+    [1e308, 2, `1${'0'.repeat(308)}.00`],
+    [0.5, 25, `0.5${'0'.repeat(24)}`],
+    [-0.5, 320, `-0.5${'0'.repeat(319)}`],
+    [0, 3, '0.000'],
+  ];
+  for (const [x, decimals, want] of rows) {
+    assert.equal(fold('text', [[x, decimals]])[0], want, `text(${x}, ${decimals})`);
+  }
 });
 
 test('the two band readings match the numeric library', () => {

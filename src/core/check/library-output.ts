@@ -129,7 +129,7 @@ const perBar: readonly LibraryEntry[] = [
   entry('barColor(color: color) -> nothing'),
   entry('background(color: color) -> nothing'),
   entry(
-    'cell(t: table, row: number, col: number, text: string, textColor?: color, bgColor?: color, align?: string) -> nothing',
+    'cell(t: table, row: number, col: number, text: string, textColor?: color = none, bgColor?: color = none, align?: string = "left") -> nothing',
     { values: { align: CELL_ALIGN }, whole: { row: wholeRange(0), col: wholeRange(0) } },
   ),
   entry('clear(t: table) -> nothing'),
@@ -147,14 +147,27 @@ const perBar: readonly LibraryEntry[] = [
 /**
  * The four creation calls, with the defaults of `stdlib.md` 14.4 written out.
  *
- * These four say what their optional arguments default to, and most of the
- * library still does not. The difference is what the omitted argument becomes:
- * a calculation reads an absent length and answers absence, which is a truthful
- * answer that costs nothing, while an object created with an absent width and
- * an absent style is a drawing with no thickness and no line style, and absence
- * on a drawing surface means nothing is drawn (`language.md` 6.7). So a
- * drawing's defaults have to be in the program, and 4.10 says where they are
- * decided: here, at compile time, rather than in an engine's table.
+ * These four were the only entries in the library that said what their optional
+ * arguments default to, on the reasoning that a calculation reading an absent
+ * length answers absence, which was thought to be a truthful answer that cost
+ * nothing, while an object created with an absent width is a drawing with no
+ * thickness and nothing is drawn (`language.md` 6.7).
+ *
+ * **The first half of that reasoning was wrong and cost more than the second.**
+ * A length the specification gave and the call dropped is not a length nobody
+ * gave: `atr()` is `atr(14)` in `stdlib.md`, it drew no value on any bar, and
+ * unlike a drawing with no thickness there was nothing on the chart to notice.
+ * Every optional parameter in the library now carries its default, these four
+ * included, and `scripts/check-defaults.mjs` refuses one that does not.
+ *
+ * **A setter says which objects it takes, and takes no others.** Eleven of them
+ * used to write `obj: any` because the real type is a set of kinds and there
+ * was no way to spell one, so `draw.setFrom(aLabel, t, p)` type checked, wrote
+ * an anchor a label has no field for, and drew nothing with nothing reported;
+ * `draw.setColor(5, red)` type checked as readily. The sets below are the
+ * properties each kind actually carries, which is `stdlib.md` 14.4's own table
+ * read down its last column, and a call that misses one is OS3011 at the
+ * argument, before any bar runs.
  */
 const drawing: readonly LibraryEntry[] = [
   entry(
@@ -170,22 +183,24 @@ const drawing: readonly LibraryEntry[] = [
   entry(
     'draw.polyline(times: array<number>, prices: array<number>, color?: color = gray, width?: number = 1, closed?: bool = false, fillColor?: color = none, opacity?: number = 0.12) -> polyline',
   ),
-  entry('draw.setFrom(obj: any, t: number, p: number) -> nothing'),
-  entry('draw.setTo(obj: any, t: number, p: number) -> nothing'),
-  entry('draw.setBounds(obj: any, t1: number, p1: number, t2: number, p2: number) -> nothing'),
+  entry('draw.setFrom(obj: line | box, t: number, p: number) -> nothing'),
+  entry('draw.setTo(obj: line | box, t: number, p: number) -> nothing'),
+  entry(
+    'draw.setBounds(obj: line | box, t1: number, p1: number, t2: number, p2: number) -> nothing',
+  ),
   entry('draw.setAt(label: label, t: number, p: number) -> nothing'),
   entry(
     'draw.setPoints(polyline: polyline, times: array<number>, prices: array<number>) -> nothing',
   ),
-  entry('draw.setText(obj: any, text: string) -> nothing'),
-  entry('draw.setColor(obj: any, color: color) -> nothing'),
-  entry('draw.setTextColor(obj: any, color: color) -> nothing'),
-  entry('draw.setFillColor(obj: any, color: color) -> nothing'),
-  entry('draw.setWidth(obj: any, width: number) -> nothing'),
-  entry('draw.setStyle(obj: any, style: string) -> nothing', { values: { style: LINE_STYLES } }),
+  entry('draw.setText(obj: label | box, text: string) -> nothing'),
+  entry('draw.setColor(obj: line | label | box | polyline, color: color) -> nothing'),
+  entry('draw.setTextColor(obj: label | box, color: color) -> nothing'),
+  entry('draw.setFillColor(obj: box | polyline, color: color) -> nothing'),
+  entry('draw.setWidth(obj: line | box | polyline, width: number) -> nothing'),
+  entry('draw.setStyle(obj: line, style: string) -> nothing', { values: { style: LINE_STYLES } }),
   entry('draw.setExtend(line: line, left: bool, right: bool) -> nothing'),
-  entry('draw.setTooltip(obj: any, text: string) -> nothing'),
-  entry('draw.delete(obj: any) -> nothing'),
+  entry('draw.setTooltip(obj: label | box, text: string) -> nothing'),
+  entry('draw.delete(obj: line | label | box | polyline) -> nothing'),
   entry('draw.deleteAll() -> nothing'),
   entry('draw.count() -> number'),
 ];
@@ -200,12 +215,12 @@ const requests: readonly LibraryEntry[] = [
   // the capability. That is a third legitimate state beside "runs" and
   // "planned", and it is the one the compiled format was designed for, because
   // it is how an old engine tells a new program what it is missing.
-  entry('req.timeframe(timeframe: string, expr: T, mode?: string) -> T', {
+  entry('req.timeframe(timeframe: string, expr: T, mode?: string = "confirmed") -> T', {
     warmup: DATA_DRIVEN,
     values: { mode: REQUEST_MODES },
   }),
   entry(
-    'req.symbol(symbol: string, timeframe: string, expr: T, exchange?: string, mode?: string) -> T',
+    'req.symbol(symbol: string, timeframe: string, expr: T, exchange?: string = chart.exchange, mode?: string = "confirmed") -> T',
     {
       warmup: DATA_DRIVEN,
       values: { mode: REQUEST_MODES },

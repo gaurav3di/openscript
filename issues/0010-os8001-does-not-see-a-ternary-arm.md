@@ -1,6 +1,6 @@
 # 0010 OS8001 does not see a stateful call in a ternary arm
 
-Status: open
+Status: closed 2026-09-20
 Opened: 2026-09-20
 Found by: the phase three gate, writing a study that guards a division the way
 the published reference guards it
@@ -92,3 +92,32 @@ were both written with the windowed total inside the arm, both compiled with
 nothing reported, and one of them drew a column nineteen bars short. Both now
 take their totals at the top level, with a comment saying why, because the
 compiler cannot yet say it for them.
+
+## What was changed
+
+The question "does this call run on every bar" is no longer decided by the pass
+that reached the call. `src/core/check/conditional.ts` answers it once, from the
+tree, through the one traversal in `childrenOf`: it says for each node how an
+evaluation reaches each of its children, and collects the call sites a bar can
+pass without evaluating. The checker asks that set, so the same call reported
+under an `if` is reported in a ternary arm, and nothing carries a branch flag
+down the passes any more.
+
+Three shapes beyond the ternary turned out to have the same defect and are fixed
+with it: the right operand of `and` and `or`, which is evaluated only when the
+left one has not already decided the answer; the condition of an `else if`,
+which is reached only when the branches above it were false; and the values of a
+`case` arm after the first. `docs/reference/operators.md` already told a reader
+that the short-circuit case was warned about, which it was not.
+
+The emitted program needed no change. A ternary arm is behind a `JUMP_FALSE`, a
+short-circuited operand behind an `AND_SHORT` or an `OR_SHORT`, and a state
+region that is jumped over is not stepped, which is what 11.4 asks for. Two
+tests in `tests/engine/calls.test.ts` now hold that behaviour in place, because
+a warning about something the engine does not do is worth nothing.
+
+`tests/gate/studies/scripts/ultimate-oscillator.oscript` was the one script in
+the repository written in the shape this warning now reports. Its three windowed
+totals are taken at the top level, and the study's column is unchanged bar for
+bar: its guard was never taken on the fixture, so the defect was latent there
+rather than live.

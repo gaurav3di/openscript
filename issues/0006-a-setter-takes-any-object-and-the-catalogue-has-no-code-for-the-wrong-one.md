@@ -1,6 +1,7 @@
 # 0006 A setter takes any object, and nothing can refuse the wrong one
 
-Status: open
+Status: closed 2026-09-20, for the defect it names. The two neighbours at the
+foot of the file are untouched and still open; nothing else records them.
 Opened: 2026-09-20
 Against: `src/core/check/library-output.ts`, the `draw` setters, and
 `src/core/check/types.ts`, which has no union type
@@ -70,7 +71,7 @@ a number.
 Until step 1 lands, the eleven entries are unchecked and this issue is the
 record of it.
 
-## Two neighbours found at the same time, not fixed here
+## Two neighbours found at the same time, and still open
 
 **OS8019 is in the catalogue and nothing emits it.** It warns, at compile time,
 that a name still holds an object the script deleted, which is the shape that
@@ -87,7 +88,28 @@ read "Cell (3, 4) is outside a table of 7 rows and 2 columns". The call site is
 `src/core/engine/library/objects.ts`, in the table half of that file rather than
 the drawing half.
 
-## How it closes
+## How it closed
 
-Step 2 above lands, a test drives a setter with each kind of object it does not
-take and gets OS3011 at the argument's span, and this file goes.
+All three steps, in that order.
+
+1. `Type` gained `{ kind: 'objects', objects }`, a set of object kinds and not a
+   general union, because a set is what the eleven entries mean and nothing else
+   in version 1 needs more. It appears in a library signature and never as the
+   type of an expression, so nothing downstream holds one.
+2. The signature strings write the real kinds, spelled `line | box`, and
+   `stdlib.md` 14.4 spells them the same way in its own table. The set is the
+   kinds whose creation call takes that property: only `draw.line` takes a
+   `style`, only `draw.label` and `draw.box` take a `tooltip`, only a line and a
+   box have a second anchor. Two documentation tables said otherwise, in the two
+   rows that promised more than any kind carries, and they were corrected.
+3. So `draw.setFrom(aLabel, t, p)` is OS3011 at the argument, naming the kinds it
+   does take, and `draw.setColor(5, red)` is OS3011 as well. A declaration handle
+   in the same position keeps OS3019, which is the code the catalogue's own
+   example for it has always shown and which that example did not produce while
+   the parameter was written `any`. The engine's `drawing()` helper has the one
+   case left the issue predicted: a value that is not a reference, which can now
+   only be `none`, and which is a gap rather than a refusal.
+
+Tests: `tests/unit/check-calls.test.ts` drives a setter with a kind it does not
+take, with a number, with a handle and with `none`, and asserts the code and the
+argument's span.

@@ -14,6 +14,7 @@
 import type { Argument, Call } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import { bindArguments, arityText, signatureText } from './arguments.js';
+import { warmupOfCall } from './call-warmup.js';
 import type { ParameterShape } from './arguments.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
@@ -27,8 +28,7 @@ import { isTopLevelOnly, libraryEntries } from './surface.js';
 import { closestName } from './suggest.js';
 import type { Type } from './types.js';
 import { NOTHING, UNKNOWN, accepts, elementOf, isHandle, typeText } from './types.js';
-import type { Warmup } from './warmup.js';
-import { BAR_ZERO, allOf, delayed, earlier, weaken } from './warmup.js';
+import { BAR_ZERO } from './warmup.js';
 
 /** The calls whose first argument is an array that an empty literal may fill. */
 const INSERTERS = new Set(['push', 'unshift', 'insert', 'set']);
@@ -143,61 +143,6 @@ function substitute(type: Type, bound: ReadonlyMap<string, Type>): Type {
   }
 }
 
-/**
- * The first bar this call can produce a value for.
- *
- * Every rule but `total` and `argument` composes with the arguments' own
- * warmups, which is what makes `sma(ema(close, 10), 10)` absent until bar 18
- * rather than until bar 9. A length that is not written out as a number is a
- * length the checker does not have, so the answer becomes a floor.
- */
-function warmupOfCall(
-  checker: Checker,
-  entry: LibraryEntry,
-  filled: readonly (Argument | undefined)[],
-): Warmup {
-  const argumentWarmup = (name: string): Warmup | undefined => {
-    const index = entry.parameters.findIndex((one) => one.name === name);
-    const argument = index < 0 ? undefined : filled[index];
-    return argument === undefined ? undefined : checker.warmupOf(argument.value);
-  };
-
-  const supplied = filled.filter((one): one is Argument => one !== undefined);
-  const base = allOf(supplied.map((one) => checker.warmupOf(one.value)));
-  const rule = entry.warmup;
-
-  switch (rule.kind) {
-    case 'total':
-      return BAR_ZERO;
-    case 'argument':
-      return argumentWarmup(rule.param) ?? BAR_ZERO;
-    case 'either': {
-      const present = rule.params
-        .map(argumentWarmup)
-        .filter((one): one is Warmup => one !== undefined);
-      return present.length === 0 ? BAR_ZERO : present.reduce(earlier);
-    }
-    case 'data':
-      return weaken(base);
-    case 'delay':
-      return delayed(base, rule.bars);
-    case 'params': {
-      let total = 0;
-      let known = rule.exact;
-      for (const name of rule.params) {
-        const index = entry.parameters.findIndex((one) => one.name === name);
-        const argument = index < 0 ? undefined : filled[index];
-        const value = argument === undefined ? undefined : literalNumber(argument.value);
-        if (value === undefined) known = false;
-        else total += value;
-      }
-      return known
-        ? delayed(base, rule.scale * total + rule.add)
-        : weaken(delayed(base, rule.add));
-    }
-  }
-}
-
 /** Every argument against the parameter it filled: type, value set, range, constancy. */
 export function validateArguments(
   checker: Checker,
@@ -236,7 +181,12 @@ export function validateArguments(
       // would otherwise carry a handle into a call that has no way to hold one.
       if (takesAnyValue(parameter.type)) {
         refuseHandle(checker, argument.value, given);
-      } else if (expected.kind === 'object') {
+      } else if (expected.kind === 'object' || expected.kind === 'objects') {
+        // A setter that takes a set of object kinds is the same case as one
+        // that takes a single kind: the argument wanted a runtime object and a
+        // declaration handle has no value on a bar. OS3019's own example is a
+        // plot handle given to `draw.setColor`, which reached OS2003 while that
+        // parameter was written `any`.
         checker.report('OS3019', span, {
           name: entry.name,
           argument: parameter.name,
@@ -388,7 +338,7 @@ export function resolveLibraryCall(
   fixElementType(checker, entry, filled);
 
   const stateful = entry.stateful;
-  if (stateful && placement.branched) {
+  if (stateful && checker.isConditional(call)) {
     checker.report('OS8001', call.span, { name });
   }
 

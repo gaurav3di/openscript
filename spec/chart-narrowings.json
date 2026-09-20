@@ -1,0 +1,109 @@
+{
+  "note": "Every field of a compiled program's outputs, and whether the chart adapter carries it. Read by scripts/check-chart-surface.mjs, which compiles a study declaring two of everything, builds a descriptor from it, and refuses a field the program carries that this file does not mention, a field mentioned here that the format no longer has, and a declaration the descriptor drops whose count is not recorded below. A narrowing is a fact about this chart's descriptor and never about the language: the compiled program carries all of it, and another host may draw all of it.",
+  "outputs": {
+    "plots": {
+      "carried": [
+        "key",
+        "title",
+        "type",
+        "channel",
+        "color",
+        "colorChannel",
+        "width",
+        "lineStyle",
+        "offset",
+        "overlay",
+        "scale",
+        "precision",
+        "priceFormat",
+        "ohlc",
+        "ohlc.open",
+        "ohlc.high",
+        "ohlc.low",
+        "ohlc.close",
+        "ohlc.colorUp",
+        "ohlc.colorDown",
+        "ohlc.wickColor",
+        "ohlc.borderColor",
+        "ohlc.colorUpChannel",
+        "ohlc.colorDownChannel",
+        "ohlc.wickColorChannel",
+        "ohlc.borderColorChannel"
+      ],
+      "narrowed": []
+    },
+    "fills": {
+      "carried": ["between", "colorUp", "colorDown", "opacity", "overlay"],
+      "narrowed": [
+        {
+          "field": "colorUpChannel",
+          "why": "A per-bar band colour. The chart's band takes a fixed colour or a settings key and is drawn once, so there is no per-bar channel to point it at. A script that computes a band colour from the bar is drawn in the first plot's colour faded, which is what a band that declares no colour takes. It should be refused where it is written, and needs the same catalogue entry the second grid does: issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md."
+        },
+        {
+          "field": "colorDownChannel",
+          "why": "The other side of the same band, on the same ground."
+        }
+      ]
+    },
+    "levels": {
+      "carried": ["title", "channel", "color", "lineStyle", "lineWidth"],
+      "narrowed": []
+    },
+    "markers": {
+      "carried": ["channel", "position", "shape", "color"],
+      "narrowed": [
+        {
+          "field": "key",
+          "why": "The declaration's stable identity. A marker reaches the chart as an event on a bar rather than as a declared row, and the set is rebuilt from the run on every recompute, so there is nothing for an identity to be kept against."
+        },
+        {
+          "field": "textColor",
+          "why": "The chart draws a marker's text in the plate's own colour and has no second colour for it. A version 1 compiler writes null into this field for every program, because signal() takes one colour and it is the plate's."
+        }
+      ]
+    },
+    "tables": {
+      "carried": [
+        "position",
+        "rows",
+        "cols",
+        "options",
+        "options.textColor",
+        "options.bgColor",
+        "options.borderWidth"
+      ],
+      "narrowed": [
+        {
+          "field": "key",
+          "why": "The grid's stable identity. It pairs the declaration with the cell buffer the engine wrote, and the chart's grid has no id of its own to carry it into."
+        },
+        {
+          "field": "title",
+          "why": "The grid's legend and settings name. The chart's grid is a block of cells pinned to a corner, with no heading and no settings row of its own, so there is nowhere to put it. A host that lists a study's outputs reads it from the program."
+        },
+        {
+          "field": "slot",
+          "why": "The frame slot holding the table handle, which is an engine fact rather than a chart one. The adapter pairs a declaration with its cells by key instead."
+        }
+      ]
+    },
+    "alerts": {
+      "carried": ["key", "title", "condChannel", "messageChannel"],
+      "narrowed": [
+        {
+          "field": "frequency",
+          "why": "The chart evaluates each watched condition once for each bar that is new since it last looked, which is oncePerBar. once would need state that outlives a recompute, and everyUpdate would need the condition judged again on a bar that is still moving; the entry is handed neither."
+        }
+      ]
+    },
+    "barColor": { "carried": ["channel"], "narrowed": [] },
+    "background": { "carried": ["channel"], "narrowed": [] }
+  },
+  "counts": [
+    {
+      "output": "tables",
+      "carries": 1,
+      "why": "The descriptor has one table hook, so one grid per study reaches the pane and a second declared grid is dropped. What ought to happen instead is a refusal naming the limit where the second table() is written, and writing one needs a catalogue code that does not exist: the gap is reported in issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md, with the sentence it should carry."
+    }
+  ]
+}

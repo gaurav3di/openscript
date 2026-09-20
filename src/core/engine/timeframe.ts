@@ -28,7 +28,9 @@
  * boundary in the middle of a session for most of the world and look right. It
  * is the same answer `library/dates.ts` gives for the same question: a host that
  * states no timezone leaves the call absent rather than answered in a zone
- * nobody chose.
+ * nobody chose. A read in that position is absent on every bar of the run, so
+ * `request-plan.ts` gives it the reason `req.error` reports: an absence with no
+ * explanation is the one failure a trader cannot get past on their own.
  */
 import { dayNumber, fieldsIn } from '../stdlib/index.js';
 
