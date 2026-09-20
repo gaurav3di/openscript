@@ -30,7 +30,7 @@ import type { Boundary, DateField } from '../../stdlib/index.js';
 import { entry, numberAt, stringAt } from './binding.js';
 import type { CallContext, ManifestEntry } from './binding.js';
 import type { Value } from '../values/index.js';
-import { sessionHolds } from './sessions.js';
+import { sessionHolds } from '../session/index.js';
 
 /**
  * The zone a call reads in: the one it was given, or the chart's.

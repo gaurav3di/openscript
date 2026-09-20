@@ -89,6 +89,21 @@ export function nominalMinutes(timeframe: Timeframe): number {
 }
 
 /**
+ * Minutes one bar of a chart's own interval covers, or nothing where the host
+ * stated no interval this engine can read.
+ *
+ * A month is counted at its nominal length here, which is the answer the
+ * session facts need and not a claim about a calendar: any bar of a day or more
+ * spans a whole session whatever the exact figure, so every number past the
+ * length of a session gives those facts the same answer.
+ */
+export function barMinutesOf(interval: string | undefined): number | null {
+  if (interval === undefined) return null;
+  const timeframe = parseTimeframe(interval);
+  return timeframe === undefined ? null : nominalMinutes(timeframe);
+}
+
+/**
  * The bucket an instant falls in, or nothing when no key can be worked out.
  *
  * Nothing comes back for a calendar unit with no zone, and for an instant that

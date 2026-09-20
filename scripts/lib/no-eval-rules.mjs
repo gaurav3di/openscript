@@ -220,16 +220,16 @@ export const HEREDOC =
 // Doors that need the argument read rather than the spelling matched
 // ---------------------------------------------------------------------------
 
-/** A module load whose specifier is built out of text rather than written down. */
+/** A module load whose specifier is not written down in the file that loads it. */
 export const BUILT_SPECIFIER = {
-  say: 'builds a module specifier out of text',
-  why: 'a specifier assembled at run time is the step that turns a value into source, and it is how a data URL carrying a program reaches a loader without ever being written down',
+  say: 'loads a module whose specifier is not written down',
+  why: 'a specifier that is anything but a literal or a name holding one is a value turned into source at run time, and a reviewer cannot read where it points. This rule used to list the ways text gets assembled, and a chain of method calls was on none of the lists, so it now asks the opposite question: is this written down',
 };
 
-/** Starting a process whose command was assembled rather than written down. */
+/** Starting a process whose command is not written down in the file that starts it. */
 export const BUILT_COMMAND = {
-  say: 'starts a process with a command built out of text',
-  why: 'a runtime started with a command this file assembled is this rule broken one layer down, and the layer down is the one no check here used to read',
+  say: 'starts a process whose command is not written down',
+  why: 'a runtime started with a command this file computed is this rule broken one layer down, and the same inversion applies: the command is a literal or a name holding one, or it is built',
 };
 
 /** Where a loader begins. The argument after it is read by balancing brackets. */
@@ -241,17 +241,33 @@ export const LOADER = /\b(?:import|require)\s*\(/g;
  */
 export const LAUNCH = /(?<![.\w$])(?:execSync|execFileSync|spawnSync|exec|execFile|spawn|fork)\s*\(/g;
 
-/** Text inside an argument that says it was assembled: a join, or a template. */
-export const ASSEMBLED = /\+|_STR_\s*\(/;
+/**
+ * Written down: a literal, or a name that holds one.
+ *
+ * This is the inversion, and it is the point of this round. The rule here used
+ * to list the shapes that mean text was assembled, a `+` and a template, and it
+ * was beaten by `import(pieces.join(""))`, which is on neither list and is
+ * every bit as assembled. There is no end to that list: a join, a decode from
+ * base sixty-four, a replace, a reduce, a character at a time. So the question
+ * is asked the other way round. A specifier and a command are **a string
+ * literal, or a name or a dotted path holding one**, and everything else is
+ * built, including a shape nobody has thought of yet.
+ *
+ * The cost is real and is the right way round: an innocent conversion in front
+ * of a loader now has to be moved into a name, which is a sentence in a report
+ * and a two line change, against a spelling that would otherwise have walked
+ * through.
+ */
+const WRITTEN_DOWN = /^(?:_STR_[A-Za-z]*_?|[A-Za-z_$][A-Za-z0-9_$]*(?:\s*\.\s*[A-Za-z_$][A-Za-z0-9_$]*)*)$/;
 
-/** A name bound to something assembled, which is the other half of the trick. */
+/** Whether a masked argument is one of those two shapes and nothing else. */
+export const writtenDown = (argument) => WRITTEN_DOWN.test(argument.trim());
+
+/** A name bound to something that is not written down, the other half of it. */
 const BINDING = /\b(?:const|let|var)\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*([^;\n]*)/g;
 
-/** A bare name, which is what an argument is when the assembly happened above. */
-const BARE_NAME = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
-
 /**
- * Every name in this file that holds something built out of text.
+ * Every name in this file that holds something this file built.
  *
  * The rules above read the brackets of the call in front of them, which sees
  * `import(base + "/x.js")` and misses `const s = base + "/x.js"` with
@@ -262,14 +278,34 @@ const BARE_NAME = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
  * honest answer to that is the rules above, which do not care where the value
  * came from.
  */
-function assembledBindings(code) {
+function builtBindings(code) {
   const names = new Set();
   BINDING.lastIndex = 0;
   let m;
   while ((m = BINDING.exec(code)) !== null) {
-    if (ASSEMBLED.test(m[2])) names.add(m[1]);
+    if (!writtenDown(m[2])) names.add(m[1]);
   }
   return names;
+}
+
+/**
+ * The first argument of a call, from the text between its brackets.
+ *
+ * A loader takes import attributes after the specifier and a launch takes an
+ * argument list and options after the command, so the question "is this written
+ * down" is about the first argument and not about everything in the brackets.
+ * String literals are already markers by the time this reads them, so only
+ * nesting has to be counted.
+ */
+export function firstArgument(argument) {
+  let depth = 0;
+  for (let i = 0; i < argument.length; i += 1) {
+    const c = argument[i];
+    if (c === '(' || c === '[' || c === '{') depth += 1;
+    else if (c === ')' || c === ']' || c === '}') depth -= 1;
+    else if (c === ',' && depth === 0) return argument.slice(0, i);
+  }
+  return argument;
 }
 
 /** The text between a bracket and its partner, or null if it is never closed. */
@@ -288,9 +324,13 @@ export function balanced(code, open) {
 
 const lineAt = (text, index) => text.slice(0, index).split('\n').length;
 
-/** Whether an argument was built out of text, here or one binding above. */
-const wasBuilt = (argument, built) =>
-  ASSEMBLED.test(argument) || (BARE_NAME.test(argument.trim()) && built.has(argument.trim()));
+/** Whether an argument was built by this file, here or one binding above. */
+function wasBuilt(argument, built) {
+  const one = firstArgument(argument).trim();
+  if (!writtenDown(one)) return true;
+  const root = one.split('.')[0].trim();
+  return built.has(root);
+}
 
 // ---------------------------------------------------------------------------
 // Finding
@@ -299,7 +339,7 @@ const wasBuilt = (argument, built) =>
 /** Every rule, against one piece of code. Line numbers start at `firstLine`. */
 export function findings(file, text, { shipped, firstLine = 1, declaration = false }) {
   const { code, strings } = maskCode(text);
-  const built = assembledBindings(code);
+  const built = builtBindings(code);
   const launches = new RegExp(LAUNCH.source, LAUNCH.flags).test(code);
   const found = [];
   const at = (index, matched, rule) => {

@@ -90,13 +90,13 @@ const chart: readonly LibraryEntry[] = [
 /**
  * The session facts, `stdlib.md` 12.4.
  *
- * **The per-bar facts run and the four schedule facts are planned**, and the
- * line between them is where the answer comes from. `session.isFirstBar` and
- * `session.isLastBar` are facts about the delivery that the host states per
- * bar, and an engine has them. `session.isIn` reads the hours the script itself
- * wrote, and the calendar of section 12.2 turns them into a test. The other
- * four are read off the **instrument's** own session hours, which the engine's
- * host record does not yet carry (`host-interface.md` 4.3), so they are marked
+ * **Three run and the rest are planned**, and the line between them is what an
+ * engine can answer today. `session.isFirstBar` and `session.isLastBar` are
+ * derived from the session hours in the instrument record
+ * (`host-interface.md` 4.3), the bar's time and the instrument's timezone.
+ * `session.isIn` reads the hours the script itself wrote, and the calendar of
+ * section 12.2 turns them into a test. The rest read the same hours and want
+ * an instant or a count off it rather than a boundary, so they are marked
  * rather than left to be refused at load with a message about a function.
  */
 const session: readonly LibraryEntry[] = [

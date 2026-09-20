@@ -1,5 +1,5 @@
 {
-  "note": "Every optional parameter in the library surface that carries no default, each with what the specification states in its place and why that is not a value. An optional parameter with no default used to be indistinguishable from one whose default nobody had recorded, and the second kind compiled to a study with no values on any bar and nothing reported at compile, at load or at run. These are the first kind. Anything not listed here must carry the default stdlib.md states, and scripts/check-defaults.mjs fails the build on either: a parameter missing from both, or a parameter in both. This list only shrinks.",
+  "note": "Every optional parameter the compiler answers with no default, each with what the specification states in its place and why that is not a value. For a call an engine makes the answer is the library surface; for a declaration call it is src/core/emit/defaults.ts, which is read as well rather than skipped, because the one category this check used to exclude is where its next instance turned up. An optional parameter with no default used to be indistinguishable from one whose default nobody had recorded, and the second kind compiled to a study with no values on any bar and nothing reported at compile, at load or at run. These are the first kind. Anything not listed here must answer the default stdlib.md states, and scripts/check-defaults.mjs fails the build on either: a parameter missing from both, or a parameter in both. This list only shrinks.",
   "exceptions": [
     {
       "parameter": "buy.leg",
@@ -80,6 +80,36 @@
       "parameter": "leg.enter.side",
       "states": "the leg's",
       "reason": "The side is the one the leg was declared with, stdlib.md 17.6, which the surface cannot see."
+    },
+    {
+      "parameter": "input.title",
+      "states": "the variable's name",
+      "reason": "The label falls back to the name the input was assigned to (stdlib.md 13.2), which is a fact about the script rather than about the library, so there is no text for the compiler to fill."
+    },
+    {
+      "parameter": "input.min",
+      "states": "",
+      "reason": "stdlib.md 13.3 names the kinds that accept it and gives no default, and compiled-program.md 2.6 carries the field as nullable. An argument nobody wrote is absent rather than filled, which is a decision rather than a gap."
+    },
+    {
+      "parameter": "input.max",
+      "states": "",
+      "reason": "As input.min, stdlib.md 13.3."
+    },
+    {
+      "parameter": "input.step",
+      "states": "",
+      "reason": "As input.min, stdlib.md 13.3."
+    },
+    {
+      "parameter": "input.options",
+      "states": "",
+      "reason": "As input.min, stdlib.md 13.3. A list given is what makes the input a select, so there is no empty list to fill in."
+    },
+    {
+      "parameter": "input.kind",
+      "states": "",
+      "reason": "Each row of stdlib.md 13.1 names the control that row is showing rather than a default, and compiled-program.md 2.6's kind is settled by the declared type and the argument together, so there is no one value the compiler could fill."
     },
     {
       "parameter": "req.candle.mode",

@@ -19,6 +19,8 @@
  */
 import type { HostBar } from './bars.js';
 import type { PendingEffect } from './channels.js';
+import type { HostFacts } from './library/index.js';
+import type { SessionHours } from './session/index.js';
 import type { Value } from './values/index.js';
 
 /** The instrument record, `host-interface.md` 4.1, as the engine reads it. */
@@ -37,6 +39,15 @@ export interface Instrument {
   /** The one fact a host must state, because no derivation recovers it. */
   readonly hasVolume?: boolean;
   readonly hasOpenInterest?: boolean;
+  /**
+   * The instrument's trading session, `host-interface.md` 4.3.
+   *
+   * The documented source of every per-bar session fact, and the only one: the
+   * engine derives `session.isFirstBar` and `session.isLastBar` from this
+   * hours, the bar's time and the timezone above. A host states the hours it
+   * schedules, once, and is never asked about a bar.
+   */
+  readonly session?: SessionHours;
 }
 
 /** The strategy's position, until a backtester owns one. */
@@ -159,4 +170,46 @@ export function hostString(value: string | undefined): Value {
 /** A condition the host stated, or absence when it stated none. */
 export function hostBool(value: boolean | undefined): Value {
   return typeof value === 'boolean' ? value : null;
+}
+
+/**
+ * What the request set can say about a read, so this file need not know it.
+ *
+ * `req.isReady` and `req.error` name a read rather than taking its value, which
+ * is why the compiler resolved the name to the request's id: a value on a bar
+ * cannot say which request produced it (2.16). A read this program does not
+ * make has not been answered and has reported no reason.
+ */
+export interface RequestReplies {
+  answered(id: Value): Value;
+  failure(id: Value): Value;
+}
+
+/**
+ * The facts a library call reads, built over one host.
+ *
+ * The host is fetched through a function rather than captured, because a host
+ * may be replaced between two runs of one engine and every read here has to see
+ * the one in force now. Every entry is one row of `compiled-program.md` 5.2 and
+ * there is no row that is not on that list.
+ */
+export function hostFactsFor(of: () => EngineHost, reads: RequestReplies): HostFacts {
+  return {
+    symbol: () => hostString(of().instrument?.symbol),
+    exchange: () => hostString(of().instrument?.exchange),
+    interval: () => hostString(of().instrument?.interval),
+    timezone: () => hostString(of().instrument?.timezone),
+    tickSize: () => hostNumber(of().instrument?.tickSize),
+    lotSize: () => hostNumber(of().instrument?.lotSize),
+    pointValue: () => hostNumber(of().instrument?.pointValue),
+    currency: () => hostString(of().instrument?.currency),
+    instrumentType: () => hostString(of().instrument?.instrumentType),
+    hasVolume: () => hostBool(of().instrument?.hasVolume),
+    hasOpenInterest: () => hostBool(of().instrument?.hasOpenInterest),
+    now: () => hostNumber(of().now),
+    requestReady: (id: Value) => reads.answered(id),
+    requestError: (id: Value) => reads.failure(id),
+    positionSize: () => hostNumber(of().position?.size),
+    positionPrice: () => hostNumber(of().position?.avgPrice),
+  };
 }

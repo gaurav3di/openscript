@@ -10,10 +10,14 @@
  * script tests `chart.hasVolume` to branch on that, which is what section 7
  * says to do.
  *
- * `vwap` resets at the start of each trading session **as the host defines it**
- * rather than at midnight, so the anchor is the bar flag the host states and not
- * a calendar computed here. `vwapAnchor` is the same calculation with the
- * script's own condition as the anchor, which is why the two share one step.
+ * `vwap` resets at the start of each trading session **as the instrument
+ * record defines it** rather than at midnight, so the anchor is the session the
+ * engine derives from the host's stated hours and not a calendar invented
+ * here. A host that states no session leaves that fact absent, and an absent
+ * anchor is not an anchor: the average has nothing to measure from and is
+ * absent too, which is the same answer any other absent input gives.
+ * `vwapAnchor` is the same calculation with the script's own condition as the
+ * anchor, which is why the two share one step.
  */
 import {
   adOscStep,
@@ -37,7 +41,9 @@ export const VOLUME_ENTRIES: readonly ManifestEntry[] = [
     vwapStep(ctx.state, '', {
       src: numberAt(args, 0),
       volume: ctx.bar.volume,
-      reset: ctx.bar.isSessionStart,
+      // Absence is a condition that did not hold, matching the rule that
+      // absence is false at a branch and the sibling call below.
+      reset: ctx.bar.isSessionFirst === true,
     }),
   ),
 

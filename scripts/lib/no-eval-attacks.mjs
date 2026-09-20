@@ -42,6 +42,21 @@
  * below is caught.** A rule that can no longer match anything is the failure
  * this repository has already paid for once, and it fails here now.
  *
+ * ## What the third round changed, which is the part that ends the game
+ *
+ * Three more forms got past, and all three were the mask rather than the rules:
+ * a name spelled with an escape, a division read as a regular expression, and a
+ * specifier decoded by a chain of calls. Three rounds of wider patterns had
+ * produced three rounds of defeats, which is the answer to whether a wider
+ * pattern is the answer.
+ *
+ * So the scan is no longer the enforcement. The suite runs under a runtime
+ * setting that refuses to compile text at all, and a generator throws the moment
+ * its code path executes however it was spelled. See `lib/runtime.mjs`. The
+ * forms below are still every one of them fixed at the mask, because the scan
+ * reads files nothing executes and catches a form before anybody runs it, but it
+ * is now the first line rather than the only one.
+ *
  * ## Why these are strings and not files
  *
  * Every entry is one JavaScript string literal. `lib/javascript.mjs` masks a
@@ -102,6 +117,15 @@ export const ATTACKS = [
   'const run = api["\\x65val"]; run(body);',
   'const run = api["ev\\u0061l"]; run(body);',
 
+  // The same respelling moved out of the string and into the name itself. An
+  // identifier may carry a unicode escape, and the runtime resolves it before it
+  // resolves the name, so all three of these call the watched thing directly.
+  // Escapes were resolved inside literals and not inside names, so the mask
+  // handed every rule the name `u0065val`, which nothing watches.
+  '\\u0065val(body);',
+  'const f = new \\u0046unction(body);',
+  'globalThis.\\u0065val(body);',
+
   // A string handed to a timer, which the runtime compiles and runs.
   'setTimeout("tick()", 0);',
   'setInterval("tick()", 0);',
@@ -154,6 +178,16 @@ export const ATTACKS = [
   'const spec = base + "/plugin.js"; const mod = await import(spec);',
   'const spec = "data:text/" + "javascript," + body; const mod = await import(spec);',
 
+  // A specifier decoded rather than concatenated. The rule listed the shapes
+  // that mean assembly, a sum and a template, and a chain of method calls was on
+  // neither list while being every bit as assembled. That list has no end, so
+  // the question is now asked the other way round: written down, or built.
+  'const mod = await import(parts.join(""));',
+  'const mod = await import(Buffer.from(encoded, "base64").toString("utf8"));',
+  'const mod = await import(specifier.replace("PLUGIN", body));',
+  'const spec = parts.join(""); const mod = await import(spec);',
+  'const mod = await import(String.fromCharCode(...codes));',
+
   // A runtime handed source text on a command line this file wrote. The rule for
   // this existed and was only ever run over workflows, so a build step written
   // in JavaScript went through the gap between two matchers.
@@ -164,6 +198,22 @@ export const ATTACKS = [
 
   // The shell's own way of building a command, written in JavaScript.
   'execSync("sh -c " + body);',
+
+  // And the same inversion for a command: a chain rather than a sum.
+  'execSync(pieces.join(" "));',
+
+  // A real division after a closing brace, with a live call behind it.
+  //
+  // One preceding character cannot tell a regular expression from a division:
+  // after `}` a slash divides in an expression and opens a literal in a
+  // statement. Reading this one as a literal erased everything up to the next
+  // slash, the call and its string together, and the line really does run.
+  'const half = { valueOf() { return 8 } } / 2; eval(body); const rest = 4 / 2;',
+  'const size = { length: 6 } / 3; setTimeout("tick()", 0); const n = 9 / 3;',
+
+  // The same ambiguity one character further back: an operator that ends an
+  // expression, with the division behind it.
+  'const step = count++ / total; eval(body); const rest = 1 / 2;',
 ];
 
 /**
@@ -205,6 +255,16 @@ export const INNOCENT = [
 
   // The method every check here calls, which must not read as starting one.
   'const parsed = PATTERN.exec(text);',
+
+  // A regular expression that really is one, holding a watched name. If the mask
+  // stopped reading literals this would be reported, which is the failure in the
+  // other direction from the divisions above.
+  'const found = /eval/.test(text);',
+
+  // A specifier written down and then used, which is the shape the rule asks
+  // for and has to keep allowing.
+  'const SPEC = "./plugin.js"; const mod = await import(SPEC);',
+  'const mod = await import(node.specifier);',
 ];
 
 /**

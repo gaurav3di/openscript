@@ -1,5 +1,23 @@
 /**
- * The no-eval check.
+ * The no-eval check: the first line, no longer the only one.
+ *
+ * **Read this before widening a pattern here.** This file scanned source text
+ * for a construct, and it was got past in three consecutive rounds: seven ways,
+ * then five, then three more, every form really executing. Each round was
+ * answered with wider patterns and each wider set was beaten. A watched name can
+ * be spelled arbitrarily many ways, and a list of spellings only ever has to be
+ * beaten once more, so scanning text was never going to be the enforcement.
+ *
+ * **The enforcement is the runtime.** The suite runs under a setting that
+ * refuses to compile text at all, so a generator throws the moment its code path
+ * executes, whatever it was spelled as and however it was reached. That is in
+ * `lib/runtime.mjs`, with what it does and does not promise. This program runs
+ * under it too, and starts itself again under it if it was not.
+ *
+ * **This scan stays, because it answers the other half.** It reads every file,
+ * including the ones nothing executes and the branches no test reaches, and it
+ * catches a form before anybody runs it rather than when somebody does. Neither
+ * covers the other. What has changed is which one is load bearing.
  *
  * Rule one of this project is that nothing here builds code out of text, and
  * until this file existed it was the one rule nothing enforced. A reviewer
@@ -57,11 +75,13 @@
  * file of code and runs it breaks the guarantee exactly as thoroughly as a
  * compiler that did.
  *
- * `dist` and `dist-test` are gitignored, so they are listed by walking the
- * directory rather than by asking version control, for the reason written at the
- * top of `lib/files.mjs`. If either is absent this check fails instead of
+ * The list comes from walking the tree rather than from asking version control,
+ * which is the fourth time a check here inspected less than it claimed and the
+ * reason written at the top of `lib/files.mjs`. Built output is walked by name
+ * on top of that, and if either directory is absent this check fails instead of
  * passing quietly, because a run that inspected no built output is not a run
- * that found it clean.
+ * that found it clean. The count of files read is in the line this prints, so a
+ * number that drops is visible rather than something to be suspected.
  *
  * ## Two strictnesses, and where the line is
  *
@@ -87,7 +107,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
-import { filesUnder, projectFiles } from './lib/files.mjs';
+import { NOT_THE_PROJECT, filesUnder, projectFiles } from './lib/files.mjs';
+import { NO_CODE_FROM_STRINGS, insistOnRefusing } from './lib/runtime.mjs';
 import {
   ATTACKS,
   INNOCENT,
@@ -106,6 +127,11 @@ import {
   markerAsWritten,
   shellFindings,
 } from './lib/no-eval-rules.mjs';
+
+// Under the setting, or started again under it. Everything below reads files,
+// and this line is why the program doing the reading could not build code out of
+// text either, whoever started it and however they spelled the command.
+insistOnRefusing();
 
 /** What ships to a consumer, and is read at the stricter of the two settings. */
 const SHIPPED = ['src', 'dist'];
@@ -308,8 +334,10 @@ if (sourceFiles.length === 0) {
 }
 
 const builtFiles = [];
+let builtWalked = 0;
 for (const built of BUILT) {
   const all = filesUnder(built.dir);
+  builtWalked += all.length;
   const unknown = all.filter((file) => kindOf(file) === 'unknown');
   if (unknown.length > 0) {
     refuse(
@@ -344,6 +372,35 @@ for (const file of [...sourceFiles, ...toolingFiles, ...builtFiles]) {
 const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
 for (const [name, command] of Object.entries(manifest.scripts ?? {})) {
   report(shellFindings(`package.json (the ${name} script)`, command, null));
+}
+
+/**
+ * Every build step that starts this runtime, started under the setting.
+ *
+ * The scripts that must have it insist for themselves, by starting again under
+ * it, so nothing here can be turned off by dropping a word from a command line.
+ * This is the other half: a command line that says what it does, so a reader of
+ * `package.json` sees the guarantee rather than having to know that a module two
+ * directories away arranges it.
+ */
+const SEPARATOR = /&&|\|\||;|\|/;
+const STARTS_RUNTIME = /(?:^|\s)node(?:\s|$)/;
+const bare = [];
+for (const [name, command] of Object.entries(manifest.scripts ?? {})) {
+  for (const step of command.split(SEPARATOR)) {
+    if (!STARTS_RUNTIME.test(step) || step.includes(NO_CODE_FROM_STRINGS)) continue;
+    bare.push(`  ${name}: ${step.trim()}`);
+  }
+}
+
+if (bare.length > 0) {
+  refuse(
+    `These build steps start this runtime without ${NO_CODE_FROM_STRINGS}:\n\n` +
+      bare.join('\n') +
+      `\n\nThat setting is what enforces rule one now: under it a generator throws when its\n` +
+      'code path runs, whatever it was spelled as, which is the thing this scan cannot\n' +
+      'promise. Add it to the command.',
+  );
 }
 
 const steps = inventory.command;
@@ -387,11 +444,16 @@ if (hits > 0) {
 const attacks = ATTACKS.length + SHIPPED_ONLY.length + SHELL_ATTACKS.length;
 const total = sourceFiles.length + builtFiles.length + toolingFiles.length;
 const commands = Object.keys(manifest.scripts ?? {}).length;
+const walked =
+  inventory.code.length + inventory.command.length + inventory.data.length + builtWalked;
 console.log(
-  `No-eval check passed: ${attacks} attack forms caught by its own rules first, every one of ` +
-    `${EVERY_RULE.length} rules exercised, then ${total} files (${sourceFiles.length} source, ` +
-    `${builtFiles.length} built, ${toolingFiles.length} tooling), ${commands} build commands and ` +
-    `${steps.length} build steps, including the programs they feed in. ` +
-    `${inventory.data.length} further files are data and are named as such. ` +
+  `No-eval check passed, under ${NO_CODE_FROM_STRINGS}, which is what enforces rule one; ` +
+    `this scan is the first line and not the enforcement. ${attacks} attack forms caught by its ` +
+    `own rules first, every one of ${EVERY_RULE.length} rules exercised, then ${walked} files ` +
+    `walked, of which ${total} were read as code (${sourceFiles.length} source, ` +
+    `${builtFiles.length} built, ${toolingFiles.length} tooling) and ${inventory.data.length} are ` +
+    `data and named as such, plus ${commands} build commands and ${steps.length} build steps, ` +
+    `including the programs they feed in. The tree is walked rather than asked about, and the ` +
+    `only thing left out of it is ${[...NOT_THE_PROJECT].join(' and ')}. ` +
     `Nothing builds code out of text.`,
 );

@@ -126,7 +126,7 @@ Compare the first cell against the warmup column in
 | `rsi(src, len)` | `len` | It consumes `len` changes, and a change needs two bars |
 | `change(src)`, `crossUp(a, b)` | bar 1 | Both read the previous bar |
 | `mom(src, len)`, `roc(src, len)` | `len` | The same extra bar, for the same reason |
-| `macd(src, fast, slow, signal)` | element 0 at `slow - 1`, elements 1 and 2 at `slow + signal - 2` | The signal line is a mean of a mean |
+| `macd(src, fast, slow, signal)` | element 0 at `max(fast, slow) - 1`, elements 1 and 2 `signal - 1` bars after it | Neither mean exists until the longer one does, and the signal line is a mean of a mean |
 | `atr(len)` | `len - 1` | `trueRange()` on bar 0 is `high - low`, the one deliberate exception to absence propagation |
 | `barsSince(cond)`, `valueWhen(cond, src)` | The first bar the condition is true | Absent, not zero, before that: zero would read as "it happened on this bar" |
 | `sma(ema(close, 10), 10)` | bar 18 | Warmups compose, because an absent source makes an absent result |

@@ -249,7 +249,7 @@ Bottom to top, the layers are:
 |---|---|---|
 | 1 | The pane background, from `background(...)` | Fixed by the specification: behind everything |
 | 2 | The instrument's candles, recoloured by `barColor(...)` | Only on the price pane |
-| 3 | Shaded bands, from `fill(...)` | Translucent by default, `opacity` is 0.12 |
+| 3 | Shaded bands, from `fill(...)` | Translucent when no colour is named: the first plot's colour at twelve percent |
 | 4 | Plotted columns, from `plot` and `plotCandles` | |
 | 5 | Horizontal levels, from `level(...)` | |
 | 6 | Free drawings, from the `draw` namespace | |
@@ -258,8 +258,10 @@ Bottom to top, the layers are:
 
 Three facts you can rely on, which together are enough to design with:
 
-- A `fill` is translucent unless you make it otherwise, so a band over candles
-  does not hide them. The default opacity of 0.12 was chosen for exactly that.
+- A `fill` given no colour is translucent, so a band over candles does not hide
+  them: it takes the first plot's colour faded to twelve percent, which was
+  chosen for exactly that. Name a colour and you get that colour, because
+  `opacity` starts at 1 and only dims what the script already wrote.
 - An absent value removes a layer for that bar rather than painting a zero over
   what is underneath.
 - A background shade is a whole-column wash, so keep it faint. `fade(silver, 92)`

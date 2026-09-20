@@ -2,11 +2,12 @@
  * `vwap` and `vwapAnchor`: the volume weighted average price since an anchor.
  *
  * `stdlib.md` section 7 writes `vwap(src)` and says it resets at the start of
- * each trading session **as the host defines it**, not at midnight, because the
- * session is what the number means. Where a session starts is a host fact and
- * not a numeric one, so this library takes the anchor as a flag per bar and an
- * engine supplies it. `vwapAnchor` is therefore the whole of the calculation
- * and `vwap` is that calculation with the host's session starts passed in.
+ * each trading session **as the instrument defines it**, not at midnight,
+ * because the session is what the number means. Where a session starts follows
+ * from the instrument's own trading hours and not from any arithmetic here, so
+ * this library takes the anchor as a flag per bar and an engine derives it.
+ * `vwapAnchor` is therefore the whole of the calculation and `vwap` is that
+ * calculation with the session's first bars passed in.
  *
  * The running totals are carried rather than rebuilt, because that is the
  * definition: a volume weighted average since an anchor is a pair of running
@@ -74,9 +75,9 @@ export function vwapAnchor(
  * `vwap(src)`: the same average anchored to the session, from the session's
  * first bar.
  *
- * `sessionStart` is the host's answer to "does a new trading session begin on
- * this bar", which is why it is an argument rather than something derived from
- * the timestamps here. On a daily or longer interval every bar is its own
+ * `sessionStart` is the engine's answer to "does a new trading session begin on
+ * this bar", read off the instrument's stated trading hours, which is why it
+ * is an argument rather than something derived from the timestamps here. On a daily or longer interval every bar is its own
  * session, so every bar is an anchor and the result equals `src`; the compiler
  * emits warning OS8006 saying so, which is a compile-time matter and not this
  * library's.

@@ -21,8 +21,11 @@
  *   itself before it runs again, so a live chart and a backtest of the same
  *   data produce the same numbers.
  */
-export { Engine, load } from './engine.js';
-export type { BarResult, LoadOptions, LoadResult, RunResult } from './engine.js';
+export { Engine } from './engine.js';
+export type { BarResult, RunResult } from './engine.js';
+
+export { load } from './load.js';
+export type { LoadOptions, LoadResult } from './load.js';
 
 export type { AlertFiring } from './alerts.js';
 
@@ -48,6 +51,8 @@ export type {
   RequestQuery,
   RequestRefusal,
 } from './host.js';
+
+export type { SessionFacts, SessionHours } from './session/index.js';
 
 export type { Timeframe, TimeframeUnit } from './timeframe.js';
 export { bucketKeyOf, isIntraday, minutesOf, nominalMinutes, parseTimeframe } from './timeframe.js';

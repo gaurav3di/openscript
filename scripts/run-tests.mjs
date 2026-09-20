@@ -13,11 +13,29 @@
  * found on every platform and every version, and a failure is a real failure
  * rather than a difference of opinion about a string.
  *
+ * ## The tests run where code cannot be built out of text
+ *
+ * The child is started with the setting that refuses to compile text, so every
+ * line of the compiler and the engine that any of these tests reaches runs in a
+ * process where a generator throws, whatever it was spelled as. That is the
+ * enforcement of rule one: the textual scan next door reads files, and this runs
+ * them. See `lib/runtime.mjs` for what it promises and what it does not.
+ *
+ * **The setting is in the environment as well as on the command line**, and the
+ * two are not interchangeable. The runner puts each test file in a process of
+ * its own, and the command line does not reach those, so a probe inside a test
+ * found the runtime still willing to compile text while the setting sat plainly
+ * on the command that started the run. The environment is inherited by every
+ * descendant, and the same probe then refused. Do not take one of the two away.
+ *
  * Run: node scripts/run-tests.mjs
  */
 import { spawnSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { insistOnRefusing, refusingArgs, refusingEnv } from './lib/runtime.mjs';
+
+insistOnRefusing();
 
 const ROOT = 'dist-test/tests';
 
@@ -50,5 +68,8 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-const result = spawnSync(process.execPath, ['--test', ...files], { stdio: 'inherit' });
+const result = spawnSync(process.execPath, refusingArgs(['--test', ...files]), {
+  stdio: 'inherit',
+  env: refusingEnv(),
+});
 process.exit(result.status ?? 1);

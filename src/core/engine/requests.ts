@@ -338,7 +338,7 @@ function start(bar: HostBar): HostBar {
     close: bar.close,
     volume: bar.volume ?? null,
     time: bar.time,
-    openInterest: bar.openInterest ?? null,
+    oi: bar.oi ?? null,
   };
 }
 
@@ -360,7 +360,7 @@ function extend(into: HostBar, bar: HostBar): HostBar {
     close: bar.close ?? null,
     volume: both(into.volume ?? null, bar.volume ?? null),
     time: into.time,
-    openInterest: bar.openInterest ?? null,
+    oi: bar.oi ?? null,
   };
 }
 

@@ -46,7 +46,7 @@ fill(plotA, plotB,
      color = ...,
      colorUp = none,
      colorDown = none,
-     opacity = 0.12,
+     opacity = 1,
      overlay = none)
 ```
 
@@ -57,7 +57,7 @@ fill(plotA, plotB,
 | `color` | `color` or `series color` | the host's choice | One colour for the whole band |
 | `colorUp` | `color` or `series color` | `none` | The colour where `plotA` is above `plotB` |
 | `colorDown` | `color` or `series color` | `none` | The colour where `plotB` is above `plotA` |
-| `opacity` | `number` | `0.12` | How solid the band is, 0 to 1 |
+| `opacity` | `number` | `1` | A dimmer over the colours, 0 to 1 |
 | `overlay` | `bool` | the declaration's | `true` draws the band on the price pane |
 
 `fill` is top level only, like `plot` and `level`. It declares part of the fixed
@@ -174,7 +174,7 @@ same job.
 
 | Where | Range | What it is for |
 |---|---|---|
-| `opacity` | 0 to 1, 1 is solid | How solid this band is. The default is 0.12 |
+| `opacity` | 0 to 1, 1 is solid | A dimmer over the colours. The default is 1, so it changes nothing until you set it |
 | The colour itself, via `fade` or `rgba` | `fade` takes 0 to 100 transparency, `rgba` takes 0 to 1 alpha | How see-through this particular colour is |
 
 **Pick one and leave the other alone.** A band faded twice is a band nobody can
@@ -183,11 +183,14 @@ numbers to change. For a band with one colour, use `opacity` and pass a plain
 colour. For a band with `colorUp` and `colorDown`, put the transparency in the
 colours so the two sides can differ, and leave `opacity` at its default.
 
-The default of 0.12 is low on purpose. A fill sits above the candles on a price
-pane, and the candles are what the trader is actually reading. A band at 0.5
-turns the instrument into a smear. If you find yourself raising it much past
-0.2, check whether the thing you want is really a `background` wash rather than
-a band.
+A band's usual translucency does not come from `opacity`, which starts at 1 and
+leaves the colour as written. It comes from the colour: name no colour at all
+and the band is `plotA`'s colour faded to twelve percent. That number is low on
+purpose. A fill sits above the candles on a price pane, and the candles are what
+the trader is actually reading, so a band at half strength turns the instrument
+into a smear. Whichever of the two you set it with, keep a band near a tenth of
+solid, and if you find yourself much past a fifth, check whether the thing you
+want is really a `background` wash rather than a band.
 
 ---
 

@@ -114,8 +114,8 @@ function contextFor(heap: Heap): CallContext & { state: Record<string, unknown>;
     isNew: true,
     isLast: true,
     updates: 1,
-    isSessionStart: false,
-    isSessionEnd: false,
+    isSessionFirst: null,
+    isSessionLast: null,
   };
   const context = {
     heap,
@@ -182,7 +182,7 @@ function fold(
       close: view?.close ?? null,
       volume: view?.volume ?? null,
       previousClose: bar === 0 ? null : bars?.[bar - 1]?.close ?? null,
-      isSessionStart: sessions?.[bar] === true,
+      isSessionFirst: sessions?.[bar] === true,
     };
     out.push(of.call(context, rows[bar] ?? []));
   }

@@ -393,8 +393,8 @@ plot(stochRsi(close)[0], "Stoch RSI %K", aqua)
 `[macd, signal, histogram]`: the gap between a fast and a slow exponential mean.
 Parameters: `src` `series number` required; `fast` `number` default `12`; `slow`
 `number` default `26`; `signal` `number` default `9`.
-Returns `array<number>`. Warmup: element 0 at bar `slow - 1`, elements 1 and 2
-at bar `slow + signal - 2`.
+Returns `array<number>`. Warmup: element 0 at bar `max(fast, slow) - 1`,
+elements 1 and 2 at bar `max(fast, slow) + signal - 2`.
 
 ```
 plot(macd(close)[2], "Histogram", gray, style = "histogram")
@@ -508,7 +508,7 @@ plot(ultimateOsc(), "Ultimate", orange)
 
 Difference of two simple means of `hl2`, normally drawn as a histogram.
 Parameters: `fast` `number` default `5`; `slow` `number` default `34`.
-Returns `series number`. Warmup: bar `slow - 1`.
+Returns `series number`. Warmup: bar `max(fast, slow) - 1`.
 
 ```
 plot(awesomeOsc(), "Awesome", gray, style = "histogram")
@@ -784,7 +784,7 @@ plot(ad(), "Accumulation", lime)
 
 The difference of two means of `ad`, which dates its turns.
 Parameters: `fast` `number` default `3`; `slow` `number` default `10`.
-Returns `series number`. Warmup: bar `slow - 1`.
+Returns `series number`. Warmup: bar `max(fast, slow) - 1`.
 
 ```
 plot(adOsc(), "AD oscillator", lime, style = "histogram")

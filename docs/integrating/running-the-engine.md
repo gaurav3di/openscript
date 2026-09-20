@@ -72,7 +72,7 @@ engine.update(bar, state)   ->  one result, re-executing the newest bar
   "low": 101,
   "close": 102,
   "volume": 18400,
-  "openInterest": null
+  "oi": null
 }
 ```
 
@@ -138,6 +138,40 @@ It is deliberately ignorant, and that is what lets it run anywhere:
 
 Those five are why a platform can run many customers' scripts in one process,
 which is the thing an `eval` based design cannot offer at any price.
+
+## Do not take our word for the first one
+
+The first guarantee is the one the other four lean on, and it is the one you can
+stop trusting us about. Server side runtimes have a switch that turns off code
+generation from strings for the whole process:
+
+```
+--disallow-code-generation-from-strings
+```
+
+Start the process that runs the engine with it. The string evaluator and the
+function builder then throw wherever they are called, whoever wrote the code and
+however the name was spelled, because the switch turns off the runtime's own
+permission to compile text rather than looking for a name. We run our entire
+test suite under it for exactly that reason, and an engine that needed code
+generation would fail on your first script rather than on your tenth thousandth.
+
+**This is worth more than any promise in this document.** A sentence here
+describes what we intended. The switch is your process refusing, and it keeps
+refusing after an upgrade you did not read the changelog for, and after a
+dependency you did not choose to add.
+
+Two things it does not do, so that you know the shape of what you have:
+
+- It covers the process you set it on. A child process you start gets its own
+  settings, so set it there too.
+- It stops code being built from text. It is not a sandbox: everything else the
+  process can reach, it can still reach. The engine's own isolation is what
+  keeps a script away from that, and it is the second guarantee above.
+
+If you run our engine in a browser instead, the same refusal is what a content
+security policy without `unsafe-eval` already gives you. The engine is built to
+run under one, and needs nothing added to yours.
 
 ## When to stop reading this page
 

@@ -36,8 +36,6 @@ export { ChartAdapterError } from './errors.js';
 export { release } from './run.js';
 export type { ChartAdapterOptions } from './run.js';
 
-export type { SessionCalendar } from './bars.js';
-
 export type {
   ChartBar,
   ChartCalcContext,

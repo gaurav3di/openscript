@@ -31,9 +31,6 @@ const BASE_TIME = 1_748_736_000_000;
 
 const MINUTE = 60_000;
 
-/** Bars between one session flag and the next. Any fixed number would do. */
-const SESSION_BARS = 375;
-
 /** The starting price, and the level the walk is pulled back towards. */
 const LEVEL = 100;
 
@@ -89,19 +86,14 @@ export function bars(count: number): readonly HostBar[] {
 /**
  * The host's word on each bar.
  *
- * Every bar is confirmed, because this is history. A session boundary is placed
- * on a fixed cycle so a study that resets on one is exercised rather than
- * skipped; which bars they fall on does not matter, only that they fall.
+ * Every bar is confirmed, because this is history, and that is the whole of
+ * what a host states here. Where a session begins is not a fact a host states:
+ * it follows from the window in the instrument record, and the workloads below
+ * time two studies that read no session at all.
  */
 export function states(count: number): readonly BarState[] {
   const out: BarState[] = [];
-  for (let i = 0; i < count; i += 1) {
-    out.push({
-      isConfirmed: true,
-      isSessionStart: i % SESSION_BARS === 0,
-      isSessionEnd: i % SESSION_BARS === SESSION_BARS - 1,
-    });
-  }
+  for (let i = 0; i < count; i += 1) out.push({ isConfirmed: true });
   return out;
 }
 

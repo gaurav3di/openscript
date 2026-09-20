@@ -34,6 +34,24 @@
  * away. So `decoded` is what the runtime would hold, and `value` is what the
  * file says, because a report quotes the file.
  *
+ * **An identifier is resolved the same way, and for a round it was not.** The
+ * escapes above were resolved inside string literals only, so a watched name
+ * written `eval` was never a string, was never the word `eval` either, and
+ * every rule downstream read four characters of punctuation followed by the
+ * name `u0065val`. The runtime reads it as `eval` and calls it. A name is now
+ * built the way the runtime builds it, escapes and all, which takes the
+ * respelling away at the place the respelling happens rather than adding a
+ * pattern per spelling.
+ *
+ * **Where a slash is ambiguous it is read as code.** One preceding character
+ * cannot tell a regular expression from a division: after `}` a slash divides
+ * in an expression and opens a literal in a statement, and there is no way to
+ * know which without parsing. Reading it as a literal and guessing wrong erases
+ * the rest of the line, call and string together, which is how a live
+ * generator went unseen for a round. Reading it as code and guessing wrong
+ * costs a report about a pattern, which somebody sees and answers. The errors
+ * are not the same size, so the ambiguous cases are code.
+ *
  * **A template literal is both.** Its text is a string and each substitution is
  * code, so the two are masked differently, which is the difference between
  * catching a construct inside an interpolation and not looking there at all.
@@ -56,9 +74,18 @@ export const REGEX_MARK = '_RE_';
 const IDENT_START = /[A-Za-z_$]/;
 const IDENT = /[A-Za-z0-9_$]/;
 
-/** After these, a slash opens a regular expression rather than dividing. */
+/**
+ * After these, a slash opens a regular expression rather than dividing.
+ *
+ * Every one of them is a character that cannot end an expression, so nothing
+ * after it can be divided and a slash can only open a literal. The characters
+ * that *can* end an expression are deliberately absent, `}` among them: a
+ * closing brace ends an object literal or a function expression as often as it
+ * ends a block, and one character cannot tell the two apart. See the note at
+ * the top about which way an ambiguous slash is read.
+ */
 const BEFORE_REGEX = new Set(
-  ['', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '+', '-', '*', '%', '^', '~', '<', '>'],
+  ['', '(', ',', '=', ':', '[', '!', '&', '|', '?', '{', ';', '+', '-', '*', '%', '^', '~', '<', '>'],
 );
 const BEFORE_REGEX_WORDS = new Set(
   'return typeof instanceof in of new delete void case do else yield await'.split(' '),
@@ -117,6 +144,38 @@ export function decodeEscapes(raw) {
 }
 
 /**
+ * A name from its first character, as the runtime reads it, escapes resolved.
+ *
+ * An identifier may carry the same unicode escapes a string may, and the
+ * runtime resolves them before it resolves the name, so `eval` and `eval`
+ * are one name to it. They were two to every rule here for a round, and the
+ * second one was invisible. Returns the empty name where this was not an
+ * identifier after all, so a lone backslash stays an ordinary character.
+ */
+export function readIdentifier(text, start) {
+  let name = '';
+  let i = start;
+  while (i < text.length) {
+    const c = text[i];
+    const allowed = name === '' ? IDENT_START : IDENT;
+    if (c === '\\') {
+      const rest = text.slice(i);
+      const hex = HEX_BRACED.exec(rest) ?? HEX_U.exec(rest);
+      if (hex === null) break;
+      const letter = String.fromCodePoint(Number.parseInt(hex[1], 16));
+      if (!allowed.test(letter)) break;
+      name += letter;
+      i += hex[0].length;
+      continue;
+    }
+    if (!allowed.test(c)) break;
+    name += c;
+    i += 1;
+  }
+  return { name, end: i };
+}
+
+/**
  * The text with everything that is not code replaced, and the string literals
  * handed back separately.
  *
@@ -139,6 +198,7 @@ export function maskCode(text) {
   let chunk = '';
   let chunkAt = 0;
   let prevChar = '';
+  let prevBefore = '';
   let prevWord = '';
 
   const emitChunk = () => {
@@ -147,8 +207,15 @@ export function maskCode(text) {
     out.push(markFor(decoded) + newlinesIn(chunk));
     chunk = '';
     prevChar = '_';
+    prevBefore = '';
     prevWord = '';
   };
+
+  // A slash after `++` or `--` divides: the operator ends an expression, and it
+  // is the same ambiguity as `}` one character further back.
+  const opensRegex = () =>
+    (BEFORE_REGEX.has(prevChar) || BEFORE_REGEX_WORDS.has(prevWord)) &&
+    !((prevChar === '+' || prevChar === '-') && prevBefore === prevChar);
 
   while (i < n) {
     const c = text[i];
@@ -217,26 +284,28 @@ export function maskCode(text) {
       continue;
     }
 
-    if (c === '/' && (BEFORE_REGEX.has(prevChar) || BEFORE_REGEX_WORDS.has(prevWord))) {
+    if (c === '/' && opensRegex()) {
       const end = readRegex(text, i);
       if (end !== -1) {
         out.push(REGEX_MARK);
         i = end;
         prevChar = '_';
+        prevBefore = '';
         prevWord = '';
         continue;
       }
     }
 
-    if (IDENT_START.test(c)) {
-      let j = i + 1;
-      while (j < n && IDENT.test(text[j])) j++;
-      const word = text.slice(i, j);
-      out.push(word);
-      prevWord = word;
-      prevChar = word[word.length - 1];
-      i = j;
-      continue;
+    if (IDENT_START.test(c) || c === '\\') {
+      const { name, end } = readIdentifier(text, i);
+      if (name !== '') {
+        out.push(name);
+        prevWord = name;
+        prevChar = name[name.length - 1];
+        prevBefore = '';
+        i = end;
+        continue;
+      }
     }
 
     if (c === '{') depth++;
@@ -255,6 +324,7 @@ export function maskCode(text) {
 
     out.push(c);
     if (!/\s/.test(c)) {
+      prevBefore = prevChar;
       prevChar = c;
       prevWord = '';
     }

@@ -107,7 +107,7 @@ A working selection, with the exact first bar:
 | `tema(src, len)` | `3 * len - 3` |
 | `trix(src, len)` | `3 * len - 2` |
 | `dpo(src, len)` | `len + floor(len / 2)` |
-| `macd(src, fast, slow, signal)` | element 0 at `slow - 1`, elements 1 and 2 at `slow + signal - 2` |
+| `macd(src, fast, slow, signal)` | element 0 at `max(fast, slow) - 1`, elements 1 and 2 `signal - 1` bars after it |
 | `adx(diLen, adxLen)` | elements 1 and 2 at `diLen`, element 0 at `diLen + adxLen - 1` |
 | `supertrend(factor, atrLen)` | `atrLen` |
 | `psar(...)`, `obv()`, `cum(src)`, `trueRange()` | bar 1, bar 0, bar 0, bar 0 |
@@ -118,7 +118,7 @@ A working selection, with the exact first bar:
 to your script, read it there rather than estimating it; that is what the column
 is for.
 
-Two entries in that table deserve a note each.
+Three entries in that table deserve a note each.
 
 **A multi-output call returns an array whose elements warm up separately.** The
 array itself is never absent and never changes length; each element is absent
@@ -127,6 +127,13 @@ until it is reached. So `macd(close, 12, 26, 9)` gives you `m[0]` from bar 25 an
 completed would make `m[1]` an out-of-range error on early bars, which would
 break a script only at the left edge of a chart, which is the worst place for a
 script to break.
+
+**A `max` in a warmup is not decoration.** A call that subtracts one mean from
+another has nothing to report until both means exist, so its first bar is
+governed by the longer of the two lengths and not by the one the argument is
+named after. Nothing stops a script from setting `fast` above `slow`, and when
+it does, the reading starts at `fast - 1`. The defaults hide this, which is
+exactly why the row states the `max` rather than the usual length.
 
 **`trueRange()` on bar 0 is `high - low`.** The other two terms of its
 definition need the previous close, which is absent there. This is the one

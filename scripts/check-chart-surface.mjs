@@ -34,12 +34,14 @@
  * Run: node scripts/check-chart-surface.mjs [--list]
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { CHART_ADAPTER_MODULE as ADAPTER_MODULE, CORE_MODULE, EMITTER_MODULE, fromRoot } from './lib/built.mjs';
 
 const RECORD_PATH = 'spec/chart-narrowings.json';
-const CORE = 'dist/core/index.js';
-const EMITTER = 'dist/core/emit/index.js';
-const ADAPTER = 'dist/adapters/charts/index.js';
+
+/** The three built files this reads, as the working directory sees them. */
+const CORE = fromRoot(CORE_MODULE);
+const EMITTER = fromRoot(EMITTER_MODULE);
+const ADAPTER = fromRoot(ADAPTER_MODULE);
 
 /** The study this checks against: two of everything a version 1 file can declare. */
 const SOURCE = `version 1
@@ -109,9 +111,9 @@ if (!existsSync(CORE) || !existsSync(ADAPTER)) {
   );
 }
 
-const core = await import(pathToFileURL(CORE).href);
-const emitter = await import(pathToFileURL(EMITTER).href);
-const adapter = await import(pathToFileURL(ADAPTER).href);
+const core = await import(CORE_MODULE);
+const emitter = await import(EMITTER_MODULE);
+const adapter = await import(ADAPTER_MODULE);
 
 const record = JSON.parse(readFileSync(RECORD_PATH, 'utf8'));
 const problems = [];

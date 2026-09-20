@@ -136,7 +136,7 @@ export function bars(count: number): readonly HostBar[] {
 export function states(count: number): readonly BarState[] {
   const out: BarState[] = [];
   for (let i = 0; i < count; i += 1) {
-    out.push({ isConfirmed: true, isSessionStart: i % 75 === 0, isSessionEnd: i % 75 === 74 });
+    out.push({ isConfirmed: true });
   }
   return out;
 }

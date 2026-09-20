@@ -60,6 +60,7 @@ const SCRIPTS = new URL('tests/gate/studies/scripts/', ROOT);
  */
 export const BASE_TIME = 1_748_736_000_000;
 export const BAR_MILLIS = 60_000;
+const DAY_MILLIS = 24 * 60 * BAR_MILLIS;
 
 /** How many one minute bars go into one bar of the coarse timeframe below. */
 export const COARSE_BARS = 10;
@@ -67,28 +68,47 @@ export const COARSE_BARS = 10;
 /** The coarse timeframe the higher timeframe studies read. */
 export const COARSE_TIMEFRAME = '10';
 
-/** The fixture as an engine receives it: the stdlib bars with a bar time added. */
+/**
+ * The fixture as an engine receives it: the stdlib bars, dated.
+ *
+ * **Ten bars a day, and then the next day**, because a session is a window in
+ * the instrument record and a window recurs daily. The fixture wants a session
+ * boundary every tenth bar, so the instrument below trades ten minutes a day
+ * and these are its bars: minute zero to minute nine, then tomorrow's. Spacing
+ * is not required to be uniform and a real session is not uniform, which is why
+ * this is a dataset an engine will actually be handed rather than a shape
+ * invented for the fixture.
+ *
+ * A gap of a whole day between sessions moves no other expectation in this
+ * suite. Every bucket boundary of the coarse timeframe is still a boundary of
+ * ten fixture bars, because a day divides into whole coarse buckets, and every
+ * expectation about a time is read back out of this array rather than restated.
+ */
 export const STUDY_BARS: readonly HostBar[] = BARS.map((bar, index) => ({
   open: bar.open,
   high: bar.high,
   low: bar.low,
   close: bar.close,
   volume: bar.volume,
-  time: BASE_TIME + index * BAR_MILLIS,
+  time:
+    BASE_TIME +
+    Math.floor(index / COARSE_BARS) * DAY_MILLIS +
+    (index % COARSE_BARS) * BAR_MILLIS,
 }));
 
 /**
- * Every bar confirmed, with a session boundary every tenth bar.
+ * Every bar confirmed, which is what a history load looks like.
  *
- * A session that begins inside the fixture rather than only at bar 0 is what
- * makes an anchored study worth asserting: a study that resets on a session
- * start and is only ever given one start is indistinguishable from one that
- * never resets at all.
+ * **There is no session flag here, and that is the point.** The facts a host
+ * states about an execution are the four of `language.md` 7.2, and where a
+ * session begins is not one of them: it follows from the window in the
+ * instrument record below. A fixture that stated it per bar was driving the
+ * engine down a path no host built from the specification could take, and the
+ * session boundary every tenth bar it produced was one no instrument record can
+ * describe.
  */
-export const STUDY_STATES: readonly BarState[] = STUDY_BARS.map((_bar, index) => ({
+export const STUDY_STATES: readonly BarState[] = STUDY_BARS.map(() => ({
   isConfirmed: true,
-  isSessionStart: index % COARSE_BARS === 0,
-  isSessionEnd: index % COARSE_BARS === COARSE_BARS - 1,
 }));
 
 /** A bar as the reference transcriptions read one. */
@@ -121,8 +141,24 @@ export const SESSION_OF: readonly number[] = STUDY_BARS.map((_bar, index) =>
   Math.floor(index / COARSE_BARS),
 );
 
+/**
+ * The host, whose instrument trades ten minutes a day.
+ *
+ * The session window and the timezone are what every session study in this half
+ * of the gate is anchored by: the engine derives `session.isFirstBar` and
+ * `session.isLastBar` from them, the bar's time and the interval, so a boundary
+ * lands on every tenth bar of the fixture without anything stating one.
+ */
 export const HOST: EngineHost = {
-  instrument: { symbol: 'AAA', exchange: 'XX', interval: '1', tickSize: 0.05, lotSize: 50 },
+  instrument: {
+    symbol: 'AAA',
+    exchange: 'XX',
+    interval: '1',
+    timezone: 'UTC',
+    tickSize: 0.05,
+    lotSize: 50,
+    session: { start: '00:00', end: '00:10' },
+  },
   now: BASE_TIME,
   position: { size: 0, avgPrice: 0 },
   route: () => {},

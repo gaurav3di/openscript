@@ -338,7 +338,7 @@ else in the script without shifting it back.
 | `rsi(src, len = 14)` | `series number` | bar `len` | 0 to 100 reading of how one-sided the last `len` changes were |
 | `stoch(len = 14, smoothK = 1, smoothD = 3)` | `array<number>` | element 0 at bar `len + smoothK - 2`, element 1 at bar `len + smoothK + smoothD - 3` | `[k, d]`; where the close sits inside the window's range |
 | `stochRsi(src, rsiLen = 14, stochLen = 14, smoothK = 3, smoothD = 3)` | `array<number>` | element 0 at bar `rsiLen + stochLen + smoothK - 2` | `[k, d]`; the same position test applied to `rsi` instead of price |
-| `macd(src, fast = 12, slow = 26, signal = 9)` | `array<number>` | element 0 at bar `slow - 1`, elements 1 and 2 at bar `slow + signal - 2` | `[macd, signal, histogram]`; the gap between a fast and a slow mean |
+| `macd(src, fast = 12, slow = 26, signal = 9)` | `array<number>` | element 0 at bar `max(fast, slow) - 1`, elements 1 and 2 at bar `max(fast, slow) + signal - 2` | `[macd, signal, histogram]`; the gap between a fast and a slow mean |
 | `ppo(src, fast = 12, slow = 26, signal = 9)` | `array<number>` | as `macd` | `[ppo, signal, histogram]`; the same gap as a percentage, so two instruments compare |
 | `cci(len = 20)` | `series number` | bar `len - 1` | How far the typical price sits from its mean in mean-deviation units |
 | `mom(src, len = 10)` | `series number` | bar `len` | `src - src[len]`, change over a fixed distance |
@@ -349,7 +349,7 @@ else in the script without shifting it back.
 | `cmo(src, len = 9)` | `series number` | bar `len` | Up sum minus down sum over their total, -100 to 100 |
 | `dpo(src, len = 21)` | `series number` | bar `len + floor(len / 2)` | Price with its displaced mean removed, to expose a cycle |
 | `ultimateOsc(len1 = 7, len2 = 14, len3 = 28)` | `series number` | bar `max(len1, len2, len3)` | Buying pressure blended over three windows so one length cannot dominate |
-| `awesomeOsc(fast = 5, slow = 34)` | `series number` | bar `slow - 1` | Difference of two simple means of `hl2`, drawn as a histogram |
+| `awesomeOsc(fast = 5, slow = 34)` | `series number` | bar `max(fast, slow) - 1` | Difference of two simple means of `hl2`, drawn as a histogram |
 | `fisher(len = 9)` (planned) | `array<number>` | bar `len` | `[fisher, trigger]`; range position reshaped so extremes stand out |
 | `rvi(src, len = 10)` (planned) | `array<number>` | bar `len + 3` | `[rvi, signal]`; where the close sits inside the bar, smoothed |
 | `coppock(src, roc1 = 14, roc2 = 11, wmaLen = 10)` (planned) | `series number` | bar `max(roc1, roc2) + wmaLen - 1` | Long horizon momentum turn |
@@ -409,7 +409,7 @@ inspecting the result.
 | `vwapAnchor(src, resetWhen)` | `series number` | the first bar `resetWhen` is true | The same average, restarted on any bar the condition is true |
 | `obv()` | `series number` | bar 0, seeded 0 | Running total of volume signed by the close's direction |
 | `ad()` | `series number` | bar 0 | Running total of volume weighted by where the close sat in the bar |
-| `adOsc(fast = 3, slow = 10)` | `series number` | bar `slow - 1` | The difference of two means of `ad`, to date its turns |
+| `adOsc(fast = 3, slow = 10)` | `series number` | bar `max(fast, slow) - 1` | The difference of two means of `ad`, to date its turns |
 | `mfi(len = 14)` | `series number` | bar `len` | `rsi` computed on money flow rather than price |
 | `cmf(len = 20)` | `series number` | bar `len - 1` | Accumulation over the window as a fraction of its volume |
 | `pvt()` | `series number` | bar 1, seeded 0 | Running total of volume weighted by percentage change |
@@ -791,14 +791,17 @@ early. A strategy that must be flat by the close acts on this rather than on the
 appearance of a new bar, which arrives too late.
 
 **Four of these are planned and the reason is where their answer comes from.**
-`session.isFirstBar` and `session.isLastBar` are facts about the delivery, which
-a host states per bar (`host-interface.md` section 6), and an engine has them.
-`session.isIn` reads hours the script itself wrote, and section 12.2 turns them
-into a test. The other four are read off the **instrument's** own session hours,
-a wall clock range in the instrument's timezone (`host-interface.md` section
-4.3), which the engine's host record does not yet carry. They are marked rather
-than left to be refused at load, so a script that reaches for one is told at the
-call that it is planned.
+`session.isFirstBar` and `session.isLastBar` follow from the **instrument's**
+own session hours, a wall clock range in the instrument's timezone
+(`host-interface.md` section 4.3), together with the bar's time, so an engine
+derives them and never asks a host for them: the facts a host states about an
+execution are the four of `language.md` section 7.2 and no others. A record that
+states no session leaves both absent, which is the record's own rule in
+`host-interface.md` section 4.1. `session.isIn` reads hours the script itself
+wrote, and section 12.2 turns them into a test. The other four want an instant
+or a count off that same window rather than a boundary on it, and no engine
+reads one yet. They are marked rather than left to be refused at load, so a
+script that reaches for one is told at the call that it is planned.
 
 ### 12.5 The session window spec
 

@@ -38,7 +38,6 @@ import { load, utcTime } from '../../core/engine/index.js';
 import type { CompiledProgram } from '../../core/emit/index.js';
 import type { SourceFile } from '../../core/index.js';
 import { hostBar, hostNow, stateFor } from './bars.js';
-import type { SessionCalendar } from './bars.js';
 import type { ChartBar, ChartCalcContext, ChartSettings, ChartStore } from './contract.js';
 import { refused, stopped } from './errors.js';
 import { stationIn, stationOf } from './requests.js';
@@ -67,7 +66,17 @@ export interface ChartAdapterOptions {
   readonly markerColor?: string;
   /** The source, so a diagnostic can carry an offset as well as a line. */
   readonly source?: SourceFile;
-  /** Instrument facts a chart does not hold: the exchange, the lot size. */
+  /**
+   * Instrument facts a chart does not hold: the exchange, the lot size, and
+   * the trading session.
+   *
+   * The session is where every per-bar session fact comes from
+   * (`host-interface.md` 4.3), so a host that knows its calendar states the
+   * hours here and the engine derives the rest. A chart holds an interval and a
+   * timezone and no exchange calendar, so a host that states none gets a study
+   * whose session never begins, which is the honest answer rather than a
+   * guessed one.
+   */
   readonly instrument?: Instrument;
   /** The position a strategy reads, until a backtester owns one. */
   readonly position?: Position;
@@ -91,8 +100,6 @@ export interface ChartAdapterOptions {
    * passes the chart's own conversion; without one the string is read as UTC.
    */
   readonly resolveTime?: (text: string, timezone: string) => number;
-  /** Where a trading session begins and ends. */
-  readonly session?: SessionCalendar;
 }
 
 /** The engine one chart instance is holding, between recomputes. */
@@ -135,10 +142,9 @@ export function fullRun(
 ): RunOutput {
   const station = stationIn(store);
   const engine = start(program, settings, ctx, options, station.provider(bars));
-  const zone = ctx?.timezone ?? '';
   const result = engine.run(
     bars.map(hostBar),
-    bars.map((_, index) => stateFor(index, bars, ctx, options.session, zone)),
+    bars.map((_, index) => stateFor(index, bars, ctx)),
   );
   if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
 
@@ -170,7 +176,9 @@ export function tailRun(
   settings: ChartSettings,
   store: ChartStore,
   ctx: ChartCalcContext | undefined,
-  options: ChartAdapterOptions,
+  // Held for the shape of the pair: a full recompute reads the host's options
+  // and a tail run reads the engine it already built from them.
+  _options: ChartAdapterOptions,
 ): RunOutput | null {
   const held = store[HELD] as Held | undefined;
   if (held === undefined || held.engine.failed) return null;
@@ -179,11 +187,10 @@ export function tailRun(
   if ((bars[0]?.time ?? 0) !== held.firstTime) return null;
   if ((bars[from]?.time ?? 0) !== held.lastTime) return null;
 
-  const zone = ctx?.timezone ?? '';
   for (let index = from; index < bars.length; index += 1) {
     const bar = bars[index];
     if (bar === undefined) return null;
-    const state = stateFor(index, bars, ctx, options.session, zone);
+    const state = stateFor(index, bars, ctx);
     const result =
       index === from
         ? held.engine.update(hostBar(bar), state)
@@ -262,6 +269,11 @@ function hostFor(
     ...(ctx?.symbol === undefined ? {} : { symbol: ctx.symbol }),
     ...(ctx?.interval === undefined ? {} : { interval: ctx.interval }),
     ...(ctx?.tickSize === undefined ? {} : { tickSize: ctx.tickSize }),
+    // The chart states the zone it labels its own axis in, and every calendar
+    // and session call reads in it. Leaving it out left the engine reading the
+    // record's zone or nothing, so a session study could be an offset away from
+    // the chart it was drawn on.
+    ...(ctx === undefined || ctx.timezone === '' ? {} : { timezone: ctx.timezone }),
   };
   return {
     instrument,

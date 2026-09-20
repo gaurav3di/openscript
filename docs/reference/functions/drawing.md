@@ -91,12 +91,12 @@ Returns `plot`.
 plotCandles(smoothOpen, smoothHigh, smoothLow, smoothClose, "Smoothed")
 ```
 
-### `fill(plotA, plotB, color = ..., colorUp = none, colorDown = none, opacity = 0.12, overlay = none)`
+### `fill(plotA, plotB, color = ..., colorUp = none, colorDown = none, opacity = 1, overlay = none)`
 
 Shade the region between two plots.
 Parameters: `plotA` `plot` required; `plotB` `plot` required; `color` `color` or
 `series color`, default the host's next fill colour; `colorUp` `color` default
-`none`; `colorDown` `color` default `none`; `opacity` `number` default `0.12`;
+`none`; `colorDown` `color` default `none`; `opacity` `number` default `1`;
 `overlay` `bool` default `none`.
 Returns `fill`.
 
@@ -107,6 +107,11 @@ fill(upper, lower, fade(aqua, 92))
 Give `colorUp` and `colorDown` instead of `color` when the band should say which
 of the two plots is on top: the region is painted with the first colour where
 `plotA` is above `plotB` and the second where it is below.
+
+`opacity` dims whatever the colours already are, so at its default of `1` the
+band is exactly the colour the script wrote. Name no colour at all and the band
+is `plotA`'s colour faded to twelve percent, which is where a band's usual
+translucency comes from.
 
 ### `level(price, title = "", color = gray, style = "dashed", width = 1)`
 

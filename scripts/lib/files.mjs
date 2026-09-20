@@ -14,74 +14,95 @@
  * this is precisely the moment it was needed: new code, not yet committed, is
  * exactly what a rule is for.
  *
- * So the listing is here, once, and every check uses it. `--cached --others
- * --exclude-standard` is tracked files plus untracked ones, with anything
- * gitignored left out, which is "every file that is really part of this project"
- * and is the question a check actually wants answered.
+ * ## Why version control is not asked any more
  *
- * It is a shared module rather than a copied function for the same reason: the
- * bug was fixed in one check before the others, and a copy is how a fix stops
- * halfway.
+ * That first fix asked version control a better question: tracked files plus
+ * untracked ones, with anything ignored left out. It was still the wrong
+ * question, and it produced the same failure twice more.
+ *
+ * The generated error catalogue is ignored, so two source files carrying every
+ * diagnostic message in the language were inspected by nothing, and the checks
+ * reported "50 source files" against a tree holding 52. That was patched by
+ * walking `src` as well. Then a file under an ignored directory was inspected by
+ * nobody again, because the list was a version control query plus a walk of the
+ * three directories somebody had remembered, and a bare generator in such a file
+ * passed every check in the repository.
+ *
+ * Four times now. The shape of the bug does not change: **whatever is not in the
+ * list is enforced by nothing, and asking version control produces a list whose
+ * contents are decided by a file nobody reads when they add a check.** Being
+ * ignored by version control says where a file came from. It says nothing about
+ * whether a rule applies to it, and a generated, built or scratch file runs
+ * exactly as well as a committed one.
+ *
+ * So the tree is walked. Everything in it is in the list, and the only things
+ * left out are named below, in the open, with the reason. A check that wants
+ * less asks for less, by matching a pattern or naming its directories.
+ *
+ * Every check that uses this says in its output how many files it read, so that
+ * a number which drops is something somebody sees rather than something they
+ * have to suspect.
  */
-import { execSync } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 
 /**
- * Every file in the project: tracked or not, gitignored never.
+ * Not this project, at any depth.
  *
- * `-z` and the null split because a path may contain anything, and a filename
- * with a newline in it would otherwise split into two paths that do not exist.
+ * The dependency tree belongs to whoever wrote it and is not subject to rules
+ * about how this project is written, and version control's own store is not
+ * source at all. Both are enormous, and reading either would make every check
+ * too slow to run, which is its own way of turning a check off.
+ */
+export const NOT_THE_PROJECT = new Set(['.git', 'node_modules']);
+
+/**
+ * Built output, which is the project's but is built rather than written.
+ *
+ * Left out of this list and walked by name instead, by the checks that want it:
+ * the no-eval check reads it because it is what a runtime really executes, and
+ * refuses to pass if it is not there. The rules about how a file is written
+ * apply to the file somebody wrote, not to the compiler's rendering of it.
+ */
+export const BUILT_OUTPUT = new Set(['dist', 'dist-test']);
+
+/**
+ * Every file in the project: written or generated, committed or not.
+ *
+ * Sorted, so two runs and two machines produce the same order and a report can
+ * be compared with the one before it.
  */
 export function projectFiles() {
-  const listed = execSync('git ls-files --cached --others --exclude-standard -z', {
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  })
-    .split('\0')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  // Plus everything under src/, gitignored or not.
-  //
-  // This is the same class of gap as the one this module was written for, found
-  // again in a new place. The generated error catalogue is gitignored, so two
-  // source files carrying every diagnostic message in the language were
-  // inspected by nothing, and the checks reported "50 source files" against a
-  // tree holding 52.
-  //
-  // A generated file still ships, still has to obey the layering, still must not
-  // exceed the size limit and still must not name anybody. "Not in version
-  // control" is the wrong reason to skip a file that ends up in the artifact.
-  //
-  // The lesson the first bug should have taught and did not: a check's blind
-  // spot is wherever its file list disagrees with what actually ships.
-  return Array.from(new Set([...listed, ...walk('src')])).sort();
+  return walk('', []).sort();
 }
 
 /**
- * Every file under a directory, sorted, ignoring version control entirely.
+ * Every file under one directory, sorted, whatever version control thinks of it.
  *
- * `projectFiles` is the right list for anything that is part of the project as
- * written. This is for the one thing that is not: built output, which is
- * gitignored by design and is also what a consumer actually installs, so a check
- * that only ever reads the source has the same blind spot twice over.
+ * For the one thing `projectFiles` leaves out: built output, which is also what
+ * a consumer installs, so a check that only ever read the source would have the
+ * same blind spot from the other side.
  */
 export function filesUnder(dir) {
-  return walk(dir).sort();
+  return walk(dir, []).sort();
 }
 
-/** Every file under a directory, ignoring version control entirely. */
-function walk(dir, out = []) {
+/** Every file under a directory, with the two named exclusions applied. */
+function walk(dir, out) {
   let entries;
   try {
-    entries = readdirSync(dir, { withFileTypes: true });
+    entries = readdirSync(dir === '' ? '.' : dir, { withFileTypes: true });
   } catch {
     return out;
   }
   for (const entry of entries) {
-    const full = `${dir}/${entry.name}`;
-    if (entry.isDirectory()) walk(full, out);
-    else out.push(full);
+    const full = dir === '' ? entry.name : `${dir}/${entry.name}`;
+    if (!entry.isDirectory()) {
+      out.push(full);
+      continue;
+    }
+    if (NOT_THE_PROJECT.has(entry.name)) continue;
+    if (dir === '' && BUILT_OUTPUT.has(entry.name)) continue;
+    walk(full, out);
   }
   return out;
 }

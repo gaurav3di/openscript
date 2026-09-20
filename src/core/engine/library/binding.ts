@@ -45,10 +45,16 @@ export interface BarView {
   readonly isNew: boolean;
   readonly isLast: boolean;
   readonly updates: number;
-  /** Whether the host says a trading session begins on this bar. */
-  readonly isSessionStart: boolean;
-  /** Whether the host says a trading session ends on this bar. */
-  readonly isSessionEnd: boolean;
+  /**
+   * Whether this bar opens the instrument's trading session, or closes it.
+   *
+   * Derived by the engine from the session hours in the instrument record,
+   * never asked of the host. Absent where the record cannot say, which is why
+   * the type carries absence: a session study on a host that states no session
+   * draws nothing rather than anchoring itself to a minute nobody chose.
+   */
+  readonly isSessionFirst: boolean | null;
+  readonly isSessionLast: boolean | null;
 }
 
 /** The facts an engine reads from the host and never from anywhere else, 5.2. */

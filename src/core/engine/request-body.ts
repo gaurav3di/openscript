@@ -33,6 +33,7 @@ import type { Clock, EngineLimits } from './budget.js';
 import { Channels } from './channels.js';
 import { guardFor } from './guard.js';
 import { Machine } from './machine.js';
+import { NO_SESSION } from './session/index.js';
 import { Memory } from './memory.js';
 import { Registers } from './registers.js';
 import type { BarView, HostFacts, ManifestEntry } from './library/index.js';
@@ -235,6 +236,7 @@ export class RequestBody {
       { isConfirmed: closed },
       this.touches === 0,
       this.touches + 1,
+      NO_SESSION,
     );
     for (const register of this.parts.program.series) {
       if (register.kind !== 'bar' || register.field === null) continue;
@@ -287,11 +289,13 @@ export class RequestBody {
       isNew: this.touches === 0,
       isLast: !closed,
       updates: this.touches + 1,
-      // The host states where a session begins on the chart's bars and states
-      // nothing about the requested ones, so nothing is what a body is told
-      // rather than a boundary the engine placed itself.
-      isSessionStart: false,
-      isSessionEnd: false,
+      // The instrument record describes the chart's instrument, not the one a
+      // read names, and a requested bar is not on the chart's own grid either.
+      // So a body has no session, and it is told absence rather than false: a
+      // false would say this bar closes no session, which is a claim about an
+      // instrument whose hours the engine was never given.
+      isSessionFirst: null,
+      isSessionLast: null,
     };
   }
 }

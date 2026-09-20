@@ -33,10 +33,11 @@
  * here. Nothing below throws, so nothing below can throw a diagnostic without a
  * code.
  *
- * Two arguments appear here that no script writes, and both are host facts
- * rather than numeric ones: the tick size `roundToTick` rounds to, and the
- * per-bar flag that says where a trading session begins for `vwap`. An engine
- * supplies them.
+ * Two arguments appear here that no script writes, and neither is a numeric
+ * fact: the tick size `roundToTick` rounds to, which a host states, and the
+ * per-bar flag that says where a trading session begins for `vwap`, which an
+ * engine derives from the instrument's session hours. An engine supplies
+ * both.
  */
 
 export type {

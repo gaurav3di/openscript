@@ -38,11 +38,23 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { insistOnRefusing, refusingArgs, refusingEnv } from './lib/runtime.mjs';
 
-const HARNESS = new URL('../dist-test/tests/bench/index.js', import.meta.url);
+insistOnRefusing();
+
+/**
+ * The harness, written down once and loaded by that name.
+ *
+ * A module specifier is a literal or a name holding one, and nothing else: see
+ * the note on written down against built in `lib/no-eval-rules.mjs`. It resolves
+ * against this file either way, which is why the path here and the path the
+ * existence check uses are the same fact rather than two.
+ */
+const HARNESS = '../dist-test/tests/bench/index.js';
+const HARNESS_PATH = fileURLToPath(new URL(HARNESS, import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
 
-if (!existsSync(fileURLToPath(HARNESS))) {
+if (!existsSync(HARNESS_PATH)) {
   console.error(
     'The benchmark has not been built. It is TypeScript in tests/bench, compiled with\n' +
       'the rest of the tests, so run `npm run test:unit` or `npm test` first.\n' +
@@ -87,8 +99,9 @@ if (measureAt !== -1) {
 
 /** The parent: one child per measurement, so no heap is shared. */
 function readingFor(name) {
-  const child = spawnSync(process.execPath, [SELF, '--measure', name], {
+  const child = spawnSync(process.execPath, refusingArgs([SELF, '--measure', name]), {
     encoding: 'utf8',
+    env: refusingEnv(),
     maxBuffer: 8 * 1024 * 1024,
   });
   if (child.status !== 0) {

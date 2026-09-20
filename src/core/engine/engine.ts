@@ -21,55 +21,38 @@
  * verification walked.
  */
 import type { Diagnostic } from '../diagnostics/index.js';
-import type { SourceFile } from '../source/index.js';
 import type { Span } from '../span/index.js';
-import { BAR_FIELDS, barField, factsFor } from './bars.js';
+import { barField, factsFor } from './bars.js';
 import type { BarFacts, BarState, HostBar } from './bars.js';
 import { alertsFor } from './alerts.js';
 import type { AlertFiring, Alerts } from './alerts.js';
-import { Budget, limitsWith, stepBound } from './budget.js';
-import type { Clock, EngineLimits } from './budget.js';
+import { Budget, stepBound } from './budget.js';
+import type { EngineLimits } from './budget.js';
 import { Channels } from './channels.js';
 import type { PendingEffect } from './channels.js';
-import { ScriptError, malformed, spanAt, unexpected } from './errors.js';
+import { ScriptError, spanAt, unexpected } from './errors.js';
 import { guardFor } from './guard.js';
-import type { EngineHost } from './host.js';
-import { hostBool, hostNumber, hostString } from './host.js';
-import { fieldValue, resolveInputs, utcTime } from './inputs.js';
-import type { ResolvedInput, TimeResolver } from './inputs.js';
+import { hostFactsFor } from './host.js';
+import { fieldValue } from './inputs.js';
+import type { ResolvedInput } from './inputs.js';
 import { manifestEntry } from './library/index.js';
-import type { BarView, HostFacts, ManifestEntry } from './library/index.js';
+import type { BarView, ManifestEntry } from './library/index.js';
+import type { LoadOptions } from './load.js';
 import { Machine } from './machine.js';
 import { Memory } from './memory.js';
 import { Registers } from './registers.js';
 import { Grids } from './grids.js';
 import type { Grid } from './grids.js';
 import type { CompiledProgram, Position } from './types.js';
-import { planRequests } from './request-plan.js';
 import type { RequestPlan } from './request-plan.js';
+import { NO_SESSION, sessionReader } from './session/index.js';
+import type { SessionReader } from './session/index.js';
+import { barMinutesOf } from './timeframe.js';
 import { RequestSet } from './requests.js';
-import { capabilitiesFor, verify } from './verify.js';
 import type { Value } from './values/index.js';
 import { Heap } from './values/index.js';
 import { drawingsIn } from './drawings.js';
 import type { Drawing } from './drawings.js';
-
-export interface LoadOptions {
-  /** The host's settings, keyed by input `key`. */
-  readonly settings?: Readonly<Record<string, unknown>>;
-  readonly limits?: Partial<EngineLimits>;
-  /** The source, so a diagnostic's span can carry an offset as well as a line. */
-  readonly source?: SourceFile;
-  readonly host?: EngineHost;
-  /** A reading of the wall clock, for the per bar time budget. */
-  readonly clock?: Clock;
-  /** How a `"time"` input's stored wall clock string becomes a timestamp. */
-  readonly time?: TimeResolver;
-}
-
-export type LoadResult =
-  | { readonly ok: true; readonly engine: Engine }
-  | { readonly ok: false; readonly diagnostic: Diagnostic };
 
 /** What one execution of one bar produced. */
 export interface BarResult {
@@ -90,55 +73,6 @@ export interface RunResult {
   readonly diagnostic: Diagnostic | undefined;
 }
 
-/**
- * Loads a compiled program.
- *
- * Verification runs first and in full (3.5), then the refusals a host makes,
- * then input resolution. Nothing is executed until all three pass, so a program
- * that cannot run says so before a chart has drawn anything.
- */
-export function load(program: unknown, options: LoadOptions = {}): LoadResult {
-  const limits = limitsWith(options.limits);
-  const host = options.host ?? {};
-  const checked = verify(program, {
-    capabilities: capabilitiesFor(host.route !== undefined, host.requestBars !== undefined),
-    limits,
-  });
-  if (!checked.ok) return { ok: false, diagnostic: checked.diagnostic };
-
-  const unknownField = checked.program.series.find(
-    (one) => one.kind === 'bar' && (one.field === null || !BAR_FIELDS.includes(one.field)),
-  );
-  if (unknownField !== undefined) {
-    return {
-      ok: false,
-      diagnostic: malformed(
-        `series[${unknownField.id}].field`,
-        `${String(unknownField.field)} is not a bar field this engine can fill`,
-      ),
-    };
-  }
-
-  const resolved = resolveInputs(
-    checked.program,
-    options.settings ?? {},
-    options.time ?? utcTime,
-  );
-  if (!resolved.ok) return { ok: false, diagnostic: resolved.diagnostic };
-
-  // 2.16: a request's identity is fixed before bar 0, so it is settled here,
-  // along with the two refusals that are facts about the program and the chart
-  // rather than answers from the host: a timeframe the language does not know,
-  // and one that cannot be folded onto this chart's bars.
-  const planned = planRequests(checked.program.requests, resolved.inputs, host);
-  if (!planned.ok) return { ok: false, diagnostic: planned.diagnostic };
-
-  return {
-    ok: true,
-    engine: new Engine(checked.program, resolved.inputs, options, limits, planned.plans),
-  };
-}
-
 export class Engine {
   private readonly registers: Registers;
   private readonly memory: Memory;
@@ -151,6 +85,15 @@ export class Engine {
   private readonly onUnconfirmed: boolean;
   private readonly alerting: Alerts;
   private readonly requests: RequestSet;
+  /**
+   * The instrument's session, read once from the record it belongs to.
+   *
+   * Once because the record is read once, at load, and is constant for the
+   * whole run (`host-interface.md` 4.4). A session that changed between bar ten
+   * and bar eleven would anchor the first ten bars of a study to one schedule
+   * and the rest of the same chart to another.
+   */
+  private readonly sessions: SessionReader;
   /**
    * The bars the engine has been given, which a read folds.
    *
@@ -210,7 +153,19 @@ export class Engine {
       this.library.push(manifestEntry(entry.name, entry.arity) as ManifestEntry);
     }
 
-    this.facts = factsFor(0, 1, {}, true, 1);
+    const instrument = options.host?.instrument;
+    this.sessions = sessionReader(
+      instrument?.session,
+      typeof instrument?.timezone === 'string' ? instrument.timezone : null,
+      barMinutesOf(instrument?.interval),
+    );
+
+    const facts = hostFactsFor(() => this.options.host ?? {}, {
+      answered: (id: Value) => this.requests.answered(id),
+      failure: (id: Value) => this.requests.failure(id),
+    });
+
+    this.facts = factsFor(0, 1, {}, true, 1, NO_SESSION);
     this.view = this.viewOf({ open: null, high: null, low: null, close: null, time: null });
 
     const fnPositions: (readonly Position[])[] = program.functions.map(() => []);
@@ -225,7 +180,7 @@ export class Engine {
         heap: this.heap,
         budget: this.budget,
         guard: guardFor(this.budget),
-        host: this.hostFacts(),
+        host: facts,
         library: this.library,
         fnPositions,
         spanAt: (line: number, column: number): Span => spanAt(options.source, line, column),
@@ -242,7 +197,7 @@ export class Engine {
         clock: options.clock,
         library: this.library,
         inputs,
-        facts: this.hostFacts(),
+        facts,
         heapOf: () => this.heap,
         spanAt: (line: number, column: number): Span => spanAt(options.source, line, column),
       },
@@ -250,32 +205,6 @@ export class Engine {
     );
 
     this.grids = new Grids(program, inputs, this.heap);
-  }
-
-  private hostFacts(): HostFacts {
-    const of = (): EngineHost => this.options.host ?? {};
-    return {
-      symbol: () => hostString(of().instrument?.symbol),
-      exchange: () => hostString(of().instrument?.exchange),
-      interval: () => hostString(of().instrument?.interval),
-      timezone: () => hostString(of().instrument?.timezone),
-      tickSize: () => hostNumber(of().instrument?.tickSize),
-      lotSize: () => hostNumber(of().instrument?.lotSize),
-      pointValue: () => hostNumber(of().instrument?.pointValue),
-      currency: () => hostString(of().instrument?.currency),
-      instrumentType: () => hostString(of().instrument?.instrumentType),
-      hasVolume: () => hostBool(of().instrument?.hasVolume),
-      hasOpenInterest: () => hostBool(of().instrument?.hasOpenInterest),
-      now: () => hostNumber(of().now),
-      // Both name a read rather than taking its value, which is why the
-      // compiler resolved the name to the request's id: a value on a bar cannot
-      // say which request produced it (2.16). A read this program does not make
-      // has not been answered and has reported no reason.
-      requestReady: (id: Value) => this.requests.answered(id),
-      requestError: (id: Value) => this.requests.failure(id),
-      positionSize: () => hostNumber(of().position?.size),
-      positionPrice: () => hostNumber(of().position?.avgPrice),
-    };
   }
 
   private viewOf(bar: HostBar): BarView {
@@ -293,8 +222,8 @@ export class Engine {
       isNew: this.facts.isNew,
       isLast: this.facts.isLast,
       updates: this.facts.updates,
-      isSessionStart: this.facts.isSessionStart,
-      isSessionEnd: this.facts.isSessionEnd,
+      isSessionFirst: this.facts.isSessionFirst,
+      isSessionLast: this.facts.isSessionLast,
     };
   }
 
@@ -379,7 +308,19 @@ export class Engine {
       };
     }
     const index = this.index;
-    this.facts = factsFor(index, this.supplied, state, isNew, this.updates);
+    // The bar before this one, which is what says whether this bar opened a
+    // session or is inside the one that bar was already in. Read from the bars
+    // themselves rather than carried, so a re-executed bar compares against the
+    // same neighbour it compared against the first time.
+    const previous = this.known[index - 1]?.time ?? null;
+    this.facts = factsFor(
+      index,
+      this.supplied,
+      state,
+      isNew,
+      this.updates,
+      this.sessions.factsAt(bar.time ?? null, previous),
+    );
     this.view = this.viewOf(bar);
 
     try {

@@ -134,7 +134,7 @@ test('bollinger starts on the bar stdlib.md says it starts on', () => {
 test('macd and its signal start on the two bars stdlib.md says they start on', () => {
   assert.equal(
     warmupOf('macd(src, fast = 12, slow = 26, signal = 9)'),
-    'element 0 at bar `slow - 1`, elements 1 and 2 at bar `slow + signal - 2`',
+    'element 0 at bar `max(fast, slow) - 1`, elements 1 and 2 at bar `max(fast, slow) + signal - 2`',
   );
   assert.equal(firstValue(warmupColumn('element(macd(close, 12, 26, 9), 0)')), 25);
   assert.equal(firstValue(warmupColumn('element(macd(close, 12, 26, 9), 1)')), 33);

@@ -15,7 +15,10 @@
  * Four of the eight bar facts are the host's and four are the engine's, and a
  * fact the engine can derive is never also stated by the host, because two
  * sources for one number can disagree and no rule would say which of them wins.
+ * The session facts are on the derived side of that line: they follow from the
+ * hours in the instrument record, and nothing here asks a host about them.
  */
+import type { SessionFacts } from './session/index.js';
 import type { Value } from './values/index.js';
 import { ABSENT, numberValue } from './values/index.js';
 
@@ -29,19 +32,25 @@ export interface HostBar {
   readonly volume?: number | null;
   /** Bar open time, milliseconds since the Unix epoch, UTC. */
   readonly time: number | null;
-  readonly openInterest?: number | null;
+  /** Contracts outstanding as at the bar, spelled as `host-interface.md` 3.1. */
+  readonly oi?: number | null;
 }
 
-/** What the host states about the execution, `language.md` 7.2. */
+/**
+ * What the host states about the execution, `language.md` 7.2.
+ *
+ * Four facts and never a fifth. `isNew` and `updates` are the hand-over itself,
+ * so they are the call the host made rather than a field on it: `append` is a
+ * new bar and `update` is the same bar again, and the engine counts the
+ * executions the host asked for. Everything else about a bar the engine derives
+ * from the dataset and the position in it, and a host that offered one of those
+ * would be a second source for a number the engine already holds.
+ */
 export interface BarState {
   /** This bar's interval has elapsed. True for every historical bar. */
   readonly isConfirmed?: boolean;
   /** A live feed is driving updates. */
   readonly isRealtime?: boolean;
-  /** The host says a trading session begins on this bar. */
-  readonly isSessionStart?: boolean;
-  /** The host says a trading session ends on this bar. */
-  readonly isSessionEnd?: boolean;
 }
 
 /** The facts about the bar being executed, derived once per execution. */
@@ -54,8 +63,15 @@ export interface BarFacts {
   readonly isRealtime: boolean;
   readonly isNew: boolean;
   readonly updates: number;
-  readonly isSessionStart: boolean;
-  readonly isSessionEnd: boolean;
+  /**
+   * The session this bar falls in, derived from the instrument's own hours.
+   *
+   * Absent where the host stated no session, no timezone or no interval, which
+   * is what `host-interface.md` 4.1 says a script sees when the record holds no
+   * session: absent, and the per-bar session facts absent with it.
+   */
+  readonly isSessionFirst: boolean | null;
+  readonly isSessionLast: boolean | null;
 }
 
 /** The bar fields 2.10 names, and nothing else. */
@@ -104,7 +120,7 @@ export function barField(field: string, bar: HostBar, facts: BarFacts): Value {
     case 'volume':
       return bar.volume ?? ABSENT;
     case 'oi':
-      return bar.openInterest ?? ABSENT;
+      return bar.oi ?? ABSENT;
     case 'time':
       return bar.time ?? ABSENT;
     case 'hl2':
@@ -155,6 +171,7 @@ export function factsFor(
   state: BarState,
   isNew: boolean,
   updates: number,
+  session: SessionFacts,
 ): BarFacts {
   return {
     index,
@@ -168,7 +185,7 @@ export function factsFor(
     isRealtime: state.isRealtime ?? false,
     isNew,
     updates,
-    isSessionStart: state.isSessionStart ?? false,
-    isSessionEnd: state.isSessionEnd ?? false,
+    isSessionFirst: session.isFirstBar,
+    isSessionLast: session.isLastBar,
   };
 }

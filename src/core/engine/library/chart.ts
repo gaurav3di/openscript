@@ -80,8 +80,8 @@ export const CHART_ENTRIES: readonly ManifestEntry[] = [
   entry('req.isReady', 'read', (ctx, args) => ctx.host.requestReady(args[0] ?? null)),
   entry('req.error', 'read', (ctx, args) => ctx.host.requestError(args[0] ?? null)),
 
-  entry('session.isFirstBar', '', (ctx) => ctx.bar.isSessionStart),
-  entry('session.isLastBar', '', (ctx) => ctx.bar.isSessionEnd),
+  entry('session.isFirstBar', '', (ctx) => ctx.bar.isSessionFirst),
+  entry('session.isLastBar', '', (ctx) => ctx.bar.isSessionLast),
 
   entry('pos.size', '', (ctx) => ctx.host.positionSize()),
   entry('pos.avgPrice', '', (ctx) => ctx.host.positionPrice()),
