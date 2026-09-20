@@ -217,3 +217,33 @@ gives the name a slot of its own, `buildInputs` gives the input a different one
 because no binding adopted it, and nothing joins them. It is untouched by this
 change, which deliberately leaves the `var` form exactly where it was rather than
 routing it through the read and changing what it compiles to as a side effect.
+
+## How the two it opened were settled
+
+Both are decision 43, with a third edge that only showed up once somebody looked
+for it: an `input()` written in place is bound to no name, and the key it was
+given was its **position**, so `host-interface.md` 8.1's promise that a key
+"survives every edit that does not rename it" held for no edit at all. Inserting
+one tunable in the middle of three and renaming nothing put a stored value on the
+wrong row, silently, because 8.3 validates a number against a number.
+
+**The read's expression is permitted and the emitter carries it.** Every document
+already said yes: `stdlib.md` 15.4 allowed a name bound to an input there for a
+reason that is about the setting rather than about the name, OS6003's own cause
+lists "a literal, arithmetic over literals, or an `input()`", and 13.4's two
+exceptions are a block and a function. The format already carried the mechanism
+too, in the `inputs` list a read's body has had since `compiled-program.md` 2.16.
+
+**`var len = input(...)` is an ordinary `var`** whose initial value is the
+setting, so it is a persistent value seeded from a dialog row rather than a dead
+row. What had to be settled with it is that the name is then not the setting:
+a `var` is a cell a later assignment may change, so it is OS3003 in a declaration
+option and OS6003 inside a read's expression. Three passes asked "was this name
+given an input" where they meant "is this name an input", and leaving any one of
+them was measured rather than assumed: the option case became a lone OS6018 and
+the read case let a per-bar name into another instrument's bars.
+
+**And the verification gap this issue named.** 3.5 check 5's third sentence, that
+the stack is empty at the terminator, was not walked by the compiler's own copy,
+which is why a body whose stack does not add up was emitted rather than caught
+where it was written. Every `RET` and every `HALT` is now checked.

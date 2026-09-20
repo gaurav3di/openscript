@@ -91,7 +91,15 @@ export function markDeclarationHandles(e: Emitter): void {
   for (const declared of declaredNames(e)) {
     const inner = withoutGrouping(declared.value);
     if (inner.kind !== 'call') continue;
-    if (!e.isDeclaration(e.callAt(inner)?.name ?? '')) continue;
+    const name = e.callAt(inner)?.name ?? '';
+    if (!e.isDeclaration(name)) continue;
+    // `input()` is the one declaration call that also has a value, so it is the
+    // one a `var` says something about: `var len = input(14, "Length")` is an
+    // ordinary `var` initialised from the setting, and what it buys is a cell a
+    // later assignment keeps (`language.md` 8.2 and 13.4). The name therefore
+    // does not stand for the declaration the way `grid = table(...)` does, and
+    // the input keeps a slot of its own for the engine to write at step 5.
+    if (declared.persistent && name === 'input') continue;
     const binding = e.checked.targets.get(declared.name);
     if (binding !== undefined) e.handles.add(binding.id);
   }

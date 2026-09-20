@@ -1775,6 +1775,40 @@ tf    = input("60",    "Higher timeframe", kind = "interval")
 The value's type follows the default's type, which is why the default comes first.
 An `input()` inside a block is OS3007.
 
+**Where it may be written.** Anywhere at the top level that a value belongs: as
+the whole of an assignment, inside a larger expression, as an option of the
+declaration statement, and inside the expression argument of a read
+(`stdlib.md` section 15.4). The two places it may not go are a block and a
+function body, and each is OS3007, because the dialog is built once and a row
+that appeared or vanished with the data would have nothing for a saved setting to
+attach to. A read's expression is neither of those: it is compiled over another
+instrument's bars, and a setting is the one thing from this file that has a
+meaning there, because it resolves before bar 0 and holds for the whole run. The
+compiled program carries it as one entry of the read's `inputs`
+(`compiled-program.md` section 2.16), which is the same machinery a name bound to
+an input already used.
+
+**A name in front of it.** `len = input(14, "Length")` makes the name another
+spelling of the setting: it reads the input's own slot, and it is a compile-time
+constant, so a declaration option may be written from it. `var len = input(14,
+"Length")` is an ordinary `var` whose initial value is the setting: the cell is
+initialised once, on the first bar, and keeps whatever the bar puts in it after
+that, which is how a running total starts from a setting. A setting cannot change
+mid-run (`host-interface.md` section 8.2), so a `var` nothing assigns to holds
+exactly what the plain form holds; what the word buys is the assignment. A `var`
+is therefore not a compile-time constant: it is OS3003 in a declaration option
+and OS6003 inside a read's expression, like any other per-bar name.
+
+**Its title names it.** The title is the row's label in the settings dialog and,
+for an input written where a value belongs, its settings key
+(`host-interface.md` section 8.1). It is written as a string literal on the line
+that declares the input, and is not folded from an expression, because a label
+and a key are both fixed before anything is computed. An input with no name and
+no such title is OS3021; a title spelling another input's name is OS3022, because
+two rows on one key means one of them silently takes the other's stored value;
+and two inputs carrying one title are OS3017, for the same reason. An input
+assigned to a name and given no title takes the name as its title.
+
 ---
 
 ## 14. Collections

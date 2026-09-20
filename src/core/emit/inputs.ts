@@ -16,6 +16,7 @@
 import type { Argument, Call } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import type { CheckedInput } from '../check/index.js';
+import { inputHeldBy } from '../check/index.js';
 import type { Span } from '../span/index.js';
 import type { Emitter, Frame } from './context.js';
 import { argumentAt, inputKey } from './context.js';
@@ -33,7 +34,11 @@ export function buildInputs(e: Emitter, f: Frame): void {
   // is its index here as well and `emitInputRead` can find the slot it was
   // given without a second table to keep in step.
   for (const input of e.checked.inputs) {
-    const binding = e.checked.bindings.find((one) => one.input === input.id);
+    // The name a `var` gives an input is the input's key and its label, and it
+    // is not the input's slot: `var` declares a cell the bar may write again
+    // (`language.md` 8.2), so the slot the engine fills at step 5 stays the
+    // input's own and the cell is initialised from it like any other value.
+    const binding = e.checked.bindings.find((one) => inputHeldBy(one) === input.id);
     const slot = binding === undefined ? f.layout.slot(input.name) : f.layout.slotFor(binding);
     e.inputs.push(entryFor(e, input, slot));
 
@@ -65,18 +70,33 @@ export function buildInputs(e: Emitter, f: Frame): void {
  * engine wrote on the stack.
  *
  * **A slot belongs to one frame** (3.2), and an input's slot belongs to the top
- * level's. So a read from inside a function body, or from inside a read's
- * expression, which is compiled as a program of its own over other bars, has no
- * instruction that reaches it. `language.md` 13.4 puts an `input()` at the top
- * level of a file in the first place, and where the checker has not already
- * refused one this says the compiler cannot carry it rather than loading a slot
- * of another frame that happens to have the same number.
+ * level's. So a read from inside a function body has no instruction that reaches
+ * it. `language.md` 13.4 puts an `input()` at the top level of a file in the
+ * first place, and where the checker has not already refused one this says the
+ * compiler cannot carry it rather than loading a slot of another frame that
+ * happens to have the same number.
+ *
+ * **A read's expression is the case that is not that one.** It is compiled as a
+ * program of its own over other bars, so it cannot reach the slot either, and
+ * it does not need to: 2.16's `inputs` on the request exists exactly so a
+ * setting can cross into a body, the engine resolves the key in the enclosing
+ * program before the body runs and fills a register of the body's own table
+ * with it, and `stdlib.md` 15.4 has always let the expression name a setting.
+ * That the setting is written in place rather than behind a name changes
+ * nothing about any of it, so the call resolves through the same scope the
+ * name does and loads the same register.
  */
 export function emitInputRead(e: Emitter, f: Frame, call: Call): void {
   const input = e.inputAt(call);
+  if (e.request !== undefined && input !== undefined) {
+    f.builder.at(call.span);
+    f.builder.push('SLOAD', e.request.registerForInput(e, input));
+    return;
+  }
+
   const slot = input === undefined ? undefined : e.inputs[input.id]?.slot;
   f.builder.at(call.span);
-  if (slot === undefined || !f.topLevel || e.request !== undefined) {
+  if (slot === undefined || !f.topLevel) {
     e.gap(
       "an input() read from anywhere but the file's top level cannot be carried: an input's " +
         'slot belongs to the top-level frame and no instruction reaches it from another one',

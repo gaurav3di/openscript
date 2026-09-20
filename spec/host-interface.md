@@ -903,9 +903,29 @@ text, and is reported against no line.
 
 ### 8.1 The shape
 
-A map from an input's `key` to a value. The `key` is the name the input was
-assigned to in the source (`compiled-program.md` section 2.6), it is unique within
-a program, and it survives every edit that does not rename it.
+A map from an input's `key` to a value. The `key` is unique within a program and
+it survives every edit that does not rename it.
+
+**What the key is.** The name the input was assigned to in the source
+(`compiled-program.md` section 2.6), or, where it was assigned to no name, the
+input's title. An `input()` may be written anywhere a value belongs
+(`language.md` section 13.4), and one written as a declaration option or inside a
+larger expression is assigned to nothing, so the title is what names it: it is
+what the user sees on the row, and changing it is the rename this sentence
+excepts. `var len = input(14, "Length")` is the assigned form and is keyed by the
+name, so adding or removing the word `var` does not move a stored value.
+
+**The key is never the input's position.** A positional key survives no edit at
+all. Inserting one tunable above another moves every key below it, so a value
+stored against the third row arrives on the fourth with nothing to say so,
+because section 8.3 validates a number against a number and both are numbers.
+A key is a promise about identity, and a position is the one thing about an input
+that an edit is most likely to change.
+
+**Two inputs cannot share a key**, and that is enforced by three refusals rather
+than by a disambiguating suffix, because a suffix is a position wearing a
+different hat. Two inputs carrying one title are OS3017, a title spelling another
+input's name is OS3022, and an input with neither a name nor a title is OS3021.
 
 The map is per **instance** of a study, not per script. The same script added
 twice to one chart is two instances with two maps, which is what lets one be a

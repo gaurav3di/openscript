@@ -867,7 +867,7 @@ tf    = input("60",   "Higher timeframe", kind = "interval")
 | Argument | Type | Default | Means |
 |---|---|---|---|
 | first positional | the value's type | required | The default value, which fixes the input's type |
-| `title` | `string` | the variable's name | The label in the settings dialog. Second positional |
+| `title` | `string` literal | the variable's name | The label in the settings dialog, and the settings key of an input assigned to no name (`host-interface.md` 8.1). Second positional |
 | `group` | `string` | `""` | A heading the dialog groups rows under |
 | `tooltip` | `string` | `""` | Help text beside the label, for what a label is too short to say |
 | `inline` | `string` (planned) | `""` | Rows sharing a value sit on one line |
@@ -876,6 +876,11 @@ tf    = input("60",   "Higher timeframe", kind = "interval")
 The default comes first, before the title, because the default fixes the type and
 a reader scanning a column of inputs wants the value. An `input()` whose default
 is not a compile-time constant is OS3003.
+
+The title is a string literal on the line rather than an expression folded from
+one, because it is the row's label and, where no name was assigned, the row's
+settings key, and both are fixed before anything is computed. An input assigned
+to no name and given no such title is OS3021.
 
 ### 13.3 The kind arguments that only some kinds accept
 
@@ -1226,6 +1231,19 @@ Reading a per-bar name is OS6003, because a value computed on this chart's bars
 has no counterpart on the requested bars and there is no honest answer for what
 it would mean there.
 
+An `input()` may also be written inside `expr` directly, rather than behind a
+name. It is the same setting read the same way, and it is the same row of the
+same dialog: the engine resolves it in the enclosing program before the body
+runs and fills it into a register of the body's own table, which is what the
+read's `inputs` list carries (`compiled-program.md` section 2.16). `language.md`
+section 13.4 puts an `input()` anywhere at the top level a value belongs, and a
+read's expression is not one of the two places it excepts.
+
+A `var` holding a setting is not a setting. Its cell is the setting's value on
+the first bar and whatever the file puts in it afterwards
+(`language.md` section 8.2), so it is a per-bar name and reading one here is
+OS6003 like any other.
+
 An order function inside `expr` is OS7003. Drawing and alert calls inside `expr`
 are OS3006.
 
@@ -1382,7 +1400,40 @@ flattens it. **No order crosses zero.** An instruction that would take a leg fro
 long to short is sent as two orders, one that closes the outgoing position and
 one that opens the replacement, each carrying its own position reference. A
 single order that crossed zero would leave a late fill with no way to say which
-of the two positions it settled, and during a flip a leg holds both at once.
+of the two positions it settled, and during a flip a leg holds both at once. An
+engine holds every order to this that it can read as a number of units, which is
+all of them but one, and that one is named two paragraphs below.
+
+**The orders one bar sends can never sum past the position they are reducing**,
+and every quantity this section's own calls work out keeps that rule outright.
+A position is folded from settled fills and from nothing else (section 17.8), so
+an order this bar has already sent has filled nothing and has moved no position
+figure. Measured against the position alone, the second close of a bar sends the
+whole of it a second time: two bare closes on one bar would take a leg holding
+three long to three short, under one position reference, with no quantity
+written anywhere. So every order that reduces a position is measured against
+what is left to reduce after the orders this bar has already sent, rather than
+against what the leg held when the bar began. `close()` twice on one bar sends
+one order and then nothing, which is the idempotence of 17.2 rather than an
+exception to it, and a bar declared `onUnconfirmed` is one bar however many
+times it is executed.
+
+That count is in units, because a position is. A quantity the engine worked out
+is in units already, and a quantity the script stated is in the declaration's
+own unit (`host-interface.md` section 7.1). Where that unit is not units the
+engine cannot read the order it sent as a number of units, and it counts such an
+order as having reduced the whole of what was left: the alternative is to count
+it as nothing and send the position a second time, and between a close that
+sends nothing and an order that crosses zero this section has already chosen.
+So the rule above is kept outright for every quantity the engine works out,
+which is every close that states none, the closing half of a flip and the
+closing half of `order.reverse`, and for every quantity a script states in a
+declaration counting in units. **A quantity stated in lots, cash or an equity
+percent is the one thing it cannot be kept for**, because that order cannot be
+added to the bar's count at all: it is sent as written, and it is the one shape
+of this section an engine does not enforce. 17.2's close paragraph and
+`errors.md` OS7017 say so at the call a reader writes, and the fact it waits on
+is the instrument's lot size, which no leg is given today.
 
 One position per leg, rather than one net book across every leg, because legs are
 different contracts: adding a position in one to a position in another produces a
@@ -1476,20 +1527,35 @@ nothing is not this: it is idempotence, it sends nothing, and it says nothing.
 
 **A `qty` written on a close may not be larger than what that close is
 closing**, which is the whole leg where no tag is named and the part one tag
-entered where one is. Larger is OS7017, naming what was asked for and what is
-held, and the call sends nothing: no order crosses zero (17.1), and this is the
-one call that otherwise could, because every other quantity a close sends is one
-the engine worked out from the leg's own settled fills. A ceiling applied
+entered where one is, less whatever this bar's own orders have already committed
+to closing (17.1). Larger is OS7017, naming what was asked for and what is left,
+and the call sends nothing: no order crosses zero (17.1), and a stated quantity
+is the one number a close sends without working it out. A ceiling applied
 silently would send a quantity the script did not ask for and leave it believing
 it had closed the one it did, and reading the call as a reversal would let
-`close` open a position. The engine compares the two numbers only where they
-count the same thing, which is a declaration whose `qtyType` is `"units"`: a
-position is folded from filled quantities and a stated quantity is in the
-declaration's own unit (`host-interface.md` 7.1), and the lot size that would
-join them is the fact 17.14's list is still waiting for.
+`close` open a position.
+
+**The engine compares the two numbers in full only where they count the same
+thing**, which is a declaration whose `qtyType` is `"units"`: a position is
+folded from filled quantities and a stated quantity is in the declaration's own
+unit (`host-interface.md` 7.1), and the lot size that would join them is the
+fact 17.14's list is still waiting for. The half of the comparison that needs no
+lot size is made whatever the declaration counts in, because nothing left to
+close is zero in all four units: a close that states a quantity against a part
+holding nothing is OS7017 in lots, in cash and in an equity percent exactly as
+it is in units. What is left unheld is one shape, a quantity stated against a
+position that is still there in a declaration counting in anything but units.
+That order may cross zero and is not refused. What the engine sizes for itself
+after it does not add to the crossing: an order the engine cannot read is
+counted as having closed the whole of what was left (17.1), so a `close()` after
+it on the same part sends nothing. A second stated quantity is not held either,
+because it is another order of the same shape rather than a consequence of the
+first.
 
 **This is why `close(tag = "entry", qty = 1)` on a tag that has already
-flattened is refused while `close(tag = "entry")` on the same tag is silent.**
+flattened is refused while `close(tag = "entry")` on the same tag is silent**,
+and why the second of two bare closes on one bar sends nothing rather than being
+refused: the engine was asked for a number and the number is zero.
 The two look inconsistent and are not. A quantity is an argument the script
 wrote, so it is a claim about the strategy's own position and the claim can be
 false; a call that writes no quantity asks the engine for the right number, and

@@ -17,7 +17,7 @@ import type { Block, Call, Expression, Statement, SwitchStatement } from '../ast
 import { withoutGrouping } from '../ast/index.js';
 import type { Binding } from '../check/index.js';
 import { libraryEntries } from '../check/index.js';
-import { leavesValue } from './calls.js';
+import { isInputCall, leavesValue } from './calls.js';
 import type { Emitter, Frame } from './context.js';
 import { emitBindingRead, emitExpression } from './expressions.js';
 import { emitDeclarationCall } from './outputs.js';
@@ -197,7 +197,14 @@ function emitVarDeclaration(
   // ordinary value a name may hold (`language.md` 5.4). The call leaves nothing
   // on the stack, so a cell to store into is a cell with nothing to put in it,
   // and the initialiser, the call and the store below would underflow.
-  if (!leavesValue(e, statement.initialiser)) {
+  //
+  // `input()` is the exception and it is the reason the second test is here.
+  // Its row and its slot are declared before any statement is emitted, and what
+  // is written where a value belongs is a read of that slot, so `var len =
+  // input(14, "Length")` has a value to initialise the cell with and means what
+  // every other `var` means. Without this it compiled to a cell nothing wrote
+  // and a settings row a user could move that did nothing at all.
+  if (!leavesValue(e, statement.initialiser) && !isInputCall(e, statement.initialiser)) {
     const inner = withoutGrouping(statement.initialiser);
     if (inner.kind !== 'call') return;
     const name = e.callAt(inner)?.name ?? '';

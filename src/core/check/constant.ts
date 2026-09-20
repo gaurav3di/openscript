@@ -19,6 +19,7 @@
  */
 import type { Expression } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
+import { inputHeldBy } from './checked.js';
 import type { Checker } from './checker.js';
 import { BAR_SERIES } from './surface.js';
 
@@ -70,7 +71,11 @@ export function isCompileTimeConstant(checker: Checker, expression: Expression):
       );
     case 'nameReference': {
       const binding = checker.lookup(inner.name);
-      if (binding !== undefined) return binding.input !== undefined;
+      // A name that holds a setting is one, and a `var` initialised from one is
+      // not: the cell is the setting's value on the first bar and whatever the
+      // bar puts in it after that, so it is fixed before bar 0 only until
+      // something assigns to it (`language.md` 8.2 and 13.4).
+      if (binding !== undefined) return inputHeldBy(binding) !== undefined;
       // A colour name is an ordinary global of type `color` and never changes.
       return checker.typeOf(inner).kind === 'color';
     }

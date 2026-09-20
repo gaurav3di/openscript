@@ -136,13 +136,21 @@ placed somewhere and holds nothing right now is not that: the call sends nothing
 says nothing, and closing the same tag twice is safe to write.
 
 `qty` may not be larger than what this close is closing, which is the whole leg
-where no tag is named and the part one tag entered where one is. Larger is
-OS7017, naming what was asked for and what is held, and the call sends nothing:
-no order crosses zero, and a close bigger than the position would flatten it and
-open the opposite one in a single order. A quantity smaller than what is held is
-an ordinary partial close. The comparison is made only where the declaration
-counts in units, because a position is folded from filled quantities and a
-quantity you state is in the declaration's own unit.
+where no tag is named and the part one tag entered where one is, less whatever
+this bar's earlier orders have already committed to closing. Larger is OS7017,
+naming what was asked for and what is left, and the call sends nothing: no order
+crosses zero, and a close bigger than the position would flatten it and open the
+opposite one in a single order. A quantity smaller than what is left is an
+ordinary partial close.
+
+Because the count is of what is left, two closes on one bar send one position
+between them: the second bare close sends nothing, and a second stated quantity
+is held against what the first one left. The comparison with a stated quantity is
+made in full only where the declaration counts in units, because a position is
+folded from filled quantities and a quantity you state is in the declaration's
+own unit. The part of it that needs no conversion is made in every unit: a
+quantity stated against a part that holds nothing is refused whatever you
+declared.
 
 Written with a quantity, therefore, the call is not idempotent:
 `close(tag = "runner")` on an already flattened tag is silent and

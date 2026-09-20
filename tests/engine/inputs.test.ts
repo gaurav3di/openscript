@@ -107,25 +107,25 @@ test('a declaration option written as an input in place carries a reference to i
     `${HEADER}study("Range", precision = input(2, "Precision"))\n` +
       `extra = input(5, "Extra")\nplot(close + extra, "C")\n`,
   );
-  assert.deepEqual(precision.meta.precision, { input: 'input0' });
+  assert.deepEqual(precision.meta.precision, { input: 'Precision' });
   assert.equal(resolved(precision, precision.meta.precision), 2);
-  assert.equal(resolved(precision, precision.meta.precision, { input0: 7 }), 7);
+  assert.equal(resolved(precision, precision.meta.precision, { Precision: 7 }), 7);
 
   const overlay = programOf(
     `${HEADER}study("Range", overlay = input(true, "Overlay"))\n` +
       `extra = input(5, "Extra")\nplot(close + extra, "C")\n`,
   );
-  assert.deepEqual(overlay.meta.overlay, { input: 'input0' });
+  assert.deepEqual(overlay.meta.overlay, { input: 'Overlay' });
   assert.equal(resolved(overlay, overlay.meta.overlay), true);
 
   const title = programOf(
     `${HEADER}study(input("R", "Title"))\nextra = input(5, "Extra")\nplot(close + extra, "C")\n`,
   );
-  assert.deepEqual(title.meta.title, { input: 'input0' });
+  assert.deepEqual(title.meta.title, { input: 'Title' });
   assert.equal(resolved(title, title.meta.title), 'R');
   // `short` defaults to `title`, so it carries the same reference rather than
   // the title's resolved value, which nothing knows before the settings arrive.
-  assert.deepEqual(title.meta.short, { input: 'input0' });
+  assert.deepEqual(title.meta.short, { input: 'Title' });
 
   // The declaration line is the first statement of the file, so an input
   // written in it is always the first input the file declares and an emitter
@@ -140,7 +140,7 @@ plot(close, "C")
   );
   assert.deepEqual(
     [three.meta.title, three.meta.precision, three.meta.overlay],
-    [{ input: 'input0' }, { input: 'input1' }, { input: 'input2' }],
+    [{ input: 'Title' }, { input: 'Precision' }, { input: 'Overlay' }],
   );
   assert.equal(resolved(three, three.meta.title), 'R');
   assert.equal(resolved(three, three.meta.precision), 2);
@@ -156,7 +156,7 @@ test('a program whose option is a reference loads with the setting for it', () =
   const text =
     `${HEADER}study("Range", precision = input(2, "Precision"))\n` +
     `extra = input(5, "Extra")\nplot(close + extra, "C")\n`;
-  const engine = running(text, { settings: { input0: 7, extra: 9 } });
+  const engine = running(text, { settings: { Precision: 7, extra: 9 } });
   const run = engine.run(ramp());
   assert.equal(run.diagnostic, undefined);
   const last = run.bars[run.bars.length - 1];
@@ -173,19 +173,19 @@ test('an input read inside an expression loads that input slot', () => {
   const after = `${HEADER}study("R")\nother = input(99, "Other")\n`;
 
   const written = `${after}len = input(14, "Length") + 1\nplot(len, "L")\nplot(other, "O")\n`;
-  assert.equal(lastValue(written, 'L', { input1: 20 }), 21);
+  assert.equal(lastValue(written, 'L', { Length: 20 }), 21);
   assert.equal(lastValue(written, 'L', {}), 15, 'the default of 14, plus one');
-  assert.equal(lastValue(written, 'O', { input1: 20 }), 99, 'the other input is untouched');
+  assert.equal(lastValue(written, 'O', { Length: 20 }), 99, 'the other input is untouched');
 
   const first = `${after}len = 1 + input(14, "Length")\nplot(len, "L")\nplot(other, "O")\n`;
-  assert.equal(lastValue(first, 'L', { input1: 20 }), 21);
+  assert.equal(lastValue(first, 'L', { Length: 20 }), 21);
 
   // The same value one level down, as the length of a library call. Over closes
   // of 1 to 12 the mean of the last four is 10.5 and of the last five is 10, so
   // the number proves the length was the input's value and not the default.
   const nested = `${after}e = sma(close, input(14, "Length") + 1)\nplot(e, "E")\nplot(other, "O")\n`;
-  assert.equal(lastValue(nested, 'E', { input1: 3 }), 10.5);
-  assert.equal(lastValue(nested, 'E', { input1: 4 }), 10);
+  assert.equal(lastValue(nested, 'E', { Length: 3 }), 10.5);
+  assert.equal(lastValue(nested, 'E', { Length: 4 }), 10);
   assert.equal(lastValue(nested, 'E', {}), null, 'a length of 15 over twelve bars is absent');
 });
 
@@ -207,7 +207,7 @@ test('the assignment that is the declaration emits no read of its own', () => {
 
   // The same call with no name at all: a row of the dialog, and still no work.
   const bare = programOf(`${HEADER}study("R")\ninput(14, "Length")\nplot(close, "C")\n`);
-  assert.equal(bare.inputs[0]?.key, 'input0');
+  assert.equal(bare.inputs[0]?.key, 'Length');
   assert.equal(count(bare.code, 'LOAD', bare.inputs[0]?.slot ?? -1), 0);
 });
 
@@ -236,12 +236,80 @@ if bar.isLast
   const program = programOf(text);
   assert.deepEqual(
     [program.outputs.tables[0]?.rows, program.outputs.tables[0]?.cols],
-    [{ input: 'input0' }, { input: 'input1' }],
+    [{ input: 'Rows' }, { input: 'Cols' }],
   );
 
-  const engine = running(text, { settings: { input0: 4, input1: 5 } });
+  const engine = running(text, { settings: { Rows: 4, Cols: 5 } });
   assert.equal(engine.run(ramp()).diagnostic, undefined);
   const grid = engine.tables()[0];
   assert.equal(grid?.rows, 4);
   assert.equal(grid?.cols, 5);
+});
+
+/**
+ * `var name = input(...)`, which compiled to a settings row that did nothing.
+ *
+ * It was accepted, it produced a program, and the name read absent on every
+ * bar: the name was given a slot of its own, the input was given another
+ * because nothing had adopted it, and no instruction joined the two. A user got
+ * a row in the dialog they could move that changed nothing on the chart, with
+ * no diagnostic anywhere.
+ *
+ * `language.md` 13.4 settles what it means rather than refusing it. An
+ * `input()` is the one declaration call that also has a value, so the
+ * initialiser is that value and the `var` means what every other `var` means:
+ * a cell initialised once and kept. What that buys, and the only thing it buys,
+ * is a persistent value seeded from a setting, because a setting cannot change
+ * mid-run (`host-interface.md` 8.2) and a `var` nothing assigns to therefore
+ * holds what the plain form would hold.
+ *
+ * Every assertion is a number off the chart. A test that asserted the absence
+ * of a diagnostic would have passed against the defect, which reported none.
+ */
+test('a var initialised from an input holds the setting, and keeps what it is given', () => {
+  const plain = `${HEADER}study("V")\nlen = input(14, "Length")\nplot(len, "L")\n`;
+  const persistent = `${HEADER}study("V")\nvar len = input(14, "Length")\nplot(len, "L")\n`;
+
+  // The setting reaches the name, which is what read absent before.
+  assert.equal(lastValue(persistent, 'L', { len: 7 }), 7);
+  assert.equal(lastValue(persistent, 'L', {}), 14, 'and the declared default with no setting');
+  assert.equal(lastValue(plain, 'L', { len: 7 }), 7, 'the same number the plain form gives');
+
+  // The row is keyed by the name either way, so adding the word `var` to a file
+  // somebody is already using does not move what they stored (8.1).
+  assert.equal(programOf(persistent).inputs[0]?.key, 'len');
+  assert.equal(programOf(persistent).inputs[0]?.label, 'Length');
+
+  // What the `var` is for: the cell is seeded once and then keeps what the bar
+  // puts in it. Over twelve bars a counter from a start of ten ends at twenty
+  // two, and the plain form, whose slot the engine rewrites every bar, ends at
+  // eleven. The two numbers are what tell the two spellings apart.
+  const counting = `${HEADER}study("V")\nvar tally = input(0, "Start")\ntally = tally + 1\nplot(tally, "T")\n`;
+  assert.equal(lastValue(counting, 'T', { tally: 10 }), 22);
+
+  const notCounting = `${HEADER}study("V")\ntally = input(0, "Start")\ntally = tally + 1\nplot(tally, "T")\n`;
+  assert.equal(lastValue(notCounting, 'T', { tally: 10 }), 11);
+});
+
+/**
+ * The same name, one bar back, and the rollback a `var` obeys.
+ *
+ * Catches a compiler that gave the name the input's own slot instead of a cell,
+ * which would read the setting on every bar and look right in the test above
+ * while losing everything the `var` was written for.
+ */
+test('a var initialised from an input has history and is a cell, not the input slot', () => {
+  const text =
+    `${HEADER}study("V")\nvar tally = input(0, "Start")\ntally = tally + 1\n` +
+    `plot(isNone(tally[1]) ? none : tally[1], "P")\n`;
+  assert.equal(lastValue(text, 'P', { tally: 10 }), 21, 'one bar behind the count above');
+
+  const program = programOf(text);
+  assert.equal(program.cells.length, 1, 'the name is a cell');
+  assert.equal(program.cells[0]?.name, 'tally');
+  assert.notEqual(
+    program.inputs[0]?.slot,
+    undefined,
+    'and the input keeps a slot of its own for the engine to write',
+  );
 });

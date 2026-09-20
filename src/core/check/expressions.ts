@@ -15,6 +15,7 @@ import type { Binary, Expression, Index, Member, NameReference, Unary } from '..
 import { withoutGrouping } from '../ast/index.js';
 import { resolveCall } from './call-sites.js';
 import { warmupOfElement } from './call-warmup.js';
+import { inputHeldBy } from './checked.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
 import { allowHandle, handleAllowed, refuseHandle } from './handles.js';
@@ -191,8 +192,13 @@ function checkNameReference(checker: Checker, expression: NameReference): Type {
     }
     // A request expression is compiled over another instrument's bars, so a
     // name computed on this chart's has no counterpart there (stdlib.md 15.4).
-    // An input is a compile-time constant and is allowed.
-    if (checker.requestDepth > 0 && binding.input === undefined && binding.kind !== 'parameter') {
+    // An input is a compile-time constant and is allowed; a `var` initialised
+    // from one is not, because a later assignment may change it.
+    if (
+      checker.requestDepth > 0 &&
+      inputHeldBy(binding) === undefined &&
+      binding.kind !== 'parameter'
+    ) {
       checker.report('OS6003', expression.span, { name: expression.name });
     }
     binding.isRead = true;

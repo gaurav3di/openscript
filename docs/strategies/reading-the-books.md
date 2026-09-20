@@ -135,12 +135,17 @@ and says nothing, which is what makes closing the same tag twice safe to write.
 
 Write a `qty` on that same close and it stops being safe, and the reason is the
 same rule read from the other end. A quantity is something the script wrote, so
-it is a claim about the position, and a claim larger than what is held is
-OS7017: no order crosses zero, and a close that sent more than the part holds
+it is a claim about the position, and a claim larger than what is left to close
+is OS7017: no order crosses zero, and a close that sent more than the part holds
 would open the opposite position under a call named `close`. So
 `close(tag = "runner")` on a flattened tag is silent and
 `close(tag = "runner", qty = 1)` on it is refused. If a scale-out can fire twice
 on one position, guard it on `pos.size`.
+
+What is left to close is measured against this bar as well as against the
+ledger. A position moves when a fill settles, so an order sent earlier on the
+same bar has not moved it, and the engine counts what the bar has already sent
+rather than letting two closes each send the whole position.
 
 ### The positions
 

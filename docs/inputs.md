@@ -40,6 +40,11 @@ The title is the second positional argument. It defaults to the name the input
 assigns, and you should write it anyway: `len` is a fine name in source and a
 poor label in a dialog.
 
+**The title is also what the value is filed under** when there is no name to file
+it under, which is the next section. Write it as a string literal on the line;
+the compiler reads it from there rather than folding it, so `input(2, "Off" +
+"set")` is OS3021 and not a row labelled Offset.
+
 ## Where input() may appear
 
 **At the top level of the file, and nowhere else.** Not inside an `if`, not
@@ -77,6 +82,56 @@ reader gets to change something the declaration decides:
 ```
 study("Oscillator", precision = input(2, "Decimals", min = 0, max = 10))
 ```
+
+It may also be written inside the expression argument of a higher timeframe read,
+where a setting is the one thing from this file that has a meaning: it resolves
+before bar 0 and holds for the run, while a value computed on this chart's bars
+has no counterpart on the requested ones and is OS6003.
+
+```
+bias = req.timeframe("1D", ema(close, input(20, "Bias length")))
+```
+
+## What a saved value is filed under
+
+A host stores one value per input, and the key it files it under is **the name
+the input was assigned to**, or, where it was assigned to none, **the title**.
+
+That matters the day you edit the file. The key survives every edit that is not a
+rename of the row, so inserting a tunable above another one, deleting one or
+moving them around leaves every reader's stored value exactly where they put it.
+Renaming a row is the one edit that loses its value, which is the honest
+behaviour: the row a value was stored for is gone.
+
+```
+len = input(20, "Length")                      // filed under len
+study("B", precision = input(2, "Decimals"))   // filed under Decimals
+var start = input(0, "Start")                  // filed under start
+```
+
+Because the title is a key, two rows cannot carry the same one: that is OS3017.
+A title that spells another input's name is the same clash from the other side
+and is OS3022. And an input with neither a name nor a title has nothing to be
+filed under at all, which is OS3021.
+
+## var in front of an input
+
+`var len = input(14, "Length")` is an ordinary `var` whose initial value is the
+setting. The cell is initialised on the first bar and keeps whatever the script
+puts in it after that, which is how a running total starts from a setting:
+
+```
+var tally = input(0, "Start")
+tally = tally + 1
+plot(tally, "Bars so far")
+```
+
+A setting cannot change during a run, so a `var` nothing assigns to holds exactly
+what the plain form holds. What the word buys is the assignment, and the price is
+that the name is no longer the setting: a `var` may be changed by a later line,
+so it is not a compile-time constant and cannot be a declaration option (OS3003)
+or be read inside a higher timeframe read (OS6003). Write the plain form when you
+want the setting itself, and the `var` when you want a value that starts there.
 
 ## The kinds, and the control each one renders as
 
@@ -311,7 +366,7 @@ only the first two can catch it before the study draws anything.
 
 | Moment | Checked | Failure |
 |---|---|---|
-| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a unique title | OS3007, OS3003, OS3018, OS3017. The script does not compile |
+| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries | OS3007, OS3003, OS3018, OS3017, OS3021, OS3022. The script does not compile |
 | Load | The reader's saved value against the input's type, `min`, `max` and `options` | The study reports the row and the bound, and does not run |
 | Bar | A legal setting that becomes an illegal argument: a length computed to zero, a colour channel out of range, a name that is not one of a function's accepted values | OS4003, OS4009, OS4012. The bar stops and the study is marked as errored |
 
@@ -327,12 +382,14 @@ come back on the chart under the same name, drawing different numbers from the
 ones the reader configured, with nothing on screen to say so. A message naming the
 row and the bound costs one dialog and loses nothing.
 
-Two compile-time checks catch the mistakes that are easy to make and hard to see.
-Titles must be unique within a file (OS3017), because the dialog, the legend and
-the saved layout all key a row by its title, and two rows with one title would
-overwrite each other's saved values. An input that is declared and never read is
-warning OS8018: the row still appears, the reader still changes it, and nothing
-happens, which is worse than the setting not existing.
+A few compile-time checks catch the mistakes that are easy to make and hard to
+see. Titles must be unique within a file (OS3017), because the dialog, the legend
+and the saved layout all key a row by its title, and two rows with one title would
+overwrite each other's saved values; a title spelling another input's name is the
+same clash (OS3022), and a row with no name and no title has nothing to be keyed
+by at all (OS3021). An input that is declared and never read is warning OS8018:
+the row still appears, the reader still changes it, and nothing happens, which is
+worse than the setting not existing.
 
 ## Choosing defaults
 
@@ -368,6 +425,8 @@ this page follows from that one fact.
 
 - An `input()` inside a block is not a row, so it is OS3007 rather than a silently
   invisible setting.
+- A row the compiler cannot name is a row a host cannot file a value under, so it
+  is OS3021 rather than a row labelled with nothing.
 - A default that depends on bar data cannot be resolved when the dialog is built,
   so it is OS3003.
 - A number written as a literal in the middle of a calculation is not a row, and
@@ -394,6 +453,9 @@ setting the reader can flip is a claim the script no longer makes.
 | `input()` inside an `if` or a `fn` | OS3007 | Move it to the top level and read the name inside the block |
 | A default computed from bar data | OS3003 | Use a literal, or an input for the thing the default depended on |
 | Two rows with one title | OS3017 | Rename one; the saved layout keys on the title |
+| A row with no name and no title | OS3021 | Give it a title written as a string literal |
+| A title that spells another input's name | OS3022 | Retitle this one, or rename the other input |
+| A `var` holding an input used as an option | OS3003 | Drop the `var`, or pass the setting the `var` started from |
 | A select default outside its list | OS3018 | Add it to `options`, or pick a listed value |
 | `range = [100, 0]` on the declaration | OS3016 | Write two numbers, lowest first |
 | A row nobody reads | OS8018, warning | Use the name, or delete the input and its row |

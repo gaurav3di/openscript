@@ -17,6 +17,7 @@
  * because a trader fixing three mistakes should see three of them.
  */
 export { check } from './check.js';
+export { inputHeldBy } from './checked.js';
 export { alertKey } from './outputs.js';
 export { FOLDABLE_CALLS } from './constant.js';
 

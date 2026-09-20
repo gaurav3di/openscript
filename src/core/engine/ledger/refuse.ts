@@ -23,14 +23,19 @@
  * - **A quantity that is not a whole number of lots, OS7005**, and **an order
  *   outside the instrument's session, OS7012**: both are facts the leg would
  *   have to be given and neither is one the ledger holds today.
- * - **A stated close quantity, OS7017, where the declaration counts in
- *   anything but units.** The refusal compares what the script stated with what
- *   the leg holds, and a position is folded from filled quantities while a
- *   stated quantity is in the declaration's own unit (`host-interface.md` 7.1).
- *   In lots, cash or equity percent those are two different kinds of number,
- *   and the lot size that would join them is the same fact OS7005 is waiting
- *   for. A close that crosses zero is not refused there, and it is better named
- *   than answered with a number nobody can defend.
+ * - **A stated close quantity, OS7017, held against a position that is still
+ *   there, where the declaration counts in anything but units.** The refusal
+ *   compares what the script stated with what the leg holds, and a position is
+ *   folded from filled quantities while a stated quantity is in the
+ *   declaration's own unit (`host-interface.md` 7.1). In lots, cash or equity
+ *   percent those are two different kinds of number, and the lot size that
+ *   would join them is the same fact OS7005 is waiting for. **The half of it
+ *   that needs no conversion is evaluated in every unit**: nothing left to
+ *   close is zero in units, in lots, in cash and in an equity percent alike, so
+ *   a close that states a quantity against a part holding nothing is refused
+ *   whatever the declaration counts in. What is left unheld is one shape, a
+ *   stated quantity larger than a position that is still there, and OS7017's
+ *   entry says so where a reader meets it.
  * - **The capital a strategy has left, OS7011.** Every money figure of
  *   `stdlib.md` 17.4 is planned, so there is no equity to compare against and a
  *   number invented for the message would be the wrong one.
@@ -42,8 +47,9 @@
 import { diagnosticFor } from '../../diagnostics/index.js';
 import type { Diagnostic } from '../../diagnostics/index.js';
 import type { OrderCall } from './call.js';
+import { closable } from './closable.js';
+import type { SentOnBar } from './closable.js';
 import type { Identity, OrderSide } from './intent.js';
-import { closableUnits } from './place.js';
 import type { Placement, PlacingContext } from './place.js';
 import { isTerminal } from './row.js';
 
@@ -54,13 +60,6 @@ import { isTerminal } from './row.js';
  * meeting both should not have to work out that they mean one thing.
  */
 const UNNAMED_INSTRUMENT = "the chart's instrument";
-
-/** An order this bar has already sent, for the one rule that spans two calls. */
-export interface SentOnBar {
-  readonly name: string;
-  readonly line: number;
-  readonly side: OrderSide;
-}
 
 /** The calls that take the declaration's size when they are given none. */
 const SIZED_BY_DECLARATION: readonly string[] = ['buy', 'sell', 'order.place'];
@@ -143,12 +142,16 @@ function entriesOpen(ctx: PlacingContext, side: OrderSide): number {
 /**
  * A close asked to send more than it is closing, OS7017.
  *
- * **No order crosses zero** (`stdlib.md` 17.1), and this is the one call that
- * could. Every other quantity a close sends is one the engine worked out from
- * the leg's own settled fills and is bounded by it; a quantity the script
+ * **No order crosses zero** (`stdlib.md` 17.1), and a quantity the script
  * stated was passed through as written, so `close(qty = 5)` against one unit
  * long sent one sell of five and the leg ended the bar four short, under one
  * position reference, with a call named close having opened a position.
+ *
+ * **What it is held against is what is left to close**, which `closable.ts`
+ * answers: what the part holds, less what this bar's earlier orders have
+ * already committed to closing. Held against the leg alone, `close(qty = 2)`
+ * twice on a leg of three passed twice and the leg ended one short, each order
+ * inside the ceiling and the pair outside it.
  *
  * **Refused rather than clamped**, because the quantity is an argument the
  * script wrote and is therefore a claim about the strategy's own position.
@@ -165,17 +168,25 @@ function entriesOpen(ctx: PlacingContext, side: OrderSide): number {
  * without one asks the engine for the right number, and there is nothing to be
  * wrong about.
  *
- * **Only where the two numbers count the same thing.** See the header: a
- * declaration in lots, cash or equity percent states a quantity the ledger
- * cannot compare with a folded position, and a refusal with a wrong number in
- * it is worse than the silence it replaced.
+ * **In full only where the two numbers count the same thing, and in part
+ * everywhere.** See the header: a declaration in lots, cash or equity percent
+ * states a quantity the ledger cannot compare with a folded position, and a
+ * refusal with a wrong number in it is worse than the silence it replaced. But
+ * nothing left to close is zero in every one of those units, and a close of any
+ * quantity against nothing is a false claim whatever the unit, so that half is
+ * answered for every declaration rather than for one of them.
  */
 function beyondTheClose(call: OrderCall, ctx: PlacingContext): Diagnostic | undefined {
   if (call.name !== 'close') return undefined;
   const stated = call.qty;
-  if (stated === null || ctx.qtyType !== 'units') return undefined;
-  const held = closableUnits(ctx, call.tag);
+  if (stated === null) return undefined;
+  const left = closable(ctx, call.tag);
+  const held = left.units;
   if (stated <= held) return undefined;
+  // Outside units the two numbers count different things, and the one thing
+  // they agree on is nothing at all. An assumed zero is not a measurement, so
+  // it is not named in a message either.
+  if (ctx.qtyType !== 'units' && !(held === 0 && left.counted)) return undefined;
   return diagnosticFor('OS7017', call.at, { qty: stated, part: partOf(call.tag), held });
 }
 

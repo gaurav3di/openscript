@@ -37,6 +37,20 @@ export function leavesValue(e: Emitter, expression: Expression): boolean {
   return !e.isDeclaration(name);
 }
 
+/**
+ * Whether an expression is entirely one `input()` call.
+ *
+ * The declaration calls leave nothing on the stack, which is what `leavesValue`
+ * answers, and `input()` is the one of them that also has a value to leave when
+ * a value is what was asked for (`language.md` 13.4). One place needs the
+ * narrower question: `var len = input(14, "Length")`, where the initialiser is
+ * a value to put in a cell rather than a declaration the name stands for.
+ */
+export function isInputCall(e: Emitter, expression: Expression): boolean {
+  const node = withoutGrouping(expression);
+  return node.kind === 'call' && e.callAt(node)?.name === 'input';
+}
+
 export function emitCall(e: Emitter, f: Frame, call: Call): void {
   const checked = e.callAt(call);
   if (checked === undefined || checked.target === 'unresolved') {

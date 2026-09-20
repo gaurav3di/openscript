@@ -85,6 +85,20 @@ export interface Walk {
   readonly conflict: number | undefined;
   /** The first instruction the walk reached with a negative depth, or nothing. */
   readonly underflow: number | undefined;
+  /**
+   * The first `RET` or `HALT` the stack is not empty at, or nothing.
+   *
+   * Section 3.5 check 5 is three sentences and this is the third: the depth
+   * agrees on every path, it never goes below zero, and **it is zero at the
+   * terminator**. Only the first two were walked here, and the difference is
+   * not academic. A `RET` reaches nothing after it, so an expression that left
+   * the stack one short took it to minus one exactly at the `RET`, where
+   * nothing was ever asked; the walk finished clean and a body whose stack does
+   * not add up was emitted, for an engine to refuse at load with a code about
+   * the compiler. Every `RET` is checked rather than the last one, because an
+   * early `return` is a terminator too and owes the same debt.
+   */
+  readonly terminal: number | undefined;
 }
 
 /**
@@ -102,6 +116,7 @@ export function walkDepths(
   const depths: (number | undefined)[] = new Array<number | undefined>(code.length).fill(undefined);
   let conflict: number | undefined;
   let underflow: number | undefined;
+  let terminal: number | undefined;
 
   const reach = (index: number, depth: number): void => {
     if (index < 0 || index > code.length) return;
@@ -120,16 +135,21 @@ export function walkDepths(
     const operands = instruction.slice(1) as number[];
     const after = depth + depthChange(opcode, operands, argcOf);
 
+    if (opcode === 'RET' || opcode === 'HALT') {
+      if (after !== 0 && terminal === undefined) terminal = i;
+      continue;
+    }
     for (const position of targetPositions(opcode)) {
       const target = operands[position];
       if (target !== undefined) reach(target, after);
     }
-    if (opcode !== 'JUMP' && opcode !== 'RET' && opcode !== 'HALT') reach(i + 1, after);
+    if (opcode !== 'JUMP') reach(i + 1, after);
   }
 
   return {
     depths: depths.map((one) => one ?? 0),
     conflict,
     underflow,
+    terminal,
   };
 }

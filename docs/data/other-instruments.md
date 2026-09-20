@@ -35,7 +35,8 @@ Inside `expr`, the built-in series are the **requested** instrument's, at the
 requested interval. `close` in the third line above is the other instrument's
 daily close, and the two averages are computed from its bars. A name from the
 file scope may be read inside `expr` only when it is a compile-time constant: a
-literal, arithmetic over literals, or an `input()`. Orders, drawings and alerts
+literal, arithmetic over literals, or an `input()`, and an `input()` may equally
+be written inside `expr` itself. Orders, drawings and alerts
 do not belong inside `expr`, which is a calculation over another set of bars and
 not a second script with its own effects.
 

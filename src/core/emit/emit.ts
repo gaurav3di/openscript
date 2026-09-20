@@ -232,7 +232,7 @@ function checkDepths(e: Emitter, top: Frame, code: readonly Instruction[]): void
 
   lists.forEach((list, index) => {
     const walk = walkDepths(list, argcOf);
-    const at = walk.conflict ?? walk.underflow;
+    const at = walk.conflict ?? walk.underflow ?? walk.terminal;
     if (at === undefined) return;
     e.gap(
       `the stack depth this compiler emitted does not survive its own walk at instruction ${at}, ` +
@@ -258,7 +258,7 @@ function checkRequestDepths(e: Emitter, request: Request): void {
   const lists = [request.body.code, ...request.body.functions.map((one) => one.code)];
   for (const list of lists) {
     const walk = walkDepths(list, argcOf);
-    const at = walk.conflict ?? walk.underflow;
+    const at = walk.conflict ?? walk.underflow ?? walk.terminal;
     if (at === undefined) continue;
     e.gap(
       `the stack depth this compiler emitted for a read's expression does not survive its ` +

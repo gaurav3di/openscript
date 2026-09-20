@@ -387,7 +387,7 @@ replace `buy()` with `signal("BUY")`.
 | OS7011 | The order needs more capital than the strategy has | Size from equity, or test `pos.equity` first |
 | OS7013 | Two opposite orders on one bar | Two conditions that are not exclusive |
 | OS7016 | A close names a tag nothing places | A typo in a `close` tag, reported by the compiler rather than by a run |
-| OS7017 | A close states more than it is closing | A `qty` on a `close` larger than the leg, or the tag, is holding right now |
+| OS7017 | A close states more than it is closing | A `qty` on a `close` larger than what is left to close, which is what the leg or the tag holds less what this bar has already sent |
 
 **Not raised yet.** OS7005 and OS7011 are in the catalogue and nothing raises
 them. Nothing compares an order's quantity with the lot size its leg trades in.
@@ -409,8 +409,10 @@ if crossUp(fast, slow) and not isNone(stop) and not isNone(qty) and qty > 0
 For OS7013, make the two conditions exclusive with `else if`, or place the exit
 on this bar and the entry on the next.
 
-For OS7017, leave the quantity off the `close` and it sends whatever is held, or
-guard the scale-out on `pos.size` so it cannot fire twice on one position. The
+For OS7017, leave the quantity off the `close` and it sends whatever is left, or
+guard the scale-out on `pos.size` so it cannot fire twice on one position. If the
+bar already sent a close, what is left is smaller than `pos.size`: a position
+moves when a fill settles, and nothing has settled yet. The
 engine will not send the smaller number for you: that would be a quantity you
 did not write, and the script would go on believing it had closed the one you
 did. Note that `close(tag = "runner")` with no quantity stays silent on a tag

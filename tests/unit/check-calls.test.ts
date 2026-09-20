@@ -236,6 +236,76 @@ test('an input default outside its options is refused', () => {
   });
 });
 
+/**
+ * OS3021. Catches a checker that lets an input be written with no name and no
+ * title, which leaves it with nothing to be keyed by: `host-interface.md` 8.1
+ * keys a stored value by the name the input was assigned to, and an input
+ * written where a value belongs is assigned to none, so the title is the key.
+ * A checker that accepted it would put a row with no label in the dialog and a
+ * value under the empty string, and the next input written with no title would
+ * share it.
+ */
+test('an input with neither a name nor a title has nothing to key it by', () => {
+  const body = 'plot(close + input(2), "C")';
+  assert.deepEqual(codes(body), ['OS3021']);
+  assert.equal(spanFor(body, 'OS3021'), '3:14+8');
+
+  // The same call on the declaration line, which is the one place a name cannot
+  // be put in front of it (issues/0014), so it is where the rule has to hold.
+  assert.deepEqual(rawCodes('version 1\nstudy("R", precision = input(2))\nplot(close, "C")\n'), [
+    'OS3021',
+  ]);
+
+  // A title makes it legal, and so does a name, and neither is reported.
+  assert.deepEqual(codes('plot(close + input(2, "Offset"), "C")'), []);
+  assert.deepEqual(codes('off = input(2)\nplot(close + off, "C")'), []);
+
+  // A constant expression where the title goes is not a title: the row's label
+  // and its key are both read from the line, so the compiler does not fold one
+  // and the entry says so rather than leaving the row unlabelled in silence.
+  // Catches a check that looks for a written argument instead of a literal.
+  assert.deepEqual(codes('plot(close + input(2, "Off" + "set"), "C")'), ['OS3021']);
+});
+
+/**
+ * OS3022. Catches a checker that lets two inputs land on one settings key: the
+ * host stores one value per key, so one of the two rows would silently take the
+ * other's value. Two equal titles are already OS3017; this is the case that is
+ * not equal titles, a title spelling another input's name, which the title
+ * check cannot see because it never compares the two spaces.
+ */
+test('an input keyed by its title cannot take another input name', () => {
+  const body = 'width = input(2, "Width")\nplot(close + width * input(3, "width"), "Band")';
+  assert.deepEqual(codes(body), ['OS3022']);
+  assert.deepEqual(valuesFor(body, 'OS3022'), { name: '"width"', line: 3 });
+
+  // The same two rows with distinct keys, which is what the fix produces.
+  assert.deepEqual(
+    codes('width = input(2, "Width")\nplot(close + width * input(3, "Multiplier"), "Band")'),
+    [],
+  );
+
+  // A title equal to the input's own name is one input, not two, so nothing is
+  // taken and nothing is reported.
+  assert.deepEqual(codes('width = input(2, "width")\nplot(close + width, "Band")'), []);
+});
+
+/**
+ * A `var` holding a setting is not a compile-time constant, so it cannot be a
+ * declaration option. Catches a checker that asks whether a name was given an
+ * input rather than whether it is one: the option would pass the check, the
+ * emitter would find nothing to fold, and the reader would be handed a lone
+ * OS6018 telling them their script came from a broken compiler.
+ */
+test('a var initialised from an input is not a constant option', () => {
+  const body = 'var k = input(3, "K")\nplot(close, "C", width = k)';
+  assert.deepEqual(codes(body), ['OS3003']);
+  assert.deepEqual(valuesFor(body, 'OS3003'), { option: 'width' });
+
+  // The name without the `var` is the setting itself, and is an option.
+  assert.deepEqual(codes('k = input(3, "K")\nplot(close, "C", width = k)'), []);
+});
+
 // Catches a checker that accepts an alert on every update in a file that never
 // runs on a moving bar, where the alert could not fire at all.
 test('an alert on every update needs the declaration to allow it', () => {

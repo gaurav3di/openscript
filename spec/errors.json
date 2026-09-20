@@ -1563,6 +1563,47 @@
       "test": "tests/unit/check-calls.test.ts"
     },
     {
+      "code": "OS3021",
+      "title": "An input written in place has no title",
+      "severity": "error",
+      "stage": "check",
+      "since": 1,
+      "message": "An input() assigned to no name is named by its title, and this one has no title written as a string literal.",
+      "placeholders": {},
+      "cause": "A host stores one value per input key, and the key is the name the input was assigned to (host-interface.md 8.1). An input written where a value belongs is assigned to no name, so its title is its key as well as its dialog label. The title is read from the line as a string literal rather than folded, because a key and a label are both fixed before anything is computed and because the row a reader sees should be named on the line that declares it. With neither a name nor such a title there is nothing to label the row with and nothing to store a user's value under, and a key made from the input's position instead would move the moment another input was written above it, taking a user's stored value onto a different row.",
+      "fix": "Give it a title written as a string literal: input(2, \"Precision\").",
+      "autofix": false,
+      "example": {
+        "before": "study(\"Range\", precision = input(2))",
+        "after": "study(\"Range\", precision = input(2, \"Precision\"))"
+      },
+      "spec": "language.md 13.4, host-interface.md 8.1",
+      "refines": null,
+      "test": "tests/unit/check-calls.test.ts"
+    },
+    {
+      "code": "OS3022",
+      "title": "Two inputs share a settings key",
+      "severity": "error",
+      "stage": "check",
+      "since": 1,
+      "message": "This input is keyed by its title {name}, which is already the name of the input at line {line}.",
+      "placeholders": {
+        "name": "the title of the input written in place, quoted",
+        "line": "the line of the input that already carries that key"
+      },
+      "cause": "A host stores one value per key (host-interface.md 8.1). An input assigned to a name is keyed by that name, and one written in place is keyed by its title, so a title that spells another input's name puts two rows on one key. One user value would then serve two rows and nothing anywhere decides which of them gets it. Two inputs carrying one title are OS3017 for the same reason.",
+      "fix": "Give this one a title of its own, or rename the input at line {line}.",
+      "autofix": false,
+      "example": {
+        "before": "width = input(2, \"Width\")\nplot(close + width * input(3, \"width\"), \"Band\", aqua)",
+        "after": "width = input(2, \"Width\")\nplot(close + width * input(3, \"Multiplier\"), \"Band\", aqua)"
+      },
+      "spec": "language.md 13.4, host-interface.md 8.1",
+      "refines": "OS3017",
+      "test": "tests/unit/check-calls.test.ts"
+    },
+    {
       "code": "OS4001",
       "title": "History index is not usable",
       "severity": "error",
@@ -2885,14 +2926,14 @@
       "severity": "error",
       "stage": "runtime",
       "since": 1,
-      "message": "close was given a quantity of {qty}, and {part} holds {held}.",
+      "message": "close was given a quantity of {qty}, and {part} has {held} left to close.",
       "placeholders": {
         "qty": "the quantity the call stated",
         "part": "what the close is closing: the leg, or the tag it named",
-        "held": "the quantity that part holds"
+        "held": "what is left for a close to send: what that part holds, less what this bar's earlier orders already close"
       },
-      "cause": "No order crosses zero. A close larger than the position it is closing sends one order that flattens the position and opens the opposite one under the same position reference, so a leg that was long ends the bar short and a call named close has opened a position. The quantity is an argument the script wrote, which makes it a claim about the strategy's own position, and this claim is false. Sending what is there instead would leave the script believing it closed the number it asked for, and reading it as a reversal would make close open a position, which is the most expensive naming mistake available. A close that states no quantity is not this: the engine works out what the leg or the tag holds and sends that, and closing a tag that holds nothing sends nothing and says nothing. The comparison is made only where the two numbers count the same thing, which is a declaration whose quantity type is units: elsewhere a position folded from filled quantities and a quantity stated in the declaration's own unit are two different kinds of number, and a refusal with the wrong one in it is worse than none.",
-      "fix": "Leave the quantity out and close() flattens what is there, or size the part from pos.size and pass close(qty = {held}) or less.",
+      "cause": "No order crosses zero, and the orders one bar sends can never sum past the position they are reducing. A close larger than what is left to close sends one order that flattens the position and opens the opposite one under the same position reference, so a leg that was long ends the bar short and a call named close has opened a position. The quantity is an argument the script wrote, which makes it a claim about the strategy's own position, and this claim is false. Sending what is there instead would leave the script believing it closed the number it asked for, and reading it as a reversal would make close open a position, which is the most expensive naming mistake available. What is left to close is what the leg holds, or what the tag the close names holds, less what this bar's earlier orders have already committed to closing. A position is folded from settled fills, so an order sent earlier on the same bar has filled nothing and the leg still reads what it held when the bar began: measured against that alone, two closes of two on a leg of three each pass the ceiling and the pair ends the leg one short. A close that states no quantity is not this: the engine works out what is left and sends it, which is nothing at all once the bar has committed the whole of it, and closing a tag that holds nothing sends nothing and says nothing. The comparison is made in full only where the two numbers count the same thing, which is a declaration whose quantity type is units: elsewhere a position folded from filled quantities and a quantity stated in the declaration's own unit are two different kinds of number, and a refusal with the wrong one in it is worse than none. The half of it that needs no conversion is made whatever the declaration counts in, because nothing left to close is zero in every unit. What that leaves unheld is one shape, a quantity stated against a position that is still there in a declaration counting in lots, cash or an equity percent, and joining those two numbers needs the instrument's lot size, which is the fact OS7005 is deferred on.",
+      "fix": "Leave the quantity out and close() flattens what is left, or size the part from pos.size and keep the quantity at or under {held}.",
       "autofix": false,
       "example": {
         "before": "if pos.isFlat\n    buy(qty = 1)\nelse\n    close(qty = 5)",

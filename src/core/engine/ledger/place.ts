@@ -14,7 +14,17 @@
  * **No order crosses zero.** An instruction that would take a leg from long to
  * short is two orders, one closing the outgoing position and one opening the
  * replacement, each carrying its own position reference, so that a fill
- * arriving late can still say which of the two it settled.
+ * arriving late can still say which of the two it settled. That is the split
+ * `entering` makes, and `order.reverse` is the same pair written as one call.
+ *
+ * **The orders one bar sends can never sum past the position they are
+ * reducing.** A position is folded from settled fills and from nothing else
+ * (`stdlib.md` 17.8), so an order this bar has already sent has filled nothing
+ * and has moved no position figure: measured against the leg alone, two closes
+ * on one bar each send the whole of it and the leg ends the bar short with no
+ * quantity written anywhere. So every order that reduces a position is
+ * measured against what is left to reduce after the orders this bar has already
+ * sent, which is what `closableUnits` answers and what `SentOnBar` records.
  *
  * **A bracket is an instruction, not an order.** `exit` and `order.bracket` set
  * the leg's own protective level, which is what `stdlib.md` 17.2 means when it
@@ -40,9 +50,10 @@
  * been told nothing.
  */
 import type { OrderCall } from './call.js';
+import { closableUnits } from './closable.js';
+import type { Closing, Reduction } from './closable.js';
 import type { Identity, IntentBar, OrderIntent, OrderSide, OrderType } from './intent.js';
 import { isTerminal } from './row.js';
-import type { LedgerRow } from './row.js';
 
 /**
  * An order this run is about to send, before it is given an id.
@@ -52,6 +63,17 @@ import type { LedgerRow } from './row.js';
  * differently from one call to the next.
  */
 export type Placement = Omit<OrderIntent, 'intentId' | 'instrument' | 'product' | 'bar'>;
+
+/** One order a call sends, and what that order takes out of the leg. */
+export interface MappedOrder {
+  readonly placement: Placement;
+  readonly reduces: Reduction | null;
+}
+
+/** An order that adds to a position, or whose size the engine cannot count. */
+function adding(placement: Placement): MappedOrder {
+  return { placement, reduces: null };
+}
 
 /** The fields every placement states, so each case below states only its own. */
 const NOTHING = {
@@ -68,7 +90,7 @@ const NOTHING = {
 } as const;
 
 /** What the mapping and the refusals read: the declaration, the leg and the ledger. */
-export interface PlacingContext {
+export interface PlacingContext extends Closing {
   readonly instrument: Identity;
   readonly product: string;
   /** The unit a quantity the script stated is counted in, `language.md` 13.3. */
@@ -80,8 +102,6 @@ export interface PlacingContext {
   /** Entries allowed in one direction before one is refused, `language.md` 13.3. */
   readonly pyramiding: number;
   readonly bar: IntentBar;
-  /** The leg's net position in units, folded from settled fills. */
-  size(): number;
   /** The average price of the open position, absent while flat. */
   avgPrice(): number | null;
   /** The position an order placed now attaches to. */
@@ -90,8 +110,6 @@ export interface PlacingContext {
   current(): number | null;
   /** A fresh position, for the replacement half of a flip. */
   mint(): number;
-  /** The rows this strategy placed, newest last. */
-  rows(): readonly LedgerRow[];
 }
 
 /**
@@ -116,29 +134,93 @@ function closingSide(size: number): OrderSide | undefined {
   return undefined;
 }
 
+/** What an entering order states, at one quantity and one position. */
+interface Entry {
+  readonly side: OrderSide;
+  readonly limit: number | null;
+  readonly trigger: number | null;
+  readonly type: OrderType;
+  readonly tag: string;
+}
+
+/** One order of an entry, at the quantity and the position it is given. */
+function placing(entry: Entry, qty: number, qtyType: string, positionRef: number): Placement {
+  return {
+    ...NOTHING,
+    kind: 'place',
+    side: entry.side,
+    qty,
+    qtyType,
+    type: entry.type,
+    limit: entry.limit,
+    trigger: entry.trigger,
+    tag: entry.tag,
+    positionRef,
+  };
+}
+
+/**
+ * The orders an entry sends, which is two where it crosses zero.
+ *
+ * **An instruction that would take a leg from long to short is sent as two
+ * orders** (`stdlib.md` 17.1), one that closes the outgoing position and one
+ * that opens the replacement, each carrying its own position reference. The
+ * reason is not tidiness: a single order that crossed zero would leave a late
+ * fill with no way to say which of the two positions it settled, and during a
+ * flip a leg holds both at once. `sell(qty = abs(pos.size) + more)` is the
+ * spelling the documentation teaches, and it is `order.reverse` with the
+ * arithmetic written out.
+ *
+ * **The closing half is what is left to close, not what the leg holds.** An
+ * order this bar has already sent has filled nothing, so a leg closed once
+ * already on this bar has nothing left for the outgoing half to take.
+ *
+ * **Where the two quantities count different things, nothing is split.** The
+ * split subtracts a position folded from filled quantities from a quantity the
+ * script stated, and those are the same kind of number only in a declaration
+ * counting in units. In lots, cash or an equity percent the order is sent as
+ * written, which is the same limit that narrows OS7017 and waits on the same
+ * fact. What does not need the arithmetic is held there too: an order opposing
+ * a position this bar has already committed to closing in full is opening a
+ * replacement, whatever the unit, so it is minted a position of its own.
+ */
 function entering(
   ctx: PlacingContext,
-  side: OrderSide,
+  entry: Entry,
   qty: number | null,
-  limit: number | null,
-  trigger: number | null,
-  tag: string,
-): readonly Placement[] {
-  return [
-    {
-      ...NOTHING,
-      kind: 'place',
-      side,
-      // The declaration's own size where the call named none, `stdlib.md` 17.2.
-      qty: qty ?? ctx.declaredQty,
-      qtyType: ctx.qtyType,
-      type: typeOf(limit, trigger),
-      limit,
-      trigger,
-      tag,
-      positionRef: ctx.reference(),
-    },
-  ];
+): readonly MappedOrder[] {
+  // The declaration's own size where the call named none, `stdlib.md` 17.2.
+  const wanted = qty ?? ctx.declaredQty;
+  const size = ctx.size();
+  // Nothing to cross: the leg is flat, or this order is on the side it holds.
+  if (size === 0 || size > 0 === (entry.side === 'buy')) {
+    return [adding(placing(entry, wanted, ctx.qtyType, ctx.reference()))];
+  }
+
+  const left = closableUnits(ctx, null);
+  if (left === 0) return [adding(placing(entry, wanted, ctx.qtyType, ctx.mint()))];
+  if (ctx.qtyType !== 'units') {
+    return [
+      {
+        placement: placing(entry, wanted, ctx.qtyType, ctx.reference()),
+        // Unreadable in units, so it is taken to have reduced the whole of what
+        // was left: see `closable.ts` on why that is the only safe reading.
+        reduces: { part: null, units: left, counted: false },
+      },
+    ];
+  }
+
+  const closing = Math.min(wanted, left);
+  const opening = wanted - closing;
+  const reference = ctx.reference();
+  const out: MappedOrder = {
+    placement: placing(entry, closing, 'units', reference),
+    reduces: { part: null, units: closing, counted: true },
+  };
+  if (opening === 0) return [out];
+  // The replacement is a position of its own, minted here, so that a fill on
+  // the outgoing order settles the position it belonged to.
+  return [out, adding(placing(entry, opening, ctx.qtyType, ctx.mint()))];
 }
 
 /**
@@ -147,6 +229,10 @@ function entering(
  * A quantity the script stated is in the declaration's own unit and is passed
  * through as written. A quantity the engine worked out is in units, because a
  * filled quantity is what it was folded from.
+ *
+ * `part` is what the order is counted against afterwards: the tag a close
+ * named, or the leg as a whole. A stated quantity is counted only where the
+ * declaration counts in units, for the reason `Reduction` gives.
  */
 function flattening(
   ctx: PlacingContext,
@@ -154,52 +240,31 @@ function flattening(
   side: OrderSide,
   qty: number | null,
   tag: string,
-): readonly Placement[] {
+  part: string | null,
+): readonly MappedOrder[] {
   // Nothing to flatten and no size named: an instruction about a position the
   // strategy does not hold, which is not an error and is not an order either.
   if (units <= 0 && qty === null) return [];
+  const sending = qty ?? units;
+  // A quantity the engine worked out is counted as itself. One the script
+  // stated in a unit the engine cannot read is counted as the whole of what was
+  // left, which is what keeps a close after it from sending the position again.
+  const counted = qty === null || ctx.qtyType === 'units';
   return [
     {
-      ...NOTHING,
-      kind: 'place',
-      side,
-      qty: qty ?? units,
-      qtyType: qty === null ? 'units' : ctx.qtyType,
-      type: 'market',
-      tag,
-      positionRef: ctx.reference(),
+      placement: {
+        ...NOTHING,
+        kind: 'place',
+        side,
+        qty: sending,
+        qtyType: qty === null ? 'units' : ctx.qtyType,
+        type: 'market',
+        tag,
+        positionRef: ctx.reference(),
+      },
+      reduces: { part, units: counted ? sending : units, counted },
     },
   ];
-}
-
-/** The settled units held under one tag, signed the way a position is. */
-function heldUnder(ctx: PlacingContext, tag: string): number {
-  let held = 0;
-  for (const row of ctx.rows()) {
-    if (row.tag !== tag) continue;
-    held += row.side === 'buy' ? row.filledQty : -row.filledQty;
-  }
-  return held;
-}
-
-/**
- * What a `close` is closing, in units, whether or not it names a quantity.
- *
- * The whole leg where the call names no tag, and the part that tag entered
- * where it names one, bounded by what the leg holds so that closing a part can
- * never cross zero. Zero while the leg is flat, and zero for a tag whose rows
- * have netted to nothing.
- *
- * Exported because `refuse.ts` asks the same question of the same call: the
- * quantity a script states is refused against this number (OS7017) and the
- * quantity the engine works out for itself is this number. Two readings of what
- * a tag holds would be one fact in two files, and the refusal would be about a
- * quantity the mapping was not going to send.
- */
-export function closableUnits(ctx: PlacingContext, tag: string | null): number {
-  const size = Math.abs(ctx.size());
-  if (tag === null) return size;
-  return Math.min(Math.abs(heldUnder(ctx, tag)), size);
 }
 
 /**
@@ -221,12 +286,14 @@ function bracketing(
   stop: number | null,
   profit: number | null,
   loss: number | null,
-): readonly Placement[] {
+): readonly MappedOrder[] {
   // A call that names no level at all removes one, which is a standing level of
   // `stdlib.md` 17.9 and is planned. There is nothing to send.
   if (target === null && stop === null && profit === null && loss === null) return [];
+  // Nothing has been ordered by a bracket, so it takes nothing out of the
+  // position: the level it sets belongs to the leg until it is reached.
   return [
-    {
+    adding({
       ...NOTHING,
       kind: 'bracket',
       qty,
@@ -237,7 +304,7 @@ function bracketing(
       loss,
       tag,
       positionRef: ctx.reference(),
-    },
+    }),
   ];
 }
 
@@ -249,14 +316,24 @@ function bracketing(
  * about a position the strategy does not hold, and inventing a side for either
  * would be the engine deciding a direction the script never stated.
  */
-export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Placement[] {
+export function ordersFor(call: OrderCall, ctx: PlacingContext): readonly MappedOrder[] {
   const side = call.side;
 
   switch (call.name) {
     case 'buy':
     case 'sell':
       if (side === null) return [];
-      return entering(ctx, side, call.qty, call.limit, call.trigger, call.tag ?? '');
+      return entering(
+        ctx,
+        {
+          side,
+          limit: call.limit,
+          trigger: call.trigger,
+          type: typeOf(call.limit, call.trigger),
+          tag: call.tag ?? '',
+        },
+        call.qty,
+      );
 
     case 'order.place': {
       // A side that is not one of the two is not a direction, and a buy is not
@@ -265,32 +342,36 @@ export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Pl
       // than sending the opposite of what the script meant. A side the script
       // stated as absent never reaches here at all: that is OS7002.
       if (side === null) return [];
-      return [
+      return entering(
+        ctx,
         {
-          ...NOTHING,
-          kind: 'place',
           side,
-          qty: call.qty ?? ctx.declaredQty,
-          qtyType: ctx.qtyType,
+          limit: call.limit,
+          trigger: call.trigger,
           // A type outside the set falls back to the one the prices imply,
           // which is the correspondence `stdlib.md` 17.2 fixes between the two.
           type: call.type ?? typeOf(call.limit, call.trigger),
-          limit: call.limit,
-          trigger: call.trigger,
           tag: call.tag ?? '',
-          positionRef: ctx.reference(),
         },
-      ];
+        call.qty,
+      );
     }
 
     case 'close': {
       const closing = closingSide(ctx.size());
       if (closing === undefined) return [];
       // A tag names the part of the position that tag entered, which is the
-      // settled quantity of its own rows. A quantity the script stated has
-      // already been held against this same number by `refuse.ts`, so nothing
-      // reaching here crosses zero.
-      return flattening(ctx, closableUnits(ctx, call.tag), closing, call.qty, call.tag ?? '');
+      // settled quantity of its own rows, less what this bar has already sent
+      // against it. A quantity the script stated has already been held against
+      // this same number by `refuse.ts`, so nothing reaching here crosses zero.
+      return flattening(
+        ctx,
+        closableUnits(ctx, call.tag),
+        closing,
+        call.qty,
+        call.tag ?? '',
+        call.tag,
+      );
     }
 
     case 'order.reverse': {
@@ -298,7 +379,9 @@ export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Pl
       const closing = closingSide(size);
       if (closing === undefined) return [];
       const tag = call.tag ?? '';
-      const out = flattening(ctx, Math.abs(size), closing, null, tag);
+      // What is left to close rather than the whole leg, so that a reverse
+      // after a close on the same bar does not send the position twice.
+      const out = flattening(ctx, closableUnits(ctx, null), closing, null, tag, null);
       // The replacement is a position of its own, minted here, so that a fill
       // on the outgoing order settles the position it belonged to.
       const ref = ctx.mint();
@@ -312,7 +395,7 @@ export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Pl
         tag,
         positionRef: ref,
       };
-      return [...out, opening];
+      return [...out, adding(opening)];
     }
 
     case 'exit':
@@ -330,14 +413,14 @@ export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Pl
       return bracketing(ctx, call.tag ?? '', null, null, null, call.profit, call.loss);
 
     case 'cancel':
-      return [cancelling(call.tag ?? '')];
+      return [adding(cancelling(call.tag ?? ''))];
 
     case 'cancelAll': {
       const tags: string[] = [];
       for (const row of ctx.rows()) {
         if (!isTerminal(row.status) && !tags.includes(row.tag)) tags.push(row.tag);
       }
-      return tags.map((tag) => cancelling(tag));
+      return tags.map((tag) => adding(cancelling(tag)));
     }
 
     default:

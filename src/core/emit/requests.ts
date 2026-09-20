@@ -27,10 +27,11 @@ import type { Call, Expression } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import type { CheckedCall, CheckedRequest } from '../check/index.js';
 import type { Emitter, Frame } from './context.js';
-import { Frame as EmitFrame, RequestScope, argumentAt, declaredNames } from './context.js';
+import { Frame as EmitFrame, argumentAt, declaredNames } from './context.js';
 import { emitExpression } from './expressions.js';
 import { assignRegions } from './functions.js';
 import type { ChartReference, Request, RequestBody, RequestField } from './program.js';
+import { RequestScope } from './request-scope.js';
 import { fieldOf } from './values.js';
 
 /**

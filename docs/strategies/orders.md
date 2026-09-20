@@ -436,10 +436,20 @@ nothing, says nothing, and is how a strategy is ordinarily written.
 ceiling.** No order crosses zero, so a close larger than what it is closing
 would flatten the position and open the opposite one in a single order, and a
 leg that was long would end the bar short under a call named `close`. That is
-OS7017, it names what was asked for and what is held, and the call sends
-nothing. The engine does not quietly send what is there instead: that would be a
-quantity you did not write, and your script would carry on believing it had
-closed the one you did.
+OS7017, it names what was asked for and what is left to close, and the call
+sends nothing. The engine does not quietly send what is there instead: that
+would be a quantity you did not write, and your script would carry on believing
+it had closed the one you did.
+
+**What a close is measured against is what is left on this bar, not what the leg
+held when the bar began.** A position moves when a fill settles, and an order
+your script sent a line ago has not filled yet, so two closes on one bar would
+each be sized to the whole position and the second would take the leg short. The
+engine counts what the bar has already sent: the second of two bare closes sends
+nothing, and a second `close(qty = 2)` on a leg of three is OS7017 with one left
+rather than three. The same count covers a `sell` that reduces a long leg, the
+closing half of `order.reverse`, and a bar declared `onUnconfirmed` that is
+executed several times.
 
 The two rules meet in a place worth knowing about before you meet it.
 `close(tag = "runner")` on a tag that has already flattened is silent, and
@@ -498,6 +508,14 @@ The first two produce the same two orders and the same two position references.
 `order.reverse()` is the one to reach for when the strategy is always in the
 market, because it says in one call what the other two spell out, and a reader does
 not have to check the arithmetic to see that the size is unchanged.
+
+The split is arithmetic on the order's own quantity, so it happens where the
+declaration counts in units. In lots, cash or an equity percent the quantity you
+write and the position the engine holds are two different kinds of number, the
+lot size that would join them is not a fact the engine is given, and such an
+order is sent as written: one order, one position reference. That is the same
+limit OS7017 is narrowed by, and `order.reverse()` is the spelling that works in
+every unit, because the engine sizes both of its orders itself.
 
 ```
 version 1

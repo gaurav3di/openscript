@@ -238,16 +238,17 @@ test('a stated quantity no larger than the position is sent as written', () => {
 });
 
 /**
- * The narrowing, measured rather than promised.
+ * The narrowing, measured rather than promised, and what survives it.
  *
  * A quantity a script states is in the declaration's own unit and a position is
  * folded from filled quantities (`host-interface.md` 7.1), so the two are the
- * same kind of number only where that unit is units. A declaration counting in
- * lots is left alone, which `refuse.ts` says in its own list of what it will not
- * evaluate, and the lot size that would join the two is a fact the ledger is not
- * given. Catches a comparison that ignores the declaration.
+ * same kind of number only where that unit is units. Against a position that is
+ * still there, a declaration counting in lots is left alone: the lot size that
+ * would join the two is a fact the ledger is not given, and a refusal carrying a
+ * number nobody can defend is worse than the silence it replaces. Catches a
+ * comparison that ignores the declaration.
  */
-test('a declaration counting in lots is not held to this comparison', () => {
+test('a declaration counting in lots is not held to the whole comparison', () => {
   const run = runFor([
     'version 1',
     'strategy("Probe", qty = 2, qtyType = "lots", pyramiding = 50)',
@@ -258,6 +259,135 @@ test('a declaration counting in lots is not held to this comparison', () => {
   ]);
   assert.equal(ran(run, 6), undefined);
   assert.deepEqual(quantities(run, 'sell'), [40]);
+});
+
+/** The three declarations the narrowing was about, so none of them is assumed. */
+const OTHER_UNITS: readonly string[] = ['lots', 'cash', 'equityPercent'];
+
+/**
+ * The half of the comparison that needs no lot size, in every unit.
+ *
+ * Nothing left to close is zero in units, in lots, in cash and in an equity
+ * percent alike, and a close of any quantity against nothing is a false claim
+ * whatever the declaration counts in. For a whole release this was refused in
+ * units and silent in the other three, so a strategy declaring lots got no part
+ * of `stdlib.md` 17.1 at all. Catches the narrowing as it was written, which
+ * returned before reading the ledger whenever the unit was not units.
+ */
+test('a close stating a quantity against nothing is refused in every unit', () => {
+  for (const unit of OTHER_UNITS) {
+    const run = runFor([
+      'version 1',
+      `strategy("Probe", qty = 2, qtyType = "${unit}", pyramiding = 50)`,
+      'if bar.index == 1',
+      '    buy(qty = 2)',
+      'if bar.index == 3',
+      '    close()',
+      '    close(qty = 40)',
+    ]);
+    const diagnostic = ran(run, 6);
+    assert.equal(diagnostic?.code, 'OS7017', `${unit} sent a close against nothing`);
+    assert.equal(diagnostic?.values['held'], 0);
+  }
+});
+
+/**
+ * And the quantity the engine works out, which is in units in every unit.
+ *
+ * A close that states none is sized from the ledger and sent as units
+ * (`host-interface.md` 7.1), so the bar can count it whatever the declaration
+ * says. Two of them on one bar send one position in lots exactly as they do in
+ * units. Catches a fix written inside the units branch of the refusal, which
+ * would leave these three crossing zero with no quantity written anywhere.
+ */
+test('two closes on one bar send one position in every unit', () => {
+  for (const unit of OTHER_UNITS) {
+    const run = runFor([
+      'version 1',
+      `strategy("Probe", qty = 2, qtyType = "${unit}", pyramiding = 50)`,
+      'if bar.index == 1',
+      '    buy(qty = 2)',
+      'if bar.index == 3',
+      '    close()',
+      '    close()',
+      'plot(pos.size, "Size")',
+    ]);
+    assert.equal(ran(run, 6), undefined, `${unit} refused an ordinary pair of closes`);
+    assert.deepEqual(quantities(run, 'sell'), [2], `${unit} sent the position twice`);
+    assert.equal(run.engine.column(0)[5], 0, `${unit} left the leg short`);
+  }
+});
+
+/**
+ * What an order the engine cannot read in units is counted as.
+ *
+ * A quantity stated in lots is not a number of units, so the engine cannot say
+ * how much of the leg the order it just sent is taking. Counted as nothing, the
+ * bare close after it sends the whole position again: measured on a leg holding
+ * two units, `close(qty = 1)` then `close()` sent one lot and two units and the
+ * leg ended one short. Counted as the whole of what was left, the second close
+ * sends nothing and the leg is left holding what it held.
+ *
+ * That is the worse-of-two choice `stdlib.md` 17.1 makes: a close that sends
+ * nothing is the idempotence the same section describes, and an order that
+ * crosses zero is the failure the section exists for. Catches a count that
+ * treats an unreadable quantity as zero, which is the shape this replaced.
+ */
+test('a stated quantity the engine cannot read leaves nothing for a later close', () => {
+  for (const unit of OTHER_UNITS) {
+    const stated = runFor([
+      'version 1',
+      `strategy("Probe", qty = 2, qtyType = "${unit}", pyramiding = 50)`,
+      'if bar.index == 1',
+      '    buy(qty = 2)',
+      'if bar.index == 3',
+      '    close(qty = 1)',
+      '    close()',
+      'plot(pos.size, "Size")',
+    ]);
+    assert.equal(ran(stated, 6), undefined);
+    assert.deepEqual(quantities(stated, 'sell'), [1], `${unit} sent the position again`);
+    assert.ok((stated.engine.column(0)[5] as number) >= 0, `${unit} left the leg short`);
+
+    // The same of an entry that reduces the leg, which is the other call that
+    // can send a quantity the engine cannot read.
+    const reducing = runFor([
+      'version 1',
+      `strategy("Probe", qty = 2, qtyType = "${unit}", pyramiding = 50)`,
+      'if bar.index == 1',
+      '    buy(qty = 4)',
+      'if bar.index == 3',
+      '    sell(qty = 1)',
+      '    close()',
+      'plot(pos.size, "Size")',
+    ]);
+    assert.equal(ran(reducing, 6), undefined);
+    assert.deepEqual(quantities(reducing, 'sell'), [1], `${unit} closed against an unread order`);
+    assert.ok((reducing.engine.column(0)[5] as number) >= 0, `${unit} left the leg short`);
+  }
+});
+
+/**
+ * And the refusal does not name a number it did not measure.
+ *
+ * After an order the engine cannot read, what is left is zero only because that
+ * is the safe reading, not because the leg holds nothing. OS7017 names what is
+ * left in its message, so it is not raised on an assumed zero: a refusal
+ * carrying a number nobody can defend is worse than the silence it replaces,
+ * which is the same rule that narrowed it in the first place.
+ */
+test('an assumed zero is not reported as a measured one', () => {
+  const run = runFor([
+    'version 1',
+    'strategy("Probe", qty = 2, qtyType = "lots", pyramiding = 50)',
+    'if bar.index == 1',
+    '    buy(qty = 2)',
+    'if bar.index == 3',
+    '    close(qty = 1)',
+    '    close(qty = 1)',
+  ]);
+  assert.equal(ran(run, 6), undefined, 'a refusal named a quantity nobody measured');
+  assert.deepEqual(quantities(run, 'sell'), [1, 1]);
 });
 
 /**

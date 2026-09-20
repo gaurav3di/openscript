@@ -203,7 +203,14 @@ function callHeldBy(checker: Checker, value: Expression): CheckedCall | undefine
   return inner.kind === 'call' ? checker.callSites.get(inner) : undefined;
 }
 
-/** Gives the input the name it was assigned to, which is also its default title. */
+/**
+ * Gives the input the name it was assigned to, which is also its default title.
+ *
+ * Called from both spellings that put a name in front of an `input()`, because
+ * the key is what the row is stored under and a `var` does not rename a row.
+ * Whether the name then *is* the input, which decides its slot and whether a
+ * declaration option may fold it, is the separate question `inputHeldBy` asks.
+ */
 function adoptInput(checker: Checker, bindingId: number, name: string): void {
   const input = checker.inputs[checker.inputs.length - 1];
   const binding = checker.bindings[bindingId];
@@ -273,13 +280,23 @@ function checkVar(checker: Checker, statement: VarDeclaration, placement: Placem
   }
 
   const kind = checker.scope === checker.fileScope ? 'file' : 'block';
-  checker.declare(
+  const binding = checker.declare(
     name,
     kind,
     type,
     checker.warmupOf(statement.initialiser),
     statement.live ? 'live' : 'var',
   );
+  // `var len = input(14, "Length")` declares one settings row like any other,
+  // and the name it is written under is that row's key and its label
+  // (`host-interface.md` 8.1). What `var` decides is where the value lives, not
+  // what the row is called, so adding or removing the word leaves a user's
+  // stored value on the row they stored it for. The name does not become the
+  // input: `inputHeldBy` is where that half is answered.
+  const written = withoutGrouping(statement.initialiser);
+  if (written.kind === 'call' && checker.callSites.get(written)?.name === 'input') {
+    adoptInput(checker, binding.id, name.text);
+  }
   if (statement.live) checker.report('OS8011', name.span, { name: name.text });
 }
 

@@ -16,6 +16,8 @@ import type {
   CheckedScript,
   LibraryEntry,
 } from '../check/index.js';
+import { inputHeldBy } from '../check/index.js';
+import type { RequestScope } from './request-scope.js';
 import type { DiagnosticSink } from '../diagnostics/index.js';
 import type { SourceFile } from '../source/index.js';
 import type { Span } from '../span/index.js';
@@ -36,7 +38,6 @@ import type {
   Paint,
   Plot,
   Request,
-  RequestInput,
 } from './program.js';
 import { fold } from './values.js';
 import type { FoldEnvironment, Value } from './values.js';
@@ -95,33 +96,6 @@ export interface Site {
   frame: FrameLayout | undefined;
   /** Sites reached from inside that body, so bases nest without overlapping. */
   children: number[];
-}
-
-/**
- * One read's expression while it is being emitted, and the settings it reads.
- *
- * `stdlib.md` 15.4 lets an expression inside a read name a setting and nothing
- * else of the file, because a setting resolves before bar 0 and holds for the
- * run while a per-bar name has no counterpart on the requested bars. Each one
- * read here is filled into a register of the body's own table, named by
- * `inputs` on the request (2.16).
- */
-export class RequestScope {
-  readonly inputs: RequestInput[] = [];
-  private readonly byBinding = new Map<number, number>();
-
-  /** The register a setting is filled into, or nothing when this is not one. */
-  registerFor(e: Emitter, binding: Binding): number | undefined {
-    if (binding.input === undefined) return undefined;
-    const found = this.byBinding.get(binding.id);
-    if (found !== undefined) return found;
-    const input = e.checked.inputs[binding.input];
-    if (input === undefined) return undefined;
-    const register = e.layout.filled('input', binding.name);
-    this.byBinding.set(binding.id, register);
-    this.inputs.push({ input: inputKey(input), series: register });
-    return register;
-  }
 }
 
 /** A loop being emitted, and where `break` and `continue` jump to. */
@@ -351,8 +325,9 @@ export class Emitter {
       name: (reference: NameReference): Value | undefined => {
         const binding = this.bindingAt(reference);
         if (binding === undefined) return undefined;
-        if (binding.input === undefined) return undefined;
-        const input = this.checked.inputs[binding.input];
+        const held = inputHeldBy(binding);
+        if (held === undefined) return undefined;
+        const input = this.checked.inputs[held];
         return input === undefined ? undefined : { kind: 'input', key: inputKey(input) };
       },
       call: (call: Call) => {
@@ -375,9 +350,21 @@ export class Emitter {
  * Here rather than beside the table it keys, because three places name an
  * input by key and a second spelling of this would be a field that points at
  * no row.
+ *
+ * **Never the input's position.** `host-interface.md` 8.1 promises a key
+ * "survives every edit that does not rename it", and a positional key keeps
+ * that promise for no edit at all: inserting one tunable above another moves
+ * every key below it, and a value a user stored against the third row lands on
+ * the fourth, silently, because both are numbers and 8.3 has nothing to refuse.
+ * An input written where a value belongs is assigned to no name, so its key is
+ * its title, which is what the user sees and what changing is the rename 8.1
+ * allows to lose a value. The two cannot collide: two inputs sharing a title
+ * are OS3017, a title spelling another input's name is OS3022, and a title
+ * that is not there at all is OS3021, so a key of `""` here is a program the
+ * checker has already refused.
  */
 export function inputKey(input: CheckedInput): string {
-  return input.name === '' ? `input${input.id}` : input.name;
+  return input.name === '' ? input.title : input.name;
 }
 
 /**
@@ -443,17 +430,23 @@ export function argumentAt(
  * Both have to answer about a name written below the line that asks, so both
  * run over the file rather than over what has been emitted so far.
  */
-export function declaredNames(
-  e: Emitter,
-): readonly { readonly name: Name; readonly value: Expression }[] {
-  const found: { readonly name: Name; readonly value: Expression }[] = [];
+export function declaredNames(e: Emitter): readonly DeclaredName[] {
+  const found: DeclaredName[] = [];
   for (const item of e.checked.script.items) {
-    if (item.kind === 'assignment') found.push({ name: item.target, value: item.value });
-    else if (item.kind === 'varDeclaration') {
-      found.push({ name: item.name, value: item.initialiser });
+    if (item.kind === 'assignment') {
+      found.push({ name: item.target, value: item.value, persistent: false });
+    } else if (item.kind === 'varDeclaration') {
+      found.push({ name: item.name, value: item.initialiser, persistent: true });
     }
   }
   return found;
+}
+
+/** One of those names, and whether `var` was written in front of it. */
+export interface DeclaredName {
+  readonly name: Name;
+  readonly value: Expression;
+  readonly persistent: boolean;
 }
 
 /** The dotted name a callee spells, for a call the checker did not resolve. */

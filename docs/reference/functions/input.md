@@ -27,22 +27,32 @@ the input's type, and a reader scanning a column of inputs wants the value. The
 title is the second positional argument and defaults to the variable's own name,
 so a well named variable often needs no title at all.
 
-**Two rules the compiler enforces.** `input()` appears only at the top level of
+**Three rules the compiler enforces.** `input()` appears only at the top level of
 a file, never inside a block or a function (OS3007), because the settings dialog
-is built once, before the first bar runs. And an `input()` whose default is not
-a compile-time constant is OS3003, for the same reason: a dialog cannot be built
-from a value that depends on a bar.
+is built once, before the first bar runs. An `input()` whose default is not a
+compile-time constant is OS3003, for the same reason: a dialog cannot be built
+from a value that depends on a bar. And every input has to be nameable, because a
+host files a saved value under the name the input was assigned to, or under its
+title where it was assigned to none: an input with neither is OS3021, and a title
+that spells another input's name is OS3022, since two rows cannot share one key.
 
 ```
 len = input(14, "Length")               // correct
 if useLongLength
     len = input(50, "Length")           // OS3007
 len = input(round(atr(14)), "Length")   // OS3003
+plot(close + input(2), "C")             // OS3021
 ```
+
+The top level includes the expression argument of a higher timeframe read, which
+is not a block and not a function: `req.timeframe("1D", ema(close, input(20,
+"Bias")))` is one read of one setting, resolved before the body runs.
 
 An input has no warmup. Its value is fixed before bar 0 and is the same on every
 bar, so it can be used anywhere a plain value of its type is accepted, including
-as a study option.
+as a study option. `var len = input(14, "Length")` is different: it is an
+ordinary `var` whose initial value is the setting, so it may be assigned later
+and is not a compile-time constant.
 
 ---
 

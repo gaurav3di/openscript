@@ -21,6 +21,7 @@
 import type { Diagnostic } from '../../diagnostics/index.js';
 import type { Span } from '../../span/index.js';
 import { callOf } from './call.js';
+import type { SentOnBar } from './closable.js';
 import type {
   Identity,
   IntentBar,
@@ -29,11 +30,10 @@ import type {
   OrderSide,
   OrderType,
 } from './intent.js';
-import { intentFor, placementsFor } from './place.js';
+import { intentFor, ordersFor } from './place.js';
 import type { PlacingContext } from './place.js';
 import { Positions } from './positions.js';
 import { refusalInCall, refusalInOrder } from './refuse.js';
-import type { SentOnBar } from './refuse.js';
 import { foldFrame } from './row.js';
 import type { FrameOutcome, LedgerRow } from './row.js';
 
@@ -71,7 +71,12 @@ export class Ledger {
   private readonly options: LedgerOptions;
   /** The bar `sent` describes, so the list empties when a new one begins. */
   private at = -1;
-  /** The orders this bar has sent, which is what OS7013 is asked about. */
+  /**
+   * The orders this bar has sent, which is what OS7013 is asked about and what
+   * a close is measured against: an order sent earlier on this bar has filled
+   * nothing, so the position it is reducing has not moved and the quantity it
+   * already sent is the only record that it is going.
+   */
   private sent: SentOnBar[] = [];
 
   constructor(options: LedgerOptions) {
@@ -115,17 +120,17 @@ export class Ledger {
     const refused = refusalInCall(call, ctx);
     if (refused !== undefined) return { intents: [], refusal: refused };
 
-    const placements = placementsFor(call, ctx);
-    for (const placement of placements) {
-      const bad = refusalInOrder(call, placement, ctx, this.sent);
+    const orders = ordersFor(call, ctx);
+    for (const order of orders) {
+      const bad = refusalInOrder(call, order.placement, ctx, this.sent);
       if (bad !== undefined) return { intents: [], refusal: bad };
     }
 
     const intents: OrderIntent[] = [];
-    for (const placement of placements) {
+    for (const order of orders) {
       const intentId = this.next;
       this.next += 1;
-      const intent = intentFor(placement, intentId, ctx);
+      const intent = intentFor(order.placement, intentId, ctx);
       intents.push(intent);
       // Only an order that places one appends a row: a cancellation and a
       // bracket carry an id a host can quote and nothing has been ordered by
@@ -134,7 +139,9 @@ export class Ledger {
       const { side, qty, type } = intent;
       if (intent.kind === 'place' && side !== null && qty !== null && type !== null) {
         this.append(intent, { side, qty, type }, bar);
-        this.sent.push({ name: call.name, line: at.line, side });
+        // One entry per appended row, in the same order, which is what lets a
+        // refused bar take back exactly the orders it appended.
+        this.sent.push({ name: call.name, line: at.line, side, reduces: order.reduces });
       }
     }
     return { intents, refusal: undefined };
@@ -288,6 +295,7 @@ export class Ledger {
       current: () => this.positions.current(),
       mint: () => this.positions.mint(),
       rows: () => this.placed,
+      sent: () => this.sent,
     };
   }
 }

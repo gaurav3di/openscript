@@ -55,6 +55,7 @@ export function check(file: SourceFile, script: Script, sink: DiagnosticSink): C
   reportUnknownElementTypes(checker);
   reportNamesNeverRead(checker);
   reportRepeatedTitles(checker);
+  reportInputKeys(checker);
   reportRepeatedAlertIds(checker);
   reportUnplaceableTags(checker);
 
@@ -135,5 +136,39 @@ function reportRepeatedTitles(checker: Checker): void {
         line: first,
       });
     }
+  }
+}
+
+/**
+ * OS3021 and OS3022: an input whose settings key is missing, or is another's.
+ *
+ * `host-interface.md` 8.1 keys a stored value by the name the input was
+ * assigned to, and an input written where a value belongs is assigned to none.
+ * Its key is its title instead: the one thing about the row a user sees, and
+ * therefore the one thing whose change is a rename rather than an edit. That
+ * holds only while every input lands on a key of its own, and there are exactly
+ * two ways it does not. A title spelling another input's name puts two rows on
+ * one key, and one user value would serve both. A title that is not there at
+ * all is no key and no label either.
+ *
+ * Two inputs carrying one title is the third way and is OS3017 above, which is
+ * why this runs after it: the case is already reported and reporting it twice
+ * would be two codes for one edit.
+ */
+function reportInputKeys(checker: Checker): void {
+  const names = new Map<string, number>();
+  for (const input of checker.inputs) {
+    if (input.name !== '') names.set(input.name, input.span.line);
+  }
+
+  for (const input of checker.inputs) {
+    if (input.name !== '') continue;
+    if (input.title === '') {
+      checker.report('OS3021', input.span, {});
+      continue;
+    }
+    const taken = names.get(input.title);
+    if (taken === undefined) continue;
+    checker.report('OS3022', input.span, { name: `"${input.title}"`, line: taken });
   }
 }

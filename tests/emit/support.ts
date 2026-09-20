@@ -175,7 +175,12 @@ export function walkStack(
     const after = depth + effectOf(instruction, argcOf);
     for (const target of targetsOf(instruction)) reach(target, after);
     const opcode = instruction[0];
-    if (opcode === 'HALT' && after !== 0) problems.push(`depth ${after} at HALT`);
+    // Check 5's third sentence, over both terminators: a `RET` reaches nothing
+    // after it, so a body that is one value short is at minus one exactly here
+    // and nowhere a `reach` would see it.
+    if ((opcode === 'HALT' || opcode === 'RET') && after !== 0) {
+      problems.push(`depth ${after} at ${opcode}`);
+    }
     if (opcode !== 'JUMP' && opcode !== 'RET' && opcode !== 'HALT') reach(i + 1, after);
   }
 

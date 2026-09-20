@@ -1,6 +1,6 @@
 # 0016 Two closes on one bar cross zero, and one of them needs no quantity
 
-Status: open
+Status: closed 2026-09-20
 Opened: 2026-09-20
 Against: `src/core/engine/ledger/place.ts` (`closableUnits`, and the `close`
 case of the mapping) and `src/core/engine/ledger/ledger.ts` (`size`)
@@ -78,3 +78,41 @@ destination received never passes what the leg held, and that the leg is never
 short after a call named close. The assertion is on the destination rather than
 on the diagnostic, because a fix that refused the second close and a fix that
 sized it correctly are both acceptable answers and the test should hold either.
+
+## How it was closed
+
+Decision 42. A reducing order is measured against **what is left to close on
+this bar**, which is what the part holds less what this bar's own orders have
+already committed to closing, and `stdlib.md` 17.1 now carries the invariant:
+the orders one bar sends can never sum past the position they are reducing.
+
+Of the two answers this issue declined to choose between, neither was picked
+over the other, because the rule at the top of the repository settles them
+separately. A bare `close()` writes no quantity, so the quantity is the engine's
+to work out, and the number it was working out was the wrong one: it is sized,
+and the second of two on a bar sends nothing, which is the idempotence 17.2
+already describes. A `qty` on a close is a claim, so it is still refused when
+false, now against what is left: `close(qty = 2)` twice on a leg of three is one
+order and then OS7017 naming one left.
+
+The three documents that carried the false clause say something true now:
+`stdlib.md` 17.2, OS7017's `cause` in `errors.json` and `errors.md`, and
+decision 40, which is corrected in place and points at 42.
+
+The two questions this issue raised beside its own are settled in the same
+decision. OS7017 is evaluated in every unit for the half that needs no lot size,
+which is that nothing left to close is zero in all four of them; and
+`entering` splits an entry that would cross zero into two orders with two
+position references, which is what `docs/strategies/orders.md` already taught.
+
+`tests/engine/crossing.test.ts` asserts the destination rather than the
+diagnostic, as this issue asked.
+
+## What is left, in its own issue
+
+Issue 0017. The bar is the scope of the count, and a close still working when
+the next bar closes again is measured against a position that has not moved, so
+two closes on two bars can still sum past it. And one shape is still not held
+inside a bar: a quantity stated against a position that is still there, in a
+declaration counting in lots, cash or an equity percent, which needs the
+instrument's lot size.

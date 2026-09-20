@@ -2463,7 +2463,9 @@ close sends is one the engine works out from the leg's own settled fills and is
 bounded by them; a quantity the script stated was passed through as written.
 Issue 0013 laid out three answers and declined to pick between them, correctly,
 because they are three different languages rather than three implementations of
-one.
+one. (Two sentences of this paragraph were too broad and decision 42 corrects
+them: a quantity the engine works out is bounded by the position only one call
+at a time, and two of them on one bar cross zero between them.)
 
 **Decision. A `qty` written on a close may not be larger than what that close is
 closing, and larger is OS7017, at the call, with the call sending nothing.** What
@@ -2569,7 +2571,7 @@ splits into two orders, because no order crosses zero", and the engine splits
 nothing: `buy` and `sell` map to one order at the quantity written. Either the
 page is wrong or `entering` is, and that is a question about what an entry means
 rather than about what a close means. It needs its own issue and its own
-decision.
+decision. (Settled in decision 42: the page was right and `entering` was wrong.)
 
 ---
 
@@ -2607,6 +2609,347 @@ in a paragraph that cannot be wrong has no way to tell which of the others can.
   writing the two products in the other order gives the same ones. The second is
   a statement about `compiled-program.md` 8.1's arithmetic rather than about this
   library, and it is the measurement that justifies the silence.
+
+---
+
+## 42. What a reducing order is measured against, and the entry that crosses zero
+
+**Question.** `stdlib.md` 17.1 states it with no qualification: no order crosses
+zero. Decision 40 closed the half a script reaches by writing a quantity on a
+close. Measured against the built engine, three paths were still open, and none
+of them needed a quantity larger than the leg:
+
+```
+if bar.index == 2
+    close()
+    close()
+```
+
+on a leg holding three long sent two sells of three under one position
+reference. The destination netted three short, the ledger folded to minus three,
+and nothing was said. Five bare closes in a loop ended the leg twelve short.
+`close(qty = 2)` twice on a leg of three ended it one short with each order
+inside OS7017's ceiling. Second, OS7017 was narrowed to a declaration counting in
+units, so `buy(qty = 1)` and then `close(qty = 5)` under lots, cash or an equity
+percent sent one sell of five against a leg holding one, with no refusal on any
+of the three. Third, `docs/strategies/orders.md` taught
+`sell(qty = abs(pos.size) + newQty)` as one instruction the engine splits into
+two orders, and `entering` mapped one order at the quantity written.
+
+The cause of the first is not a defect in `ctx.size()`. A position is folded from
+settled fills and from nothing else, which is right and is what 17.8 says. A row
+appended earlier on the same bar has filled nothing, so the second close measured
+against the same position the first one did. The ceiling was the right ceiling
+applied to the wrong number: what the leg held when the bar began rather than
+what is left to close after the orders the bar has already committed to.
+
+**Decision, part one. A reducing order is measured against what is left to
+reduce on this bar.** What is left is what the part holds, less what this bar's
+own orders have already committed to closing, and the invariant it keeps is
+written into 17.1: **the orders one bar sends can never sum past the position
+they are reducing.**
+
+**The tension, which is the real content of this decision.** Issue 0016 named
+two acceptable answers and declined to pick: size the second close against what
+is left, or refuse it. Neither is free. Sizing it silently is the engine
+deciding a quantity, which is the thing this repository has refused three times.
+Refusing a bare `close()` refuses a call that wrote no claim at all, which cuts
+against the rule that keeps being the answer here: an argument the script wrote
+is a claim, and a false claim is refused; an argument it did not write is the
+engine's to work out.
+
+**It is resolved by reading the rule, not by choosing between the two halves.**
+A bare `close()` writes no quantity, so the quantity is the engine's to work out,
+and the right number to work out was never "what the leg held when the bar
+began": it is what is left to close. Sizing it is not the engine deciding a
+quantity, it is the engine correcting the one it was already deciding. The
+second of two bare closes then sends nothing, which is exactly the idempotence
+17.2 already describes for a tag that holds nothing, rather than a new silence.
+A `qty` on a close is still a claim, it is still refused when false, and the only
+thing that changed is that it is now held against the true number: on a leg of
+three, `close(qty = 2)` twice is one order and then OS7017 naming one left.
+
+So neither answer was picked over the other. The bare call is sized because
+sizing it was always the engine's job, and the stated call is refused because
+refusing a false claim was always the language's.
+
+**The scope is the bar, and the bar includes its re-executions.** A file
+declared `onUnconfirmed` applies its effects on every execution of the moving
+bar, and the orders of the earlier executions really were handed over, so the
+record is keyed on the bar rather than on the execution. A close on a bar
+executed three times sends one position, not three.
+
+**Decision, part two. What the engine cannot count, it counts as everything.**
+The count is in units, because a position is. A quantity the engine worked out is
+in units already; a quantity the script stated is in the declaration's own unit
+(`host-interface.md` 7.1). Where that unit is not units the engine cannot read
+its own order as a number of units, and it has two readings to choose from.
+Counted as nothing, `close(qty = 1)` in lots followed by a bare close on the same
+bar sends the position a second time and the leg ends short: measured, on a leg
+holding two units, it ended one short. Counted as everything, the second close
+sends nothing and the strategy may be left holding a position it believes it
+closed.
+
+**The second is chosen, because 17.1 is the sentence with no qualification in
+it.** A close that sends nothing is the idempotence the same section already
+describes, and it leaves the position the script had. An order that crosses zero
+leaves the opposite position, which is the failure the rule exists for. Between a
+silence and a wrong sign, the wrong sign is worse, and it is worse in the
+direction that costs money without bound.
+
+**Decision, part three. OS7017 is evaluated in every unit, for the half that
+needs no lot size.** The narrowing was sound and was disclosed honestly in six
+places, and it remains where it belongs: a stated quantity held against a
+position that is still there is a comparison between two kinds of number, and
+the lot size that would join them is the fact OS7005 has been deferred on from
+the beginning. But nothing left to close is zero in units, in lots, in cash and
+in an equity percent alike, and a close that states a quantity against a part
+holding nothing is a false claim whatever the declaration counts in. That half is
+now refused everywhere, which is how a strategy declaring lots gets the part of
+17.1 that can be held for it rather than none of it.
+
+**What is not held, stated where a reader meets it rather than in a comment.**
+One shape: a quantity stated against a position that is still there, in a
+declaration counting in lots, cash or an equity percent. That order may cross
+zero and is not refused. OS7017's own catalogue entry says so, 17.2 says so, and
+the feature matrix has a row for it. What would have to exist first is the
+instrument's lot size reaching the ledger, which is one field on the host's
+instrument record that the engine already carries the tick size from; cash and an
+equity percent need the money figures of 17.4 as well, and those are planned.
+No quantity the engine works out after such an order adds to what it may have
+crossed, because of part two: a `close()` after it on the same part sends
+nothing. A second stated quantity on the same bar is another order of this same
+shape rather than a consequence of the first, and the refusal stays silent on it
+because an assumed zero is not a number it may name.
+
+**Decision, part four. An entry that would cross zero is sent as two orders.**
+Here the specification had already decided and the engine disagreed with it:
+17.1 says an instruction that would take a leg from long to short is sent as two
+orders, one closing the outgoing position and one opening the replacement, each
+carrying its own position reference. The page taught what the specification says.
+`entering` now sends the closing half at what is left to close, with the position
+reference the leg is attached to, and the opening half at the remainder, with a
+reference minted for it. `order.reverse` was already this pair and is now the
+same code path's neighbour rather than its exception.
+
+The reason 17.1 gives for the split is the one that matters: a single order that
+crossed zero would leave a late fill with no way to say which of the two
+positions it settled, and during a flip a leg holds both at once.
+
+**Two consequences of the split, both deliberate.** An order opposing a position
+this bar has already committed to closing in full is opening a replacement rather
+than reducing anything, so it is minted a position of its own: `close()` and then
+`sell(qty = 4)` on one bar sends the close and then an entry under a new
+reference, instead of attaching a short to the position that is going. And a
+second crossing entry on the same bar opens a second replacement rather than
+joining the first, because nothing has settled and the engine cannot tell one
+from the other; the sum is right, no position crosses zero, and the shape is a
+script mistake either way.
+
+**The split is arithmetic on the order's own quantity**, so it happens where the
+declaration counts in units, for the reason part three gives. Elsewhere the order
+is sent as written and the page says so.
+
+**What is deliberately not settled here, and has an issue rather than a
+sentence.** The bar is the scope. A close sent on one bar and still working when
+the next bar closes again is measured against a position that has not moved, so
+two closes on two bars can still sum past it: measured, a leg holding three long
+with the first close unacknowledged ended three short after both filled. That is
+a different question, about what a working order means to a later bar rather than
+about what a bar may send, and answering it wrongly would break the strategy that
+closes again because the first close was never acknowledged. It cannot be
+answered in lots at all, because a ledger row does not carry the unit its
+quantity is counted in. Issue 0017.
+
+**Changes required.**
+
+- `stdlib.md` 17.1: the paragraph on what the orders of one bar may sum to, and
+  the paragraph on counting in units and what is done with an order the engine
+  cannot read.
+- `stdlib.md` 17.2: the close paragraph, measured against what is left; the
+  paragraph on where the comparison is made in full and where only half of it
+  is; and the sentence on why the second bare close is silent rather than
+  refused.
+- `errors.md` and `errors.json`: OS7017's message, its `held` placeholder, its
+  cause, and its fix.
+- `feature-matrix.md` 29: five rows, `order/bar-reducing-budget`,
+  `order/close-twice-one-bar`, `order/entry-crosses-zero`,
+  `order/reducing-qty-unreadable`, and the two rows already there reworded.
+- `docs/strategies/orders.md`: what a close is measured against, and the
+  qualification on the reversing table.
+- `docs/strategies/reading-the-books.md`, `docs/troubleshooting.md`,
+  `docs/reference/functions/strategy.md`: the same sentence where each of them
+  teaches the ceiling.
+- `src/core/engine/ledger/closable.ts`: a new file, holding what is left to
+  close, the bar's own record of what it has sent, and why an order the engine
+  cannot read counts as all of it.
+- `src/core/engine/ledger/place.ts`: `entering` splits; `flattening` and
+  `order.reverse` measure against what is left; every mapped order says what it
+  takes out of the leg.
+- `src/core/engine/ledger/refuse.ts`: OS7017 against what is left, and in every
+  unit where what is left is a measured zero.
+- `src/core/engine/ledger/ledger.ts`: the bar's record carries what each order
+  reduces, one entry per row appended, so a refused bar takes both back together.
+- `tests/engine/crossing.test.ts`: the invariant, asserted on the destination.
+- `tests/engine/closing.test.ts`: the half of OS7017 that holds in every unit.
+
+---
+
+## 43. What a settings row is, once an `input()` may be written anywhere
+
+**Question.** Issue 0014 let an `input()` be written everywhere the specification
+allows one: as a declaration option, inside a larger expression, as the whole of
+an assignment. That was right and is not reopened here. It left three edges, and
+each of them is the same question asked from a different side: what is a settings
+row, when it is not a name on a line?
+
+Measured on the built compiler, in that order:
+
+```
+study("B", precision = input(2, "Decimals"))
+a = input(14, "Length") + 0
+b = input(3, "Width") + 0
+```
+
+carried the keys `input0`, `input1`, `input2`. Inserting one tunable in the
+middle and renaming nothing made them `input0` to `input3`, and the value a user
+had stored for Width arrived on Smoothing, silently, because section 8.3 of
+`host-interface.md` validates a number against a number and both are numbers.
+
+```
+d = req.timeframe("1D", high + input(1, "K"))
+```
+
+produced exactly one diagnostic, OS6018, whose message ends "if nothing else was
+reported about this script that is a defect in the compiler rather than in the
+script: please report it".
+
+```
+var len = input(14, "Length")
+```
+
+compiled with no diagnostic at all and read absent on every bar: the name was
+given a slot, the input was given another, and nothing joined them. The user got
+a row in the dialog they could move that did nothing.
+
+**Decision, part one. A row is named by what the user sees, never by where it
+sits.** The key is the name the input was assigned to, and where it was assigned
+to none, its title. `host-interface.md` 8.1 promises a key that "survives every
+edit that does not rename it", and a positional key keeps that promise for no
+edit at all: an insert, a delete and a reorder each move it, and each of those is
+an ordinary edit somebody makes without thinking about the dialog at all. The
+title is the one thing about an unassigned row that a user can see, so changing
+it is the rename the promise excepts, and every other edit leaves it alone.
+
+**Why not a position with a suffix to disambiguate.** Because a suffix is a
+position wearing a different hat, and it would break on exactly the edits a key
+exists to survive. Uniqueness is held by refusing instead: two inputs carrying
+one title were already OS3017, a title spelling another input's name is OS3022,
+and an input with neither a name nor a title is OS3021. The last of those is also
+a row with no label, which is a defect on its own.
+
+**The title is read from the line as a string literal** rather than folded from
+an expression over literals, because a key and a label are both fixed before
+anything is computed, and because a row a reader is looking for should be named
+on the line that declares it. `input(2, "Off" + "set")` is OS3021 rather than an
+unlabelled row, which is what it silently produced before.
+
+**This changes every stored key of every unassigned input, and there were
+none.** Across the 101 gate studies, the 6 gate scripts and `examples/`, 0 of 241
+inputs carried a generated key, because until issue 0014 closed, an `input()`
+written anywhere but the whole of an assignment did not compile at all. The
+scheme therefore changes before anything depends on it, which is the only moment
+it could.
+
+**Decision, part two. An `input()` inside a read's expression is permitted, and
+the emitter carries it.** `stdlib.md` 15.4 already let the expression read a
+**name** bound to an input, for a reason that is about the input and not about
+the name: a setting resolves before bar 0 and holds for the run, while a per-bar
+name has no counterpart on the requested bars. OS6003's own cause in the
+catalogue says it in the same words, listing "a literal, arithmetic over
+literals, or an `input()`". `language.md` 13.4 forbids a block and a function,
+and a read's expression is neither. Every document already said yes.
+
+The mechanism was already in the format as well. `compiled-program.md` 2.16
+gives a read's body an `inputs` list precisely so that a setting can cross into
+it: the engine resolves the key in the enclosing program before the body runs and
+fills a register of the body's own table with it. The call now resolves through
+the same scope the name does, so two reads of one setting inside one body share
+one register rather than asking the engine for the same value twice.
+
+**The alternative was defensible and is not what the documents say.** Forbidding
+it would have meant 13.4 naming a third place, and the checker refusing it at the
+span of the `input()` with a code about the script. That would be a rule the
+language gained in order to keep an emitter's limitation, and the limitation was
+one function call wide.
+
+**Decision, part three. `var name = input(...)` is an ordinary `var`.** An
+`input()` is the one declaration call that also has a value, so the initialiser
+is that value: the cell is initialised once, on the first bar, and keeps whatever
+the file puts in it afterwards. A setting cannot change mid-run
+(`host-interface.md` 8.2), so a `var` nothing assigns to holds exactly what the
+plain form holds, and what the word buys is the assignment: a running total that
+starts from a setting, which the language could otherwise only say in two lines.
+
+**It is not refused, because it is not meaningless.** The other reading was a new
+code telling the author to drop the `var`, and the case against it is that the
+combination says something the plain form cannot. What had to be settled
+alongside it is the half that makes the two spellings different: the name is not
+the input. `len = input(...)` makes the name another spelling of the setting, so
+it reads the input's own slot and is a compile-time constant; a `var` is a cell a
+later assignment may change, so it is a per-bar name, OS3003 in a declaration
+option and OS6003 inside a read's expression. One accessor answers that question,
+`inputHeldBy`, and three passes ask it rather than each deciding it. Leaving any
+one of them asking the old question was measured: the option case became a lone
+OS6018 and the read case accepted a per-bar name into another instrument's bars.
+
+**The row is keyed by the name either way**, so adding or removing the word `var`
+in a file somebody is already using does not move what they stored. That is part
+one applied to part three, and it is why the two belong in one decision.
+
+**And the check that should have caught all of this.** `compiled-program.md` 3.5
+check 5 is three sentences: the depth agrees on every path, it never goes below
+zero, and it is zero at the terminator. The compiler's own copy walked the first
+two. The third is not a restatement of the second: a `RET` reaches nothing after
+it, so a body one value short is at minus one exactly at the `RET`, where the
+walk asked nothing, and the walk finished clean. That is how a read's expression
+with an `input()` in it came to be emitted as a body whose stack does not add up,
+and it was found by an engine rather than by the compiler that wrote it. The walk
+now checks every `RET` and every `HALT` rather than the last instruction, because
+an early `return` is a terminator too and owes the same debt. The engine's own
+copy always checked it, and the two disagreeing is the whole reason the third
+sentence is written down.
+
+**Changes required.**
+
+- `host-interface.md` 8.1: what the key is, that it is never a position, and the
+  three refusals that keep two inputs off one key.
+- `compiled-program.md` 2.6: the `key` field's description.
+- `language.md` 13.4: where an `input()` may be written, what a name and a `var`
+  in front of it each mean, and that the title names the row.
+- `stdlib.md` 15.4: the call written inside a read's expression, and the `var`
+  that is not a setting. `stdlib.md` 13.2: the title is a literal, and is the key
+  of a row assigned to no name.
+- `errors.md` and `errors.json`: OS3021 and OS3022, and OS3022's row in the
+  refinement table of section 6.
+- `feature-matrix.md` 13, 22 and 26: the new rows.
+- `docs/inputs.md`, `docs/reference/functions/input.md`,
+  `docs/language/persistence.md`: the pages that teach what a row is called and
+  where an input may be written.
+- `src/core/emit/context.ts`: `inputKey`, and why it is never a position.
+- `src/core/check/check.ts`: OS3021 and OS3022.
+- `src/core/check/checked.ts`: `inputHeldBy`, the one place that separates the
+  input a name holds from the input it was given; `constant.ts` and
+  `expressions.ts` ask it.
+- `src/core/emit/request-scope.ts`: a new file, holding the settings one read's
+  expression reads, keyed by the input rather than by the binding.
+- `src/core/emit/inputs.ts`: a call inside a read's expression resolves through
+  that scope; `statements.ts` and `registers.ts`: a `var` over an input.
+- `src/core/emit/code.ts`: check 5's third sentence.
+- `tests/engine/settings.test.ts`: the promise of 8.1, held to an insert, a
+  delete, a reorder and a rename.
+- `tests/engine/request-settings.test.ts`: a setting inside a read's expression.
+- `tests/emit/depths.test.ts`: the three sentences of check 5.
 
 ---
 

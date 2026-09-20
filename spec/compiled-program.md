@@ -297,7 +297,7 @@ start of every bar (section 5.1).
 
 | Field | Type | Means |
 |---|---|---|
-| `key` | string | Settings key, the name the input was assigned to |
+| `key` | string | Settings key: the name the input was assigned to, or its title where it was assigned to none (`host-interface.md` section 8.1) |
 | `kind` | string | `"number"`, `"bool"`, `"string"`, `"color"`, `"source"`, `"interval"`, `"time"` or `"select"` |
 | `label` | string | Row label in the settings dialog |
 | `default` | value | The declared default, in constant pool value form (section 2.9) |

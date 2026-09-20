@@ -232,10 +232,11 @@ What Apply does, in order:
 4. Draws.
 
 Re-applying replaces the study on the chart with the new one. The settings dialog
-is rebuilt from the inputs the new source declares, so an input whose title you
-changed is a different row: treat a rename as a new setting at its default rather
-than as a relabelled one. Two inputs sharing a title is error OS3017, for the
-same reason.
+is rebuilt from the inputs the new source declares. A saved value is filed under
+the name the input was assigned to, or under its title where it was assigned to
+none, so renaming that is a new row at its default rather than a relabelled one,
+and every other edit, including inserting a row above it, leaves the value where
+it was. Two inputs sharing a title is error OS3017, for the same reason.
 
 Apply does not save. A script you applied and did not save is on the chart and
 not in your history, which is fine while you are experimenting and not fine at

@@ -96,7 +96,10 @@ Two restrictions apply inside `expr`:
   constant**: a literal, arithmetic over literals, or an `input()`. Reading a
   per-bar name is an error, because a value computed on this chart's bars has no
   counterpart on the coarse bars and there is no honest answer for what it would
-  mean there.
+  mean there. A `var` initialised from an `input()` is a per-bar name, because a
+  later line may change it.
+- **An `input()` may be written inside `expr` itself**, not only behind a name.
+  It is the same setting and the same dialog row, resolved before the body runs.
 - **Orders, drawings and alerts do not belong inside `expr`.** The expression is
   a calculation over another set of bars, not a second script with its own
   effects.
@@ -104,6 +107,7 @@ Two restrictions apply inside `expr`:
 ```
 len = input(20, "Length", min = 2, max = 500)
 ok  = req.timeframe("1D", ema(close, len) > ema(close, len * 2))   // legal
+same = req.timeframe("1D", ema(close, input(20, "Coarse length")))  // also legal
 
 atrNow = atr(14)
 bad = req.timeframe("1D", close > atrNow)   // refused: atrNow is a per-bar name

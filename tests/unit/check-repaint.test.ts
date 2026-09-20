@@ -82,6 +82,33 @@ test('an input may be read inside a request expression', () => {
   assert.deepEqual(codes(body), []);
 });
 
+/**
+ * The call written in the expression itself, which `stdlib.md` 15.4 permits for
+ * the same reason it permits the name: a setting resolves before bar 0 and holds
+ * for the run. It was refused at emit with OS6018, a code whose message tells
+ * the reader a correct script came from a broken compiler.
+ */
+test('an input written inside a request expression is read there like one behind a name', () => {
+  const nested = 'b = req.timeframe("1D", ema(close, input(20, "L")))\nplot(b, "B")';
+  assert.deepEqual(codes(nested), []);
+  const whole = 'b = req.timeframe("1D", input(20, "L"))\nplot(b, "B")';
+  assert.deepEqual(codes(whole), []);
+});
+
+/**
+ * A `var` holding a setting is not a setting. The cell is the setting's value on
+ * the first bar and whatever the bar puts in it afterwards (`language.md` 8.2),
+ * so it is a per-bar name and OS6003 is the code for reading one here. Catches a
+ * checker that asks whether a name was given an input rather than whether it is
+ * one, which reads `var` as a compile-time constant and lets a value computed on
+ * this chart's bars into another instrument's.
+ */
+test('a var initialised from an input is a per-bar name inside a request expression', () => {
+  const body = 'var k = input(1, "K")\nb = req.timeframe("1D", high + k)\nplot(b, "B")';
+  assert.deepEqual(codes(body), ['OS6003']);
+  assert.deepEqual(valuesFor(body, 'OS6003'), { name: 'k' });
+});
+
 // Catches a checker that lets an order be placed from another instrument's
 // bars, where the strategy's own ledger has no bar to attach it to.
 test('an order function inside a request expression is refused', () => {

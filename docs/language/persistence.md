@@ -88,6 +88,14 @@ One more rule, small but worth knowing before you meet it: the declaration and
 the assignment are one statement. `var tally` on its own is OS1011, and the fix
 the compiler names is `var tally = none`.
 
+**A `var` may start from a setting.** `var tally = input(0, "Start")` is an
+ordinary `var` whose initialiser happens to be an `input()`, which is how a
+running total begins at a number the reader chooses. A setting cannot change
+during a run, so a `var` nothing assigns to holds exactly what a plain assignment
+would; the word is there for the assignment. It does cost one thing: the name is
+no longer the setting, so it is not a compile-time constant and cannot be a
+declaration option (OS3003) or be read inside a higher timeframe read (OS6003).
+
 ---
 
 ## 3. Where and when the initialiser runs
