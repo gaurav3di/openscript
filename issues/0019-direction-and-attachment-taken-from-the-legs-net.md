@@ -142,7 +142,7 @@ here and in decision 52 rather than left for the next reader to find.
 ## Where it is tested
 
 `tests/engine/parts.test.ts` is the part a call names and the position each of a
-call's orders carries: eight fixtures on the destination's own inbox, one of
+call's orders carries: nine fixtures on the destination's own inbox, one of
 them folding the tag's holding from the fills the destination answered rather
 than from anything the engine kept.
 

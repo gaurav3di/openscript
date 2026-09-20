@@ -3749,7 +3749,7 @@ reduction, so the difference between the two readings is invisible at the
 destination in every shape that could be built for it, and a test asserting it
 would be asserting a number rather than a behaviour.
 
-**How it was tested.** Eight examples on the destination's own inbox, one of
+**How it was tested.** Nine examples on the destination's own inbox, one of
 them measuring what the destination's answers come to rather than what the
 engine kept, and a property fuzz over two thousand generated scripts of ten bars
 each, against a destination that answers late, partially, out of order, with
