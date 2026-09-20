@@ -5,6 +5,7 @@ export {
   atrTail,
   gapOf,
   gapTrueRange,
+  gapTrueRangeStep,
   gapTrueRangeTail,
   natr,
   natrStep,
@@ -16,6 +17,7 @@ export {
 
 export {
   meanDeviation,
+  meanDeviationStep,
   meanDeviationTail,
   stdev,
   stdevStep,
@@ -39,7 +41,8 @@ export {
   donchianStep,
   donchianTail,
   keltner,
+  keltnerStep,
   keltnerTail,
 } from './bands.js';
 
-export { chop, chopTail, hv, hvTail } from './measures.js';
+export { chop, chopStep, chopTail, hv, hvStep, hvTail } from './measures.js';

@@ -32,7 +32,7 @@ import type { PendingEffect } from './channels.js';
 import { ScriptError, malformed, spanAt, unexpected } from './errors.js';
 import { guardFor } from './guard.js';
 import type { EngineHost } from './host.js';
-import { hostNumber, hostString } from './host.js';
+import { hostBool, hostNumber, hostString } from './host.js';
 import { fieldValue, resolveInputs, utcTime } from './inputs.js';
 import type { ResolvedInput, TimeResolver } from './inputs.js';
 import { manifestEntry } from './library/index.js';
@@ -236,9 +236,20 @@ export class Engine {
       symbol: () => hostString(of().instrument?.symbol),
       exchange: () => hostString(of().instrument?.exchange),
       interval: () => hostString(of().instrument?.interval),
+      timezone: () => hostString(of().instrument?.timezone),
       tickSize: () => hostNumber(of().instrument?.tickSize),
       lotSize: () => hostNumber(of().instrument?.lotSize),
+      pointValue: () => hostNumber(of().instrument?.pointValue),
+      currency: () => hostString(of().instrument?.currency),
+      instrumentType: () => hostString(of().instrument?.instrumentType),
+      hasVolume: () => hostBool(of().instrument?.hasVolume),
+      hasOpenInterest: () => hostBool(of().instrument?.hasOpenInterest),
       now: () => hostNumber(of().now),
+      // A host that answers no request has answered this one no, and has
+      // reported no reason, which is what the two calls of stdlib.md 15.1 say
+      // those states read as. An engine given request answers replaces both.
+      requestReady: () => false,
+      requestError: () => '',
       positionSize: () => hostNumber(of().position?.size),
       positionPrice: () => hostNumber(of().position?.avgPrice),
     };

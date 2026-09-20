@@ -81,8 +81,12 @@ A value accepts `[]` in exactly four cases:
 | A call to a function declared to return a series | `ema(close, 20)[1]` | Its per-bar values are retained |
 | A series parameter of a user function | `fn f(src) => src - src[1]` | The caller's expression is retained for that call site |
 
-Everything else is error OS2004, and the fix the compiler names is always the
-same: assign it to a name at the top level of the file first.
+Everything else is error OS2004, and the fix depends on which of two things the
+value is. A per-bar number computed inside a block or left as a temporary wants
+a name at the top level of the file, and the history is read from that name. A
+declaration handle, a runtime object or a library fact that is not a series has
+no history whatever it is named, so nothing is gained by naming it: assign what
+you want to look back at to a top level name of its own, and read that.
 
 ```
 diff = close - open         // top level: diff[1] is legal

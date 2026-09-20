@@ -22,13 +22,19 @@
  * engine tells those apart by asking the heap what the handle points at.
  */
 import { ARRAY_ENTRIES } from './arrays.js';
+import { AVERAGE_ENTRIES } from './averages.js';
 import { CHART_ENTRIES } from './chart.js';
 import { COLOUR_ENTRIES } from './colours.js';
+import { DATE_ENTRIES } from './dates.js';
 import { MATHS_ENTRIES } from './maths.js';
 import { OBJECT_ENTRIES } from './objects.js';
+import { OSCILLATOR_ENTRIES } from './oscillators.js';
+import { RANGE_ENTRIES } from './ranges.js';
 import { SERIES_ENTRIES } from './series.js';
 import { STUDY_ENTRIES } from './studies.js';
 import { TEXT_ENTRIES } from './text.js';
+import { TREND_ENTRIES } from './trend.js';
+import { VOLUME_ENTRIES } from './volume.js';
 import type { ManifestEntry } from './binding.js';
 
 const ENTRIES: readonly ManifestEntry[] = [
@@ -37,9 +43,15 @@ const ENTRIES: readonly ManifestEntry[] = [
   ...TEXT_ENTRIES,
   ...ARRAY_ENTRIES,
   ...SERIES_ENTRIES,
+  ...AVERAGE_ENTRIES,
   ...STUDY_ENTRIES,
+  ...TREND_ENTRIES,
+  ...OSCILLATOR_ENTRIES,
+  ...RANGE_ENTRIES,
+  ...VOLUME_ENTRIES,
   ...OBJECT_ENTRIES,
   ...CHART_ENTRIES,
+  ...DATE_ENTRIES,
 ];
 
 function keyOf(name: string, arity: number): string {

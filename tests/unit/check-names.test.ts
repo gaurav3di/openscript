@@ -152,6 +152,24 @@ test('close written as a call is the order function', () => {
   assert.deepEqual(parseCodes('close()'), []);
 });
 
+// Catches a checker that reports a planned name as undefined, which tells a
+// reader the name is not defined at this point in the file and offers them a
+// different function as the fix. The library holds the name and holds no
+// behaviour for it yet, and those are two different sentences. All three
+// spellings are covered because each takes its own branch: a call, a member of
+// a namespace, and a bare name read as a value.
+test('a name the library lists as planned is refused as planned', () => {
+  const call = 'plot(math.tanh(close), "T")';
+  assert.deepEqual(codes(call), ['OS2020']);
+  assert.deepEqual(valuesFor(call, 'OS2020'), { name: 'math.tanh' });
+
+  assert.deepEqual(codes('plot(chart.strike, "S")'), ['OS2020']);
+  assert.deepEqual(valuesFor('plot(chart.strike, "S")', 'OS2020'), { name: 'chart.strike' });
+
+  assert.deepEqual(codes('plot(timeClose, "C")'), ['OS2020']);
+  assert.deepEqual(valuesFor('plot(timeClose, "C")', 'OS2020'), { name: 'timeClose' });
+});
+
 // Catches a checker that never notices an unread name, which is the commonest
 // shape of a line that was edited and left behind.
 test('a name nothing reads is reported once, at its declaration', () => {

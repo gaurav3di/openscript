@@ -15,6 +15,8 @@
 export { emit } from './emit.js';
 export type { EmitResult } from './emit.js';
 export type { EmitOptions } from './context.js';
+export { DECLARATION_CALLS } from './context.js';
+export { BAR_FACTS, BAR_FIELDS } from './registers.js';
 
 export type { Gap } from './gaps.js';
 
@@ -60,6 +62,9 @@ export type {
   Plot,
   Position,
   Register,
+  Request,
+  RequestBody,
+  RequestInput,
   SourceStamp,
   StateRegion,
   StrategyMeta,

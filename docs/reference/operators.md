@@ -98,10 +98,12 @@ A value has history, and therefore accepts `[]`, in exactly four cases:
 4. It is a parameter of a user function whose type is a series, in which case `[]`
    reads the history of the expression the caller passed.
 
-Anything else is OS2004, with the fix "assign it to a name at the top level of the
-file first". Retaining history costs memory per bar, and a language that retained
-it for every temporary inside every loop body would not run fifty thousand bars in
-a browser tab.
+Anything else is OS2004. A per-bar number computed inside a block or left as a
+temporary is fixed by naming it at the top level and reading that name; a
+declaration handle, a runtime object or a library fact that is not a series has no
+history to read however it is named. Retaining history costs memory per bar, and a
+language that retained it for every temporary inside every loop body would not run
+fifty thousand bars in a browser tab.
 
 | Case | Result |
 |---|---|

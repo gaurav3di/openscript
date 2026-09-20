@@ -9,8 +9,9 @@
  * Every refusal here carries a catalogue code, and they are the codes the
  * catalogue has: an array past its element ceiling is OS5002, a string past its
  * character ceiling is OS5008, an argument outside its contract is OS4003, an
- * index outside an array is OS4004, and a change to an object a script already
- * deleted is OS4005.
+ * index outside an array is OS4004, a change to an object a script already
+ * deleted is OS4005, and a timezone name the host's table does not hold is
+ * OS6005.
  */
 import type { Span } from '../span/index.js';
 import type { Budget } from './budget.js';
@@ -49,6 +50,18 @@ export function guardFor(budget: Budget): Guard {
 
     deleted(span: Span, kind: string, bar: number): never {
       raise('OS4005', span, { kind, bar });
+    },
+
+    /**
+     * A timezone name the host's table does not hold, OS6005.
+     *
+     * Not absence, because an absent answer here would be indistinguishable
+     * from a host that stated no timezone at all, and not an invented offset,
+     * because an offset is silently wrong for half the year anywhere that
+     * observes a seasonal clock change.
+     */
+    badZone(span: Span, value: string): never {
+      raise('OS6005', span, { value });
     },
   };
 }

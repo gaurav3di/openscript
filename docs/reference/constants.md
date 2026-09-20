@@ -533,7 +533,7 @@ one that names it.
 | `cell(align = ...)`, `draw.label(align = ...)` | Only the two defaults, `"left"` and `"center"`, are named |
 | `order.place(side = ...)` | No accepted values are named |
 | `order.place(type = ...)` | Only `"market"` is named |
-| `order.roundToLot(direction = ...)` | Only `"down"` is named |
+| `order.roundToLot(direction = ...)` (planned) | Only `"down"` is named |
 | The named colours' channel values | Fixed in the library manifest and the conformance suite, not in the specification text |
 
 ---

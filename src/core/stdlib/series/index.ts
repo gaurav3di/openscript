@@ -67,12 +67,15 @@ export { pivotHigh, pivotHighTail, pivotLow, pivotLowTail, pivotStep } from './p
 
 export {
   correlation,
+  correlationStep,
   correlationTail,
   covariance,
+  covarianceStep,
   covarianceTail,
   median,
   medianTail,
   percentRank,
+  percentRankStep,
   percentRankTail,
   percentile,
   percentileStep,

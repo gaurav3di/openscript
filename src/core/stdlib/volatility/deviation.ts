@@ -15,7 +15,7 @@
  * needs a floor to stay real is a study computing the wrong quantity.
  */
 import type { Series, StateRecord, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeLookback, result, ring, tailOf } from '../values/index.js';
+import { NONE, fold, isPresent, result, ring, tailOf } from '../values/index.js';
 
 /** `variance(src, len, sample)`: the squared deviation over the lookback, from bar `len - 1`. */
 export function varianceStep(
@@ -82,21 +82,27 @@ export function stdev(src: Series, len: number, sample = false): Value[] {
  * calibrated for this quantity, and substituting a standard deviation changes
  * every reading.
  */
+export function meanDeviationStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null || !lookback.complete()) return NONE;
+  const mean = lookback.mean();
+  if (!isPresent(mean)) return NONE;
+  let total = 0;
+  for (let back = len - 1; back >= 0; back -= 1) {
+    total += Math.abs((lookback.at(back) as number) - mean);
+  }
+  return result(total / len);
+}
+
+/** The mean absolute deviation as a tail. */
 export function meanDeviationTail(len: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete()) return NONE;
-      const mean = lookback.mean();
-      if (!isPresent(mean)) return NONE;
-      let total = 0;
-      for (let back = len - 1; back >= 0; back -= 1) {
-        total += Math.abs((lookback.at(back) as number) - mean);
-      }
-      return result(total / len);
-    },
-  };
+  return tailOf((state, value: Value) => meanDeviationStep(state, 'q', value, len));
 }
 
 /** The mean absolute deviation over a whole series. */

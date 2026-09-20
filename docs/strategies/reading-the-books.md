@@ -6,6 +6,13 @@ positions those fills add up to. You will also know why one fill can be reported
 twice, what stops the second report from counting, and why no call anywhere in the
 language hands you the account's own position.
 
+> **Much of this page is marked planned.** A strategy's ledger, its legs and its
+> book are what the marked calls are folded from, and no engine holds one in this
+> release. A marked call is refused where you wrote it, with a message that says
+> it is planned, rather than compiling and then failing to load. The six order
+> functions, the three `order` calls that place an order and the five position
+> facts read from the account's own row are not marked, because those run.
+
 ## Every strategy keeps its own books
 
 **Each strategy owns its own order and fill ledger.** It is the strategy's record
@@ -97,13 +104,13 @@ folded every repeat.
 
 | Call | Returns | Reads |
 |---|---|---|
-| `order.working(tag)` | `series bool` | Whether that order is live and unfilled |
-| `order.pending` | `series number` | How many orders are live and unfilled |
-| `order.id(tag)` | `series string` | The destination's own order id, `""` before it answers |
-| `order.status(tag)` | `series string` | The folded status, from the vocabulary of `stdlib.md` section 17.7 |
-| `order.filled(tag)` | `series number` | Cumulative filled quantity, `0` before the first fill |
-| `order.avgFill(tag)` | `series number` | Average fill price, absent before the first fill |
-| `order.rejection(tag)` | `series string` | The destination's own rejection text, `""` when there is none |
+| `order.working(tag)` (planned) | `series bool` | Whether that order is live and unfilled |
+| `order.pending` (planned) | `series number` | How many orders are live and unfilled |
+| `order.id(tag)` (planned) | `series string` | The destination's own order id, `""` before it answers |
+| `order.status(tag)` (planned) | `series string` | The folded status, from the vocabulary of `stdlib.md` section 17.7 |
+| `order.filled(tag)` (planned) | `series number` | Cumulative filled quantity, `0` before the first fill |
+| `order.avgFill(tag)` (planned) | `series number` | Average fill price, absent before the first fill |
+| `order.rejection(tag)` (planned) | `series string` | The destination's own rejection text, `""` when there is none |
 
 All seven read the strategy's own ledger and never the destination. They are what a
 script prints into a table when a trader asks why an entry did not happen, and
@@ -124,23 +131,23 @@ In a file with one leg, the `pos` namespace is the position:
 | `pos.size` | `0` | Net position in units, positive long and negative short |
 | `pos.isLong`, `pos.isShort`, `pos.isFlat` | | The sign of `pos.size`, spelled out |
 | `pos.avgPrice` | absent | Average price of the open position |
-| `pos.entryTime` | absent | When the current position was opened |
-| `pos.barsHeld` | absent | Bars since it was opened, `0` on the entry bar |
-| `pos.entries` | `0` | How many entries make up the current position |
-| `pos.openProfit` | absent | Unrealised profit in money, marked to this bar's close |
-| `pos.maxProfit`, `pos.maxLoss` | absent | The best and worst this position has seen |
+| `pos.entryTime` (planned) | absent | When the current position was opened |
+| `pos.barsHeld` (planned) | absent | Bars since it was opened, `0` on the entry bar |
+| `pos.entries` (planned) | `0` | How many entries make up the current position |
+| `pos.openProfit` (planned) | absent | Unrealised profit in money, marked to this bar's close |
+| `pos.maxProfit`, `pos.maxLoss` (planned) | absent | The best and worst this position has seen |
 
 In a file that declares more than one leg, those twelve are refused at compile time
 and each leg is read by name instead:
 
 | Call | Reads |
 |---|---|
-| `leg.size(name)` | Signed units this strategy holds in the leg, `0` when flat |
-| `leg.avgPrice(name)` | Average price of the leg's open position, absent while flat |
-| `leg.entryTime(name)` | When the leg's current position was opened |
-| `leg.profit(name)` | The leg's open profit in money, marked to this bar's close |
-| `leg.isOpen(name)` | Whether the leg holds a position |
-| `leg.stopPrice(name)`, `leg.targetPrice(name)` | The levels actually in force |
+| `leg.size(name)` (planned) | Signed units this strategy holds in the leg, `0` when flat |
+| `leg.avgPrice(name)` (planned) | Average price of the leg's open position, absent while flat |
+| `leg.entryTime(name)` (planned) | When the leg's current position was opened |
+| `leg.profit(name)` (planned) | The leg's open profit in money, marked to this bar's close |
+| `leg.isOpen(name)` (planned) | Whether the leg holds a position |
+| `leg.stopPrice(name)`, `leg.targetPrice(name)` (planned) | The levels actually in force |
 
 The refusal is not pedantry. Adding a quantity of one contract to a quantity of
 another produces a number that is not a position in anything, and averaging two
@@ -154,12 +161,12 @@ These add across legs, so they read the whole strategy in every file:
 
 | Call | Reads |
 |---|---|
-| `pos.equity` | Starting capital plus realised and unrealised profit |
-| `pos.netProfit` | Realised profit since the run began |
-| `pos.tradeCount` | Closed trades so far |
-| `book.profit` | The book's profit, open and realised since the book was last flat |
-| `book.dayProfit` | The same, measured from this session's open |
-| `book.isOpen` | Whether any leg holds a position |
+| `pos.equity` (planned) | Starting capital plus realised and unrealised profit |
+| `pos.netProfit` (planned) | Realised profit since the run began |
+| `pos.tradeCount` (planned) | Closed trades so far |
+| `book.profit` (planned) | The book's profit, open and realised since the book was last flat |
+| `book.dayProfit` (planned) | The same, measured from this session's open |
+| `book.isOpen` (planned) | Whether any leg holds a position |
 
 Every one of them is a sum over this strategy's own fills. `pos.equity` in
 particular is not your account balance: it starts at the `capital` the declaration
@@ -242,7 +249,7 @@ the day you want to find out from a panel rather than from a statement.
 | Symptom | Cause | Fix |
 |---|---|---|
 | A fill counted twice | Adding up reports instead of reading the total | `order.filled(tag)` is cumulative; take a difference if you need a delta |
-| `order.filled(tag)` never falls back to zero after an exit | It is that order's life total, not the position | Read `pos.size` for what is held |
+| `order.filled(tag)` never falls back to zero after an exit (planned) | It is that order's life total, not the position | Read `pos.size` for what is held |
 | OS7009 from `cancel` | The tag names no order to act on | Test with `order.working(tag)` first, and tag every order |
 | A late fill applied to the wrong trade | Expecting fills to settle the current position | They settle their own position reference; a flip is two orders |
 | The strategy's position disagrees with the account's | Something else is trading that contract | `pos.isShared`, then find out who |

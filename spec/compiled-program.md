@@ -1,6 +1,6 @@
 # OpenScript compiled program specification
 
-Version of this document: draft, tracking compiled format version 1.0 and language
+Version of this document: draft, tracking compiled format version 1.1 and language
 version 1.
 
 This document defines the **compiled program**: the plain data structure an
@@ -96,6 +96,7 @@ canonical encoding. Everything else in this section defines one of them.
 | `loops` | array | yes | One entry per loop, section 2.13 |
 | `code` | array | yes | The per-bar instruction list, section 2.14 |
 | `debug` | object | yes | Source positions and names, section 2.15 |
+| `requests` | array | yes | Higher timeframe and other instrument reads, section 2.16 |
 
 An empty table is written as an empty array, never omitted. A program with no user
 functions carries `"functions": []`. Uniform presence costs three characters and
@@ -104,7 +105,7 @@ removes a whole class of "is it missing or is it empty" from every engine.
 ### 2.1 openscript
 
 ```json
-"openscript": { "format": "1.0", "language": 1 }
+"openscript": { "format": "1.1", "language": 1 }
 ```
 
 | Field | Type | Means |
@@ -599,7 +600,7 @@ history, and the `HIST` and `HISTP` instructions are the only way to read it.
 | Field | Type | Means |
 |---|---|---|
 | `id` | number | Register index, equal to its position in the array |
-| `kind` | string | `"bar"`, `"computed"` or `"argument"` |
+| `kind` | string | `"bar"`, `"computed"`, `"argument"`, `"request"` or `"input"` |
 | `field` | string? | For `"bar"`: which bar field, see below |
 | `name` | string? | Source name, for a debugger |
 
@@ -631,6 +632,16 @@ A `"computed"` register is written by `SSTORE`: it is a top-level name whose his
 the program reads. A `"argument"` register is written by `SSTORE` immediately before
 a user function call, to retain a series argument's per-bar values for that call
 site (section 4.10).
+
+The last two are the engine's to fill, like a `"bar"` register and unlike the two
+above: **no instruction ever writes one.** A `"request"` register holds the value
+of the read that names it in section 2.16, for the bar about to run. An `"input"`
+register appears only inside a read's body, and holds the resolved value of the
+setting that names it, the same value on every bar. Both are registers rather than
+slots for the same two reasons: a slot belongs to one frame (section 3.2) and
+either may be read from inside a `fn`, and only a register has history, which is
+what makes `dayHigh[1]` the previous bar's reading with nothing further to
+arrange.
 
 **The compiler allocates a register for a top-level name only when the program
 reads that name's history**, and otherwise gives it a plain slot. This changes
@@ -807,6 +818,141 @@ below it, so a run of instructions from one expression costs one triple.
 `debug` never affects execution. An engine may drop it after load. It may not be
 absent from the program, because an error message without a line is the thing this
 project promised not to ship.
+
+### 2.16 requests
+
+A higher timeframe read and another instrument read (`stdlib.md` section 15) are
+the one thing in the language whose value is not computed from the bars the
+program is running on. Everything else an engine can work out from this chart. A
+read needs another series entirely, and an expression evaluated over it.
+
+So a read compiles to two halves, the same split section 2.8 makes for a plot.
+The fixed half is an entry here, settled before bar 0. The per-bar half is a
+`"request"` register (section 2.10), which the engine fills with the read's value
+for the bar about to run.
+
+```json
+"requests": [
+  {
+    "id": 0,
+    "read": "timeframe",
+    "symbol": null,
+    "exchange": null,
+    "timeframe": { "input": "biasTf" },
+    "mode": "confirmed",
+    "series": 3,
+    "warmup": 19,
+    "body": { "...": "section 2.16.1" }
+  }
+]
+```
+
+| Field | Type | Means |
+|---|---|---|
+| `id` | number | This read's handle. Unique across the program, the reads nested inside another read's body included. It is **not** an index into this table |
+| `read` | string | `"timeframe"` for the chart's own instrument on another interval, `"symbol"` for another instrument |
+| `symbol` | identity | The instrument, for a `"symbol"` read. `null` on a `"timeframe"` read, which reads the chart's own |
+| `exchange` | identity | Where it trades. `null` means the chart's exchange |
+| `timeframe` | identity | A timeframe string, `stdlib.md` section 15.2 |
+| `mode` | string | `"confirmed"`, `"developing"` or `"lookahead"`, `stdlib.md` section 15.3 |
+| `series` | number | The `"request"` register this read's value lands in |
+| `warmup` | number? | Requested bars of history the body needs, or `null` when no number is known |
+| `body` | object | The expression, compiled over the requested bars, section 2.16.1 |
+
+The three identity fields take one of three forms, and each is resolved at load:
+
+| Form | Means |
+|---|---|
+| a value | The string the script wrote |
+| `{ "input": "<key>" }` | The resolved value of that input, section 2.3's own form |
+| `{ "chart": "<fact>" }` | The chart's own `symbol`, `exchange` or `interval` |
+
+The third exists because `stdlib.md` section 15.1 writes one of them into the
+signature: `exchange` defaults to `chart.exchange`, and a leg read at the chart's
+own interval writes `chart.interval` for the timeframe. Both are settled before
+bar 0 and neither is a value a compiler can know, so the request names the fact
+and the engine resolves it from the instrument record (`host-interface.md`
+section 4.1). Only those three facts may appear: the rest describe the chart
+rather than identify it.
+
+**A request's identity is fixed before bar 0**, which is what lets the whole set
+of requests be known at load, and what makes a request that changed afterwards
+OS6013. An engine hands the host the whole list once (`host-interface.md` section
+5.2) and never discovers a new request during a bar.
+
+`warmup` is what a host extends the requested range backwards by, so that the
+first chart bar has a value rather than the first requested bar. It is a floor
+and not a promise: a length that comes from a setting is not known until the
+setting resolves, and `null` says the compiler had no number at all. A host that
+extends by less gets a read that is absent for longer, never a wrong number.
+
+**`mode` is carried and not restated.** What each of the three readings is
+allowed to know, and what it does to the first bar a value appears on, is
+`stdlib.md` section 15.3's and is the same sentence for every engine. The one
+consequence worth naming here: a host that shows the repainting mark of that
+section reads it from the modes in this table, because `meta` carries no separate
+flag and two places to state one fact are two places to disagree.
+
+A read whose answer has not arrived is absent, and so is a read on a bar its mode
+allows no value for (`stdlib.md` section 15.5). Absence here is the ordinary
+absence of section 3.4: the study keeps drawing everything that does not depend
+on the read.
+
+`req.isReady` and `req.error` name a read rather than taking its value, and a
+value on a bar cannot say which request produced it. **The compiler resolves the
+name to the request's `id` and passes that number**, which is the resolution
+section 2.8 already does on a plot handle, for the same reason: the argument is a
+compile-time identity wearing the clothes of a value.
+
+#### 2.16.1 The body
+
+The body is the expression of `stdlib.md` section 15.4, compiled over the
+requested bars. It holds the tables a program holds for the machine of section 3,
+and none of the tables that describe a chart:
+
+| Field | Type | Means |
+|---|---|---|
+| `inputs` | array | `{ "input": "<key>", "series": n }`: the setting to fill that register with |
+| `series` | array | Registers over the requested bars, section 2.10's shape |
+| `frame` | object | Slot count of the body's own frame |
+| `cells` | array | Section 2.11 |
+| `states` | array | Section 2.11 |
+| `functions` | array | Section 2.12 |
+| `callSites` | array | Section 2.12 |
+| `loops` | array | Section 2.13 |
+| `requests` | array | Reads written inside this one, this section again |
+| `code` | array | The body's instruction list, ending in `RET` |
+| `pos` | array | Source positions, section 2.15 |
+| `fnPos` | array | Source positions per function body, section 2.15 |
+
+**Every one of those tables is the body's own, counted from zero.** The registers
+are the requested instrument's bars, the cells and the state regions step once
+per requested bar rather than once per chart bar, and an engine that reached into
+the program's tables instead would put this chart's history behind another
+chart's name. Inside the body, the built-in series of `stdlib.md` section 3.1 are
+the requested instrument's, at the requested timeframe, which is that section's
+own sentence and the whole point of the arrangement.
+
+What the body does not carry is `consts` and `lib.functions`. It uses the
+program's, because neither holds anything that depends on a bar, and one constant
+pool and one manifest is one of each for an engine to verify.
+
+An engine evaluates the body once per requested bar, oldest first, exactly as it
+runs `code` once per chart bar: the same machine, the same memory rules, the same
+verification. The value the body's `RET` hands back is the read's value for that
+requested bar. `RET` rather than `HALT` because a body produces a value and
+`HALT` does not, and reusing it means an engine's instruction loop is asked for
+nothing new.
+
+The settings a body reads are the only names it may take from the file scope
+(`stdlib.md` section 15.4), and they arrive as `"input"` registers rather than
+slots: a body is one expression with no statement to write a slot from, and a
+function it calls reaches a register from any frame.
+
+**A read carries no channel, no plot and no declaration.** Those are calls the
+language refuses inside a request expression (OS3006), so nothing in a body can
+write a column, and an engine never has to decide what a plot declared on other
+bars would mean on this chart.
 
 ---
 
@@ -994,6 +1140,12 @@ check 10 names:
     the program. The key half is decidable from the program alone; the value half
     runs at load with the settings in hand, before step 1 of bar 0, and is the same
     validation section 2.6 applies to every input value.
+11. **Requests.** Every entry of `requests` (section 2.16) names a `"request"`
+    register that exists and is not named by a second entry, and no two entries
+    share an `id`. Each body is verified by checks 1 to 10 against its own tables
+    and the program's `consts` and `lib.functions`, with check 4 reading `RET`
+    for the body's last instruction and check 7 vacuous because a body declares
+    no channel. A body's own reads are verified the same way, to any depth.
 
 A verified program cannot underflow the stack, cannot jump out of bounds, cannot
 address a slot that does not exist and cannot loop without charging the budget.
@@ -1678,7 +1830,9 @@ else in this document is a detail of one of them.
    to absent.
 4. **Fill bar registers.** Write the host's bar `i` into every `"bar"` register,
    including the derived fields and the `bar.*` facts, using the definitions in
-   section 2.10.
+   section 2.10. Write each read's value for bar `i` into its `"request"`
+   register (section 2.16), absent where the answer has not arrived or the read's
+   mode allows no value yet.
 5. **Fill inputs.** Write each input's effective value into its slot.
 6. **Execute.** Run `code` from instruction 0 until `HALT`.
 7. **Close the registers.** Append each series register's current bar cell to its
@@ -1720,7 +1874,7 @@ An engine reads all of this from the host and none of it from anywhere else:
 | Settings, keyed by input `key` | Step 5 |
 | The instrument record (`host-interface.md` section 4.1) | The `chart` library namespace |
 | The chart clock, for `chart.now()` | The `chart` library namespace |
-| More bars, on request | The `req` library namespace |
+| More bars, on request | Step 4, through `requests` (section 2.16) |
 | A drawing surface | Steps 8 and 9 |
 | An order route | Step 9 |
 
@@ -2033,6 +2187,13 @@ been named in a tag it did not have. Without that rule an older engine would hav
 to refuse every program from every later minor, and a minor bump would be a major
 one wearing a smaller number.
 
+**Format 1.1 added `requests` (section 2.16)**, the `"request"` and `"input"`
+register kinds it reaches, and verification check 11. A program without a read
+carries `"requests": []` and is otherwise byte for byte what format 1.0 emitted.
+A program with one names `req.timeframe` or `req.symbol` in `requires`, so an
+engine built for 1.0 refuses it at step 4 rather than drawing a study with a
+silently empty line through it.
+
 ### 9.3 What a major bump may do
 
 A major bump may do anything this document forbids a minor one: add or remove an
@@ -2182,7 +2343,7 @@ the manifest's, and section 8.3 is why it is written down.
 
 ```json
 {
-  "openscript": { "format": "1.0", "language": 1 },
+  "openscript": { "format": "1.1", "language": 1 },
   "requires": ["core.1"],
   "compiler": { "name": "openscript", "version": "0.1.0" },
   "source": {
@@ -2295,7 +2456,8 @@ the manifest's, and section 8.3 is why it is written down.
       "channels": ["Mean", "UP"]
     },
     "retain": false
-  }
+  },
+  "requests": []
 }
 ```
 
@@ -2307,6 +2469,7 @@ slot 0 at step 5 of every bar. There is no instruction for `study()` or for the
 plot's declaration: both are in `meta` and `outputs`, read once.
 
 `requires` is just `core.1`: no arrays, no user functions, no loops, no orders.
+`requests` is empty, and written out, because an empty table is an empty array.
 
 ### 12.3 The bars
 
@@ -2420,7 +2583,7 @@ That is the whole argument for section 6 in one table row.
 
 ## 13. Conformance checklist
 
-An engine claims conformance to compiled format 1.0 and language 1 when all of the
+An engine claims conformance to compiled format 1.1 and language 1 when all of the
 following hold, and the conformance suite tests each one.
 
 **Loading**
@@ -2439,6 +2602,9 @@ following hold, and the conformance suite tests each one.
       points.
 - [ ] Addresses cells and state regions through the frame's bases, so one function
       body serves many call sites.
+- [ ] Evaluates each read's body (section 2.16) over the requested bars against
+      the body's own tables, or declares neither `req.timeframe` nor `req.symbol`
+      and refuses such a program at load with OS6006.
 
 **Per bar**
 

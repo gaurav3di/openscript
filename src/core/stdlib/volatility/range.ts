@@ -75,18 +75,23 @@ export function trueRangeTail(): Tail<Bar, Value> {
   return tailOf((state, bar: Bar) => trueRangeOf(gapOf(state, 'g', bar), true));
 }
 
+/**
+ * True range with no exception on bar 0, as a step: absent there, like any
+ * other quantity that needs the bar before it. Not a call a script can make;
+ * see this file's opening note for which functions use it and why.
+ */
+export function gapTrueRangeStep(state: StateRecord, key: string, bar: Bar): Value {
+  return trueRangeOf(gapOf(state, `${key}g`, bar), false);
+}
+
 /** `trueRange()` over a run of bars. */
 export function trueRange(bars: readonly Bar[]): Value[] {
   return fold(trueRangeTail(), bars);
 }
 
-/**
- * True range with no exception on bar 0: absent there, like any other quantity
- * that needs the bar before it. Not a call a script can make; see this file's
- * opening note for which functions use it and why.
- */
+/** The gap-aware true range as a tail. */
 export function gapTrueRangeTail(): Tail<Bar, Value> {
-  return tailOf((state, bar: Bar) => trueRangeOf(gapOf(state, 'g', bar), false));
+  return tailOf((state, bar: Bar) => gapTrueRangeStep(state, '', bar));
 }
 
 /** The gap-aware true range over a run of bars. */

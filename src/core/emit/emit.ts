@@ -31,12 +31,13 @@ import { walkDepths } from './code.js';
 import { Emitter, Frame } from './context.js';
 import type { EmitOptions } from './context.js';
 import type { Gap } from './gaps.js';
-import { assignBases } from './functions.js';
+import { assignRegions } from './functions.js';
 import { buildInputs } from './inputs.js';
-import { cellsOf } from './layout.js';
+
 import { buildLimits, buildMeta } from './meta.js';
-import type { Cell, CompiledProgram, Instruction, StateRegion } from './program.js';
+import type { CompiledProgram, Instruction, Request } from './program.js';
 import { placementOf, prepareRegisters } from './registers.js';
+import { linkRequestNames } from './requests.js';
 import { requiresOf } from './requires.js';
 import { emitStatement } from './statements.js';
 
@@ -60,6 +61,8 @@ export function emit(
 
   prepareRegisters(e);
   buildInputs(e, top);
+  openCarriedRegisters(e, top);
+  linkRequestNames(e);
 
   for (const item of checked.script.items) {
     if (item.kind === 'functionDeclaration') continue;
@@ -110,6 +113,7 @@ export function emit(
     })),
     loops: e.loops,
     code,
+    requests: e.requests,
     debug: {
       pos: top.builder.pos,
       fnPos: e.functionPos,
@@ -166,6 +170,26 @@ function languageOf(checked: CheckedScript): number {
 }
 
 /**
+ * The register beside a `var` a function body reads, filled before the bar runs.
+ *
+ * The pair at the end of the bar (below) writes the entry for the bar. This one
+ * writes the value the bar starts with, so a body called before the first
+ * assignment reads what the cell carried in rather than an absence. On bar 0
+ * the cell has not been initialised yet and reads absent, which is what the
+ * name is worth before its declaration line (3.4).
+ */
+function openCarriedRegisters(e: Emitter, top: Frame): void {
+  for (const binding of e.checked.bindings) {
+    if (!e.carried.has(binding.id)) continue;
+    const register = e.layout.registerFor(binding);
+    if (register === undefined) continue;
+    top.builder.at(binding.declaredAt);
+    top.builder.push('LOADC', top.layout.cellFor(binding));
+    top.builder.push('SSTORE', register);
+  }
+}
+
+/**
  * The one instruction pair that keeps a persistent name's past readable.
  *
  * A cell has no history and a register has no persistence, so `x[1]` on a `var`
@@ -188,43 +212,23 @@ function closeShadowRegisters(e: Emitter, top: Frame): void {
   }
 }
 
-/**
- * `cells` and `states`, once the top level and every call path are counted.
- *
- * A body numbers its own from zero and the call site adds the base, so the two
- * tables are the top level's own block followed by one block per site, in the
- * order the bases were handed out.
- */
-function assignRegions(
-  e: Emitter,
-  top: Frame,
-): { readonly cells: readonly Cell[]; readonly states: readonly StateRegion[] } {
-  const topCells = top.layout.cellNames.length;
-  const topStates = top.layout.stateFns.length;
-  assignBases(e, topCells, topStates);
-
-  const cells: Cell[] = cellsOf(top.layout, 0);
-  const states: StateRegion[] = top.layout.stateFns.map((fn, index) => ({ id: index, fn }));
-
-  const ordered = [...e.sites].sort((a, b) => a.cellBase - b.cellBase || a.stateBase - b.stateBase);
-  for (const site of ordered) {
-    const frame = site.frame;
-    if (frame === undefined) continue;
-    cells.push(...cellsOf(frame, site.cellBase));
-    frame.stateFns.forEach((fn, index) => {
-      states.push({ id: site.stateBase + index, fn });
-    });
+/** Every instruction a read's body holds, its own reads included. */
+function instructionsIn(requests: readonly Request[]): number {
+  let total = 0;
+  for (const request of requests) {
+    total += request.body.code.length;
+    for (const one of request.body.functions) total += one.code.length;
+    total += instructionsIn(request.body.requests);
   }
-
-  cells.sort((a, b) => a.id - b.id);
-  states.sort((a, b) => a.id - b.id);
-  return { cells, states };
+  return total;
 }
 
 /** Section 3.5 check 5, run here so a defect is found where it was written. */
 function checkDepths(e: Emitter, top: Frame, code: readonly Instruction[]): void {
   const argcOf = (site: number): number => e.sites[site]?.argc ?? 0;
   const lists: readonly (readonly Instruction[])[] = [code, ...e.functions.map((one) => one.code)];
+
+  for (const request of e.requests) checkRequestDepths(e, request);
 
   lists.forEach((list, index) => {
     const walk = walkDepths(list, argcOf);
@@ -241,6 +245,30 @@ function checkDepths(e: Emitter, top: Frame, code: readonly Instruction[]): void
       true,
     );
   });
+}
+
+/**
+ * The same walk over a read's body, which counts its own call sites (2.16).
+ *
+ * A body has no positions in the bar's own table, so a failure here carries the
+ * read's line rather than a line from the wrong list.
+ */
+function checkRequestDepths(e: Emitter, request: Request): void {
+  const argcOf = (site: number): number => request.body.callSites[site]?.argc ?? 0;
+  const lists = [request.body.code, ...request.body.functions.map((one) => one.code)];
+  for (const list of lists) {
+    const walk = walkDepths(list, argcOf);
+    const at = walk.conflict ?? walk.underflow;
+    if (at === undefined) continue;
+    e.gap(
+      `the stack depth this compiler emitted for a read's expression does not survive its ` +
+        `own walk at instruction ${at}, so an engine would refuse the program at load`,
+      'compiled-program.md 3.5 check 5 and 2.16',
+      undefined,
+      true,
+    );
+  }
+  for (const nested of request.body.requests) checkRequestDepths(e, nested);
 }
 
 /** Where the instruction at this index came from, from the debug positions. */
@@ -273,7 +301,12 @@ function checkLimits(e: Emitter, code: readonly Instruction[], states: number): 
   }
 
   const maxInstructions = e.options.maxInstructions;
-  const total = code.length + e.functions.reduce((sum, one) => sum + one.code.length, 0);
+  const total =
+    code.length +
+    e.functions.reduce((sum, one) => sum + one.code.length, 0) +
+    // A read's expression is instructions an engine executes, once per
+    // requested bar, so it counts against the ceiling like any other (2.16).
+    instructionsIn(e.requests);
   if (maxInstructions !== undefined && total > maxInstructions) {
     e.sink.report('OS5009', span, { found: total, max: maxInstructions });
   }

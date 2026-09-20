@@ -6,6 +6,13 @@ multi-leg position, square off on the clock, on the session's end or before an
 expiry, cap a day's loss, and read a log after a bad day to find out which rule
 fired.
 
+> **Much of this page is marked planned.** A strategy's ledger, its legs and its
+> book are what the marked calls are folded from, and no engine holds one in this
+> release. A marked call is refused where you wrote it, with a message that says
+> it is planned, rather than compiling and then failing to load. The six order
+> functions, the three `order` calls that place an order and the five position
+> facts read from the account's own row are not marked, because those run.
+
 ## An exit is either a rule you write or a level the engine holds
 
 Every exit in a strategy is one of two things, and confusing them is the most
@@ -48,9 +55,9 @@ stop is a thing a script means to do and there is no order to refuse.
 
 | Call | Sets |
 |---|---|
-| `leg.stop(name, price)` | Close the leg when its price reaches `price` against the position |
-| `leg.target(name, price)` | Close the leg when its price reaches `price` in favour of the position |
-| `leg.trail(name, distance, arm = none)` | Follow the best price the leg has seen, `distance` behind it |
+| `leg.stop(name, price)` (planned) | Close the leg when its price reaches `price` against the position |
+| `leg.target(name, price)` (planned) | Close the leg when its price reaches `price` in favour of the position |
+| `leg.trail(name, distance, arm = none)` (planned) | Follow the best price the leg has seen, `distance` behind it |
 | `exit(tag = "", qty = none, limit = none, stop = none, profit = none, loss = none, leg = ...)` | The same stop and target, set from a call site |
 | `order.bracket(tag = "", profit = none, loss = none, leg = ...)` | The same pair, given as distances from the entry |
 
@@ -191,17 +198,17 @@ strategy realised since the book was last flat.
 
 | Call | Sets |
 |---|---|
-| `book.stop(amount)` | Square off every leg when the book's profit falls to `-amount` |
-| `book.target(amount)` | Square off every leg when the book's profit reaches `amount` |
-| `book.lockProfit(arm, lock, step = none, advance = none)` | Arm a floor at a profit, then advance it as profit grows |
-| `book.trailStopsToEntry(at)` | Move every leg's stop to its own entry once the book is `at` in profit |
-| `book.direction(filter)` | `"long"`, `"short"` or `"both"`: which sides an entry may take |
+| `book.stop(amount)` (planned) | Square off every leg when the book's profit falls to `-amount` |
+| `book.target(amount)` (planned) | Square off every leg when the book's profit reaches `amount` |
+| `book.lockProfit(arm, lock, step = none, advance = none)` (planned) | Arm a floor at a profit, then advance it as profit grows |
+| `book.trailStopsToEntry(at)` (planned) | Move every leg's stop to its own entry once the book is `at` in profit |
+| `book.direction(filter)` (planned) | `"long"`, `"short"` or `"both"`: which sides an entry may take |
 
 | Call | Reads |
 |---|---|
-| `book.profit` | The book's profit in money, open and realised since it was last flat |
-| `book.dayProfit` | The same measured from this session's open |
-| `book.isOpen` | Whether any leg holds a position |
+| `book.profit` (planned) | The book's profit in money, open and realised since it was last flat |
+| `book.dayProfit` (planned) | The same measured from this session's open |
+| `book.isOpen` (planned) | Whether any leg holds a position |
 
 The combined stop and the combined target are the reason the book exists. Two legs
 sold together, hedging each other, are meaningless to manage separately: stopping
@@ -227,10 +234,10 @@ becoming a second, looser stop halfway through a good day.
 
 | Call | Sets |
 |---|---|
-| `book.entryWindow(spec)` | New entries only inside this window, written as `"HHMM-HHMM"` with an optional day list |
-| `book.exitAt(time)` | Square off every leg at this `"HHMM"` in the chart's timezone |
-| `book.squareOffAtExpiry(minutesBefore = 0)` | Square off a leg this many minutes before its contract expires |
-| `book.dailyLoss(amount)` | Square off and stop entering for the day when the day's loss reaches `amount` |
+| `book.entryWindow(spec)` (planned) | New entries only inside this window, written as `"HHMM-HHMM"` with an optional day list |
+| `book.exitAt(time)` (planned) | Square off every leg at this `"HHMM"` in the chart's timezone |
+| `book.squareOffAtExpiry(minutesBefore = 0)` (planned) | Square off a leg this many minutes before its contract expires |
+| `book.dailyLoss(amount)` (planned) | Square off and stop entering for the day when the day's loss reaches `amount` |
 
 The end of day square off is not a call here. It is the declaration's
 `closeOnSessionEnd` option, which already exists, and it is named below for the
@@ -404,10 +411,10 @@ instrument scripts on this page are per-leg strategies without ever saying so.
 
 | Call | Does |
 |---|---|
-| `book.enter(tag = "")` | One order per declared leg, entering the whole book as a unit |
-| `book.exit(tag = "")` | One order per open leg |
-| `leg.enter(name, side = the leg's, qty = the leg's, limit = none, stop = none, tag = "")` | One order, entering one leg on its own signal |
-| `leg.exit(name, qty = none, limit = none, stop = none, tag = "")` | One order, exiting one leg |
+| `book.enter(tag = "")` (planned) | One order per declared leg, entering the whole book as a unit |
+| `book.exit(tag = "")` (planned) | One order per open leg |
+| `leg.enter(name, side = the leg's, qty = the leg's, limit = none, stop = none, tag = "")` (planned) | One order, entering one leg on its own signal |
+| `leg.exit(name, qty = none, limit = none, stop = none, tag = "")` (planned) | One order, exiting one leg |
 
 **This is what a combined stop means, and why it means it.** `book.profit` is
 measured from the last moment the book was flat.

@@ -13,8 +13,8 @@
  * totals, and a lookback over the bars since the anchor would be a different
  * quantity with a different value.
  */
-import type { Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, result } from '../values/index.js';
+import type { Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, flag, fold, isPresent, result, slot, tailOf } from '../values/index.js';
 
 /** A bar's source price, its volume, and whether the average restarts here. */
 export interface Anchored {
@@ -30,25 +30,28 @@ export interface Anchored {
  * last bar of the old one. Absent before the condition has ever been true,
  * because there is no anchor to measure from and zero would read as a price.
  */
+export function vwapAnchorStep(state: StateRecord, key: string, input: Anchored): Value {
+  const flowKey = `${key}f`;
+  const tradedKey = `${key}v`;
+  const anchoredKey = `${key}a`;
+  if (input.reset) {
+    state[flowKey] = 0;
+    state[tradedKey] = 0;
+    state[anchoredKey] = true;
+  }
+  if (!flag(state, anchoredKey)) return NONE;
+  if (!isPresent(input.src) || !isPresent(input.volume)) return NONE;
+  const flow = slot(state, flowKey, 0) + input.src * input.volume;
+  const traded = slot(state, tradedKey, 0) + input.volume;
+  state[flowKey] = flow;
+  state[tradedKey] = traded;
+  if (traded === 0) return NONE;
+  return result(flow / traded);
+}
+
+/** `vwapAnchor(src, resetWhen)` as a tail. */
 export function vwapAnchorTail(): Tail<Anchored, Value> {
-  let flow = 0;
-  let traded = 0;
-  let anchored = false;
-  return {
-    next(input: Anchored): Value {
-      if (input.reset) {
-        flow = 0;
-        traded = 0;
-        anchored = true;
-      }
-      if (!anchored) return NONE;
-      if (!isPresent(input.src) || !isPresent(input.volume)) return NONE;
-      flow += input.src * input.volume;
-      traded += input.volume;
-      if (traded === 0) return NONE;
-      return result(flow / traded);
-    },
-  };
+  return tailOf((state, input: Anchored) => vwapAnchorStep(state, '', input));
 }
 
 /** `vwapAnchor(src, resetWhen)` over whole series. */
@@ -80,6 +83,11 @@ export function vwapAnchor(
  */
 export function vwapTail(): Tail<Anchored, Value> {
   return vwapAnchorTail();
+}
+
+/** `vwap(src)` as a step, which is `vwapAnchor` anchored to the session. */
+export function vwapStep(state: StateRecord, key: string, input: Anchored): Value {
+  return vwapAnchorStep(state, key, input);
 }
 
 /** `vwap(src)` over whole series. */

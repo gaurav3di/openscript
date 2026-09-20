@@ -212,12 +212,12 @@ invents. Everything here is a per-bar fact, so everything here is a series.
 
 | Name | Type | Series | Means |
 |---|---|---|---|
-| `session.isOpen` | `series bool` | Yes | This bar falls inside the instrument's trading session |
+| `session.isOpen` (planned) | `series bool` | Yes | This bar falls inside the instrument's trading session |
 | `session.isFirstBar` | `series bool` | Yes | This is the session's first bar |
 | `session.isLastBar` | `series bool` | Yes | This is the session's last bar |
-| `session.startTime` | `series number` | Yes | When this bar's session opened, absent before the session's first bar |
-| `session.endTime` | `series number` | Yes | When this bar's session is scheduled to close |
-| `session.barIndex` | `series number` | Yes | This bar's position within its session, first is 0 |
+| `session.startTime` (planned) | `series number` | Yes | When this bar's session opened, absent before the session's first bar |
+| `session.endTime` (planned) | `series number` | Yes | When this bar's session is scheduled to close |
+| `session.barIndex` (planned) | `series number` | Yes | This bar's position within its session, first is 0 |
 | `session.nextOpen` | `series number` | Yes | When the next session opens. Planned |
 
 `session.isIn(spec, zone)` and `session.isHoliday(t)` are functions rather than
@@ -261,16 +261,16 @@ until that fill happens.
 | `pos.isShort` | `series bool` | Yes | `pos.size < 0` |
 | `pos.isFlat` | `series bool` | Yes | `pos.size == 0` |
 | `pos.avgPrice` | `series number` | Yes | Average price of the open position, absent while flat |
-| `pos.entryTime` | `series number` | Yes | When the current position was opened, absent while flat |
-| `pos.barsHeld` | `series number` | Yes | Bars since it was opened, `0` on the entry bar, absent while flat |
-| `pos.entries` | `series number` | Yes | How many entries make up the current position |
-| `pos.openProfit` | `series number` | Yes | Unrealised profit in money at this bar's close, absent while flat |
-| `pos.openProfitPercent` | `series number` | Yes | The same as a percentage of the position's cost, absent while flat |
-| `pos.maxProfit` | `series number` | Yes | Best unrealised profit this position has seen, absent while flat |
-| `pos.maxLoss` | `series number` | Yes | Worst unrealised loss this position has seen, absent while flat |
-| `pos.equity` | `series number` | Yes | Starting capital plus realised and unrealised profit |
-| `pos.netProfit` | `series number` | Yes | Realised profit since the run began |
-| `pos.tradeCount` | `series number` | Yes | Closed trades so far |
+| `pos.entryTime` (planned) | `series number` | Yes | When the current position was opened, absent while flat |
+| `pos.barsHeld` (planned) | `series number` | Yes | Bars since it was opened, `0` on the entry bar, absent while flat |
+| `pos.entries` (planned) | `series number` | Yes | How many entries make up the current position |
+| `pos.openProfit` (planned) | `series number` | Yes | Unrealised profit in money at this bar's close, absent while flat |
+| `pos.openProfitPercent` (planned) | `series number` | Yes | The same as a percentage of the position's cost, absent while flat |
+| `pos.maxProfit` (planned) | `series number` | Yes | Best unrealised profit this position has seen, absent while flat |
+| `pos.maxLoss` (planned) | `series number` | Yes | Worst unrealised loss this position has seen, absent while flat |
+| `pos.equity` (planned) | `series number` | Yes | Starting capital plus realised and unrealised profit |
+| `pos.netProfit` (planned) | `series number` | Yes | Realised profit since the run began |
+| `pos.tradeCount` (planned) | `series number` | Yes | Closed trades so far |
 | `pos.winRate` | `series number` | Yes | Share of closed trades that made money. Planned |
 | `pos.profitFactor` | `series number` | Yes | Gross profit over gross loss. Planned |
 | `pos.maxDrawdown` | `series number` | Yes | Largest peak to trough fall in equity so far. Planned |
@@ -293,7 +293,7 @@ an ask, is not expressible in version 1.
 
 | Name | Type | Series | Means |
 |---|---|---|---|
-| `order.pending` | `series number` | Yes | How many orders this strategy has live and unfilled |
+| `order.pending` (planned) | `series number` | Yes | How many orders this strategy has live and unfilled |
 
 `order.working(tag)` answers the same question for one tag, and is a function.
 
@@ -325,9 +325,9 @@ group rather than for a type.
 |---|---|---|---|
 | `time` | `series number` | Yes | When this bar opened |
 | `timeClose` | `series number` | Yes | When this bar's interval ends. Planned |
-| `session.startTime` | `series number` | Yes | When this bar's session opened |
-| `session.endTime` | `series number` | Yes | When this bar's session is scheduled to close |
-| `pos.entryTime` | `series number` | Yes | When the open position was entered |
+| `session.startTime` (planned) | `series number` | Yes | When this bar's session opened |
+| `session.endTime` (planned) | `series number` | Yes | When this bar's session is scheduled to close |
+| `pos.entryTime` (planned) | `series number` | Yes | When the open position was entered |
 | `chart.now()` | `number` | No | The chart's wall clock, as a call |
 
 A timestamp is a UTC instant, but the calendar fields read out of it are not. Every
@@ -424,32 +424,32 @@ Every readable built-in name in version 1, including the planned ones.
 | `low` | Bar data |
 | `ohlc4` | Derived price |
 | `open` | Bar data |
-| `order.pending` | Strategy state |
+| `order.pending` (planned) | Strategy state |
 | `pos.avgPrice` | Position state |
-| `pos.barsHeld` | Position state |
-| `pos.entries` | Position state |
-| `pos.entryTime` | Position state |
-| `pos.equity` | Strategy state |
+| `pos.barsHeld` (planned) | Position state |
+| `pos.entries` (planned) | Position state |
+| `pos.entryTime` (planned) | Position state |
+| `pos.equity` (planned) | Strategy state |
 | `pos.isFlat` | Position state |
 | `pos.isLong` | Position state |
 | `pos.isShort` | Position state |
 | `pos.maxDrawdown` | Strategy state, planned |
-| `pos.maxLoss` | Position state |
-| `pos.maxProfit` | Position state |
-| `pos.netProfit` | Strategy state |
-| `pos.openProfit` | Position state |
-| `pos.openProfitPercent` | Position state |
+| `pos.maxLoss` (planned) | Position state |
+| `pos.maxProfit` (planned) | Position state |
+| `pos.netProfit` (planned) | Strategy state |
+| `pos.openProfit` (planned) | Position state |
+| `pos.openProfitPercent` (planned) | Position state |
 | `pos.profitFactor` | Strategy state, planned |
 | `pos.size` | Position state |
-| `pos.tradeCount` | Strategy state |
+| `pos.tradeCount` (planned) | Strategy state |
 | `pos.winRate` | Strategy state, planned |
-| `session.barIndex` | Session facts |
-| `session.endTime` | Session facts |
+| `session.barIndex` (planned) | Session facts |
+| `session.endTime` (planned) | Session facts |
 | `session.isFirstBar` | Session facts |
 | `session.isLastBar` | Session facts |
-| `session.isOpen` | Session facts |
+| `session.isOpen` (planned) | Session facts |
 | `session.nextOpen` | Session facts, planned |
-| `session.startTime` | Session facts |
+| `session.startTime` (planned) | Session facts |
 | `time` | Bar data |
 | `timeClose` | Bar data, planned |
 | `volume` | Bar data |

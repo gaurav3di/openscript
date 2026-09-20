@@ -18,9 +18,12 @@ import { emitExpression } from './expressions.js';
 import { bodyFor } from './functions.js';
 import { emitDeclarationCall } from './outputs.js';
 import { registerOfName } from './registers.js';
-
-/** The two reads of `stdlib.md` 15.1, whose expression argument has no encoding. */
-const REQUEST_CALLS = new Set(['req.timeframe', 'req.symbol']);
+import {
+  REQUEST_CALLS,
+  REQUEST_STATUS_CALLS,
+  emitRequestRead,
+  requestIdFor,
+} from './requests.js';
 
 /** Whether a call leaves a value on the stack, which a statement has to pop. */
 export function leavesValue(e: Emitter, expression: Expression): boolean {
@@ -45,19 +48,10 @@ export function emitCall(e: Emitter, f: Frame, call: Call): void {
   }
 
   if (REQUEST_CALLS.has(checked.name)) {
-    // stdlib.md 15.4 compiles the expression argument as a separate program over
-    // the requested bars. compiled-program.md defines no field, no instruction
-    // and no call form that can carry one, and emitting the argument inline
-    // would compute it on this chart's bars, which is a different series.
-    e.gap(
-      'a higher timeframe or other instrument read carries an expression compiled over the ' +
-        'requested bars, and the compiled program has no field or instruction that can hold one',
-      'stdlib.md 15.4, against compiled-program.md 2 and 4',
-      call.span,
-      true,
-    );
-    f.builder.at(call.span);
-    f.builder.push('CONST', e.pool.absent());
+    // One entry of `requests` and one register the engine fills, 2.16. The
+    // expression argument is not emitted here: it belongs to the requested
+    // bars, and emitting it inline would compute it on this chart's.
+    emitRequestRead(e, f, call, checked);
     return;
   }
 
@@ -94,6 +88,13 @@ function emitLibraryCall(
 ): void {
   const index = e.libraryFunction(entry);
 
+  if (REQUEST_STATUS_CALLS.has(entry.name)) {
+    emitReadHandle(e, f, call, args[0]?.value);
+    f.builder.at(call.span);
+    f.builder.push('CALL_LIB', index, entry.parameters.length, -1);
+    return;
+  }
+
   for (let i = 0; i < entry.parameters.length; i += 1) {
     const argument = args[i];
     if (argument !== undefined) {
@@ -116,6 +117,32 @@ function emitLibraryCall(
   f.builder.at(call.span);
   const state = entry.stateful ? f.layout.state(index) : -1;
   f.builder.push('CALL_LIB', index, entry.parameters.length, state);
+}
+
+/**
+ * The read `req.isReady` and `req.error` are asking about, as its id (2.16).
+ *
+ * The argument names a read rather than carrying one: a value on a bar cannot
+ * say which request produced it, and the two calls answer about the request.
+ * A name that holds no read is absent, which is what those two answer for a
+ * read that does not exist; the checker takes any value here, so this is the
+ * one place that can tell.
+ */
+function emitReadHandle(e: Emitter, f: Frame, call: Call, argument: Expression | undefined): void {
+  const id = argument === undefined ? undefined : requestIdFor(e, argument);
+  f.builder.at(call.span);
+  if (id === undefined) {
+    e.gap(
+      'a read status call was given something that is not a name holding a read, and the ' +
+        'signature admits any value, so there is no request for it to ask about',
+      'compiled-program.md 2.16, against stdlib.md 15.1',
+      call.span,
+      false,
+    );
+    f.builder.push('CONST', e.pool.absent());
+    return;
+  }
+  f.builder.push('CONST', e.pool.number(id));
 }
 
 /**

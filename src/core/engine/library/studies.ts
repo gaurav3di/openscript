@@ -29,16 +29,9 @@ import {
   trueRangeOf,
   varianceStep,
 } from '../../stdlib/index.js';
-import type { Value } from '../values/index.js';
-import { reference } from '../values/index.js';
-import { boolAt, entry, lengthAt, numberAt } from './binding.js';
-import type { CallContext, ManifestEntry } from './binding.js';
+import { boolAt, entry, lengthAt, multi, numberAt } from './binding.js';
+import type { ManifestEntry } from './binding.js';
 import { gapAt, stateful } from './state.js';
-
-/** An array of values built fresh for this bar, as a multi-value call returns. */
-function trio(ctx: CallContext, items: (number | null)[]): Value {
-  return reference(ctx.heap.allocate({ kind: 'array', items }));
-}
 
 export const STUDY_ENTRIES: readonly ManifestEntry[] = [
   entry('trueRange', '', (ctx) => trueRangeOf(gapAt(ctx), true)),
@@ -82,7 +75,7 @@ export const STUDY_ENTRIES: readonly ManifestEntry[] = [
   ),
 
   stateful('bollinger', 'src len mult', (ctx, args) =>
-    trio(
+    multi(
       ctx,
       bollingerStep(
         ctx.state,
@@ -115,7 +108,7 @@ export const STUDY_ENTRIES: readonly ManifestEntry[] = [
   ),
 
   stateful('macd', 'src fast slow signal', (ctx, args) =>
-    trio(
+    multi(
       ctx,
       macdStep(
         ctx.state,
@@ -129,7 +122,7 @@ export const STUDY_ENTRIES: readonly ManifestEntry[] = [
   ),
 
   stateful('supertrend', 'factor atrLen', (ctx, args) =>
-    trio(
+    multi(
       ctx,
       supertrendStep(
         ctx.state,
@@ -143,7 +136,7 @@ export const STUDY_ENTRIES: readonly ManifestEntry[] = [
   ),
 
   stateful('donchian', 'len', (ctx, args) =>
-    trio(
+    multi(
       ctx,
       donchianStep(
         ctx.state,

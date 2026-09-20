@@ -273,12 +273,12 @@ window the script invents. Everything here is a per-bar fact.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
-| `session.isOpen` | `series bool` | bar 0 | This bar falls inside the instrument's trading session |
+| `session.isOpen` (planned) | `series bool` | bar 0 | This bar falls inside the instrument's trading session |
 | `session.isFirstBar` | `series bool` | bar 0 | This is the session's first bar |
 | `session.isLastBar` | `series bool` | bar 0 | This is the session's last bar |
-| `session.startTime` | `series number` | the session's first bar | When this bar's session opened |
-| `session.endTime` | `series number` | the session's first bar | When this bar's session is scheduled to close |
-| `session.barIndex` | `series number` | bar 0 | This bar's position within its session, first is 0 |
+| `session.startTime` (planned) | `series number` | the session's first bar | When this bar's session opened |
+| `session.endTime` (planned) | `series number` | the session's first bar | When this bar's session is scheduled to close |
+| `session.barIndex` (planned) | `series number` | bar 0 | This bar's position within its session, first is 0 |
 | `session.isIn(spec, zone = chart.timezone)` | `series bool` | bar 0 | Whether the bar falls in a window you name |
 | `session.isHoliday(t)` (planned) | `bool` | n/a | Whether a date is a trading holiday, once a calendar is supplied |
 | `session.nextOpen` (planned) | `series number` | bar 0 | When the next session opens |

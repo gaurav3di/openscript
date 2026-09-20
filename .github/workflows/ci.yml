@@ -84,6 +84,24 @@ jobs:
       - name: Small modules, and no reaching inside one from outside
         run: node scripts/check-modularity.mjs
 
+  no-eval:
+    name: no eval check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # The only check here that needs an install and a build: it reads what a
+      # consumer installs as well as what the repository holds, and a check that
+      # only ever saw the source would be checking the one copy nobody runs.
+      - name: Install
+        run: npm ci || npm install
+      - name: Build
+        run: npm run build
+      - name: Nothing builds code out of text, in the source, the build or the tooling
+        run: node scripts/check-no-eval.mjs
+
   build:
     name: build and test
     runs-on: ubuntu-latest

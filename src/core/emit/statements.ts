@@ -102,9 +102,23 @@ export function emitStatement(e: Emitter, f: Frame, statement: Statement): void 
 
 function emitStore(e: Emitter, f: Frame, binding: Binding): void {
   const placement = placementOf(e, binding);
-  if (placement === 'cell') f.builder.push('STOREC', f.layout.cellFor(binding));
+  if (placement === 'cell') storeCell(e, f, binding);
   else if (placement === 'register') f.builder.push('SSTORE', e.layout.computedFor(binding));
   else f.builder.push('STORE', f.layout.slotFor(binding));
+}
+
+/**
+ * A cell, and the register beside it when a function body reads the name.
+ *
+ * The register is written here as well as at the end of the bar, because a body
+ * called between two assignments has to read the value the second one has not
+ * written yet rather than the one the bar ended with.
+ */
+function storeCell(e: Emitter, f: Frame, binding: Binding): void {
+  const register = e.carried.has(binding.id) ? e.layout.registerFor(binding) : undefined;
+  if (register !== undefined) f.builder.push('DUP');
+  f.builder.push('STOREC', f.layout.cellFor(binding));
+  if (register !== undefined) f.builder.push('SSTORE', register);
 }
 
 function emitAssignment(
@@ -155,12 +169,27 @@ function emitVarDeclaration(
 ): void {
   const binding = e.checked.targets.get(statement.name);
   if (binding === undefined) return;
+
+  // The same declaration wearing a declaration's own clothes: `var grid =
+  // table(...)` declares a grid and keeps its handle, and a table is an
+  // ordinary value a name may hold (`language.md` 5.4). The call leaves nothing
+  // on the stack, so a cell to store into is a cell with nothing to put in it,
+  // and the initialiser, the call and the store below would underflow.
+  if (!leavesValue(e, statement.initialiser)) {
+    const inner = withoutGrouping(statement.initialiser);
+    if (inner.kind !== 'call') return;
+    const name = e.callAt(inner)?.name ?? '';
+    const key = emitDeclarationCall(e, f, inner, name, binding);
+    if (key !== undefined) e.handleKeys.set(binding.id, key);
+    return;
+  }
+
   const cell = f.layout.cellFor(binding);
   f.builder.at(statement.span);
   const init = f.builder.push('CELL_INIT', cell, 0);
   emitExpression(e, f, statement.initialiser);
   f.builder.at(statement.span);
-  f.builder.push('STOREC', cell);
+  storeCell(e, f, binding);
   f.builder.patch(init, 1, f.builder.here);
 }
 

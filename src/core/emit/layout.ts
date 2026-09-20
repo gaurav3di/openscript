@@ -129,6 +129,19 @@ export class Layout {
     return id;
   }
 
+  /**
+   * A register the engine fills rather than the program, 2.10 and 2.16.
+   *
+   * A read's value per chart bar, and a setting a read's expression needs on
+   * every requested bar. Neither is ever written by an instruction, which is
+   * why neither is a `computed`.
+   */
+  filled(kind: 'request' | 'input', name: string): number {
+    const id = this.registers.length;
+    this.registers.push({ id, kind, field: null, name });
+    return id;
+  }
+
   channel(
     type: Channel['type'],
     defer: boolean,

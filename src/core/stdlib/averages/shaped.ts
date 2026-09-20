@@ -10,8 +10,8 @@ import {
   fold,
   isLength,
   isPresent,
-  makeLookback,
   result,
+  ring,
   tailOf,
 } from '../values/index.js';
 import { roundHalfAway } from '../maths/index.js';
@@ -59,36 +59,51 @@ export function hma(src: Series, len: number): Value[] {
 /**
  * `alma(src, len, offset, sigma)`: the Gaussian weighted mean, from bar `len - 1`.
  *
- * The kernel depends only on the position in the lookback, so it is built once.
- * `offset` slides its peak between lag and smoothness and `sigma` sets how
- * sharply it falls away.
+ * `offset` slides the kernel's peak between lag and smoothness and `sigma` sets
+ * how sharply it falls away.
+ *
+ * The kernel depends only on the position in the lookback, so it could be built
+ * once; it is rebuilt each bar instead, because the region 2.11 requires holds
+ * numbers and queues and not a cached array of weights, and a step that reads
+ * its own arguments every bar is the only form an engine can drive. The
+ * accumulation is over the lookback in index order either way, so the number is
+ * the same one.
  */
-export function almaTail(len: number, offset = 0.85, sigma = 6): Tail<Value, Value> {
-  const lookback = makeLookback(len);
+export function almaStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  offset: number | null,
+  sigma: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null || offset === null || sigma === null) return NONE;
+  if (!lookback.complete()) return NONE;
+  if (!(sigma > 0) || !isLength(len)) return NONE;
   const peak = offset * (len - 1);
   const spread = len / sigma;
   const weights: number[] = [];
   let norm = 0;
-  if (sigma > 0 && isLength(len)) {
-    // Index order: position 0 is the oldest bar in the lookback.
-    for (let position = 0; position < len; position += 1) {
-      const gap = position - peak;
-      const weight = Math.exp(-(gap * gap) / (2 * spread * spread));
-      weights.push(weight);
-      norm += weight;
-    }
+  // Index order: position 0 is the oldest bar in the lookback.
+  for (let position = 0; position < len; position += 1) {
+    const gap = position - peak;
+    const weight = Math.exp(-(gap * gap) / (2 * spread * spread));
+    weights.push(weight);
+    norm += weight;
   }
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete() || norm === 0 || weights.length !== len) return NONE;
-      let total = 0;
-      for (let position = 0; position < len; position += 1) {
-        total += (lookback.at(len - 1 - position) as number) * (weights[position] as number);
-      }
-      return result(total / norm);
-    },
-  };
+  if (norm === 0) return NONE;
+  let total = 0;
+  for (let position = 0; position < len; position += 1) {
+    total += (lookback.at(len - 1 - position) as number) * (weights[position] as number);
+  }
+  return result(total / norm);
+}
+
+/** `alma(src, len, offset, sigma)` as a tail. */
+export function almaTail(len: number, offset = 0.85, sigma = 6): Tail<Value, Value> {
+  return tailOf((state, value: Value) => almaStep(state, 'q', value, len, offset, sigma));
 }
 
 /** `alma(src, len, offset, sigma)` over a whole series. */
@@ -108,28 +123,36 @@ export function alma(src: Series, len: number, offset = 0.85, sigma = 6): Value[
  * the answer is absence rather than the single point, because a line fitted to
  * one point is not a fit.
  */
-export function linregTail(len: number, offset = 0): Tail<Value, Value> {
-  const lookback = makeLookback(len);
+export function linregStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+  offset: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null || offset === null || !lookback.complete()) return NONE;
   // The x values are the same lookback every bar, so their sums are constants.
   const sumX = ((len - 1) * len) / 2;
   const sumXSquared = ((len - 1) * len * (2 * len - 1)) / 6;
   const divisor = len * sumXSquared - sumX * sumX;
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete() || divisor === 0) return NONE;
-      let sumY = 0;
-      let sumXY = 0;
-      for (let position = 0; position < len; position += 1) {
-        const y = lookback.at(len - 1 - position) as number;
-        sumY += y;
-        sumXY += y * position;
-      }
-      const slope = (len * sumXY - sumX * sumY) / divisor;
-      const intercept = (sumY - slope * sumX) / len;
-      return result(intercept + slope * (len - 1 - offset));
-    },
-  };
+  if (divisor === 0) return NONE;
+  let sumY = 0;
+  let sumXY = 0;
+  for (let position = 0; position < len; position += 1) {
+    const y = lookback.at(len - 1 - position) as number;
+    sumY += y;
+    sumXY += y * position;
+  }
+  const slope = (len * sumXY - sumX * sumY) / divisor;
+  const intercept = (sumY - slope * sumX) / len;
+  return result(intercept + slope * (len - 1 - offset));
+}
+
+/** `linreg(src, len, offset)` as a tail. */
+export function linregTail(len: number, offset = 0): Tail<Value, Value> {
+  return tailOf((state, value: Value) => linregStep(state, 'q', value, len, offset));
 }
 
 /** `linreg(src, len, offset)` over a whole series. */

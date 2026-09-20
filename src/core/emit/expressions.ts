@@ -169,11 +169,25 @@ export function emitNameRead(e: Emitter, f: Frame, node: NameReference): void {
 
 export function emitBindingRead(e: Emitter, f: Frame, binding: Binding, at: Span): void {
   f.builder.at(at);
+  // Inside a read's expression a setting is a register of the body's own table
+  // (2.16), reachable from the body and from any function it calls. The only
+  // other file-scope name admitted there is OS6003, which the checker reported.
+  const setting = e.request?.registerFor(e, binding);
+  if (setting !== undefined) {
+    f.builder.push('SLOAD', setting);
+    return;
+  }
   const placement = placementOf(e, binding);
   if (placement === 'cell') {
     if (!f.layout.hasCellFor(binding) && !f.topLevel) {
       // A frame reaches its own cells through its base, so a body cannot name
-      // a cell of the frame that called it (2.11, 3.3).
+      // a cell of the frame that called it (2.11, 3.3). The register beside the
+      // cell is what it reads instead, and `registers.ts` says how it is filled.
+      const carried = e.carried.has(binding.id) ? e.layout.registerFor(binding) : undefined;
+      if (carried !== undefined) {
+        f.builder.push('SLOAD', carried);
+        return;
+      }
       e.gap(
         'a function body reads a `var` declared at the file scope, and a cell operand is ' +
           "relative to the frame's cellBase, so no instruction can reach it",

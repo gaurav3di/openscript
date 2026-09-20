@@ -375,7 +375,7 @@ export function resolveLibraryCall(
   }
 
   if (entry.planned) {
-    checker.report('OS2001', call.span, { name, suggestion: checker.suggestionFor(name) });
+    checker.report('OS2020', call.span, { name });
   }
 
   reportStrategyOnly(checker, name, call.span, entry.strategyOnly);

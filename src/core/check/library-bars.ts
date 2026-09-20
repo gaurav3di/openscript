@@ -87,18 +87,38 @@ const chart: readonly LibraryEntry[] = [
   entry('chart.optionType -> string', { planned: true }),
 ];
 
+/**
+ * The session facts, `stdlib.md` 12.4.
+ *
+ * **The per-bar facts run and the four schedule facts are planned**, and the
+ * line between them is where the answer comes from. `session.isFirstBar` and
+ * `session.isLastBar` are facts about the delivery that the host states per
+ * bar, and an engine has them. `session.isIn` reads the hours the script itself
+ * wrote, and the calendar of section 12.2 turns them into a test. The other
+ * four are read off the **instrument's** own session hours, which the engine's
+ * host record does not yet carry (`host-interface.md` 4.3), so they are marked
+ * rather than left to be refused at load with a message about a function.
+ */
 const session: readonly LibraryEntry[] = [
-  entry('session.isOpen -> series bool'),
+  entry('session.isOpen -> series bool', { planned: true }),
   entry('session.isFirstBar -> series bool'),
   entry('session.isLastBar -> series bool'),
-  entry('session.startTime -> series number', { warmup: DATA_DRIVEN }),
-  entry('session.endTime -> series number', { warmup: DATA_DRIVEN }),
-  entry('session.barIndex -> series number'),
+  entry('session.startTime -> series number', { planned: true, warmup: DATA_DRIVEN }),
+  entry('session.endTime -> series number', { planned: true, warmup: DATA_DRIVEN }),
+  entry('session.barIndex -> series number', { planned: true }),
   entry('session.isIn(spec: string, zone?: string) -> series bool'),
   entry('session.isHoliday(t: number) -> bool', { planned: true }),
   entry('session.nextOpen -> series number', { planned: true }),
 ];
 
+/**
+ * The calendar, `stdlib.md` 12.2.
+ *
+ * Every entry reads a timestamp in a named zone, and the zone table is the
+ * runtime's own rather than one copied here: `calendar/zone.ts` gives the
+ * reason. `date.add` stays planned because calendar arithmetic that respects
+ * month lengths has a rule to settle first, which the entry itself says.
+ */
 const date: readonly LibraryEntry[] = [
   entry('date.year(t: number, zone?: string) -> number'),
   entry('date.month(t: number, zone?: string) -> number'),

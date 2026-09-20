@@ -21,6 +21,8 @@ import { leavesValue } from './calls.js';
 import type { Emitter, Site } from './context.js';
 import { Frame } from './context.js';
 import { emitExpression } from './expressions.js';
+import { cellsOf } from './layout.js';
+import type { Cell, StateRegion } from './program.js';
 import { emitBlock } from './statements.js';
 
 /** The `functions` entry a call site should name, emitting the body if needed. */
@@ -154,4 +156,40 @@ export function assignBases(e: Emitter, topCells: number, topStates: number): vo
   };
 
   for (let i = 0; i < e.sites.length; i += 1) assign(i);
+}
+
+/**
+ * `cells` and `states`, once one frame and every call path reached from it are
+ * counted.
+ *
+ * A body numbers its own from zero and the call site adds the base, so the two
+ * tables are that frame's own block followed by one block per site, in the
+ * order the bases were handed out. It is the same arithmetic for the top level
+ * of a program and for the body of a read (2.16), which evaluates on its own
+ * bars and so counts its own regions from zero.
+ */
+export function assignRegions(
+  e: Emitter,
+  top: Frame,
+): { readonly cells: readonly Cell[]; readonly states: readonly StateRegion[] } {
+  const topCells = top.layout.cellNames.length;
+  const topStates = top.layout.stateFns.length;
+  assignBases(e, topCells, topStates);
+
+  const cells: Cell[] = cellsOf(top.layout, 0);
+  const states: StateRegion[] = top.layout.stateFns.map((fn, index) => ({ id: index, fn }));
+
+  const ordered = [...e.sites].sort((a, b) => a.cellBase - b.cellBase || a.stateBase - b.stateBase);
+  for (const site of ordered) {
+    const frame = site.frame;
+    if (frame === undefined) continue;
+    cells.push(...cellsOf(frame, site.cellBase));
+    frame.stateFns.forEach((fn, index) => {
+      states.push({ id: site.stateBase + index, fn });
+    });
+  }
+
+  cells.sort((a, b) => a.id - b.id);
+  states.sort((a, b) => a.id - b.id);
+  return { cells, states };
 }

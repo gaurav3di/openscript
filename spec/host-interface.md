@@ -233,7 +233,7 @@ moving bar ten times give the same answer as executing it once.
 
 ### 4.1 The record
 
-Eleven facts. This table is where they are defined; `compiled-program.md` section
+Twelve facts. This table is where they are defined; `compiled-program.md` section
 5.2 names the record as one of the things an engine reads from the host.
 
 | Fact | Type | Required | What a script sees when it is absent | Read by |
@@ -248,6 +248,7 @@ Eleven facts. This table is where they are defined; `compiled-program.md` sectio
 | `currency` | string | No | Absent | `chart.currency` |
 | `instrumentType` | string | No | Absent | `chart.instrumentType` |
 | `hasVolume` | bool | **Yes** | There is no absent case: this is the one fact a host must state | `chart.hasVolume` |
+| `hasOpenInterest` | bool | No | Absent | `chart.hasOpenInterest` |
 | `session` | window | No | Absent, and the per-bar session facts are absent with it, section 4.3 | the `session` namespace |
 
 Value spellings:
@@ -274,6 +275,7 @@ Value spellings:
   "currency": "XXX",
   "instrumentType": "future",
   "hasVolume": true,
+  "hasOpenInterest": false,
   "session": { "start": "09:00", "end": "17:30", "days": [1, 2, 3, 4, 5] }
 }
 ```
@@ -291,6 +293,12 @@ script can test. Volume does not, because the question is not about a value but
 about whether the values mean anything at all: an instrument that never reports
 volume and an instrument whose figures are late produce the same empty column
 (decision 6 in `decisions.md`).
+
+`hasOpenInterest` asks the same question about open interest, which `stdlib.md`
+section 3.1 gives the same absence rule, and it is optional where `hasVolume` is
+required for one reason: open interest is absent on the instruments that have
+none, and a cash instrument reporting nothing there is the expected case rather
+than an ambiguity a script has to resolve.
 
 Everything else may be absent, and absence is deliberately more useful than a
 default would be. `chart.tickSize` is absent rather than a guessed `0.05`, because

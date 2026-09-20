@@ -29,7 +29,17 @@ export {
   temaTail,
 } from './exponential.js';
 
-export { alma, almaTail, hma, hmaStep, hmaTail, linreg, linregTail } from './shaped.js';
+export {
+  alma,
+  almaStep,
+  almaTail,
+  hma,
+  hmaStep,
+  hmaTail,
+  linreg,
+  linregStep,
+  linregTail,
+} from './shaped.js';
 
 export type { MaType } from './select.js';
-export { ma, maTail } from './select.js';
+export { isMaType, ma, maStep, maTail } from './select.js';

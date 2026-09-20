@@ -4,6 +4,13 @@ By the end of this page you will be able to read everything a strategy knows abo
 its own position, and to choose an order size by fixed quantity, by lots, by the
 money you are prepared to lose, or by how much the instrument moves.
 
+> **Much of this page is marked planned.** A strategy's ledger, its legs and its
+> book are what the marked calls are folded from, and no engine holds one in this
+> release. A marked call is refused where you wrote it, with a message that says
+> it is planned, rather than compiling and then failing to load. The six order
+> functions, the three `order` calls that place an order and the five position
+> facts read from the account's own row are not marked, because those run.
+
 ## What the strategy can read about itself
 
 The `pos` namespace answers two different questions: what is held right now, and
@@ -20,17 +27,17 @@ taken from it would be a figure about somebody else's trade as much as your own.
 | `pos.isShort` | `series bool` | `false` | `pos.size < 0` |
 | `pos.isFlat` | `series bool` | `true` | `pos.size == 0` |
 | `pos.avgPrice` | `series number` | absent | Average price of the open position |
-| `pos.entryTime` | `series number` | absent | When the current position was opened |
-| `pos.barsHeld` | `series number` | absent | Bars since it was opened, `0` on the entry bar |
-| `pos.entries` | `series number` | `0` | How many entries make up the current position |
-| `pos.openProfit` | `series number` | absent | Unrealised profit in money, at this bar's close |
-| `pos.openProfitPercent` | `series number` | absent | The same as a percentage of the position's cost |
-| `pos.maxProfit` | `series number` | absent | Best unrealised profit this position has seen |
-| `pos.maxLoss` | `series number` | absent | Worst unrealised loss this position has seen |
-| `pos.isShared` | `series bool` | either | The account holds a position in a contract this strategy also holds |
-| `pos.equity` | `series number` | a number | Starting capital plus realised and unrealised profit |
-| `pos.netProfit` | `series number` | a number | Realised profit since the run began |
-| `pos.tradeCount` | `series number` | a number | Closed trades so far |
+| `pos.entryTime` (planned) | `series number` | absent | When the current position was opened |
+| `pos.barsHeld` (planned) | `series number` | absent | Bars since it was opened, `0` on the entry bar |
+| `pos.entries` (planned) | `series number` | `0` | How many entries make up the current position |
+| `pos.openProfit` (planned) | `series number` | absent | Unrealised profit in money, at this bar's close |
+| `pos.openProfitPercent` (planned) | `series number` | absent | The same as a percentage of the position's cost |
+| `pos.maxProfit` (planned) | `series number` | absent | Best unrealised profit this position has seen |
+| `pos.maxLoss` (planned) | `series number` | absent | Worst unrealised loss this position has seen |
+| `pos.isShared` (planned) | `series bool` | either | The account holds a position in a contract this strategy also holds |
+| `pos.equity` (planned) | `series number` | a number | Starting capital plus realised and unrealised profit |
+| `pos.netProfit` (planned) | `series number` | a number | Realised profit since the run began |
+| `pos.tradeCount` (planned) | `series number` | a number | Closed trades so far |
 
 The first twelve describe one position, so they read the file's only leg. **In a
 file that declares more than one leg they are refused at compile time**, and each
@@ -339,9 +346,9 @@ risk.
 
 | Call | Returns | For |
 |---|---|---|
-| `order.qtyForCash(cash, price = close)` | `number` | "Put two lakh into this" |
-| `order.qtyForEquityPercent(percent, price = close)` | `number` | "Put ten percent of the account into this" |
-| `order.qtyForRisk(risk, entry, stop)` | `number` | "Lose no more than this if I am wrong" |
+| `order.qtyForCash(cash, price = close)` (planned) | `number` | "Put two lakh into this" |
+| `order.qtyForEquityPercent(percent, price = close)` (planned) | `number` | "Put ten percent of the account into this" |
+| `order.qtyForRisk(risk, entry, stop)` (planned) | `number` | "Lose no more than this if I am wrong" |
 
 All three round down to a whole number of units. The first two size the *position*
 and say nothing about what it can lose; the third sizes the *loss* and lets the

@@ -174,8 +174,8 @@ read in the file, because that combination is where repainting comes from.
 | Rejections | Rare, model-shaped | Real, with the destination's own reason |
 | Fill price | Your slippage model | The market |
 | `pos.size` | Simulated fills, folded from the ledger | Real fills, folded from the same ledger |
-| `pos.equity` | Declared capital plus this strategy's profit | The same, and still not the account balance |
-| `pos.isShared` | Whatever the simulated account holds | True whenever something else is in that contract |
+| `pos.equity` (planned) | Declared capital plus this strategy's profit | The same, and still not the account balance |
+| `pos.isShared` (planned) | Whatever the simulated account holds | True whenever something else is in that contract |
 | Logs | Per script | Per script |
 | Stopping it | Stops the script | Stops the script, not the position |
 

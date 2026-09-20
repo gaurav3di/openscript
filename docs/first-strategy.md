@@ -5,6 +5,13 @@ that enters, exits, carries a stop and a target, sizes itself by risk, and
 produces a backtest report you know how to read, on paper, which is the only mode
 it can reach without a separate deliberate act from you.
 
+> **Much of this page is marked planned.** A strategy's ledger, its legs and its
+> book are what the marked calls are folded from, and no engine holds one in this
+> release. A marked call is refused where you wrote it, with a message that says
+> it is planned, rather than compiling and then failing to load. The six order
+> functions, the three `order` calls that place an order and the five position
+> facts read from the account's own row are not marked, because those run.
+
 ## Contents
 
 1. [A strategy is a study with orders](#a-strategy-is-a-study-with-orders)
@@ -120,9 +127,9 @@ than intentions**:
 | `pos.size` | `0`, positive long, negative short |
 | `pos.isLong`, `pos.isShort`, `pos.isFlat` | `false`, `false`, `true` |
 | `pos.avgPrice` | absent |
-| `pos.barsHeld`, `pos.entryTime` | absent |
-| `pos.openProfit`, `pos.openProfitPercent` | absent |
-| `pos.equity`, `pos.netProfit`, `pos.tradeCount` | a number from bar 0 |
+| `pos.barsHeld`, `pos.entryTime` (planned) | absent |
+| `pos.openProfit`, `pos.openProfitPercent` (planned) | absent |
+| `pos.equity`, `pos.netProfit`, `pos.tradeCount` (planned) | a number from bar 0 |
 
 `pos.size` is `0` while flat because zero is the true size and a script adding it
 to something should get the right answer. `pos.avgPrice` is **absent** while flat
@@ -274,10 +281,10 @@ The sizing helpers:
 
 | Call | Sizes from |
 |---|---|
-| `order.qtyForRisk(risk, entry, stop)` | The distance to the stop, so being stopped out costs `risk` |
-| `order.qtyForCash(cash, price)` | An amount of money |
-| `order.qtyForEquityPercent(percent, price)` | A percentage of current equity |
-| `order.roundToLot(qty, direction)` | Rounds to a whole multiple of `chart.lotSize` |
+| `order.qtyForRisk(risk, entry, stop)` (planned) | The distance to the stop, so being stopped out costs `risk` |
+| `order.qtyForCash(cash, price)` (planned) | An amount of money |
+| `order.qtyForEquityPercent(percent, price)` (planned) | A percentage of current equity |
+| `order.roundToLot(qty, direction)` (planned) | Rounds to a whole multiple of `chart.lotSize` |
 
 All of them round **down** by default. A size rounded up is a position larger
 than the script asked for, and that error compounds with every entry.

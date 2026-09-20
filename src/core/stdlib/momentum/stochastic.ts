@@ -5,12 +5,12 @@
  * All three are the same test with different sources and different scales.
  * They are written once, as `position`, so the three cannot drift apart.
  */
-import type { Bar, Series, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, result } from '../values/index.js';
-import { smaTail } from '../averages/index.js';
-import { highestTail, lowestTail } from '../series/index.js';
+import type { Bar, Series, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, isPresent, result, tailOf } from '../values/index.js';
+import { smaStep } from '../averages/index.js';
+import { extremeStep } from '../series/index.js';
 
-import { rsiTail } from './rsi.js';
+import { rsiStep } from './rsi.js';
 
 /** Where `value` sits between `low` and `high`, as 0 to 100. Absent on a flat range. */
 function position(value: Value, high: Value, low: Value): Value {
@@ -20,15 +20,21 @@ function position(value: Value, high: Value, low: Value): Value {
   return result((100 * (value - low)) / span);
 }
 
+/** The largest value in the last `len` bars, as the three studies here read it. */
+function topStep(state: StateRecord, key: string, value: Value, len: number | null): Value {
+  return extremeStep(state, key, value, len, true, false);
+}
+
+/** The smallest value in the last `len` bars. */
+function bottomStep(state: StateRecord, key: string, value: Value, len: number | null): Value {
+  return extremeStep(state, key, value, len, false, false);
+}
+
 /** The raw range position of a series against its own lookback. */
-function rawTail(len: number): Tail<Value, Value> {
-  const top = highestTail(len);
-  const bottom = lowestTail(len);
-  return {
-    next(value: Value): Value {
-      return position(value, top.next(value), bottom.next(value));
-    },
-  };
+function rawStep(state: StateRecord, key: string, value: Value, len: number | null): Value {
+  const high = topStep(state, `${key}t`, value, len);
+  const low = bottomStep(state, `${key}b`, value, len);
+  return position(value, high, low);
 }
 
 /**
@@ -38,19 +44,25 @@ function rawTail(len: number): Tail<Value, Value> {
  * The close against the lookback's outright high and low, which are the bars'
  * highs and lows and not the close's own extremes.
  */
+export function stochStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  len: number | null,
+  smoothK: number | null,
+  smoothD: number | null,
+): Value[] {
+  const high = topStep(state, `${key}t`, bar.high, len);
+  const low = bottomStep(state, `${key}b`, bar.low, len);
+  const raw = position(bar.close, high, low);
+  const k = smaStep(state, `${key}k`, raw, smoothK);
+  const d = smaStep(state, `${key}d`, k, smoothD);
+  return [k, d];
+}
+
+/** `stoch(len, smoothK, smoothD)` as a tail. */
 export function stochTail(len = 14, smoothK = 1, smoothD = 3): Tail<Bar, Value[]> {
-  const top = highestTail(len);
-  const bottom = lowestTail(len);
-  const smoothFast = smaTail(smoothK);
-  const smoothSlow = smaTail(smoothD);
-  return {
-    next(bar: Bar): Value[] {
-      const raw = position(bar.close, top.next(bar.high), bottom.next(bar.low));
-      const k = smoothFast.next(raw);
-      const d = smoothSlow.next(k);
-      return [k, d];
-    },
-  };
+  return tailOf((state, bar: Bar) => stochStep(state, '', bar, len, smoothK, smoothD));
 }
 
 /** `stoch(len, smoothK, smoothD)` over a run of bars. */
@@ -65,23 +77,32 @@ export function stoch(bars: readonly Bar[], len = 14, smoothK = 1, smoothD = 3):
  * The same position test applied to `rsi` rather than to price, so the lookback
  * is the range the strength reading itself covered.
  */
+export function stochRsiStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  rsiLen: number | null,
+  stochLen: number | null,
+  smoothK: number | null,
+  smoothD: number | null,
+): Value[] {
+  const strength = rsiStep(state, `${key}r`, value, rsiLen);
+  const raw = rawStep(state, `${key}p`, strength, stochLen);
+  const k = smaStep(state, `${key}k`, raw, smoothK);
+  const d = smaStep(state, `${key}d`, k, smoothD);
+  return [k, d];
+}
+
+/** `stochRsi(src, rsiLen, stochLen, smoothK, smoothD)` as a tail. */
 export function stochRsiTail(
   rsiLen = 14,
   stochLen = 14,
   smoothK = 3,
   smoothD = 3,
 ): Tail<Value, Value[]> {
-  const strength = rsiTail(rsiLen);
-  const raw = rawTail(stochLen);
-  const smoothFast = smaTail(smoothK);
-  const smoothSlow = smaTail(smoothD);
-  return {
-    next(value: Value): Value[] {
-      const k = smoothFast.next(raw.next(strength.next(value)));
-      const d = smoothSlow.next(k);
-      return [k, d];
-    },
-  };
+  return tailOf((state, value: Value) =>
+    stochRsiStep(state, '', value, rsiLen, stochLen, smoothK, smoothD),
+  );
 }
 
 /** `stochRsi(src, rsiLen, stochLen, smoothK, smoothD)` over a whole series. */
@@ -101,19 +122,23 @@ export function stochRsi(
  * Zero at the top of the range and -100 at the bottom, which is the sign
  * convention the reading has always carried.
  */
+export function williamsRStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  len: number | null,
+): Value {
+  const high = topStep(state, `${key}t`, bar.high, len);
+  const low = bottomStep(state, `${key}b`, bar.low, len);
+  if (!isPresent(bar.close) || !isPresent(high) || !isPresent(low)) return NONE;
+  const span = high - low;
+  if (span === 0) return NONE;
+  return result((-100 * (high - bar.close)) / span);
+}
+
+/** `williamsR(len)` as a tail. */
 export function williamsRTail(len = 14): Tail<Bar, Value> {
-  const top = highestTail(len);
-  const bottom = lowestTail(len);
-  return {
-    next(bar: Bar): Value {
-      const high = top.next(bar.high);
-      const low = bottom.next(bar.low);
-      if (!isPresent(bar.close) || !isPresent(high) || !isPresent(low)) return NONE;
-      const span = high - low;
-      if (span === 0) return NONE;
-      return result((-100 * (high - bar.close)) / span);
-    },
-  };
+  return tailOf((state, bar: Bar) => williamsRStep(state, '', bar, len));
 }
 
 /** `williamsR(len)` over a run of bars. */

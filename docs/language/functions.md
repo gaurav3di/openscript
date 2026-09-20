@@ -516,7 +516,7 @@ and are covered by the per-bar loop budget, which recursion would not be.
 | Code | Means | Usual fix |
 |---|---|---|
 | OS2002 | A name or parameter shadows an enclosing one | Rename it; the message names the line of the outer declaration |
-| OS2004 | `[]` on something with no history | Assign it to a name at the top level of the file first |
+| OS2004 | `[]` on something with no history | Assign the per-bar number to a name at the top level of the file, and read that name |
 | OS2005 | A function calls itself | Write a loop |
 | OS2014 | A function used as a value | Call it and use the result |
 | OS2016 | Unknown type in an annotation | Use `number`, `string`, `bool`, `color` or `array<T>` |

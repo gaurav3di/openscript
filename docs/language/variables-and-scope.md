@@ -451,7 +451,7 @@ script that used one as a name.
 | OS2001 | The name is not defined at this point in the file | Assign it above this line, or correct the spelling |
 | OS2002 | The name already exists in an enclosing scope | Rename the inner one, or drop the declaration and let the assignment update the outer one |
 | OS2003 | The name changed type | Use a second name |
-| OS2004 | The value has no history | Name it at the top level of the file |
+| OS2004 | The value has no history | Name the per-bar number at the top level of the file, and read that name |
 | OS2005 | A function calls itself | Write a loop |
 | OS2006 | The loop variable was assigned in the body | `break`, or keep a separate name |
 | OS1011 | `var` with no initial value | `var name = none` is the empty start |

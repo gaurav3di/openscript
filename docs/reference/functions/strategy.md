@@ -34,10 +34,10 @@ than stopping loudly.
 
 | Call | For |
 |---|---|
-| `leg.fixed(name, symbol, ...)` | Declare a leg on a contract named outright |
-| `leg.relative(name, underlying, kind, ...)` | Declare a leg on a contract named by description |
-| `leg.symbol(name)`, `leg.exchange(name)`, `leg.product(name)` | Read back what the orders actually carried |
-| `leg.expiry(name)`, `leg.strike(name)` | Read back the resolved contract's expiry and strike |
+| `leg.fixed(name, symbol, ...)` (planned) | Declare a leg on a contract named outright |
+| `leg.relative(name, underlying, kind, ...)` (planned) | Declare a leg on a contract named by description |
+| `leg.symbol(name)`, `leg.exchange(name)`, `leg.product(name)` (planned) | Read back what the orders actually carried |
+| `leg.expiry(name)`, `leg.strike(name)` (planned) | Read back the resolved contract's expiry and strike |
 
 Their arguments, and what each field of a relative description means, are
 `stdlib.md` section 17.6. Where a leg may be written is the placement list of
@@ -210,7 +210,7 @@ Returns nothing.
 order.bracket(profit = atr(14) * 3, loss = atr(14))
 ```
 
-### `leg.trail(name, distance, arm = none)`
+### `leg.trail(name, distance, arm = none)` (planned)
 
 The one trailing stop in the language: there is no `trail` argument on `exit` or
 on `order.bracket`.
@@ -225,7 +225,7 @@ leg.trail(distance = atr(14) * 2)
 What it follows, when it arms and how it ratchets are `stdlib.md` section 17.9,
 and when it is tested against a bar is section 17.10.
 
-### `order.working(tag)`
+### `order.working(tag)` (planned)
 
 Whether an order with that tag is live and unfilled.
 Parameters: `tag` `string` required.
@@ -236,7 +236,7 @@ if not order.working("entry")
     buy(tag = "entry", limit = level)
 ```
 
-### `order.pending`
+### `order.pending` (planned)
 
 How many orders are live and unfilled.
 Parameters: none, it is a per-bar fact rather than a call.
@@ -246,7 +246,7 @@ Returns `series number`.
 plot(order.pending, "Working orders", silver, style = "step")
 ```
 
-### `order.qtyForCash(cash, price = close)`
+### `order.qtyForCash(cash, price = close)` (planned)
 
 Size from an amount of money.
 Parameters: `cash` `number` required; `price` `number` default `close`.
@@ -256,7 +256,7 @@ Returns `number`.
 qty = order.qtyForCash(50000)
 ```
 
-### `order.qtyForRisk(risk, entry, stop)`
+### `order.qtyForRisk(risk, entry, stop)` (planned)
 
 Size so that being stopped out costs `risk`.
 Parameters: `risk` `number` required; `entry` `number` required; `stop` `number`
@@ -272,7 +272,7 @@ because that is a real state during warmup and on a flat bar. The order function
 that receives the absent quantity refuses it with OS7002 and names the argument,
 so the failure still stops loudly, one step later and with a better message.
 
-### `order.qtyForEquityPercent(percent, price = close)`
+### `order.qtyForEquityPercent(percent, price = close)` (planned)
 
 Size from a percentage of current equity.
 Parameters: `percent` `number` required; `price` `number` default `close`.
@@ -282,7 +282,7 @@ Returns `number`.
 qty = order.qtyForEquityPercent(10)
 ```
 
-### `order.roundToLot(qty, direction = "down", leg = the only leg)`
+### `order.roundToLot(qty, direction = "down", leg = the only leg)` (planned)
 
 Round to a whole multiple of that leg's lot size.
 Parameters: `qty` `number` required; `direction` `string` default `"down"`;
@@ -333,16 +333,16 @@ on the next bar's open does not change any of these until that fill happens.
 | `pos.isShort` | `series bool` | bar 0 | `pos.size < 0` |
 | `pos.isFlat` | `series bool` | bar 0 | `pos.size == 0` |
 | `pos.avgPrice` | `series number` | absent while flat | Average price of the open position |
-| `pos.entryTime` | `series number` | absent while flat | When the current position was opened |
-| `pos.barsHeld` | `series number` | absent while flat | Bars since it was opened, 0 on the entry bar |
-| `pos.entries` | `series number` | bar 0 | How many entries make up the current position, for a pyramiding rule |
-| `pos.openProfit` | `series number` | absent while flat | Unrealised profit in money, at this bar's close |
-| `pos.openProfitPercent` | `series number` | absent while flat | The same as a percentage of the position's cost |
-| `pos.maxProfit` | `series number` | absent while flat | Best unrealised profit this position has seen |
-| `pos.maxLoss` | `series number` | absent while flat | Worst unrealised loss this position has seen |
-| `pos.equity` | `series number` | bar 0 | Starting capital plus realised and unrealised profit |
-| `pos.netProfit` | `series number` | bar 0 | Realised profit since the run began |
-| `pos.tradeCount` | `series number` | bar 0 | Closed trades so far |
+| `pos.entryTime` (planned) | `series number` | absent while flat | When the current position was opened |
+| `pos.barsHeld` (planned) | `series number` | absent while flat | Bars since it was opened, 0 on the entry bar |
+| `pos.entries` (planned) | `series number` | bar 0 | How many entries make up the current position, for a pyramiding rule |
+| `pos.openProfit` (planned) | `series number` | absent while flat | Unrealised profit in money, at this bar's close |
+| `pos.openProfitPercent` (planned) | `series number` | absent while flat | The same as a percentage of the position's cost |
+| `pos.maxProfit` (planned) | `series number` | absent while flat | Best unrealised profit this position has seen |
+| `pos.maxLoss` (planned) | `series number` | absent while flat | Worst unrealised loss this position has seen |
+| `pos.equity` (planned) | `series number` | bar 0 | Starting capital plus realised and unrealised profit |
+| `pos.netProfit` (planned) | `series number` | bar 0 | Realised profit since the run began |
+| `pos.tradeCount` (planned) | `series number` | bar 0 | Closed trades so far |
 | `pos.winRate` (planned) | `series number` | bar 0 | Share of closed trades that made money |
 | `pos.profitFactor` (planned) | `series number` | bar 0 | Gross profit over gross loss |
 | `pos.maxDrawdown` (planned) | `series number` | bar 0 | Largest peak to trough fall in equity so far |

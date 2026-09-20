@@ -215,10 +215,7 @@ function checkNameReference(checker: Checker, expression: NameReference): Type {
   }
 
   if (value.planned) {
-    checker.report('OS2001', expression.span, {
-      name: expression.name,
-      suggestion: checker.suggestionFor(expression.name),
-    });
+    checker.report('OS2020', expression.span, { name: expression.name });
   }
   reportStrategyOnly(checker, expression.name, expression.span, value.strategyOnly);
   const warmup = value.warmup.kind === 'data' ? weaken(BAR_ZERO) : BAR_ZERO;
@@ -256,10 +253,7 @@ function checkMember(checker: Checker, expression: Member): Type {
   }
 
   if (value.planned) {
-    checker.report('OS2001', expression.span, {
-      name: full,
-      suggestion: checker.suggestionFor(full),
-    });
+    checker.report('OS2020', expression.span, { name: full });
   }
   reportStrategyOnly(checker, full, expression.span, value.strategyOnly);
   const warmup = value.warmup.kind === 'data' ? weaken(BAR_ZERO) : BAR_ZERO;

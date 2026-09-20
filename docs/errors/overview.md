@@ -55,16 +55,16 @@ produced it.
 
 | Range | Kind | Covers | Severity | Entries |
 |---|---|---|---|---|
-| OS1xxx | Syntax | The source text is not a program: characters, layout and grammar | error | 22 |
-| OS2xxx | Names and types | The program parses, and a name or a type does not work out | error | 19 |
-| OS3xxx | Arguments | A call or an option is wrong at the call site | error | 16 |
-| OS4xxx | Runtime | A bar produced a value the engine cannot act on | error | 12 |
-| OS5xxx | Limits | A budget was exhausted: loops, memory, size or time | error | 8 |
-| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests | error | 12 |
-| OS7xxx | Orders | An order could not be placed as written | error | 13 |
-| OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant | warning | 14 |
+| OS1xxx | Syntax | The source text is not a program: characters, layout and grammar | error | 29 |
+| OS2xxx | Names and types | The program parses, and a name or a type does not work out | error | 20 |
+| OS3xxx | Arguments | A call or an option is wrong at the call site | error | 20 |
+| OS4xxx | Runtime | A bar produced a value the engine cannot act on | error | 13 |
+| OS5xxx | Limits | A budget was exhausted: loops, memory, size or time | error | 9 |
+| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests | error | 19 |
+| OS7xxx | Orders | An order could not be placed as written | error | 15 |
+| OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant | warning | 19 |
 
-One hundred and sixteen entries in language version 1. Ranges OS1xxx to OS7xxx
+One hundred and forty-four entries in language version 1. Ranges OS1xxx to OS7xxx
 are errors; OS8xxx is the warnings.
 
 What each range tells you about your own next move:

@@ -18,7 +18,7 @@ import { withoutGrouping } from '../ast/index.js';
 import type { CheckedInput } from '../check/index.js';
 import type { Span } from '../span/index.js';
 import type { Emitter, Frame } from './context.js';
-import { argumentAt } from './context.js';
+import { argumentAt, inputKey } from './context.js';
 import { INPUT_DEFAULTS } from './defaults.js';
 import type { CompiledInput, Constant } from './program.js';
 import { constantOf } from './pool.js';
@@ -72,7 +72,7 @@ function entryFor(e: Emitter, input: CheckedInput, slot: number): CompiledInput 
   };
 
   return {
-    key: input.name === '' ? `input${input.id}` : input.name,
+    key: inputKey(input),
     kind: input.kind,
     label: input.title,
     default: defaultOf(e, input, argument('value')),

@@ -26,8 +26,16 @@ export interface Instrument {
   readonly exchange?: string;
   /** The chart's interval code, which `chart.intervalMinutes` is derived from. */
   readonly interval?: string;
+  /** An IANA zone name, never a fixed offset, `host-interface.md` 4.1. */
+  readonly timezone?: string;
   readonly tickSize?: number;
   readonly lotSize?: number;
+  readonly pointValue?: number;
+  readonly currency?: string;
+  readonly instrumentType?: string;
+  /** The one fact a host must state, because no derivation recovers it. */
+  readonly hasVolume?: boolean;
+  readonly hasOpenInterest?: boolean;
 }
 
 /** The strategy's position, until a backtester owns one. */
@@ -61,4 +69,9 @@ export function hostNumber(value: number | undefined): Value {
 
 export function hostString(value: string | undefined): Value {
   return typeof value === 'string' ? value : null;
+}
+
+/** A condition the host stated, or absence when it stated none. */
+export function hostBool(value: boolean | undefined): Value {
+  return typeof value === 'boolean' ? value : null;
 }

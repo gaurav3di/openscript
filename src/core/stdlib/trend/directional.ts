@@ -1,12 +1,18 @@
 /**
- * `adx(diLen, adxLen)` and `aroon(len)`: how strong the trend is, and which
- * side owns it.
+ * `adx(diLen, adxLen)`, `aroon(len)` and `ichimoku(convLen, baseLen, spanLen)`:
+ * how strong the trend is, which side owns it, and the five line frame.
+ *
+ * Each is written once, as a step over a state region, and its tail is that
+ * step over a region of its own. An engine calls the same step against the
+ * region it holds for the call site, so there is no second arrangement of the
+ * arithmetic anywhere for the two to drift apart in.
  */
-import type { Bar, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, makeLookback, result } from '../values/index.js';
-import { rmaTail } from '../averages/index.js';
-import { highestBarsTail, lowestBarsTail } from '../series/index.js';
-import { gapTrueRangeTail } from '../volatility/index.js';
+import type { Bar, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, held, isPresent, result, ring, tailOf } from '../values/index.js';
+import { rmaStep } from '../averages/index.js';
+import { extremeStep } from '../series/index.js';
+import type { Gap } from '../volatility/index.js';
+import { gapOf, trueRangeOf } from '../volatility/index.js';
 
 /**
  * `adx(diLen, adxLen)`: `[adx, plusDI, minusDI]`, elements 1 and 2 from bar
@@ -19,55 +25,66 @@ import { gapTrueRangeTail } from '../volatility/index.js';
  * same reason, so all three smoothed quantities cover the same bars: seeding
  * one of them a bar earlier than the other two would bias every reading after
  * it while still looking entirely plausible.
+ *
+ * The previous bar's two extremes are held in the region, because they are the
+ * arithmetic's own history. The previous close is not: it arrives with the gap,
+ * for the reason `range.ts` sets out.
  */
+export function adxStep(
+  state: StateRecord,
+  key: string,
+  gap: Gap,
+  diLen: number | null,
+  adxLen: number | null,
+): Value[] {
+  const highKey = `${key}h`;
+  const lowKey = `${key}l`;
+  const seenKey = `${key}k`;
+  const beforeHigh = held(state, highKey);
+  const beforeLow = held(state, lowKey);
+  const started = state[seenKey] === true;
+  state[seenKey] = true;
+  state[highKey] = gap.high;
+  state[lowKey] = gap.low;
+
+  let upMove: Value = NONE;
+  let downMove: Value = NONE;
+  if (
+    started &&
+    isPresent(gap.high) &&
+    isPresent(gap.low) &&
+    isPresent(beforeHigh) &&
+    isPresent(beforeLow)
+  ) {
+    const up = gap.high - beforeHigh;
+    const down = beforeLow - gap.low;
+    upMove = up > down && up > 0 ? result(up) : 0;
+    downMove = down > up && down > 0 ? result(down) : 0;
+  }
+
+  const trueRange = rmaStep(state, `${key}r`, trueRangeOf(gap, false), diLen);
+  const rise = rmaStep(state, `${key}u`, upMove, diLen);
+  const fall = rmaStep(state, `${key}d`, downMove, diLen);
+
+  let plus: Value = NONE;
+  let minus: Value = NONE;
+  if (isPresent(trueRange) && trueRange !== 0) {
+    if (isPresent(rise)) plus = result((rise / trueRange) * 100);
+    if (isPresent(fall)) minus = result((fall / trueRange) * 100);
+  }
+
+  let spread: Value = NONE;
+  if (isPresent(plus) && isPresent(minus)) {
+    const total = plus + minus;
+    spread = total > 0 ? result((Math.abs(plus - minus) / total) * 100) : 0;
+  }
+
+  return [rmaStep(state, `${key}x`, spread, adxLen), plus, minus];
+}
+
+/** `adx(diLen, adxLen)` as a tail. */
 export function adxTail(diLen = 14, adxLen = 14): Tail<Bar, Value[]> {
-  const range = gapTrueRangeTail();
-  const smoothRange = rmaTail(diLen);
-  const smoothUp = rmaTail(diLen);
-  const smoothDown = rmaTail(diLen);
-  const smoothIndex = rmaTail(adxLen);
-  let previous: Bar | null = null;
-
-  return {
-    next(bar: Bar): Value[] {
-      const before = previous;
-      previous = bar;
-
-      let upMove: Value = NONE;
-      let downMove: Value = NONE;
-      if (
-        before !== null &&
-        isPresent(bar.high) &&
-        isPresent(bar.low) &&
-        isPresent(before.high) &&
-        isPresent(before.low)
-      ) {
-        const up = bar.high - before.high;
-        const down = before.low - bar.low;
-        upMove = up > down && up > 0 ? result(up) : 0;
-        downMove = down > up && down > 0 ? result(down) : 0;
-      }
-
-      const trueRange = smoothRange.next(range.next(bar));
-      const rise = smoothUp.next(upMove);
-      const fall = smoothDown.next(downMove);
-
-      let plus: Value = NONE;
-      let minus: Value = NONE;
-      if (isPresent(trueRange) && trueRange !== 0) {
-        if (isPresent(rise)) plus = result((rise / trueRange) * 100);
-        if (isPresent(fall)) minus = result((fall / trueRange) * 100);
-      }
-
-      let spread: Value = NONE;
-      if (isPresent(plus) && isPresent(minus)) {
-        const total = plus + minus;
-        spread = total > 0 ? result((Math.abs(plus - minus) / total) * 100) : 0;
-      }
-
-      return [smoothIndex.next(spread), plus, minus];
-    },
-  };
+  return tailOf((state, bar: Bar) => adxStep(state, '', gapOf(state, 'g', bar), diLen, adxLen));
 }
 
 /** `adx(diLen, adxLen)` over a run of bars. */
@@ -84,18 +101,25 @@ export function adx(bars: readonly Bar[], diLen = 14, adxLen = 14): Value[][] {
  * back has to still be inside the lookback for that. That extra bar is where the
  * declared warmup of bar `len` rather than bar `len - 1` comes from.
  */
+export function aroonStep(
+  state: StateRecord,
+  key: string,
+  high: Value,
+  low: Value,
+  len: number | null,
+): Value[] {
+  const wide = len === null ? null : len + 1;
+  const highAge = extremeStep(state, `${key}h`, high, wide, true, true);
+  const lowAge = extremeStep(state, `${key}l`, low, wide, false, true);
+  if (len === null) return [NONE, NONE];
+  const up = isPresent(highAge) ? result((100 * (len - highAge)) / len) : NONE;
+  const down = isPresent(lowAge) ? result((100 * (len - lowAge)) / len) : NONE;
+  return [up, down];
+}
+
+/** `aroon(len)` as a tail. */
 export function aroonTail(len = 14): Tail<Bar, Value[]> {
-  const sinceHigh = highestBarsTail(len + 1);
-  const sinceLow = lowestBarsTail(len + 1);
-  return {
-    next(bar: Bar): Value[] {
-      const highAge = sinceHigh.next(bar.high);
-      const lowAge = sinceLow.next(bar.low);
-      const up = isPresent(highAge) ? result((100 * (len - highAge)) / len) : NONE;
-      const down = isPresent(lowAge) ? result((100 * (len - lowAge)) / len) : NONE;
-      return [up, down];
-    },
-  };
+  return tailOf((state, bar: Bar) => aroonStep(state, '', bar.high, bar.low, len));
 }
 
 /** `aroon(len)` over a run of bars. */
@@ -120,27 +144,27 @@ export function aroon(bars: readonly Bar[], len = 14): Value[][] {
  * specification declares for it, and which is the first bar there is enough
  * history for the displacement to land on.
  */
-export function ichimokuTail(
-  convLen = 9,
-  baseLen = 26,
-  spanLen = 52,
-): Tail<Bar, Value[]> {
-  const conversion = midpointTail(convLen);
-  const base = midpointTail(baseLen);
-  const far = midpointTail(spanLen);
-  const closes = makeLookback(baseLen);
-  return {
-    next(bar: Bar): Value[] {
-      const near = conversion.next(bar);
-      const middle = base.next(bar);
-      const leading =
-        isPresent(near) && isPresent(middle) ? result((near + middle) / 2) : NONE;
-      const behind = far.next(bar);
-      closes.push(bar.close);
-      const lagging = closes.filled() ? closes.at(0) : NONE;
-      return [near, middle, leading, behind, lagging];
-    },
-  };
+export function ichimokuStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  convLen: number | null,
+  baseLen: number | null,
+  spanLen: number | null,
+): Value[] {
+  const near = midpointStep(state, `${key}c`, bar, convLen);
+  const middle = midpointStep(state, `${key}b`, bar, baseLen);
+  const leading = isPresent(near) && isPresent(middle) ? result((near + middle) / 2) : NONE;
+  const behind = midpointStep(state, `${key}s`, bar, spanLen);
+  const closes = ring(state, `${key}g`, baseLen);
+  closes.push(bar.close);
+  const lagging = closes.filled() ? closes.at(0) : NONE;
+  return [near, middle, leading, behind, lagging];
+}
+
+/** `ichimoku(convLen, baseLen, spanLen)` as a tail. */
+export function ichimokuTail(convLen = 9, baseLen = 26, spanLen = 52): Tail<Bar, Value[]> {
+  return tailOf((state, bar: Bar) => ichimokuStep(state, '', bar, convLen, baseLen, spanLen));
 }
 
 /** `ichimoku(convLen, baseLen, spanLen)` over a run of bars. */
@@ -154,23 +178,19 @@ export function ichimoku(
 }
 
 /** The midpoint of a lookback's outright high and low. */
-function midpointTail(len: number): Tail<Bar, Value> {
-  const highs = makeLookback(len);
-  const lows = makeLookback(len);
-  return {
-    next(bar: Bar): Value {
-      highs.push(bar.high);
-      lows.push(bar.low);
-      if (!highs.complete() || !lows.complete()) return NONE;
-      let top = highs.at(len - 1) as number;
-      let bottom = lows.at(len - 1) as number;
-      for (let back = len - 2; back >= 0; back -= 1) {
-        const high = highs.at(back) as number;
-        const low = lows.at(back) as number;
-        if (high > top) top = high;
-        if (low < bottom) bottom = low;
-      }
-      return result((top + bottom) / 2);
-    },
-  };
+function midpointStep(state: StateRecord, key: string, bar: Bar, len: number | null): Value {
+  const highs = ring(state, `${key}h`, len);
+  const lows = ring(state, `${key}l`, len);
+  highs.push(bar.high);
+  lows.push(bar.low);
+  if (len === null || !highs.complete() || !lows.complete()) return NONE;
+  let top = highs.at(len - 1) as number;
+  let bottom = lows.at(len - 1) as number;
+  for (let back = len - 2; back >= 0; back -= 1) {
+    const high = highs.at(back) as number;
+    const low = lows.at(back) as number;
+    if (high > top) top = high;
+    if (low < bottom) bottom = low;
+  }
+  return result((top + bottom) / 2);
 }

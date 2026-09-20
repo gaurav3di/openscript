@@ -149,8 +149,15 @@ jobs:
       - name: publish with provenance
         # npm test above already ran the complete gate, including the build.
         # Publish that checked build rather than rebuilding inside the publish.
+        #
+        # The version is read with the package manager rather than by handing a
+        # program to the runtime on the command line. Rule one of this project is
+        # that nothing builds code out of text, and a command-line program is the
+        # one piece of this repository that no check can read: it is not type
+        # checked, not linted, and it is where a value from the environment would
+        # turn into source. `scripts/check-no-eval.mjs` refuses it here too.
         run: |
-          VERSION="$(node -p 'require("./package.json").version')"
+          VERSION="$(npm pkg get version | tr -d '"')"
           if [ "${VERSION#*-}" != "$VERSION" ]; then
             PRERELEASE="${VERSION#*-}"
             TAG="${PRERELEASE%%.*}"

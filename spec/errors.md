@@ -277,6 +277,7 @@ than general. The family code remains correct for every case not listed here.
 | OS2012 | OS2003 | The two arms of the ternary have different types |
 | OS2013 | OS2003 | An array literal mixes types |
 | OS2019 | OS2016 | A type that cannot be an array element |
+| OS2020 | OS2001 | A name the library lists as planned |
 | OS3019 | OS3011 | A declaration handle where a runtime object belongs |
 | OS3020 | OS3011 | fill's first two arguments, which name two declared plots |
 
@@ -1192,7 +1193,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 
 **Cause.** History is retained for four kinds of value: a built-in series, a name assigned at the top level of the file, a call to a function declared to return a series, and a series parameter of a user function. Retaining it for every temporary inside every block would cost memory per bar and would not run fifty thousand bars in a browser tab. A name bound to a declaration handle is none of the four, although it sits at the top level: it is a compile-time binding with no per-bar value at all. A runtime object carries no history either, so [] on a line, a label, a box, a polyline or a table is this error as well (language.md 5.4).
 
-**Fix.** Assign the value to a name at the top level of the file, then read that name's history.
+**Fix.** If the value is a per-bar number computed inside a block or left as a temporary, assign it at the top level of the file and read the history of that top level name. If it is a declaration handle, a runtime object or a library fact that is not a series, no name gives it a history: assign what you want to look back at to a top level name of its own, and read that.
 
 Before:
 
@@ -1603,6 +1604,33 @@ After:
 upperEdge = plot(upper, "Upper", aqua)
 lowerEdge = plot(lower, "Lower", aqua)
 fill(upperEdge, lowerEdge, color = fade(aqua, 88))
+```
+
+### OS2020 Name is planned, not implemented
+
+Severity error. Stage checker. Since language version 1. Reference stdlib.md 1. Test `tests/errors/OS2020`.
+
+**Message.** `{name} is planned and is not implemented in this version.`
+
+- `{name}` is the planned name that was called or read.
+
+**Cause.** The library names a few calls and facts it does not implement yet, so that the gap is visible rather than left for a reader to guess at (stdlib.md 1). The checker knows this name and knows it carries no behaviour, which is a different fact from a name it has never heard of: nothing about the spelling is wrong, no line above it would help, and the name starts working on a version that implements it.
+
+**Fix.** Compute what {name} would give from names the library implements today, or take the line out until a version implements it. Do not reach for the nearest name that compiles: a neighbour computes something else, and a plot that quietly changes meaning is worse than one that refuses to compile.
+
+Before:
+
+```
+zScore = (close - sma(close, 20)) / stdev(close, 20)
+plot(math.tanh(zScore), "Squashed", aqua)
+```
+
+After:
+
+```
+zScore = (close - sma(close, 20)) / stdev(close, 20)
+doubled = exp(2 * zScore)
+plot((doubled - 1) / (doubled + 1), "Squashed", aqua)
 ```
 
 ---
@@ -3162,27 +3190,27 @@ r = req.timeframe("60", close)
 
 Severity error. Stage host. Since language version 1. Reference compiled-program.md, loading a program. Test `tests/errors/OS6016`.
 
-**Message.** `This program is in compiled format {found} and this engine implements up to {max}.`
+**Message.** `This program is in compiled format {found} and this engine implements format {max}; a different major number is a different format, whether it is higher or lower.`
 
 - `{found}` is the format version the program declares.
-- `{max}` is the highest format version the engine implements.
+- `{max}` is the format version this engine implements.
 
-**Cause.** The compiled program is a versioned data format, and an engine refuses a format it cannot read rather than guessing at instructions it does not know. Refusing at load, with both numbers named, is the whole reason the version is carried.
+**Cause.** The compiled program is a versioned data format, and an engine refuses a format it cannot read rather than guessing at instructions it does not know. Only the major number decides. A higher minor loads, because a minor addition whose absence would change a number has to announce itself as a tag in the program's requires list, and an older minor loads because it carries a subset of the fields this engine already reads. A major number that is not this engine's is a different format wearing the same name, so it is refused in both directions: a program older than this engine is refused for the same reason as one newer, and neither is run approximately. Refusing at load, with both numbers named, is the whole reason the version is carried.
 
 **Fix.** Run the program on an engine that implements format {found}, or recompile the source with a compiler that emits format {max}.
 
 Before:
 
 ```
-program: compiled format 3
-engine:  compiled format 2
+program: compiled format 0.9
+engine:  compiled format 1.0
 ```
 
 After:
 
 ```
-program: compiled format 2
-engine:  compiled format 2
+program: compiled format 1.0
+engine:  compiled format 1.0
 ```
 
 ### OS6017 The program's language version is not one this engine implements

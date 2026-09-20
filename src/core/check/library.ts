@@ -102,7 +102,7 @@ export interface LibraryEntry {
   readonly topLevel: boolean;
   /** Available only in a `strategy()` file: OS7001. */
   readonly strategyOnly: boolean;
-  /** Named so the surface is legible, and not in this release: OS2001. */
+  /** Named so the surface is legible, and not in this release: OS2020. */
   readonly planned: boolean;
   /** Arguments with a closed set of accepted strings: OS3008. */
   readonly values: Readonly<Record<string, readonly string[]>>;

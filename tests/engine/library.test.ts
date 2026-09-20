@@ -27,7 +27,8 @@ import test from 'node:test';
 
 import * as numeric from '../../src/core/stdlib/index.js';
 import type { Bar, Value as Numeric } from '../../src/core/stdlib/index.js';
-import { libraryEntries, typeText } from '../../src/core/index.js';
+import { REQUEST_NAMES, libraryEntries, libraryNames, typeText } from '../../src/core/index.js';
+import { BAR_FACTS, BAR_FIELDS, DECLARATION_CALLS } from '../../src/core/emit/index.js';
 import { COLOUR_NAMES, manifestEntries, manifestEntry, namedColour } from '../../src/core/engine/library/index.js';
 import type { BarView, CallContext, ManifestEntry } from '../../src/core/engine/library/index.js';
 import { Heap } from '../../src/core/engine/values/index.js';
@@ -95,7 +96,12 @@ function entryFor(name: string, arity: number): ManifestEntry {
 }
 
 /** Folds one engine entry over a list of argument rows, one row per bar. */
-function fold(name: string, rows: readonly (readonly Value[])[], bars?: readonly Bar[]): Value[] {
+function fold(
+  name: string,
+  rows: readonly (readonly Value[])[],
+  bars?: readonly Bar[],
+  sessions?: readonly boolean[],
+): Value[] {
   const of = entryFor(name, (rows[0] ?? []).length);
   const heap = new Heap();
   const context = contextFor(heap);
@@ -112,6 +118,7 @@ function fold(name: string, rows: readonly (readonly Value[])[], bars?: readonly
       close: view?.close ?? null,
       volume: view?.volume ?? null,
       previousClose: bar === 0 ? null : bars?.[bar - 1]?.close ?? null,
+      isSessionStart: sessions?.[bar] === true,
     };
     out.push(of.call(context, rows[bar] ?? []));
   }
@@ -119,7 +126,11 @@ function fold(name: string, rows: readonly (readonly Value[])[], bars?: readonly
 }
 
 /** The trio a multi-value call returned, read back out of the heap. */
-function trios(name: string, rows: readonly (readonly Value[])[], bars?: readonly Bar[]): Numeric[][] {
+function trios(
+  name: string,
+  rows: readonly (readonly Value[])[],
+  bars?: readonly Bar[],
+): Numeric[][] {
   const of = entryFor(name, (rows[0] ?? []).length);
   const heap = new Heap();
   const context = contextFor(heap);
@@ -204,6 +215,19 @@ test('every single source series call matches the numeric library bit for bit', 
     ['rsi', [6], numeric.rsi(SERIES, 6)],
     ['stdev', [5, false], numeric.stdev(SERIES, 5, false)],
     ['variance', [5, false], numeric.variance(SERIES, 5, false)],
+    ['dema', [4], numeric.dema(SERIES, 4)],
+    ['tema', [4], numeric.tema(SERIES, 4)],
+    ['swma', [], numeric.swma(SERIES)],
+    ['alma', [5, 0.85, 6], numeric.alma(SERIES, 5, 0.85, 6)],
+    // A non-zero offset, because zero is the one value that cannot tell a
+    // binding that dropped the argument from one that read it.
+    ['linreg', [5, 2], numeric.linreg(SERIES, 5, 2)],
+    ['percentRank', [5], numeric.percentRank(SERIES, 5)],
+    ['trix', [3], numeric.trix(SERIES, 3)],
+    ['tsi', [7, 4], numeric.tsi(SERIES, 7, 4)],
+    ['cmo', [5], numeric.cmo(SERIES, 5)],
+    ['dpo', [6], numeric.dpo(SERIES, 6)],
+    ['hv', [5, 252], numeric.hv(SERIES, 5, 252)],
   ];
   for (const [name, rest, expected] of cases) {
     assert.deepEqual(fold(name, rowsOf(SERIES, ...rest)), expected, name);
@@ -243,6 +267,87 @@ test('the bar driven studies match the numeric library', () => {
   assert.deepEqual(fold('natr', BARS.map(() => [5]), BARS), numeric.natr(BARS, 5), 'natr');
 });
 
+/**
+ * The readings `stdlib.md` writes with no source argument.
+ *
+ * Each one is about the whole bar, so the binding has to reach the bar rather
+ * than an argument, and reaching for the wrong one of the four prices is the
+ * mistake this catches: every one of them type checks and every one of them
+ * draws a plausible line.
+ */
+test('the readings taken from the bar itself match the numeric library', () => {
+  const empty = BARS.map(() => []);
+  const cases: readonly [string, readonly Value[], readonly Numeric[]][] = [
+    ['cci', [5], numeric.cci(BARS, 5)],
+    ['williamsR', [5], numeric.williamsR(BARS, 5)],
+    ['chop', [5], numeric.chop(BARS, 5)],
+    ['awesomeOsc', [3, 8], numeric.awesomeOsc(BARS, 3, 8)],
+    ['ultimateOsc', [3, 5, 8], numeric.ultimateOsc(BARS, 3, 5, 8)],
+    ['adOsc', [3, 6], numeric.adOsc(BARS, 3, 6)],
+    ['mfi', [5], numeric.mfi(BARS, 5)],
+    ['cmf', [5], numeric.cmf(BARS, 5)],
+    ['eom', [5], numeric.eom(BARS, 5)],
+    ['forceIndex', [5], numeric.forceIndex(BARS, 5)],
+    ['relativeVolume', [5], numeric.relativeVolume(BARS, 5)],
+  ];
+  for (const [name, rest, expected] of cases) {
+    assert.deepEqual(fold(name, BARS.map(() => rest), BARS), expected, name);
+  }
+  assert.deepEqual(fold('obv', empty, BARS), numeric.obv(BARS), 'obv');
+  assert.deepEqual(fold('ad', empty, BARS), numeric.ad(BARS), 'ad');
+  assert.deepEqual(fold('pvt', empty, BARS), numeric.pvt(BARS), 'pvt');
+});
+
+/** The volume every bar carried, for the calls weighted by it. */
+const VOLUMES: readonly Numeric[] = BARS.map((one) => one.volume);
+
+test('the volume weighted averages read the volume from the bar', () => {
+  assert.deepEqual(
+    fold('vwma', SERIES.map((one) => [one, 4]), BARS),
+    numeric.vwma(SERIES, VOLUMES, 4),
+    'vwma',
+  );
+  // Both a plain type and the volume weighted one, because the second is the
+  // only argument path that reaches the bar and a binding can serve one
+  // correctly while dropping the other.
+  for (const type of ['ema', 'vwma'] as const) {
+    assert.deepEqual(
+      fold('ma', SERIES.map((one) => [one, 4, type]), BARS),
+      numeric.ma(SERIES, VOLUMES, 4, type),
+      `ma ${type}`,
+    );
+  }
+  // A type the six do not include is absence throughout, never a quiet fall
+  // back to the simple mean.
+  assert.deepEqual(
+    fold('ma', SERIES.map((one) => [one, 4, 'nonesuch']), BARS),
+    SERIES.map(() => null),
+    'ma with an unrecognised type',
+  );
+});
+
+test('the anchored averages take their anchor from the right place', () => {
+  const resets = FLAGS.map((one) => one === true);
+  assert.deepEqual(
+    fold('vwapAnchor', SERIES.map((one, index) => [one, FLAGS[index] ?? null]), BARS),
+    numeric.vwapAnchor(SERIES, VOLUMES, resets),
+    'vwapAnchor',
+  );
+  // `vwap` takes its anchor from the bar's session flag rather than from an
+  // argument, which is the whole difference between the two calls.
+  assert.deepEqual(
+    fold('vwap', SERIES.map((one) => [one]), BARS, resets),
+    numeric.vwap(SERIES, VOLUMES, resets),
+    'vwap',
+  );
+});
+
+test('the two joint statistics match the numeric library', () => {
+  const rows = SERIES.map((one, index) => [one, OTHER[index] ?? null, 5]);
+  assert.deepEqual(fold('correlation', rows), numeric.correlation(SERIES, OTHER, 5), 'correlation');
+  assert.deepEqual(fold('covariance', rows), numeric.covariance(SERIES, OTHER, 5), 'covariance');
+});
+
 test('the multi value studies match the numeric library', () => {
   assert.deepEqual(
     trios('macd', SERIES.map((one) => [one, 4, 9, 3])),
@@ -267,6 +372,40 @@ test('the multi value studies match the numeric library', () => {
     trios('donchian', BARS.map(() => [4]), BARS),
     numeric.donchian(BARS, 4),
     'donchian',
+  );
+  assert.deepEqual(
+    trios('psar', BARS.map(() => [0.02, 0.02, 0.2]), BARS),
+    numeric.psar(BARS, 0.02, 0.02, 0.2),
+    'psar',
+  );
+  // Two different lengths, because `adx` passes one to three smoothings and the
+  // other to a fourth, and equal lengths would not tell the two apart.
+  assert.deepEqual(trios('adx', BARS.map(() => [4, 6]), BARS), numeric.adx(BARS, 4, 6), 'adx');
+  assert.deepEqual(trios('aroon', BARS.map(() => [5]), BARS), numeric.aroon(BARS, 5), 'aroon');
+  assert.deepEqual(
+    trios('ichimoku', BARS.map(() => [3, 5, 7]), BARS),
+    numeric.ichimoku(BARS, 3, 5, 7),
+    'ichimoku',
+  );
+  assert.deepEqual(
+    trios('stoch', BARS.map(() => [5, 2, 3]), BARS),
+    numeric.stoch(BARS, 5, 2, 3),
+    'stoch',
+  );
+  assert.deepEqual(
+    trios('stochRsi', SERIES.map((one) => [one, 4, 5, 2, 3])),
+    numeric.stochRsi(SERIES, 4, 5, 2, 3),
+    'stochRsi',
+  );
+  assert.deepEqual(
+    trios('ppo', SERIES.map((one) => [one, 4, 9, 3])),
+    numeric.ppo(SERIES, 4, 9, 3),
+    'ppo',
+  );
+  assert.deepEqual(
+    trios('keltner', BARS.map(() => [5, 2, 4, 'ema']), BARS),
+    numeric.keltner(BARS, 5, 2, 4, 'ema'),
+    'keltner',
   );
 });
 
@@ -303,12 +442,17 @@ test('valueWhen matches the numeric library at both occurrences', () => {
  * fails here until it is added to one of the comparisons.
  */
 const COMPARED: readonly string[] = [
-  'avgSkip', 'atr', 'barsSince', 'bbPercent', 'bbWidth', 'bollinger', 'change',
-  'count', 'countPresent', 'cross', 'crossDown', 'crossUp', 'cum', 'donchian',
-  'ema', 'falling', 'highest', 'highestBars', 'history', 'hma', 'lowest',
-  'lowestBars', 'macd', 'median', 'mom', 'natr', 'percentile', 'pivotHigh',
-  'pivotLow', 'rising', 'rma', 'roc', 'rsi', 'sma', 'stdev', 'sum', 'sumSkip',
-  'supertrend', 'valueWhen', 'variance', 'wma',
+  'ad', 'adOsc', 'adx', 'alma', 'aroon', 'atr', 'avgSkip', 'awesomeOsc',
+  'barsSince', 'bbPercent', 'bbWidth', 'bollinger', 'cci', 'change', 'chop',
+  'cmf', 'cmo', 'correlation', 'count', 'countPresent', 'covariance', 'cross',
+  'crossDown', 'crossUp', 'cum', 'dema', 'donchian', 'dpo', 'ema', 'eom',
+  'falling', 'forceIndex', 'highest', 'highestBars', 'history', 'hma', 'hv',
+  'ichimoku', 'keltner', 'linreg', 'lowest', 'lowestBars', 'ma', 'macd',
+  'median', 'mfi', 'mom', 'natr', 'obv', 'percentRank', 'percentile',
+  'pivotHigh', 'pivotLow', 'ppo', 'psar', 'pvt', 'relativeVolume', 'rising',
+  'rma', 'roc', 'rsi', 'sma', 'stdev', 'stoch', 'stochRsi', 'sum', 'sumSkip',
+  'supertrend', 'swma', 'tema', 'trix', 'tsi', 'ultimateOsc', 'valueWhen',
+  'variance', 'vwap', 'vwapAnchor', 'vwma', 'williamsR', 'wma',
 ];
 
 test('every stateful entry the engine implements is one this file compares', () => {
@@ -343,6 +487,44 @@ test('every entry the engine implements agrees with the checker on state and eff
       assert.equal(mine.effect, effect, `${mine.name}/${mine.arity} effect`);
     }
   }
+});
+
+/**
+ * The other direction of 2.5, and the one a consumer feels.
+ *
+ * A name the checker accepts compiles. A name the engine's manifest lacks is
+ * refused at load with OS6004, which names a function and says nothing about
+ * why. Between the two there is a third state that must not exist: a name the
+ * documentation promises, the checker accepts, the compiler emits, and no
+ * engine will run. A reader following the reference page writes it, it
+ * compiles, and it then fails with a message they cannot act on.
+ *
+ * So every name the checker accepts either runs or is marked planned, and this
+ * is what keeps it so. The three subtractions are the three ways a name reaches
+ * a program without being a `CALL_LIB`, and each is taken from the module that
+ * owns it rather than listed again here.
+ */
+test('every name the checker accepts either runs or is marked planned', () => {
+  const registers = new Set([...BAR_FIELDS, ...BAR_FACTS]);
+  const unrunnable: string[] = [];
+  for (const name of libraryNames()) {
+    // A declaration is a fixed entry in `outputs`, not a call an engine makes.
+    if (DECLARATION_CALLS.has(name)) continue;
+    // A higher timeframe read compiles its argument over other bars, which the
+    // compiled program has no field for; the emitter records that as a gap.
+    if (REQUEST_NAMES.includes(name)) continue;
+    for (const one of libraryEntries(name)) {
+      if (one.planned) continue;
+      if (!one.callable && registers.has(name)) continue;
+      const arity = one.callable ? one.parameters.length : 0;
+      if (manifestEntry(name, arity) === undefined) unrunnable.push(`${name}/${arity}`);
+    }
+  }
+  assert.deepEqual(
+    unrunnable,
+    [],
+    'these compile and no engine will run them: wire them, or mark them planned',
+  );
 });
 
 test('the engine implements every call the nine target scripts make', () => {

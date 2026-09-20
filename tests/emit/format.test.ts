@@ -13,7 +13,7 @@ import test from 'node:test';
 
 import { COMPILED_FORMAT_VERSION } from '../../src/core/index.js';
 import { OPCODES, isOpcode, operandCount } from '../../src/core/emit/index.js';
-import type { CompiledProgram } from '../../src/core/emit/index.js';
+import type { CompiledProgram, Request } from '../../src/core/emit/index.js';
 import {
   channelCounts,
   compileTarget,
@@ -66,29 +66,114 @@ test('a target script compiles with nothing reported, or is refused and says so'
  *
  * A defect inside the emitter shows up as a blocking gap and therefore as no
  * program, which every other test in this file would then skip rather than
- * fail. So the scripts that must compile are named, and the scripts that must
- * not are named with the reason, and a compiler that stops emitting one of them
- * fails here rather than passing everywhere.
+ * fail. Every target script is good OpenScript and every one of them is carried
+ * by the format, so the count is the whole list and a compiler that stops
+ * emitting one fails here rather than passing everywhere.
  */
-test('the target scripts that can be carried by the format all compile', () => {
+test('every target script compiles, and nothing about the format stops one', () => {
   const emitted = new Set(EMITTED.map((one) => one.name));
   const refused = scriptNames().filter((name) => !emitted.has(name));
 
-  for (const name of refused) {
-    const gaps = compileTarget(name).gaps.filter((gap) => gap.blocking);
-    assert.deepEqual(
-      gaps.map((gap) => gap.specification),
-      ['stdlib.md 15.4, against compiled-program.md 2 and 4'],
-      `${name}: refused for a reason that is not the one known format gap`,
-    );
-  }
-
-  assert.equal(
-    emitted.size + refused.length,
-    scriptNames().length,
-    'a target script neither compiled nor was refused',
+  assert.deepEqual(
+    refused.flatMap((name) =>
+      compileTarget(name)
+        .gaps.filter((gap) => gap.blocking)
+        .map((gap) => `${name}: ${gap.specification}`),
+    ),
+    [],
+    'a target script the format cannot carry',
   );
-  assert.ok(emitted.size >= scriptNames().length - 3, 'more targets are refused than the gap explains');
+  assert.deepEqual([...refused], [], 'a target script produced no program');
+  assert.equal(emitted.size, scriptNames().length, 'a target script neither compiled nor was refused');
+});
+
+/**
+ * Section 3.5 check 11: a read's body is verified like the program it sits in.
+ *
+ * The body is an instruction list an engine executes once per requested bar, so
+ * every check the bar's own list gets applies to it, against its own tables.
+ * The tables are the reason this is a test of its own rather than another list
+ * handed to the tests above: a slot, a cell or a register inside a body is
+ * numbered from zero over the requested bars, and checking one against the
+ * program's tables would pass a body that addresses nothing.
+ */
+test('a read carries a body that verifies against its own tables', () => {
+  const walkBody = (program: CompiledProgram, request: Request, where: string): void => {
+    const body = request.body;
+    const limits: Readonly<Record<string, number>> = {
+      CONST: program.consts.length,
+      LOAD: body.frame.slots,
+      STORE: body.frame.slots,
+      CELL_INIT: body.cells.length,
+      LOADC: body.cells.length,
+      STOREC: body.cells.length,
+      SLOAD: body.series.length,
+      SSTORE: body.series.length,
+      HIST: body.series.length,
+      TICK: body.loops.length,
+      CALL_FN: body.callSites.length,
+    };
+
+    assert.ok(request.series < program.series.length, `${where}: register out of range`);
+    assert.equal(program.series[request.series]?.kind, 'request', `${where}: register kind`);
+    assert.equal(body.code[body.code.length - 1]?.[0], 'RET', `${where}: body ends in RET`);
+    assert.equal(body.code.filter((i) => i[0] === 'HALT').length, 0, `${where}: HALT in a body`);
+    assert.equal(
+      body.code.filter((i) => i[0] === 'EMIT').length,
+      0,
+      `${where}: a body writes a channel`,
+    );
+
+    for (const setting of body.inputs) {
+      assert.ok(setting.series < body.series.length, `${where}: setting register`);
+      assert.equal(body.series[setting.series]?.kind, 'input', `${where}: setting register kind`);
+      assert.ok(
+        program.inputs.some((one) => one.key === setting.input),
+        `${where}: ${setting.input} names no input`,
+      );
+    }
+
+    const lists = [
+      { name: 'body', code: body.code },
+      ...body.functions.map((fn, index) => ({ name: `fn[${index}]`, code: fn.code })),
+    ];
+    for (const list of lists) {
+      const depths = walkStack(list.code, (site) => body.callSites[site]?.argc ?? 0);
+      assert.deepEqual([...depths.problems], [], `${where} ${list.name}: stack walk`);
+      list.code.forEach((instruction, index) => {
+        const [opcode, ...operands] = instruction;
+        const at = `${where} ${list.name}[${index}] ${opcode}`;
+        assert.ok(isOpcode(opcode), `${at}: unknown opcode`);
+        assert.equal(operands.length, operandCount(opcode), `${at}: operand count`);
+        const limit = limits[opcode];
+        const first = operands[0] ?? 0;
+        if (limit !== undefined) assert.ok(first >= 0 && first < limit, `${at}: ${first} out of range`);
+        if (opcode === 'CALL_LIB') {
+          assert.ok(first < program.lib.functions.length, `${at}: library index`);
+          assert.equal(operands[1], program.lib.functions[first]?.arity, `${at}: arity`);
+        }
+        for (const target of targetsOf(instruction)) {
+          assert.ok(target >= 0 && target < list.code.length, `${at}: jump to ${target}`);
+        }
+      });
+    }
+
+    for (const nested of body.requests) walkBody(program, nested, `${where} > read ${nested.id}`);
+  };
+
+  let seen = 0;
+  for (const one of EMITTED) {
+    const program = one.program as CompiledProgram;
+    const ids = program.requests.map((request) => request.id);
+    assert.equal(new Set(ids).size, ids.length, `${one.name}: two reads share an id`);
+    for (const request of program.requests) {
+      seen += 1;
+      walkBody(program, request, `${one.name} read ${request.id}`);
+    }
+  }
+  // The target scripts hold higher timeframe and other instrument reads, and a
+  // pass over none of them would assert nothing at all.
+  assert.ok(seen >= 4, `only ${seen} reads were walked`);
 });
 
 /** Catches a defect in the emitter that hides behind the gap report. */

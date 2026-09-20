@@ -1,26 +1,33 @@
 /**
  * The lookback volume readings: `cmf`, `mfi`, `eom`, `forceIndex` and
  * `relativeVolume`.
+ *
+ * Each is written once, as a step over a state region, and its tail is that
+ * step over a region of its own.
  */
-import type { Bar, Tail, Value } from '../values/index.js';
-import { NONE, fold, hl2, hlc3, isPresent, result } from '../values/index.js';
-import { emaTail, smaTail } from '../averages/index.js';
-import { changeTail, sumTail } from '../series/index.js';
+import type { Bar, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, held, hl2, hlc3, isPresent, result, tailOf } from '../values/index.js';
+import { emaStep, smaStep } from '../averages/index.js';
+import { changeStep, sumStep } from '../series/index.js';
 
 import { moneyFlow } from './accumulation.js';
 
 /** `cmf(len)`: accumulation over the lookback as a fraction of its volume, from bar `len - 1`. */
+export function cmfStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  len: number | null,
+): Value {
+  const flow = sumStep(state, `${key}f`, moneyFlow(bar), len);
+  const traded = sumStep(state, `${key}v`, bar.volume, len);
+  if (!isPresent(flow) || !isPresent(traded) || !(traded > 0)) return NONE;
+  return result(flow / traded);
+}
+
+/** `cmf(len)` as a tail. */
 export function cmfTail(len = 20): Tail<Bar, Value> {
-  const flows = sumTail(len);
-  const quantities = sumTail(len);
-  return {
-    next(bar: Bar): Value {
-      const flow = flows.next(moneyFlow(bar));
-      const traded = quantities.next(bar.volume);
-      if (!isPresent(flow) || !isPresent(traded) || !(traded > 0)) return NONE;
-      return result(flow / traded);
-    },
-  };
+  return tailOf((state, bar: Bar) => cmfStep(state, '', bar, len));
 }
 
 /** `cmf(len)` over a run of bars. */
@@ -36,35 +43,39 @@ export function cmf(bars: readonly Bar[], len = 20): Value[] {
  * price rose or fell, so the first lookback is bars 1 to `len` and the extra bar
  * is in the declared warmup.
  */
+export function mfiStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  len: number | null,
+): Value {
+  const typicalKey = `${key}p`;
+  const seenKey = `${key}k`;
+  const typical = hlc3(bar);
+  const before = held(state, typicalKey);
+  const started = state[seenKey] === true;
+  state[seenKey] = true;
+  state[typicalKey] = typical;
+
+  let up: Value = NONE;
+  let down: Value = NONE;
+  if (started && isPresent(typical) && isPresent(before) && isPresent(bar.volume)) {
+    const flow = result(typical * bar.volume);
+    up = typical > before ? flow : 0;
+    down = typical < before ? flow : 0;
+  }
+
+  const rise = sumStep(state, `${key}u`, up, len);
+  const fall = sumStep(state, `${key}d`, down, len);
+  if (!isPresent(rise) || !isPresent(fall)) return NONE;
+  // No down bar in the lookback is the top of the scale, as in `rsi`.
+  if (fall === 0) return 100;
+  return result(100 - 100 / (1 + rise / fall));
+}
+
+/** `mfi(len)` as a tail. */
 export function mfiTail(len = 14): Tail<Bar, Value> {
-  const positives = sumTail(len);
-  const negatives = sumTail(len);
-  let previousTypical: Value = NONE;
-  let seenABar = false;
-  return {
-    next(bar: Bar): Value {
-      const typical = hlc3(bar);
-      const before = previousTypical;
-      const started = seenABar;
-      seenABar = true;
-      previousTypical = typical;
-
-      let up: Value = NONE;
-      let down: Value = NONE;
-      if (started && isPresent(typical) && isPresent(before) && isPresent(bar.volume)) {
-        const flow = result(typical * bar.volume);
-        up = typical > before ? flow : 0;
-        down = typical < before ? flow : 0;
-      }
-
-      const rise = positives.next(up);
-      const fall = negatives.next(down);
-      if (!isPresent(rise) || !isPresent(fall)) return NONE;
-      // No down bar in the lookback is the top of the scale, as in `rsi`.
-      if (fall === 0) return 100;
-      return result(100 - 100 / (1 + rise / fall));
-    },
-  };
+  return tailOf((state, bar: Bar) => mfiStep(state, '', bar, len));
 }
 
 /** `mfi(len)` over a run of bars. */
@@ -87,25 +98,29 @@ export function mfi(bars: readonly Bar[], len = 14): Value[] {
  * as a gap in the specification rather than papered over with a constant this
  * library invented.
  */
+export function eomStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  len: number | null,
+): Value {
+  const travelled = changeStep(state, `${key}c`, hl2(bar), 1);
+  let term: Value = NONE;
+  if (
+    isPresent(travelled) &&
+    isPresent(bar.high) &&
+    isPresent(bar.low) &&
+    isPresent(bar.volume) &&
+    bar.volume !== 0
+  ) {
+    term = result((travelled * (bar.high - bar.low)) / bar.volume);
+  }
+  return smaStep(state, `${key}q`, term, len);
+}
+
+/** `eom(len)` as a tail. */
 export function eomTail(len = 14): Tail<Bar, Value> {
-  const move = changeTail(1);
-  const average = smaTail(len);
-  return {
-    next(bar: Bar): Value {
-      const travelled = move.next(hl2(bar));
-      let term: Value = NONE;
-      if (
-        isPresent(travelled) &&
-        isPresent(bar.high) &&
-        isPresent(bar.low) &&
-        isPresent(bar.volume) &&
-        bar.volume !== 0
-      ) {
-        term = result((travelled * (bar.high - bar.low)) / bar.volume);
-      }
-      return average.next(term);
-    },
-  };
+  return tailOf((state, bar: Bar) => eomStep(state, '', bar, len));
 }
 
 /** `eom(len)` over a run of bars. */
@@ -114,17 +129,20 @@ export function eom(bars: readonly Bar[], len = 14): Value[] {
 }
 
 /** `forceIndex(len)`: change times volume, smoothed, from bar `len`. */
+export function forceIndexStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  len: number | null,
+): Value {
+  const moved = changeStep(state, `${key}c`, bar.close, 1);
+  const force = isPresent(moved) && isPresent(bar.volume) ? result(moved * bar.volume) : NONE;
+  return emaStep(state, `${key}e`, force, len);
+}
+
+/** `forceIndex(len)` as a tail. */
 export function forceIndexTail(len = 13): Tail<Bar, Value> {
-  const move = changeTail(1);
-  const smooth = emaTail(len);
-  return {
-    next(bar: Bar): Value {
-      const moved = move.next(bar.close);
-      const force =
-        isPresent(moved) && isPresent(bar.volume) ? result(moved * bar.volume) : NONE;
-      return smooth.next(force);
-    },
-  };
+  return tailOf((state, bar: Bar) => forceIndexStep(state, '', bar, len));
 }
 
 /** `forceIndex(len)` over a run of bars. */
@@ -133,15 +151,20 @@ export function forceIndex(bars: readonly Bar[], len = 13): Value[] {
 }
 
 /** `relativeVolume(len)`: this bar's volume over its own recent average, from bar `len - 1`. */
+export function relativeVolumeStep(
+  state: StateRecord,
+  key: string,
+  volume: Value,
+  len: number | null,
+): Value {
+  const mean = smaStep(state, `${key}q`, volume, len);
+  if (!isPresent(mean) || !isPresent(volume) || mean === 0) return NONE;
+  return result(volume / mean);
+}
+
+/** `relativeVolume(len)` as a tail. */
 export function relativeVolumeTail(len = 20): Tail<Bar, Value> {
-  const average = smaTail(len);
-  return {
-    next(bar: Bar): Value {
-      const mean = average.next(bar.volume);
-      if (!isPresent(mean) || !isPresent(bar.volume) || mean === 0) return NONE;
-      return result(bar.volume / mean);
-    },
-  };
+  return tailOf((state, bar: Bar) => relativeVolumeStep(state, '', bar.volume, len));
 }
 
 /** `relativeVolume(len)` over a run of bars. */

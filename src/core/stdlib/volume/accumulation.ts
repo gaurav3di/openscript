@@ -6,10 +6,14 @@
  * (`stdlib.md` sections 3.1 and 7). A script tests `chart.hasVolume` to branch
  * on that rather than inspecting the result, and nothing here substitutes a
  * zero to keep a line drawing.
+ *
+ * A running total is the one thing a lookback cannot stand in for, so each of
+ * these carries its total in the state region rather than in a closure: that is
+ * what lets an engine roll one back with the rest of a moving bar's state.
  */
-import type { Bar, Tail, Value } from '../values/index.js';
-import { NONE, fold, isPresent, result } from '../values/index.js';
-import { emaTail } from '../averages/index.js';
+import type { Bar, StateRecord, Tail, Value } from '../values/index.js';
+import { NONE, fold, held, isPresent, result, slot, tailOf } from '../values/index.js';
+import { emaStep } from '../averages/index.js';
 
 /**
  * Where the close sat inside the bar, as -1 at the low to 1 at the high, times
@@ -28,26 +32,33 @@ export function moneyFlow(bar: Bar): Value {
 }
 
 /** `obv()`: the running total of volume signed by the close's direction, from bar 0, seeded 0. */
+export function obvStep(state: StateRecord, key: string, bar: Bar): Value {
+  const totalKey = `${key}t`;
+  const closeKey = `${key}p`;
+  const seenKey = `${key}k`;
+  const previousClose = held(state, closeKey);
+  const started = state[seenKey] === true;
+
+  if (!isPresent(bar.volume) || !isPresent(bar.close)) {
+    state[seenKey] = true;
+    state[closeKey] = bar.close;
+    return NONE;
+  }
+
+  let total = slot(state, totalKey, 0);
+  if (started && isPresent(previousClose)) {
+    if (bar.close > previousClose) total += bar.volume;
+    else if (bar.close < previousClose) total -= bar.volume;
+  }
+  state[seenKey] = true;
+  state[closeKey] = bar.close;
+  state[totalKey] = total;
+  return result(total);
+}
+
+/** `obv()` as a tail. */
 export function obvTail(): Tail<Bar, Value> {
-  let total = 0;
-  let previousClose: Value = NONE;
-  let seenABar = false;
-  return {
-    next(bar: Bar): Value {
-      if (!isPresent(bar.volume) || !isPresent(bar.close)) {
-        seenABar = true;
-        previousClose = bar.close;
-        return NONE;
-      }
-      if (seenABar && isPresent(previousClose)) {
-        if (bar.close > previousClose) total += bar.volume;
-        else if (bar.close < previousClose) total -= bar.volume;
-      }
-      seenABar = true;
-      previousClose = bar.close;
-      return result(total);
-    },
-  };
+  return tailOf((state, bar: Bar) => obvStep(state, '', bar));
 }
 
 /** `obv()` over a run of bars. */
@@ -56,16 +67,17 @@ export function obv(bars: readonly Bar[]): Value[] {
 }
 
 /** `ad()`: the running total of volume weighted by where the close sat, from bar 0. */
+export function adStep(state: StateRecord, key: string, bar: Bar): Value {
+  const flow = moneyFlow(bar);
+  if (!isPresent(flow)) return NONE;
+  const total = slot(state, `${key}t`, 0) + flow;
+  state[`${key}t`] = total;
+  return result(total);
+}
+
+/** `ad()` as a tail. */
 export function adTail(): Tail<Bar, Value> {
-  let total = 0;
-  return {
-    next(bar: Bar): Value {
-      const flow = moneyFlow(bar);
-      if (!isPresent(flow)) return NONE;
-      total += flow;
-      return result(total);
-    },
-  };
+  return tailOf((state, bar: Bar) => adStep(state, '', bar));
 }
 
 /** `ad()` over a run of bars. */
@@ -79,19 +91,23 @@ export function ad(bars: readonly Bar[]): Value[] {
  * The averages run over the running total, not over the per-bar term, so what
  * this measures is acceleration in accumulation rather than the flow itself.
  */
+export function adOscStep(
+  state: StateRecord,
+  key: string,
+  bar: Bar,
+  fast: number | null,
+  slow: number | null,
+): Value {
+  const total = adStep(state, `${key}a`, bar);
+  const near = emaStep(state, `${key}f`, total, fast);
+  const far = emaStep(state, `${key}s`, total, slow);
+  if (!isPresent(near) || !isPresent(far)) return NONE;
+  return result(near - far);
+}
+
+/** `adOsc(fast, slow)` as a tail. */
 export function adOscTail(fast = 3, slow = 10): Tail<Bar, Value> {
-  const line = adTail();
-  const quick = emaTail(fast);
-  const patient = emaTail(slow);
-  return {
-    next(bar: Bar): Value {
-      const total = line.next(bar);
-      const near = quick.next(total);
-      const far = patient.next(total);
-      if (!isPresent(near) || !isPresent(far)) return NONE;
-      return result(near - far);
-    },
-  };
+  return tailOf((state, bar: Bar) => adOscStep(state, '', bar, fast, slow));
 }
 
 /** `adOsc(fast, slow)` over a run of bars. */
@@ -108,23 +124,26 @@ export function adOsc(bars: readonly Bar[], fast = 3, slow = 10): Value[] {
  * zero at bar 0 would claim a reading on a bar where the quantity is not
  * defined.
  */
+export function pvtStep(state: StateRecord, key: string, bar: Bar): Value {
+  const totalKey = `${key}t`;
+  const closeKey = `${key}p`;
+  const seenKey = `${key}k`;
+  const before = held(state, closeKey);
+  const started = state[seenKey] === true;
+  state[seenKey] = true;
+  state[closeKey] = bar.close;
+
+  if (!started) return NONE;
+  if (!isPresent(before) || before === 0) return NONE;
+  if (!isPresent(bar.close) || !isPresent(bar.volume)) return NONE;
+  const total = slot(state, totalKey, 0) + ((bar.close - before) / before) * bar.volume;
+  state[totalKey] = total;
+  return result(total);
+}
+
+/** `pvt()` as a tail. */
 export function pvtTail(): Tail<Bar, Value> {
-  let total = 0;
-  let previousClose: Value = NONE;
-  let seenABar = false;
-  return {
-    next(bar: Bar): Value {
-      const before = previousClose;
-      const started = seenABar;
-      seenABar = true;
-      previousClose = bar.close;
-      if (!started) return NONE;
-      if (!isPresent(before) || before === 0) return NONE;
-      if (!isPresent(bar.close) || !isPresent(bar.volume)) return NONE;
-      total += ((bar.close - before) / before) * bar.volume;
-      return result(total);
-    },
-  };
+  return tailOf((state, bar: Bar) => pvtStep(state, '', bar));
 }
 
 /** `pvt()` over a run of bars. */

@@ -10,11 +10,12 @@
 import type { Bar, Series, StateRecord, Tail, Value } from '../values/index.js';
 import { NONE, at, fold, isPresent, result, tailOf } from '../values/index.js';
 import type { MaType } from '../averages/index.js';
-import { maTail, smaStep } from '../averages/index.js';
+import { maStep, smaStep } from '../averages/index.js';
 import { extremeStep } from '../series/index.js';
 
 import { stdevStep } from './deviation.js';
-import { atrTail } from './range.js';
+import type { Gap } from './range.js';
+import { atrStep, gapOf } from './range.js';
 
 /** `bollinger(src, len, mult)`: `[basis, upper, lower]`, all from bar `len - 1`. */
 export function bollingerStep(
@@ -102,22 +103,43 @@ export function bbPercent(src: Series, len = 20, mult = 2): Value[] {
  * deviation, so the rails widen on how far the instrument travels rather than
  * on how dispersed its closes were.
  */
+export function keltnerStep(
+  state: StateRecord,
+  key: string,
+  gap: Gap,
+  close: Value,
+  volume: Value,
+  len: number | null,
+  mult: number | null,
+  atrLen: number | null,
+  maType: MaType | null,
+): Value[] {
+  const middle = maStep(state, `${key}m`, { src: close, volume }, len, maType);
+  const width = atrStep(state, `${key}r`, gap, atrLen);
+  if (!isPresent(middle) || !isPresent(width) || mult === null) return [middle, NONE, NONE];
+  return [middle, result(middle + mult * width), result(middle - mult * width)];
+}
+
+/** `keltner(len, mult, atrLen, maType)` as a tail. */
 export function keltnerTail(
   len = 20,
   mult = 2,
   atrLen = 10,
   maType: MaType = 'ema',
 ): Tail<Bar, Value[]> {
-  const basis = maTail(len, maType);
-  const range = atrTail(atrLen);
-  return {
-    next(bar: Bar): Value[] {
-      const middle = basis.next({ src: bar.close, volume: bar.volume });
-      const width = range.next(bar);
-      if (!isPresent(middle) || !isPresent(width)) return [middle, NONE, NONE];
-      return [middle, result(middle + mult * width), result(middle - mult * width)];
-    },
-  };
+  return tailOf((state, bar: Bar) =>
+    keltnerStep(
+      state,
+      '',
+      gapOf(state, 'g', bar),
+      bar.close,
+      bar.volume,
+      len,
+      mult,
+      atrLen,
+      maType,
+    ),
+  );
 }
 
 /** `keltner(len, mult, atrLen, maType)` over a run of bars. */

@@ -207,6 +207,7 @@ export {
   seriesOf,
   typeText,
 } from './check/index.js';
+export { REQUEST_NAMES } from './check/index.js';
 export { COMPILED_FORMAT_VERSION, VERSION } from './version/index.js';
 
 /**

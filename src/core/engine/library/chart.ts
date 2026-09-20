@@ -56,8 +56,14 @@ export const CHART_ENTRIES: readonly ManifestEntry[] = [
   entry('chart.symbol', '', (ctx) => ctx.host.symbol()),
   entry('chart.exchange', '', (ctx) => ctx.host.exchange()),
   entry('chart.interval', '', (ctx) => ctx.host.interval()),
+  entry('chart.timezone', '', (ctx) => ctx.host.timezone()),
   entry('chart.tickSize', '', (ctx) => ctx.host.tickSize()),
   entry('chart.lotSize', '', (ctx) => ctx.host.lotSize()),
+  entry('chart.pointValue', '', (ctx) => ctx.host.pointValue()),
+  entry('chart.currency', '', (ctx) => ctx.host.currency()),
+  entry('chart.instrumentType', '', (ctx) => ctx.host.instrumentType()),
+  entry('chart.hasVolume', '', (ctx) => ctx.host.hasVolume()),
+  entry('chart.hasOpenInterest', '', (ctx) => ctx.host.hasOpenInterest()),
   entry('chart.now', '', (ctx) => ctx.host.now()),
 
   entry('chart.intervalMinutes', '', (ctx) => {
@@ -70,6 +76,9 @@ export const CHART_ENTRIES: readonly ManifestEntry[] = [
     const minutes = intervalMinutes(typeof code === 'string' ? code : null);
     return minutes === null ? null : minutes < 60 * 24;
   }),
+
+  entry('req.isReady', 'read', (ctx, args) => ctx.host.requestReady(args[0] ?? null)),
+  entry('req.error', 'read', (ctx, args) => ctx.host.requestError(args[0] ?? null)),
 
   entry('session.isFirstBar', '', (ctx) => ctx.bar.isSessionStart),
   entry('session.isLastBar', '', (ctx) => ctx.bar.isSessionEnd),

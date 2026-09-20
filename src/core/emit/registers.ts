@@ -17,11 +17,15 @@
  * function body that reads a file-scope name has no instruction that reaches
  * it. A name recomputed every bar can be given a register instead, which is
  * addressed the same way from every frame and holds the same value the slot
- * would have. A `var` cannot be fixed that way, and that case is a gap.
+ * would have. A `var` cannot be promoted that way, because a register has no
+ * persistence: it keeps its cell and takes a register beside it, filled from
+ * the cell at the start of the bar and again at every assignment, so a body
+ * called anywhere in the bar reads what the cell holds at that point.
  */
-import { walk } from '../ast/index.js';
+import { walk, withoutGrouping } from '../ast/index.js';
 import type { Binding } from '../check/index.js';
 import type { Emitter } from './context.js';
+import { declaredNames } from './context.js';
 
 /** The bar fields an engine fills from the host's bar, `compiled-program.md` 2.10. */
 export const BAR_FIELDS: readonly string[] = [
@@ -74,8 +78,28 @@ export function registerOfName(e: Emitter, name: string): number | undefined {
   return undefined;
 }
 
-/** Where a name's value lives, the checker's answer with the two cases above. */
+/**
+ * Names whose value is a declaration handle, which `var` cannot change.
+ *
+ * A handle is settled before bar 0 and the engine writes it into the slot the
+ * declaration names (2.11), so there is nothing for a cell to carry forward and
+ * nothing to carry it forward from: `var grid = table(...)` and
+ * `grid = table(...)` are the same declaration, and a reader who wrote the
+ * first should not get a different program from the second.
+ */
+export function markDeclarationHandles(e: Emitter): void {
+  for (const declared of declaredNames(e)) {
+    const inner = withoutGrouping(declared.value);
+    if (inner.kind !== 'call') continue;
+    if (!e.isDeclaration(e.callAt(inner)?.name ?? '')) continue;
+    const binding = e.checked.targets.get(declared.name);
+    if (binding !== undefined) e.handles.add(binding.id);
+  }
+}
+
+/** Where a name's value lives, the checker's answer with the three cases above. */
 export function placementOf(e: Emitter, binding: Binding): Placement {
+  if (e.handles.has(binding.id)) return 'slot';
   if (binding.persistence !== 'none') return 'cell';
   if (binding.storage === 'register' || e.promoted.has(binding.id)) return 'register';
   return 'slot';
@@ -83,7 +107,9 @@ export function placementOf(e: Emitter, binding: Binding): Placement {
 
 /** The register a history read of a name reads from, allocating it if needed. */
 export function shadowRegister(e: Emitter, binding: Binding): number {
-  return e.layout.computedFor(binding);
+  // A setting read inside a read's expression already has one, filled by the
+  // engine on every requested bar, and a second would hold nothing (2.16).
+  return e.request?.registerFor(e, binding) ?? e.layout.computedFor(binding);
 }
 
 /**
@@ -94,6 +120,7 @@ export function shadowRegister(e: Emitter, binding: Binding): number {
  * they cannot be written after the list they belong at the ends of.
  */
 export function prepareRegisters(e: Emitter): void {
+  markDeclarationHandles(e);
   const readInsideFunction = namesReadInsideFunctions(e);
 
   for (const binding of e.checked.bindings) {
@@ -108,6 +135,15 @@ export function prepareRegisters(e: Emitter): void {
     const placement = placementOf(e, binding);
     if (placement === 'register') {
       e.layout.computedFor(binding);
+      continue;
+    }
+    // A `var` a function body reads cannot be promoted, because a register has
+    // no persistence: it gets a register beside its cell instead, and the two
+    // are kept in step through the bar rather than only at the end of it.
+    if (placement === 'cell' && crossesFrame) {
+      e.layout.computedFor(binding);
+      e.shadowed.add(binding.id);
+      e.carried.add(binding.id);
       continue;
     }
     // A cell or an input slot whose past is read carries a register beside it,

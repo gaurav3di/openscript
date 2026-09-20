@@ -7,9 +7,15 @@
  * from its syntax to its instructions without holding a class hierarchy in
  * their head. Everything mutable is here and nowhere else.
  */
-import type { Argument, Call, Expression, NameReference } from '../ast/index.js';
+import type { Argument, Call, Expression, Name, NameReference } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
-import type { Binding, CheckedCall, CheckedScript, LibraryEntry } from '../check/index.js';
+import type {
+  Binding,
+  CheckedCall,
+  CheckedInput,
+  CheckedScript,
+  LibraryEntry,
+} from '../check/index.js';
 import type { DiagnosticSink } from '../diagnostics/index.js';
 import type { SourceFile } from '../source/index.js';
 import type { Span } from '../span/index.js';
@@ -29,6 +35,8 @@ import type {
   Marker,
   Paint,
   Plot,
+  Request,
+  RequestInput,
 } from './program.js';
 import { fold } from './values.js';
 import type { FoldEnvironment, Value } from './values.js';
@@ -43,7 +51,15 @@ import type { FoldEnvironment, Value } from './values.js';
  * None of them is a function an engine calls, so none of them belongs in
  * `lib.functions`, whose only purpose is to be named by a `CALL_LIB` (2.5).
  */
-const DECLARATION_CALLS = new Set([
+/**
+ * The calls that declare part of the file rather than computing anything.
+ *
+ * None of them is a `CALL_LIB`, so none of them is in the engine's library
+ * manifest and none of them can be looked for there. The list is exported so a
+ * test that asks which names an engine has to implement can subtract these
+ * rather than carry a second copy of them.
+ */
+export const DECLARATION_CALLS: ReadonlySet<string> = new Set([
   'plot',
   'plotCandles',
   'fill',
@@ -81,6 +97,33 @@ export interface Site {
   children: number[];
 }
 
+/**
+ * One read's expression while it is being emitted, and the settings it reads.
+ *
+ * `stdlib.md` 15.4 lets an expression inside a read name a setting and nothing
+ * else of the file, because a setting resolves before bar 0 and holds for the
+ * run while a per-bar name has no counterpart on the requested bars. Each one
+ * read here is filled into a register of the body's own table, named by
+ * `inputs` on the request (2.16).
+ */
+export class RequestScope {
+  readonly inputs: RequestInput[] = [];
+  private readonly byBinding = new Map<number, number>();
+
+  /** The register a setting is filled into, or nothing when this is not one. */
+  registerFor(e: Emitter, binding: Binding): number | undefined {
+    if (binding.input === undefined) return undefined;
+    const found = this.byBinding.get(binding.id);
+    if (found !== undefined) return found;
+    const input = e.checked.inputs[binding.input];
+    if (input === undefined) return undefined;
+    const register = e.layout.filled('input', binding.name);
+    this.byBinding.set(binding.id, register);
+    this.inputs.push({ input: inputKey(input), series: register });
+    return register;
+  }
+}
+
 /** A loop being emitted, and where `break` and `continue` jump to. */
 export interface LoopFrame {
   readonly id: number;
@@ -105,12 +148,12 @@ export class Frame {
 }
 
 export class Emitter {
-  readonly pool = new ConstantPool();
+  readonly pool: ConstantPool;
   readonly layout = new Layout();
-  readonly gaps = new GapLog();
-  readonly libraryFunctions: LibraryFunction[] = [];
+  readonly gaps: GapLog;
+  readonly libraryFunctions: LibraryFunction[];
   /** The signature behind each entry, which is what `requires` is derived from. */
-  readonly calledEntries: LibraryEntry[] = [];
+  readonly calledEntries: LibraryEntry[];
   readonly sites: Site[] = [];
   readonly functions: CompiledFunction[] = [];
   readonly functionPos: (readonly [number, readonly (readonly [number, number, number])[]])[] = [];
@@ -126,6 +169,16 @@ export class Emitter {
   readonly promoted = new Set<number>();
   /** Cells and input slots carrying a register beside them, kept in step per bar. */
   readonly shadowed = new Set<number>();
+  /**
+   * Cells a function body reads, whose register is kept in step within the bar.
+   *
+   * A cell operand is relative to its own frame (2.11, 3.3), so a body has no
+   * instruction that reaches a file-scope `var`. A register is addressed the
+   * same way from every frame, so the value goes in one beside the cell: read
+   * from the cell at the start of the bar, written again at every assignment,
+   * so a body called at any point in the bar reads what the cell holds then.
+   */
+  readonly carried = new Set<number>();
   /** Bodies being emitted, so a call graph with a cycle in it stops (11.4). */
   readonly emitting = new Set<number>();
 
@@ -147,8 +200,25 @@ export class Emitter {
   background: Paint | null = null;
   /** The plot key a declaration handle holds, so `fill` can name two of them. */
   readonly handleKeys = new Map<number, string>();
+  /** Names holding a declaration handle, which lives where the declaration put it. */
+  readonly handles = new Set<number>();
+  /** The reads of 2.16, and the request a name holding one came from. */
+  readonly requests: Request[] = [];
+  readonly requestOf = new Map<number, number>();
+  /** The register one read's value lands in, so one call asks one question. */
+  readonly requestSeries = new Map<number, number>();
+  /**
+   * The read whose expression is being emitted, when this emitter is one.
+   *
+   * An expression inside a read is compiled over other bars, so it gets an
+   * emitter of its own rather than a flag on a frame: its registers, its cells
+   * and its state regions are counted from zero on the requested bars, and a
+   * pass that read the parent's would emit a program that computes this
+   * chart's numbers under another chart's name.
+   */
+  readonly request: RequestScope | undefined;
 
-  private readonly libraryIndex = new Map<string, number>();
+  private readonly libraryIndex: Map<string, number>;
   /** A leaf body, which calls no user function, is shared by every call site. */
   private readonly sharedBodies = new Map<number, number>();
 
@@ -162,11 +232,27 @@ export class Emitter {
     checked: CheckedScript,
     sink: DiagnosticSink,
     options: EmitOptions,
+    parent?: Emitter,
+    request?: RequestScope,
   ) {
     this.file = file;
     this.checked = checked;
     this.sink = sink;
     this.options = options;
+    // A read's body shares the constant pool and the library manifest, because
+    // neither holds anything that depends on a bar, and one of each is one
+    // table for an engine to verify rather than one per read (2.16).
+    this.pool = parent?.pool ?? new ConstantPool();
+    this.gaps = parent?.gaps ?? new GapLog();
+    this.libraryFunctions = parent?.libraryFunctions ?? [];
+    this.calledEntries = parent?.calledEntries ?? [];
+    this.libraryIndex = parent?.libraryIndex ?? new Map<string, number>();
+    this.request = request;
+  }
+
+  /** An emitter for one read's expression, sharing what does not depend on a bar. */
+  forRequest(request: RequestScope): Emitter {
+    return new Emitter(this.file, this.checked, this.sink, this.options, this, request);
   }
 
   /** The checker's answer for one call, which the emitter never re-derives. */
@@ -262,7 +348,7 @@ export class Emitter {
         if (binding === undefined) return undefined;
         if (binding.input === undefined) return undefined;
         const input = this.checked.inputs[binding.input];
-        return input === undefined ? undefined : { kind: 'input', key: keyOf(input.name, binding) };
+        return input === undefined ? undefined : { kind: 'input', key: inputKey(input) };
       },
       call: (call: Call) => {
         const checked = this.callAt(call);
@@ -273,8 +359,16 @@ export class Emitter {
   }
 }
 
-function keyOf(name: string, binding: Binding): string {
-  return name === '' ? binding.name : name;
+/**
+ * The key one input is known by: `inputs[].key`, and what a `{ "input": key }`
+ * field names (2.3 and 2.6).
+ *
+ * Here rather than beside the table it keys, because three places name an
+ * input by key and a second spelling of this would be a field that points at
+ * no row.
+ */
+export function inputKey(input: CheckedInput): string {
+  return input.name === '' ? `input${input.id}` : input.name;
 }
 
 /**
@@ -315,6 +409,27 @@ export function argumentAt(
 ): Argument | undefined {
   const index = entry.parameters.findIndex((one) => one.name === name);
   return index < 0 ? undefined : checked.arguments[index];
+}
+
+/**
+ * Every top-level name and the expression it is given, in source order.
+ *
+ * Two passes need it before any instruction is emitted: one to find the names
+ * that hold a declaration handle, and one to find the names that hold a read.
+ * Both have to answer about a name written below the line that asks, so both
+ * run over the file rather than over what has been emitted so far.
+ */
+export function declaredNames(
+  e: Emitter,
+): readonly { readonly name: Name; readonly value: Expression }[] {
+  const found: { readonly name: Name; readonly value: Expression }[] = [];
+  for (const item of e.checked.script.items) {
+    if (item.kind === 'assignment') found.push({ name: item.target, value: item.value });
+    else if (item.kind === 'varDeclaration') {
+      found.push({ name: item.name, value: item.initialiser });
+    }
+  }
+  return found;
 }
 
 /** The dotted name a callee spells, for a call the checker did not resolve. */

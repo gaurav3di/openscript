@@ -514,7 +514,7 @@ recognising because no arithmetic will give you a bar index for them.
 | `barsSince(cond)`, `valueWhen(cond, src)` | The first bar the condition is true, which may be never |
 | `req.timeframe(tf, expr)` with the default mode | The first bar after a higher timeframe bar has closed |
 | `req.symbol(...)` | The above, plus whenever the host answers |
-| `session.startTime`, `session.endTime` | The session's first bar |
+| `session.startTime`, `session.endTime` (both planned) | The session's first bar |
 
 Three consequences:
 

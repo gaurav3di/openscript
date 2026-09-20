@@ -26,7 +26,7 @@
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
     },
-    "./charts": {
+    "./adapters/charts": {
       "types": "./dist/adapters/charts/index.d.ts",
       "import": "./dist/adapters/charts/index.js"
     },
@@ -43,9 +43,10 @@
   ],
   "scripts": {
     "check:names": "node scripts/check-names.mjs",
+    "check:no-eval": "npm run build && node scripts/check-no-eval.mjs",
     "check:examples": "node scripts/check-examples.mjs",
     "check:errors": "node scripts/check-error-codes.mjs",
-    "test": "node scripts/check-duplication.mjs && node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-limits.mjs && node scripts/check-modularity.mjs && node scripts/check-names.mjs && npm run build && npm run test:unit && npm run bench",
+    "test": "node scripts/check-duplication.mjs && node scripts/check-error-codes.mjs && node scripts/check-examples.mjs && node scripts/check-layering.mjs && node scripts/check-limits.mjs && node scripts/check-modularity.mjs && node scripts/check-names.mjs && npm run build && node scripts/check-no-eval.mjs && npm run test:unit && npm run bench",
     "test:unit": "npm run generate && tsc -p tsconfig.test.json && node scripts/run-tests.mjs",
     "check:layering": "node scripts/check-layering.mjs",
     "check:duplication": "node scripts/check-duplication.mjs",

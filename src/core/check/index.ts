@@ -54,6 +54,7 @@ export { BAR_ZERO, allOf, atBar, atLeastBar, delayed, earlier, isNever, later } 
 export type { LibraryEntry, LibraryParameter, WarmupRule } from './library.js';
 export {
   NAMESPACES,
+  REQUEST_NAMES,
   STRATEGY_NAMESPACES,
   isLibraryName,
   isNamespace,

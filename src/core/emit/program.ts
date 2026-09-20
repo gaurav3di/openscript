@@ -42,6 +42,18 @@ export interface InputReference {
   readonly input: string;
 }
 
+/**
+ * A fact the host states at load, named where a request's identity is fixed.
+ *
+ * `req.symbol(leg, chart.interval, ...)` reads the chart's own interval, and
+ * `exchange = chart.exchange` is the default `stdlib.md` 15.1 writes out. Both
+ * are settled before bar 0 and neither is a value this compiler can know, so
+ * the request names the fact and the engine resolves it at load (2.16).
+ */
+export interface ChartReference {
+  readonly chart: 'symbol' | 'exchange' | 'interval';
+}
+
 /** Anything a declaration field may hold: a value, or a reference to an input. */
 export type Field =
   | null
@@ -51,6 +63,9 @@ export type Field =
   | Colour
   | readonly number[]
   | InputReference;
+
+/** What fixes one part of a request's identity, 2.16. */
+export type RequestField = Field | ChartReference;
 
 export interface FormatVersion {
   readonly format: string;
@@ -235,7 +250,14 @@ export interface Outputs {
 
 export interface Register {
   readonly id: number;
-  readonly kind: 'bar' | 'computed' | 'argument';
+  /**
+   * Where the register's entry for a bar comes from, 2.10.
+   *
+   * `request` and `input` are the two the engine fills rather than the program:
+   * the first from the answer to the read that names it in 2.16, the second
+   * from a resolved setting. Neither is ever written by an instruction.
+   */
+  readonly kind: 'bar' | 'computed' | 'argument' | 'request' | 'input';
   readonly field: string | null;
   readonly name: string | null;
 }
@@ -280,6 +302,50 @@ export interface Loop {
 /** `[instructionIndex, line, column]`, ascending by index, 2.15. */
 export type Position = readonly [number, number, number];
 
+/**
+ * One setting a read's expression reads, 2.16.
+ *
+ * It names a register rather than a slot because a body is one expression with
+ * no statement to write a slot from, and because a function body inside it
+ * reaches a register from any frame and a slot only from its own.
+ */
+export interface RequestInput {
+  readonly input: string;
+  readonly series: number;
+}
+
+/** An expression compiled over requested bars, 2.16. */
+export interface RequestBody {
+  readonly inputs: readonly RequestInput[];
+  readonly series: readonly Register[];
+  readonly frame: Frame;
+  readonly cells: readonly Cell[];
+  readonly states: readonly StateRegion[];
+  readonly functions: readonly CompiledFunction[];
+  readonly callSites: readonly CallSite[];
+  readonly loops: readonly Loop[];
+  /** Reads written inside this one, over bars the body's own bars fold from. */
+  readonly requests: readonly Request[];
+  readonly code: readonly Instruction[];
+  readonly pos: readonly Position[];
+  readonly fnPos: readonly (readonly [number, readonly Position[]])[];
+}
+
+/** One higher timeframe or other instrument read, 2.16. */
+export interface Request {
+  readonly id: number;
+  readonly read: 'timeframe' | 'symbol';
+  readonly symbol: RequestField;
+  readonly exchange: RequestField;
+  readonly timeframe: RequestField;
+  readonly mode: 'confirmed' | 'developing' | 'lookahead';
+  /** The register the read's value for each chart bar lands in. */
+  readonly series: number;
+  /** Requested bars of history the body needs, or null when no floor is known. */
+  readonly warmup: number | null;
+  readonly body: RequestBody;
+}
+
 export interface DebugNames {
   readonly slots: readonly string[];
   readonly cells: readonly string[];
@@ -315,4 +381,5 @@ export interface CompiledProgram {
   readonly loops: readonly Loop[];
   readonly code: readonly Instruction[];
   readonly debug: Debug;
+  readonly requests: readonly Request[];
 }

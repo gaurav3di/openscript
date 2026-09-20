@@ -764,7 +764,7 @@
         "expr": "the expression the history operator was applied to"
       },
       "cause": "History is retained for four kinds of value: a built-in series, a name assigned at the top level of the file, a call to a function declared to return a series, and a series parameter of a user function. Retaining it for every temporary inside every block would cost memory per bar and would not run fifty thousand bars in a browser tab. A name bound to a declaration handle is none of the four, although it sits at the top level: it is a compile-time binding with no per-bar value at all. A runtime object carries no history either, so [] on a line, a label, a box, a polyline or a table is this error as well (language.md 5.4).",
-      "fix": "Assign the value to a name at the top level of the file, then read that name's history.",
+      "fix": "If the value is a per-bar number computed inside a block or left as a temporary, assign it at the top level of the file and read the history of that top level name. If it is a declaration handle, a runtime object or a library fact that is not a series, no name gives it a history: assign what you want to look back at to a top level name of its own, and read that.",
       "autofix": false,
       "example": {
         "before": "if trending\n    body = close - open\n    plot(body[1], \"Previous body\", aqua)",
@@ -1095,6 +1095,27 @@
       "spec": "language.md 5.4, 14.1, 19",
       "refines": "OS2016",
       "test": "tests/errors/OS2019"
+    },
+    {
+      "code": "OS2020",
+      "title": "Name is planned, not implemented",
+      "severity": "error",
+      "stage": "check",
+      "since": 1,
+      "message": "{name} is planned and is not implemented in this version.",
+      "placeholders": {
+        "name": "the planned name that was called or read"
+      },
+      "cause": "The library names a few calls and facts it does not implement yet, so that the gap is visible rather than left for a reader to guess at (stdlib.md 1). The checker knows this name and knows it carries no behaviour, which is a different fact from a name it has never heard of: nothing about the spelling is wrong, no line above it would help, and the name starts working on a version that implements it.",
+      "fix": "Compute what {name} would give from names the library implements today, or take the line out until a version implements it. Do not reach for the nearest name that compiles: a neighbour computes something else, and a plot that quietly changes meaning is worse than one that refuses to compile.",
+      "autofix": false,
+      "example": {
+        "before": "zScore = (close - sma(close, 20)) / stdev(close, 20)\nplot(math.tanh(zScore), \"Squashed\", aqua)",
+        "after": "zScore = (close - sma(close, 20)) / stdev(close, 20)\ndoubled = exp(2 * zScore)\nplot((doubled - 1) / (doubled + 1), \"Squashed\", aqua)"
+      },
+      "spec": "stdlib.md 1",
+      "refines": "OS2001",
+      "test": "tests/errors/OS2020"
     },
     {
       "code": "OS3001",
@@ -2377,17 +2398,17 @@
       "severity": "error",
       "stage": "host",
       "since": 1,
-      "message": "This program is in compiled format {found} and this engine implements up to {max}.",
+      "message": "This program is in compiled format {found} and this engine implements format {max}; a different major number is a different format, whether it is higher or lower.",
       "placeholders": {
         "found": "the format version the program declares",
-        "max": "the highest format version the engine implements"
+        "max": "the format version this engine implements"
       },
-      "cause": "The compiled program is a versioned data format, and an engine refuses a format it cannot read rather than guessing at instructions it does not know. Refusing at load, with both numbers named, is the whole reason the version is carried.",
+      "cause": "The compiled program is a versioned data format, and an engine refuses a format it cannot read rather than guessing at instructions it does not know. Only the major number decides. A higher minor loads, because a minor addition whose absence would change a number has to announce itself as a tag in the program's requires list, and an older minor loads because it carries a subset of the fields this engine already reads. A major number that is not this engine's is a different format wearing the same name, so it is refused in both directions: a program older than this engine is refused for the same reason as one newer, and neither is run approximately. Refusing at load, with both numbers named, is the whole reason the version is carried.",
       "fix": "Run the program on an engine that implements format {found}, or recompile the source with a compiler that emits format {max}.",
       "autofix": false,
       "example": {
-        "before": "program: compiled format 3\nengine:  compiled format 2",
-        "after": "program: compiled format 2\nengine:  compiled format 2"
+        "before": "program: compiled format 0.9\nengine:  compiled format 1.0",
+        "after": "program: compiled format 1.0\nengine:  compiled format 1.0"
       },
       "spec": "compiled-program.md, loading a program",
       "refines": null,

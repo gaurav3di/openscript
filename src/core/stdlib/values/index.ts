@@ -2,7 +2,7 @@ export type { Flag, Flags, Series, Value } from './value.js';
 export { NONE, at, isLength, isPresent, result } from './value.js';
 
 export type { StateField, StateRecord, StateSlot } from './region.js';
-export { copyState, flag, newState, queue, slot } from './region.js';
+export { copyState, flag, held, newState, queue, slot } from './region.js';
 
 export type { Tail } from './tail.js';
 export { fold, tailOf } from './tail.js';

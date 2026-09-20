@@ -71,3 +71,16 @@ export function queue(record: StateRecord, key: string): StateField[] {
   record[key] = made;
   return made;
 }
+
+/**
+ * A number held in a region that may honestly have none yet.
+ *
+ * `slot` answers with a fallback, which is what a running total wants. A study
+ * that remembers the previous bar's high wants the other answer: absence until
+ * a present value has been put there, so the bar after a hole is treated as the
+ * bar after a hole rather than as one following a zero.
+ */
+export function held(record: StateRecord, key: string): number | null {
+  const value = record[key];
+  return typeof value === 'number' ? value : null;
+}

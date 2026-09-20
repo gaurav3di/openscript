@@ -130,9 +130,10 @@ and the dependencies only ever point one way.
         |       \            /
         |   .../adapters/charts       <- knows both. The only place that does
         |
-   .../editor
+   .../editor                         <- designed, not built
         |
-   .../adapters/codemirror            <- knows the editor component. Nothing else does
+   .../adapters/codemirror            <- designed, not built. Would know the
+                                         editor component, and nothing else would
 ```
 
 The language ships as one package with an entry point per tier, so a consumer who
@@ -140,13 +141,17 @@ wants only the compiler never pays for an adapter. A tier is declared only once 
 exists: an entry point that resolves to nothing fails at a consumer's run time
 rather than honestly at install.
 
+These two resolve today, from an install holding nothing but the manifest and the
+built output:
+
 | Entry point | Is | Depends on |
 |---|---|---|
 | `openalgo-script` | Compiler and engine | Nothing |
-| `openalgo-script/editor` | Highlight, complete, diagnose, hover, signature, format. No DOM | The compiler |
 | `openalgo-script/adapters/charts` | Turns a compiled study into a chart's indicator descriptor | The compiler and a chart |
-| `openalgo-script/adapters/codemirror` | A drop-in editor language package | The editor half and an editor component |
-| The Python engine, on its own index | The same compiled program, run on a server | Nothing |
+
+The editor half and its drop-in adapter are in the roadmap rather than in the
+export map, and so is the server-side engine, which is a separate package in
+another language. The roadmap says which phase owes each of them.
 
 An adapter is the only thing allowed to know two worlds at once, which is what
 makes it the piece a platform replaces rather than the piece they patch. A
@@ -166,7 +171,7 @@ Each row is usable on its own. Nobody has to take the next one.
 |---|---|---|
 | Scripts that produce numbers | `openalgo-script`, and the six-item host interface | An afternoon |
 | Those studies on your chart | the charts adapter, plus a chart | Days. Free if the chart is the one this adapter already targets |
-| Traders authoring in your app | `openalgo-script/editor`, and your own text component or the drop-in one | Days |
+| Traders authoring in your app | The editor half, once it is built, and your own text component or the drop-in one | Days |
 | Traders trading from it | Wire the order half of the host interface to your order API | About a week |
 | To run it on your own stack | Implement the compiled program format in your language, then pass the conformance suite | Weeks |
 
@@ -184,7 +189,7 @@ fails the build.
 
 | Guarantee | How you can tell | Today |
 |---|---|---|
-| No `eval`, no generated code, runs under a strict content security policy | Grep the source. There is no code construction anywhere, and the compiler emits data | Enforced |
+| No `eval`, no generated code, runs under a strict content security policy | `scripts/check-no-eval.mjs`, over the source, the built output and the build steps themselves. It refuses `eval`, a generated function, the indirect route to one through a constructor property, a timer handed a string, a module loaded at run time and a script URL built at run time | Enforced |
 | Zero runtime dependencies | `dependencies` is empty and stays empty | Enforced |
 | The pieces are separable: take the language without the chart, or the chart without the language | `scripts/check-layering.mjs`. The core may not import a package or touch a browser global | Enforced |
 | Small modules with a stated surface | `scripts/check-modularity.mjs`. A module's index is its only door | Enforced |

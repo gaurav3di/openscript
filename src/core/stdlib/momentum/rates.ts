@@ -7,8 +7,8 @@
  */
 import type { Series, StateRecord, Tail, Value } from '../values/index.js';
 import { NONE, fold, isPresent, result, tailOf } from '../values/index.js';
-import { emaTail, smaTail } from '../averages/index.js';
-import { changeStep, changeTail, historyStep, historyTail, sumTail } from '../series/index.js';
+import { emaStep, smaStep } from '../averages/index.js';
+import { changeStep, changeTail, historyStep, sumStep } from '../series/index.js';
 
 /** `mom(src, len)`: `src - src[len]`, from bar `len`. */
 export function momTail(len = 10): Tail<Value, Value> {
@@ -51,23 +51,26 @@ export function roc(src: Series, len = 9): Value[] {
  * lookback outright rather than through an average, so a turn shows on the bar it
  * happens.
  */
+export function cmoStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const delta = changeStep(state, `${key}c`, value, 1);
+  const up = isPresent(delta) ? result(Math.max(delta, 0)) : NONE;
+  const down = isPresent(delta) ? result(Math.max(-delta, 0)) : NONE;
+  const rise = sumStep(state, `${key}u`, up, len);
+  const fall = sumStep(state, `${key}d`, down, len);
+  if (!isPresent(rise) || !isPresent(fall)) return NONE;
+  const total = rise + fall;
+  if (total === 0) return NONE;
+  return result((100 * (rise - fall)) / total);
+}
+
+/** `cmo(src, len)` as a tail. */
 export function cmoTail(len = 9): Tail<Value, Value> {
-  const step = changeTail(1);
-  const ups = sumTail(len);
-  const downs = sumTail(len);
-  return {
-    next(value: Value): Value {
-      const delta = step.next(value);
-      const up = isPresent(delta) ? result(Math.max(delta, 0)) : NONE;
-      const down = isPresent(delta) ? result(Math.max(-delta, 0)) : NONE;
-      const rise = ups.next(up);
-      const fall = downs.next(down);
-      if (!isPresent(rise) || !isPresent(fall)) return NONE;
-      const total = rise + fall;
-      if (total === 0) return NONE;
-      return result((100 * (rise - fall)) / total);
-    },
-  };
+  return tailOf((state, value: Value) => cmoStep(state, '', value, len));
 }
 
 /** `cmo(src, len)` over a whole series. */
@@ -84,19 +87,23 @@ export function cmo(src: Series, len = 9): Value[] {
  * the change of the logarithm of the average instead; it is a different number
  * and it is not what the entry describes.
  */
+export function trixStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const once = emaStep(state, `${key}a`, value, len);
+  const twice = emaStep(state, `${key}b`, once, len);
+  const smoothed = emaStep(state, `${key}c`, twice, len);
+  const before = historyStep(state, `${key}h`, smoothed, 1);
+  if (!isPresent(smoothed) || !isPresent(before) || before === 0) return NONE;
+  return result((100 * (smoothed - before)) / before);
+}
+
+/** `trix(src, len)` as a tail. */
 export function trixTail(len = 18): Tail<Value, Value> {
-  const first = emaTail(len);
-  const second = emaTail(len);
-  const third = emaTail(len);
-  const back = historyTail(1);
-  return {
-    next(value: Value): Value {
-      const smoothed = third.next(second.next(first.next(value)));
-      const before = back.next(smoothed);
-      if (!isPresent(smoothed) || !isPresent(before) || before === 0) return NONE;
-      return result((100 * (smoothed - before)) / before);
-    },
-  };
+  return tailOf((state, value: Value) => trixStep(state, '', value, len));
 }
 
 /** `trix(src, len)` over a whole series. */
@@ -112,22 +119,34 @@ export function trix(src: Series, len = 18): Value[] {
  * twice, so the result is a direction rather than a magnitude and the noise
  * `mom` carries is gone.
  */
+export function tsiStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  longLen: number | null,
+  shortLen: number | null,
+): Value {
+  const delta = changeStep(state, `${key}c`, value, 1);
+  const size = isPresent(delta) ? result(Math.abs(delta)) : NONE;
+  const direction = emaStep(
+    state,
+    `${key}n`,
+    emaStep(state, `${key}m`, delta, longLen),
+    shortLen,
+  );
+  const magnitude = emaStep(
+    state,
+    `${key}z`,
+    emaStep(state, `${key}y`, size, longLen),
+    shortLen,
+  );
+  if (!isPresent(direction) || !isPresent(magnitude) || magnitude === 0) return NONE;
+  return result((100 * direction) / magnitude);
+}
+
+/** `tsi(src, longLen, shortLen)` as a tail. */
 export function tsiTail(longLen = 25, shortLen = 13): Tail<Value, Value> {
-  const step = changeTail(1);
-  const longMomentum = emaTail(longLen);
-  const shortMomentum = emaTail(shortLen);
-  const longSize = emaTail(longLen);
-  const shortSize = emaTail(shortLen);
-  return {
-    next(value: Value): Value {
-      const delta = step.next(value);
-      const size = isPresent(delta) ? result(Math.abs(delta)) : NONE;
-      const direction = shortMomentum.next(longMomentum.next(delta));
-      const magnitude = shortSize.next(longSize.next(size));
-      if (!isPresent(direction) || !isPresent(magnitude) || magnitude === 0) return NONE;
-      return result((100 * direction) / magnitude);
-    },
-  };
+  return tailOf((state, value: Value) => tsiStep(state, '', value, longLen, shortLen));
 }
 
 /** `tsi(src, longLen, shortLen)` over a whole series. */
@@ -145,16 +164,22 @@ export function tsi(src: Series, longLen = 25, shortLen = 13): Value[] {
  * exactly `len + floor(len / 2)`. Removing an undisplaced mean would be a
  * different study with a warmup of `len - 1`.
  */
+export function dpoStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const average = smaStep(state, `${key}q`, value, len);
+  const back = len === null ? null : Math.floor(len / 2) + 1;
+  const mean = historyStep(state, `${key}h`, average, back);
+  if (!isPresent(value) || !isPresent(mean)) return NONE;
+  return result(value - mean);
+}
+
+/** `dpo(src, len)` as a tail. */
 export function dpoTail(len = 21): Tail<Value, Value> {
-  const average = smaTail(len);
-  const displaced = historyTail(Math.floor(len / 2) + 1);
-  return {
-    next(value: Value): Value {
-      const mean = displaced.next(average.next(value));
-      if (!isPresent(value) || !isPresent(mean)) return NONE;
-      return result(value - mean);
-    },
-  };
+  return tailOf((state, value: Value) => dpoStep(state, '', value, len));
 }
 
 /** `dpo(src, len)` over a whole series. */

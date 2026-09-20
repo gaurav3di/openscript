@@ -43,12 +43,12 @@ host knows about the half day before a holiday and the script does not.
 
 | Call | Returns | Means |
 |---|---|---|
-| `session.isOpen` | `series bool` | This bar falls inside the instrument's trading session |
+| `session.isOpen` (planned) | `series bool` | This bar falls inside the instrument's trading session |
 | `session.isFirstBar` | `series bool` | This is the session's first bar |
 | `session.isLastBar` | `series bool` | This is the session's last bar |
-| `session.startTime` | `series number` | When this bar's session opened |
-| `session.endTime` | `series number` | When this bar's session is scheduled to close |
-| `session.barIndex` | `series number` | This bar's position within its session, first is 0 |
+| `session.startTime` (planned) | `series number` | When this bar's session opened |
+| `session.endTime` (planned) | `series number` | When this bar's session is scheduled to close |
+| `session.barIndex` (planned) | `series number` | This bar's position within its session, first is 0 |
 | `session.isIn(spec, zone)` | `series bool` | Whether this bar falls in a stated window |
 
 Two more are listed in the library as planned and are not available yet:

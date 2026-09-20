@@ -14,7 +14,7 @@
  */
 import type { LibraryEntry, Type } from '../check/index.js';
 import type { Emitter } from './context.js';
-import type { Instruction } from './program.js';
+import type { Instruction, Request } from './program.js';
 
 /** The tags of format 1.0, in the order 2.2's table gives them. */
 const ORDER: readonly string[] = [
@@ -52,13 +52,35 @@ function usesArrayInstruction(lists: readonly (readonly Instruction[])[]): boole
   return lists.some((code) => code.some(([opcode]) => opcode === 'ARRAY' || opcode === 'ELEM'));
 }
 
+/**
+ * Every instruction list in the program, the bodies of its reads included.
+ *
+ * A tag says what the program needs, and a read's expression is part of the
+ * program: an engine that cannot run an `ELEM` cannot run one inside a read
+ * either, and a tag derived from the bar's list alone would tell it otherwise.
+ */
+function codeOf(lists: Instruction[][], requests: readonly Request[]): void {
+  for (const request of requests) {
+    lists.push([...request.body.code]);
+    for (const one of request.body.functions) lists.push([...one.code]);
+    codeOf(lists, request.body.requests);
+  }
+}
+
+function loopsIn(requests: readonly Request[]): boolean {
+  return requests.some(
+    (one) => one.body.loops.length > 0 || loopsIn(one.body.requests),
+  );
+}
+
 export function requiresOf(e: Emitter, code: readonly Instruction[]): readonly string[] {
-  const lists = [code, ...e.functions.map((one) => one.code)];
+  const lists: Instruction[][] = [[...code], ...e.functions.map((one) => [...one.code])];
+  codeOf(lists, e.requests);
   const needed = new Set<string>(['core.1']);
 
   if (usesArrayInstruction(lists) || e.calledEntries.some(isArrayFunction)) needed.add('arrays');
   if (e.checked.functions.length > 0) needed.add('functions');
-  if (e.loops.length > 0) needed.add('loops');
+  if (e.loops.length > 0 || loopsIn(e.requests)) needed.add('loops');
   if (e.libraryFunctions.some((one) => one.effect === 'order')) needed.add('orders');
   if (e.calledEntries.some(createsObject)) needed.add('objects');
   if (e.tables.length > 0) needed.add('tables');

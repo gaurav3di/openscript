@@ -50,27 +50,63 @@ whether your pool threads are real.
 timeout, and a backtest over years of minute bars will exceed it. Start the run,
 return an identifier, report progress on a channel you already keep open.
 
-## Bars: the decision that decides whether long ranges work
+## Bars: one object per bar, and what that costs
 
-Hand the engine **columnar arrays**, one per field, not one object per bar.
+The engine takes **one object per bar**, not columnar arrays. This is the whole
+of the surface:
 
-For nine hundred thousand bars, which is about ten years of one minute data:
+```text
+load(program, options)      ->  { ok: true, engine } or { ok: false, diagnostic }
+engine.run(bars, states)    ->  { bars: results, diagnostic }
+engine.append(bar, state)   ->  one result, for a bar that has closed
+engine.update(bar, state)   ->  one result, re-executing the newest bar
+```
 
-| Representation | Memory |
-|---|---|
-| Columnar typed arrays | about 50 MB |
-| One object per bar | about 144 MB, plus 900,000 objects of collector pressure |
+`bars` is an array of records, oldest first, and one record is:
 
-Three times the memory is the smaller half. The real cost is the allocation and
-the cache misses on every access, and a garbage collector doing major work in the
-middle of a run.
+```json
+{
+  "time": 1700000000000,
+  "open": 101.5,
+  "high": 102.25,
+  "low": 101,
+  "close": 102,
+  "volume": 18400,
+  "openInterest": null
+}
+```
 
-If your historical store is columnar, and most analytical stores are, the data is
-already in the right shape at rest and can travel as binary columns that become
-typed array views with no parsing at all. **The parse is the part that hurts**: it
-is where peak memory doubles, because you hold the text and the result at once.
-A JSON endpoint is the right shape for drawing a chart and the wrong shape for
-feeding an engine, and those want to be two endpoints rather than one with a flag.
+`time` is the bar's open instant in whole milliseconds since the Unix epoch, UTC.
+A price the feed does not have is `null`, never carried forward and never zero,
+and a volume nobody stated is `null` rather than `0`, because a quiet bar and an
+unknown one are different facts. The engine derives `hl2`, `hlc3`, `ohlc4` and
+`hlcc4` itself, and a host must not supply them. Every field, what may be absent
+and what the engine refuses, is in
+[`spec/host-interface.md`](../../spec/host-interface.md) section 3.
+
+`run` takes the whole history in one call. `append` adds a bar that has closed,
+and `update` hands the newest bar back with new values, which the engine
+re-executes from the checkpoint at the start of that bar, so a moving bar updated
+ten times gives the same answer as one that arrived once.
+
+**This representation costs memory at long ranges, and the cost is known.** One
+object per bar is around three times the memory of columnar typed arrays over a
+decade of one minute data, and it allocates one object per bar for the collector
+to walk. Whether that decides against a long backtest inside a browser tab, and
+what a columnar surface would have to look like instead, is measured and left
+open in
+[`issues/0005-bars-arrive-one-object-per-bar.md`](../../issues/0005-bars-arrive-one-object-per-bar.md).
+Read it before you build a browser backtest over years of minute bars. On a
+server, at the sizes that issue describes, it decides nothing.
+
+Two things worth doing whichever way that goes:
+
+- **Do not hold the parse and the result at once.** Peak memory doubles where a
+  response is parsed into one shape and then copied into another. Build the bar
+  records the engine takes directly from the response and keep one copy.
+- **Keep the drawing endpoint and the engine endpoint apart.** A payload shaped
+  for a chart is rarely the one shaped for a run, and a single endpoint with a
+  flag on it becomes both badly.
 
 ## What the engine will not do for you
 

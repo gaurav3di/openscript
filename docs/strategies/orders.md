@@ -6,6 +6,13 @@ can find it, decide what happens when the next signal arrives while the last ord
 is still working, and flatten or reverse a position without the engine refusing
 you.
 
+> **Much of this page is marked planned.** A strategy's ledger, its legs and its
+> book are what the marked calls are folded from, and no engine holds one in this
+> release. A marked call is refused where you wrote it, with a message that says
+> it is planned, rather than compiling and then failing to load. The six order
+> functions, the three `order` calls that place an order and the five position
+> facts read from the account's own row are not marked, because those run.
+
 ## The rule the whole page hangs on
 
 **A strategy never places an order that computes a delta against the account's
@@ -46,8 +53,8 @@ compiler refuses the call with OS7001 and names the declaration to change.
 
 | Call | For |
 |---|---|
-| `leg.fixed(name, symbol, ...)` | Declare a leg on a contract named outright |
-| `leg.relative(name, underlying, kind, ...)` | Declare a leg on a contract named by description |
+| `leg.fixed(name, symbol, ...)` (planned) | Declare a leg on a contract named outright |
+| `leg.relative(name, underlying, kind, ...)` (planned) | Declare a leg on a contract named by description |
 | `buy(qty = the declaration's, limit = none, stop = none, tag = "", leg = the only leg)` | Enter or add to a long position in one leg |
 | `sell(qty = ..., limit = none, stop = none, tag = "", leg = ...)` | Enter or add to a short position in one leg |
 | `close(tag = none, qty = none, leg = ...)` | Flatten a leg, or the part carrying one tag |
@@ -56,8 +63,8 @@ compiler refuses the call with OS7001 and names the declaration to change.
 | `cancelAll()` | Cancel every working order this strategy placed |
 | `order.place(side, qty, type = "market", price = none, trigger = none, tag = "", leg = ...)` | The general form, for a script that computes its side |
 | `order.reverse(qty = none, tag = "", leg = ...)` | Close a leg's position and open the same size the other way |
-| `order.working(tag)` | Whether an order with that tag is live and unfilled |
-| `order.pending` | How many orders are live and unfilled |
+| `order.working(tag)` (planned) | Whether an order with that tag is live and unfilled |
+| `order.pending` (planned) | How many orders are live and unfilled |
 
 Six bare names cover almost every script, and the `order` namespace holds the rest.
 That split is the library's general rule: a call a script reaches for on most days
@@ -123,11 +130,11 @@ contract the orders actually carried.
 
 | Call | Returns | Reads back |
 |---|---|---|
-| `leg.symbol(name)` | `string` | The resolved contract, which is what the orders carried |
-| `leg.exchange(name)` | `string` | The exchange the orders were sent to |
-| `leg.product(name)` | `string` | The product actually sent |
-| `leg.expiry(name)` | `number` | The resolved contract's expiry, absent for a contract with none |
-| `leg.strike(name)` | `number` | The resolved contract's strike, absent for a contract with none |
+| `leg.symbol(name)` (planned) | `string` | The resolved contract, which is what the orders carried |
+| `leg.exchange(name)` (planned) | `string` | The exchange the orders were sent to |
+| `leg.product(name)` (planned) | `string` | The product actually sent |
+| `leg.expiry(name)` (planned) | `number` | The resolved contract's expiry, absent for a contract with none |
+| `leg.strike(name)` (planned) | `number` | The resolved contract's strike, absent for a contract with none |
 
 Those five are fixed for the run rather than per bar. Print them on the first bar
 of a live strategy and the log answers "what did it actually trade" without
@@ -273,13 +280,13 @@ is an answer.
 
 | Call | Returns | Reads |
 |---|---|---|
-| `order.working(tag)` | `series bool` | Whether one named order is live and unfilled |
-| `order.pending` | `series number` | How many orders are live in total |
-| `order.id(tag)` | `series string` | The destination's own order id, `""` before it answers |
-| `order.status(tag)` | `series string` | The ledger's folded status, from the vocabulary of `stdlib.md` section 17.7 |
-| `order.filled(tag)` | `series number` | Cumulative filled quantity, `0` before the first fill |
-| `order.avgFill(tag)` | `series number` | Average fill price, absent before the first fill |
-| `order.rejection(tag)` | `series string` | The destination's own rejection text, `""` when there is none |
+| `order.working(tag)` (planned) | `series bool` | Whether one named order is live and unfilled |
+| `order.pending` (planned) | `series number` | How many orders are live in total |
+| `order.id(tag)` (planned) | `series string` | The destination's own order id, `""` before it answers |
+| `order.status(tag)` (planned) | `series string` | The ledger's folded status, from the vocabulary of `stdlib.md` section 17.7 |
+| `order.filled(tag)` (planned) | `series number` | Cumulative filled quantity, `0` before the first fill |
+| `order.avgFill(tag)` (planned) | `series number` | Average fill price, absent before the first fill |
+| `order.rejection(tag)` (planned) | `series string` | The destination's own rejection text, `""` when there is none |
 
 Every one of those reads the strategy's own ledger and never the destination.
 `order.filled(tag)` is **cumulative and never a delta**, which is the single most

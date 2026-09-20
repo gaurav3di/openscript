@@ -21,14 +21,17 @@ import {
   avgSkipStep,
   barsSinceStep,
   changeStep,
+  correlationStep,
   countPresentStep,
   countStep,
+  covarianceStep,
   crossStep,
   cumStep,
   emaStep,
   extremeStep,
   hmaStep,
   historyStep,
+  percentRankStep,
   percentileStep,
   pivotStep,
   rmaStep,
@@ -201,6 +204,33 @@ export const SERIES_ENTRIES: readonly ManifestEntry[] = [
       lengthAt(ctx, 'pivotLow', 'left', args, 1),
       lengthAt(ctx, 'pivotLow', 'right', args, 2),
       false,
+    ),
+  ),
+
+  stateful('percentRank', 'src len', (ctx, args) =>
+    percentRankStep(
+      ctx.state,
+      'q',
+      numberAt(args, 0),
+      lengthAt(ctx, 'percentRank', 'len', args, 1),
+    ),
+  ),
+
+  stateful('correlation', 'a b len', (ctx, args) =>
+    correlationStep(
+      ctx.state,
+      '',
+      { a: numberAt(args, 0), b: numberAt(args, 1) },
+      lengthAt(ctx, 'correlation', 'len', args, 2),
+    ),
+  ),
+
+  stateful('covariance', 'a b len', (ctx, args) =>
+    covarianceStep(
+      ctx.state,
+      '',
+      { a: numberAt(args, 0), b: numberAt(args, 1) },
+      lengthAt(ctx, 'covariance', 'len', args, 2),
     ),
   ),
 ];

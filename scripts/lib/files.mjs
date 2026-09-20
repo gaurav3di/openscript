@@ -58,6 +58,18 @@ export function projectFiles() {
   return Array.from(new Set([...listed, ...walk('src')])).sort();
 }
 
+/**
+ * Every file under a directory, sorted, ignoring version control entirely.
+ *
+ * `projectFiles` is the right list for anything that is part of the project as
+ * written. This is for the one thing that is not: built output, which is
+ * gitignored by design and is also what a consumer actually installs, so a check
+ * that only ever reads the source has the same blind spot twice over.
+ */
+export function filesUnder(dir) {
+  return walk(dir).sort();
+}
+
 /** Every file under a directory, ignoring version control entirely. */
 function walk(dir, out = []) {
   let entries;

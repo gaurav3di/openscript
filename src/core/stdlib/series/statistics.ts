@@ -14,7 +14,7 @@
  * `stdlib.md` fixes neither arrangement, so this one is chosen and stated.
  */
 import type { Series, StateRecord, Tail, Value } from '../values/index.js';
-import { NONE, fold, makeLookback, result, ring, tailOf } from '../values/index.js';
+import { NONE, fold, result, ring, tailOf } from '../values/index.js';
 
 import type { Pair } from './changes.js';
 
@@ -86,20 +86,26 @@ export function median(src: Series, len: number): Value[] {
  * one of the values counted, so the reading runs from `100 / len` to 100 rather
  * than from 0.
  */
+export function percentRankStep(
+  state: StateRecord,
+  key: string,
+  value: Value,
+  len: number | null,
+): Value {
+  const lookback = ring(state, key, len);
+  lookback.push(value);
+  if (len === null || !lookback.complete()) return NONE;
+  const current = lookback.at(0) as number;
+  let counted = 0;
+  for (let back = len - 1; back >= 0; back -= 1) {
+    if ((lookback.at(back) as number) <= current) counted += 1;
+  }
+  return result((counted * 100) / len);
+}
+
+/** `percentRank(src, len)` as a tail. */
 export function percentRankTail(len: number): Tail<Value, Value> {
-  const lookback = makeLookback(len);
-  return {
-    next(value: Value): Value {
-      lookback.push(value);
-      if (!lookback.complete()) return NONE;
-      const current = lookback.at(0) as number;
-      let counted = 0;
-      for (let back = len - 1; back >= 0; back -= 1) {
-        if ((lookback.at(back) as number) <= current) counted += 1;
-      }
-      return result((counted * 100) / len);
-    },
-  };
+  return tailOf((state, value: Value) => percentRankStep(state, 'q', value, len));
 }
 
 /** `percentRank(src, len)` over a whole series. */
@@ -135,33 +141,55 @@ function moments(a: readonly number[], b: readonly number[], len: number): Momen
   return { covariance: cross / len, varianceA: squaresA / len, varianceB: squaresB / len };
 }
 
-function jointTail(len: number, want: 'covariance' | 'correlation'): Tail<Pair, Value> {
-  const left = makeLookback(len);
-  const right = makeLookback(len);
-  return {
-    next(pair: Pair): Value {
-      left.push(pair.a);
-      right.push(pair.b);
-      if (!left.complete() || !right.complete()) return NONE;
-      const a = ordered((back) => left.at(back), len);
-      const b = ordered((back) => right.at(back), len);
-      const m = moments(a, b, len);
-      if (want === 'covariance') return result(m.covariance);
-      const scale = Math.sqrt(m.varianceA) * Math.sqrt(m.varianceB);
-      if (scale === 0) return NONE;
-      return result(m.covariance / scale);
-    },
-  };
+function jointStep(
+  state: StateRecord,
+  key: string,
+  pair: Pair,
+  len: number | null,
+  want: 'covariance' | 'correlation',
+): Value {
+  const left = ring(state, `${key}a`, len);
+  const right = ring(state, `${key}b`, len);
+  left.push(pair.a);
+  right.push(pair.b);
+  if (len === null || !left.complete() || !right.complete()) return NONE;
+  const a = ordered((back) => left.at(back), len);
+  const b = ordered((back) => right.at(back), len);
+  const m = moments(a, b, len);
+  if (want === 'covariance') return result(m.covariance);
+  const scale = Math.sqrt(m.varianceA) * Math.sqrt(m.varianceB);
+  if (scale === 0) return NONE;
+  return result(m.covariance / scale);
 }
 
 /** `covariance(a, b, len)`: the population covariance, from bar `len - 1`. */
-export function covarianceTail(len: number): Tail<Pair, Value> {
-  return jointTail(len, 'covariance');
+export function covarianceStep(
+  state: StateRecord,
+  key: string,
+  pair: Pair,
+  len: number | null,
+): Value {
+  return jointStep(state, key, pair, len, 'covariance');
 }
 
 /** `correlation(a, b, len)`: linear correlation, -1 to 1, from bar `len - 1`. */
+export function correlationStep(
+  state: StateRecord,
+  key: string,
+  pair: Pair,
+  len: number | null,
+): Value {
+  return jointStep(state, key, pair, len, 'correlation');
+}
+
+/** `covariance(a, b, len)` as a tail. */
+export function covarianceTail(len: number): Tail<Pair, Value> {
+  return tailOf((state, pair: Pair) => covarianceStep(state, 'q', pair, len));
+}
+
+/** `correlation(a, b, len)` as a tail. */
 export function correlationTail(len: number): Tail<Pair, Value> {
-  return jointTail(len, 'correlation');
+  return tailOf((state, pair: Pair) => correlationStep(state, 'q', pair, len));
 }
 
 function pairs(a: Series, b: Series): Pair[] {

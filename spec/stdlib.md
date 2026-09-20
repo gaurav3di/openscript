@@ -717,6 +717,35 @@ warmup.
 Sunday as 1, which some calendars do, splits the trading week across the ends of
 the range.
 
+`date.weekOfYear` is the ISO 8601 week: weeks start on Monday and week 1 is the
+week holding the year's first Thursday, so a week straddling the new year
+belongs to the year holding most of it and no year has a week 0. The other
+common reading, counting from the first day of January, differs by a whole week
+at the turn of most years, and a reader has no way to tell from a chart which of
+the two drew it.
+
+**A zone name is resolved against the host runtime's own timezone database.**
+This specification fixes no table of its own, because a table is a fact several
+governments change every year and a copy of one goes stale silently, in exactly
+the way a fixed offset does. Two engines agree as far as their databases do,
+which is the same footing every calendar in existence stands on, and it is
+stated here rather than implied. A name the database does not hold is OS6005 and
+never a guessed offset.
+
+**A zone name is an area and a location, or `UTC`.** Databases differ about
+which abbreviations they will quietly accept, so an engine applies this rule
+before it consults one: a script refused on one engine has to be refused on
+every engine, and an abbreviation is ambiguous in any case, which is what
+OS6005 says. `UTC` is the one accepted name with no area, and it names one
+offset everywhere.
+
+**Two wall clock readings have no single instant and both are settled.** A
+reading the clock skipped, the hour a spring change removes, resolves to the
+instant that hour would have been; absence there would put a hole in a study one
+morning a year. A reading the clock repeated, the hour an autumn change gives
+back, resolves to the first of the two, which is when a session opening at that
+clock time opens.
+
 ### 12.3 The format pattern
 
 `date.format` accepts these placeholders and copies every other character
@@ -738,12 +767,12 @@ not a window the script invents. Everything here is a per-bar fact.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
-| `session.isOpen` | `series bool` | bar 0 | This bar falls inside the instrument's trading session |
+| `session.isOpen` (planned) | `series bool` | bar 0 | This bar falls inside the instrument's trading session |
 | `session.isFirstBar` | `series bool` | bar 0 | This is the session's first bar |
 | `session.isLastBar` | `series bool` | bar 0 | This is the session's last bar |
-| `session.startTime` | `series number` | the session's first bar | When this bar's session opened |
-| `session.endTime` | `series number` | the session's first bar | When this bar's session is scheduled to close |
-| `session.barIndex` | `series number` | bar 0 | This bar's position within its session, first is 0 |
+| `session.startTime` (planned) | `series number` | the session's first bar | When this bar's session opened |
+| `session.endTime` (planned) | `series number` | the session's first bar | When this bar's session is scheduled to close |
+| `session.barIndex` (planned) | `series number` | bar 0 | This bar's position within its session, first is 0 |
 | `session.isIn(spec, zone = chart.timezone)` | `series bool` | bar 0 | Whether the bar falls in a stated window, section 12.5 |
 | `session.isHoliday(t)` (planned) | `bool` | n/a | Whether a date is a trading holiday, once a calendar is supplied |
 | `session.nextOpen` (planned) | `series number` | bar 0 | When the next session opens |
@@ -753,6 +782,16 @@ close, so it is true on the last bar of the schedule even if trading stopped
 early. A strategy that must be flat by the close acts on this rather than on the
 appearance of a new bar, which arrives too late.
 
+**Four of these are planned and the reason is where their answer comes from.**
+`session.isFirstBar` and `session.isLastBar` are facts about the delivery, which
+a host states per bar (`host-interface.md` section 6), and an engine has them.
+`session.isIn` reads hours the script itself wrote, and section 12.2 turns them
+into a test. The other four are read off the **instrument's** own session hours,
+a wall clock range in the instrument's timezone (`host-interface.md` section
+4.3), which the engine's host record does not yet carry. They are marked rather
+than left to be refused at load, so a script that reaches for one is told at the
+call that it is planned.
+
 ### 12.5 The session window spec
 
 `session.isIn` takes a string of the form `"HHMM-HHMM"` with an optional day
@@ -761,7 +800,7 @@ Sunday, matching `date.dayOfWeek`. A window whose end is before its start crosse
 midnight and is read that way, which is what an overnight session needs. A
 malformed spec is OS3008 at compile time when it is a literal.
 
-**Count: 25 entries, of which 3 are planned.**
+**Count: 25 entries, of which 7 are planned.**
 
 ---
 
@@ -1224,6 +1263,19 @@ therefore a conformance area with vectors of its own, on the same footing as the
 rest of the language, and an engine is conforming only when it reproduces them. A
 case supplies frames from its case directory (`conformance.md` section 3).
 
+**Most of this section is marked planned, and the fourteen entries that are not
+are the ones an engine can answer today.** Six order functions place an order,
+three more spell the same act differently, and five position facts are read from
+the host's own position row. Every other entry here is folded from the strategy
+ledger of section 17.7, or is a rule evaluated against it by the legs and the
+book of sections 17.6 and 17.9 to 17.11, and no engine holds a ledger in this
+release. The names stay in this table because the shape of the surface is part
+of what the language promises and hiding it would make the promise harder rather
+than smaller. What the marker changes is when a script is told: a marked name is
+refused at the call, where a reader can see what they wrote, with a message that
+says it is planned, instead of compiling and then being refused at load with a
+message that names a function and gives no reason.
+
 ### 17.1 The position model
 
 A strategy holds **one position per leg**. A leg is one contract the strategy
@@ -1332,17 +1384,17 @@ position is.
 | `order.place(side, qty, type = "market", price = none, trigger = none, tag = "", leg = the only leg)` | nothing | The general form, for a script that computes its side |
 | `order.reverse(qty = none, tag = "", leg = ...)` | nothing | Close a leg's position and open the same size the other way, as the two orders of section 17.1 |
 | `order.bracket(tag = "", profit = none, loss = none, leg = ...)` | nothing | Set the leg's stop and target as distances from the entry |
-| `order.working(tag)` | `series bool` | Whether an order with that tag is live and unfilled |
-| `order.pending` | `series number` | How many orders are live and unfilled |
-| `order.id(tag)` | `series string` | The destination's own reference for that tag, `""` before the destination has answered |
-| `order.status(tag)` | `series string` | The ledger's folded status for that tag, section 17.7 |
-| `order.filled(tag)` | `series number` | Cumulative filled quantity for that tag, `0` before the first fill |
-| `order.avgFill(tag)` | `series number` | Average fill price for that tag, absent before the first fill |
-| `order.rejection(tag)` | `series string` | The destination's own rejection text, `""` when there is none |
-| `order.qtyForCash(cash, price = close)` | `number` | Size from an amount of money |
-| `order.qtyForRisk(risk, entry, stop)` | `number` | Size so that being stopped out costs `risk` |
-| `order.qtyForEquityPercent(percent, price = close)` | `number` | Size from a percentage of current equity |
-| `order.roundToLot(qty, direction = "down", leg = ...)` | `number` | Round to a whole multiple of that leg's lot size |
+| `order.working(tag)` (planned) | `series bool` | Whether an order with that tag is live and unfilled |
+| `order.pending` (planned) | `series number` | How many orders are live and unfilled |
+| `order.id(tag)` (planned) | `series string` | The destination's own reference for that tag, `""` before the destination has answered |
+| `order.status(tag)` (planned) | `series string` | The ledger's folded status for that tag, section 17.7 |
+| `order.filled(tag)` (planned) | `series number` | Cumulative filled quantity for that tag, `0` before the first fill |
+| `order.avgFill(tag)` (planned) | `series number` | Average fill price for that tag, absent before the first fill |
+| `order.rejection(tag)` (planned) | `series string` | The destination's own rejection text, `""` when there is none |
+| `order.qtyForCash(cash, price = close)` (planned) | `number` | Size from an amount of money |
+| `order.qtyForRisk(risk, entry, stop)` (planned) | `number` | Size so that being stopped out costs `risk` |
+| `order.qtyForEquityPercent(percent, price = close)` (planned) | `number` | Size from a percentage of current equity |
+| `order.roundToLot(qty, direction = "down", leg = ...)` (planned) | `number` | Round to a whole multiple of that leg's lot size |
 | `order.modify(tag, ...)` (planned) | nothing | Change a working order's price or quantity in place |
 | `order.oco(tagA, tagB)` (planned) | nothing | Cancel one order when the other fills |
 
@@ -1385,17 +1437,17 @@ not change any of these until that fill settles.
 | `pos.isShort` | `series bool` | bar 0 | `pos.size < 0` |
 | `pos.isFlat` | `series bool` | bar 0 | `pos.size == 0` |
 | `pos.avgPrice` | `series number` | absent while flat | Average price of the open position |
-| `pos.entryTime` | `series number` | absent while flat | When the current position was opened |
-| `pos.barsHeld` | `series number` | absent while flat | Bars since it was opened, 0 on the entry bar |
-| `pos.entries` | `series number` | bar 0 | How many entries make up the current position, for a pyramiding rule |
-| `pos.openProfit` | `series number` | absent while flat | Unrealised profit in money, at this bar's close |
-| `pos.openProfitPercent` | `series number` | absent while flat | The same as a percentage of the position's cost |
-| `pos.maxProfit` | `series number` | absent while flat | Best unrealised profit this position has seen |
-| `pos.maxLoss` | `series number` | absent while flat | Worst unrealised loss this position has seen |
-| `pos.isShared` | `series bool` | bar 0 | The account holds a position in a contract this strategy also holds |
-| `pos.equity` | `series number` | bar 0 | Starting capital plus realised and unrealised profit |
-| `pos.netProfit` | `series number` | bar 0 | Realised profit since the run began |
-| `pos.tradeCount` | `series number` | bar 0 | Closed trades so far |
+| `pos.entryTime` (planned) | `series number` | absent while flat | When the current position was opened |
+| `pos.barsHeld` (planned) | `series number` | absent while flat | Bars since it was opened, 0 on the entry bar |
+| `pos.entries` (planned) | `series number` | bar 0 | How many entries make up the current position, for a pyramiding rule |
+| `pos.openProfit` (planned) | `series number` | absent while flat | Unrealised profit in money, at this bar's close |
+| `pos.openProfitPercent` (planned) | `series number` | absent while flat | The same as a percentage of the position's cost |
+| `pos.maxProfit` (planned) | `series number` | absent while flat | Best unrealised profit this position has seen |
+| `pos.maxLoss` (planned) | `series number` | absent while flat | Worst unrealised loss this position has seen |
+| `pos.isShared` (planned) | `series bool` | bar 0 | The account holds a position in a contract this strategy also holds |
+| `pos.equity` (planned) | `series number` | bar 0 | Starting capital plus realised and unrealised profit |
+| `pos.netProfit` (planned) | `series number` | bar 0 | Realised profit since the run began |
+| `pos.tradeCount` (planned) | `series number` | bar 0 | Closed trades so far |
 | `pos.winRate` (planned) | `series number` | bar 0 | Share of closed trades that made money |
 | `pos.profitFactor` (planned) | `series number` | bar 0 | Gross profit over gross loss |
 | `pos.maxDrawdown` (planned) | `series number` | bar 0 | Largest peak to trough fall in equity so far |
@@ -1443,8 +1495,8 @@ record with nothing stable to key on.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `leg.fixed(name, symbol, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the strategy's leg set, resolved before bar 0 | Declare a leg on a contract named outright |
-| `leg.relative(name, underlying, kind, expiryRank = 0, expiryCycle = none, strikeOffset = 0, right = none, reference = none, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` | nothing | the same | Declare a leg on a contract named relatively |
+| `leg.fixed(name, symbol, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` (planned) | nothing | the strategy's leg set, resolved before bar 0 | Declare a leg on a contract named outright |
+| `leg.relative(name, underlying, kind, expiryRank = 0, expiryCycle = none, strikeOffset = 0, right = none, reference = none, exchange = chart.exchange, product = the declaration's, qty = the declaration's, side = "buy")` (planned) | nothing | the same | Declare a leg on a contract named relatively |
 
 Every argument of both calls is part of a declaration fixed before bar 0, so each
 must be a compile-time constant: a literal, arithmetic over literals, or an
@@ -1478,18 +1530,18 @@ A relative contract resolves once, under `host-interface.md` section 9.4.
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
-| `leg.symbol(name)` | `string` | bar 0 | The resolved contract, which is what the orders carried |
-| `leg.exchange(name)` | `string` | bar 0 | The exchange the orders were sent to |
-| `leg.product(name)` | `string` | bar 0 | The product actually sent, section 17.7 |
-| `leg.expiry(name)` | `number` | bar 0 | The resolved contract's expiry, absent for a contract with none |
-| `leg.strike(name)` | `number` | bar 0 | The resolved contract's strike, absent for a contract with none |
-| `leg.size(name)` | `series number` | bar 0, `0` when flat | Signed units this strategy holds in the leg |
-| `leg.avgPrice(name)` | `series number` | absent while the leg is flat | Average price of the leg's open position |
-| `leg.entryTime(name)` | `series number` | absent while the leg is flat | When the leg's current position was opened |
-| `leg.profit(name)` | `series number` | bar 0, `0` when flat | The leg's open profit in money, marked to this bar's close |
-| `leg.isOpen(name)` | `series bool` | bar 0 | Whether the leg holds a position |
-| `leg.stopPrice(name)` | `series number` | absent when no stop is in force | The stop actually in force, from whichever call set it |
-| `leg.targetPrice(name)` | `series number` | absent when no target is in force | The target actually in force |
+| `leg.symbol(name)` (planned) | `string` | bar 0 | The resolved contract, which is what the orders carried |
+| `leg.exchange(name)` (planned) | `string` | bar 0 | The exchange the orders were sent to |
+| `leg.product(name)` (planned) | `string` | bar 0 | The product actually sent, section 17.7 |
+| `leg.expiry(name)` (planned) | `number` | bar 0 | The resolved contract's expiry, absent for a contract with none |
+| `leg.strike(name)` (planned) | `number` | bar 0 | The resolved contract's strike, absent for a contract with none |
+| `leg.size(name)` (planned) | `series number` | bar 0, `0` when flat | Signed units this strategy holds in the leg |
+| `leg.avgPrice(name)` (planned) | `series number` | absent while the leg is flat | Average price of the leg's open position |
+| `leg.entryTime(name)` (planned) | `series number` | absent while the leg is flat | When the leg's current position was opened |
+| `leg.profit(name)` (planned) | `series number` | bar 0, `0` when flat | The leg's open profit in money, marked to this bar's close |
+| `leg.isOpen(name)` (planned) | `series bool` | bar 0 | Whether the leg holds a position |
+| `leg.stopPrice(name)` (planned) | `series number` | absent when no stop is in force | The stop actually in force, from whichever call set it |
+| `leg.targetPrice(name)` (planned) | `series number` | absent when no target is in force | The target actually in force |
 
 The first five report the contract the host resolved, which is the contract the
 orders carried, and they are fixed for the run rather than per bar. The next five
@@ -1648,9 +1700,9 @@ refuse.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `leg.stop(name, price)` | nothing | the leg's stop, replacing any in force | Close the leg when its price reaches `price` against the position |
-| `leg.target(name, price)` | nothing | the leg's target | Close the leg when its price reaches `price` in favour of the position |
-| `leg.trail(name, distance, arm = none)` | nothing | the leg's trailing stop | Follow the best price the leg has seen, `distance` behind it |
+| `leg.stop(name, price)` (planned) | nothing | the leg's stop, replacing any in force | Close the leg when its price reaches `price` against the position |
+| `leg.target(name, price)` (planned) | nothing | the leg's target | Close the leg when its price reaches `price` in favour of the position |
+| `leg.trail(name, distance, arm = none)` (planned) | nothing | the leg's trailing stop | Follow the best price the leg has seen, `distance` behind it |
 
 **Per strategy.** `book` is the strategy's own book: every leg it has declared,
 taken together. Its profit is the sum, in money, of every leg's open profit and
@@ -1660,23 +1712,23 @@ the two shapes and not the other.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `book.stop(amount)` | nothing | the combined stop | Square off every leg when the book's profit falls to `-amount` |
-| `book.target(amount)` | nothing | the combined target | Square off every leg when the book's profit reaches `amount` |
-| `book.lockProfit(arm, lock, step = none, advance = none)` | nothing | the profit floor | Arm a floor at a profit, then advance it as profit grows |
-| `book.trailStopsToEntry(at)` | nothing | every leg's stop | Move every leg's stop to its own entry once the book is `at` in profit |
-| `book.direction(filter)` | nothing | the entry filter | `"long"`, `"short"` or `"both"`, which sides an entry may take |
-| `book.entryWindow(spec)` | nothing | the entry gate | New entries only inside this window, written as section 12.5 writes one |
-| `book.exitAt(time)` | nothing | the exit time | Square off every leg at this `"HHMM"` in the chart's timezone |
-| `book.squareOffAtExpiry(minutesBefore = 0)` | nothing | the expiry rule | Square off a leg this many minutes before its contract expires |
-| `book.dailyLoss(amount)` | nothing | the day's limit | Square off and stop entering for the day when the day's loss reaches `amount` |
+| `book.stop(amount)` (planned) | nothing | the combined stop | Square off every leg when the book's profit falls to `-amount` |
+| `book.target(amount)` (planned) | nothing | the combined target | Square off every leg when the book's profit reaches `amount` |
+| `book.lockProfit(arm, lock, step = none, advance = none)` (planned) | nothing | the profit floor | Arm a floor at a profit, then advance it as profit grows |
+| `book.trailStopsToEntry(at)` (planned) | nothing | every leg's stop | Move every leg's stop to its own entry once the book is `at` in profit |
+| `book.direction(filter)` (planned) | nothing | the entry filter | `"long"`, `"short"` or `"both"`, which sides an entry may take |
+| `book.entryWindow(spec)` (planned) | nothing | the entry gate | New entries only inside this window, written as section 12.5 writes one |
+| `book.exitAt(time)` (planned) | nothing | the exit time | Square off every leg at this `"HHMM"` in the chart's timezone |
+| `book.squareOffAtExpiry(minutesBefore = 0)` (planned) | nothing | the expiry rule | Square off a leg this many minutes before its contract expires |
+| `book.dailyLoss(amount)` (planned) | nothing | the day's limit | Square off and stop entering for the day when the day's loss reaches `amount` |
 
 What the book reads back:
 
 | Call | Returns | Warmup | For |
 |---|---|---|---|
-| `book.profit` | `series number` | bar 0 | The book's profit in money, open and realised since it was last flat |
-| `book.dayProfit` | `series number` | bar 0 | The same measured from this session's open, which is what `book.dailyLoss` tests |
-| `book.isOpen` | `series bool` | bar 0 | Whether any leg holds a position |
+| `book.profit` (planned) | `series number` | bar 0 | The book's profit in money, open and realised since it was last flat |
+| `book.dayProfit` (planned) | `series number` | bar 0 | The same measured from this session's open, which is what `book.dailyLoss` tests |
+| `book.isOpen` (planned) | `series bool` | bar 0 | Whether any leg holds a position |
 
 A `filter` that is not `"long"`, `"short"` or `"both"`, a window that does not
 parse as section 12.5 writes one, and a time that is not four digits are each
@@ -1808,10 +1860,10 @@ never be flat at all.
 
 | Call | Returns | Lands in | For |
 |---|---|---|---|
-| `book.enter(tag = "")` | nothing | one order per declared leg | Enter the whole book as a unit |
-| `book.exit(tag = "")` | nothing | one order per open leg | Exit the whole book as a unit |
-| `leg.enter(name, side = the leg's, qty = the leg's, limit = none, stop = none, tag = "")` | nothing | one order | Enter one leg on its own signal |
-| `leg.exit(name, qty = none, limit = none, stop = none, tag = "")` | nothing | one order | Exit one leg on its own signal |
+| `book.enter(tag = "")` (planned) | nothing | one order per declared leg | Enter the whole book as a unit |
+| `book.exit(tag = "")` (planned) | nothing | one order per open leg | Exit the whole book as a unit |
+| `leg.enter(name, side = the leg's, qty = the leg's, limit = none, stop = none, tag = "")` (planned) | nothing | one order | Enter one leg on its own signal |
+| `leg.exit(name, qty = none, limit = none, stop = none, tag = "")` (planned) | nothing | one order | Exit one leg on its own signal |
 
 **This is what a combined stop means, and why it means it.** `book.profit` is
 measured from the last moment the book was flat. In a strategy that enters as a
@@ -1875,7 +1927,7 @@ than the other way round:
 The same applies to the twelve single-position entries of section 17.4 in a file
 that declares more than one leg.
 
-**Count: 74 entries, of which 5 are planned.**
+**Count: 74 entries, of which 60 are planned.**
 
 ---
 

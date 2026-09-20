@@ -249,8 +249,12 @@ A value accepts `[]` in exactly four cases:
 4. It is a parameter of a user function whose type is a series, in which case
    `[]` reads the history of the expression the caller passed.
 
-`[]` on anything else is OS2004, and the fix is always the same: give the value a
-name at the top level of the file, then read that name's history.
+`[]` on anything else is OS2004. Where the value is a per-bar number computed
+inside a block or left as a temporary, give it a name at the top level of the file
+and read that name's history. Where it is a declaration handle, a runtime object
+or a library fact that is not a series, a name changes nothing, because there is
+no per-bar value to retain: assign what you want to look back at to a top level
+name of its own, and read that.
 
 ```
 // This does not compile. inner belongs to the block, and history is retained
@@ -421,7 +425,7 @@ that holds `none` on some bars and a number on others is an ordinary
 | Code | Means | Usual fix |
 |---|---|---|
 | OS2003 | Two types do not mix, or a name changed type | Convert with `text`, `number` or `bool`, or use a second name |
-| OS2004 | The value has no history | Name it at the top level of the file first |
+| OS2004 | The value has no history | Name the per-bar number at the top level of the file, and read that name |
 | OS2011 | A condition is not a `bool` | Write the test out: `x > 0`, `isNone(x)`, `s != ""` |
 | OS2012 | The ternary arms have different types | Make them agree, or use `none` for the empty arm |
 | OS2013 | An array literal mixes types | Split it into two arrays |
