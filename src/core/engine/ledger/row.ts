@@ -136,6 +136,20 @@ export interface LedgerRow {
    * reduction the destination still has.
    */
   readonly reduces: Reduction | null;
+  /**
+   * This order's own quantity in units, absent where the engine cannot read it.
+   *
+   * A quantity the script stated is in the declaration's own unit
+   * (`host-interface.md` 7.1) and a quantity the engine worked out is in units,
+   * and the two are told apart per order rather than per run: a reverse under a
+   * declaration counting in lots opens its replacement at a size the engine
+   * worked out, in units, on the same bar as orders that are not.
+   *
+   * `reduces` says what an order takes out of a position and this says what it
+   * puts into one, which is the half `holdings.ts` needs to see a position
+   * being opened before any of it has settled.
+   */
+  readonly units: number | null;
 }
 
 /**

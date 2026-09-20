@@ -127,7 +127,7 @@ export class Ledger {
 
     const orders = ordersFor(call, ctx);
     for (const order of orders) {
-      const bad = refusalInOrder(call, order.placement, ctx, this.sent);
+      const bad = refusalInOrder(call, order, ctx, this.sent);
       if (bad !== undefined) return { intents: [], refusal: bad };
     }
 
@@ -285,6 +285,11 @@ export class Ledger {
       placedAt: bar.time,
       updatedAt: bar.time,
       reduces,
+      // What this order puts into its position, in units, where the engine can
+      // read it. `qtyType` is the unit `qty` is counted in and is per order
+      // rather than per run, so a quantity the engine worked out is readable
+      // in a declaration whose own unit is not (`host-interface.md` 7.1).
+      units: intent.qtyType === 'units' ? order.qty : null,
     };
     this.placed.push(row);
     this.byIntent.set(row.intentId, row);
@@ -300,9 +305,9 @@ export class Ledger {
       pyramiding: this.options.pyramiding,
       bar,
       size: () => this.positions.size(),
+      sizeOf: (ref) => this.positions.sizeOf(ref),
       avgPrice: () => this.positions.avgPrice(),
       reference: () => this.positions.reference(),
-      current: () => this.positions.current(),
       mint: () => this.positions.mint(),
       rows: () => this.placed,
     };

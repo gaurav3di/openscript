@@ -35,6 +35,17 @@
  *    which are asked for again per call, and one field of each kind is moved
  *    here to prove it.
  *
+ * 4. **And does a stored value the engine will refuse stay out of it?** The
+ *    answer to question 3 arrived with its own defect: a width of 99 against an
+ *    input declared `max = 10` went into the declared shape as written, and a
+ *    host can put that in a legend before it asks for a calculation. So the
+ *    same field is moved twice more, once outside its declared bounds and once
+ *    as a value of another type, and both the shape and the run are read: the
+ *    shape holds the declared default and the run stops with OS6019. Either
+ *    half alone is half a rule. A shape that refused to be built would be worse
+ *    than both, because the dialog a reader corrects the setting in is built
+ *    from it.
+ *
  * The end of it is a handful of direct readings: the plot columns, the grid's
  * cells, the markers, the levels and the alert message a run computed. Those
  * are there because a field recorded as carried is still only a claim until
@@ -62,7 +73,7 @@ levelColor = input(gray, "Level colour")
 fast = ema(close, len)
 slow = ema(close, len * 2)
 
-a = plot(fast, "Fast", aqua, width = input(2, "Line width"))
+a = plot(fast, "Fast", aqua, width = input(2, "Line width", min = 1, max = 10))
 b = plot(slow, "Slow", orange)
 plotCandles(open, high, low, close, "Bars", colorUp = lime, colorDown = red)
 fill(a, b, colorUp = aqua, colorDown = orange, opacity = 0.5)
@@ -402,6 +413,48 @@ if (levelsWith({})[0]?.color === STORED.levelColor) {
   );
 }
 
+/**
+ * 4. A stored value the input's own declaration forbids reaches neither.
+ *
+ * The declared shape is built before a calculation is asked for, so it is what
+ * a host holds while a settings map that cannot run is stored. The rule this
+ * proves is one rule for both sides: the engine's own check decides what a
+ * stored value is worth, a value it refuses reads as the declared default in
+ * the shape, and the value still travels to the engine, so the run stops. The
+ * three wrong implementations are all reachable from here: carrying the stored
+ * value into the shape, which is what this found; repairing it on the way to
+ * the engine, which is a dialog that ignores what a user typed; and refusing to
+ * build the shape at all, which takes the dialog away.
+ */
+const WIDTH_BOUND = 10;
+for (const forbidden of [99, 'wide', null]) {
+  const held = { 'Line width': forbidden };
+  const shape = adapter.descriptorFor(program, { settings: held });
+  const width = shape.plots[0]?.style?.lineWidth;
+  if (width !== DECLARED_WIDTH) {
+    problems.push(
+      `a stored width of ${JSON.stringify(forbidden)} against an input declared max = ` +
+        `${WIDTH_BOUND} put ${JSON.stringify(width)} in the declared shape. A value the engine ` +
+        'will refuse reads as the declared default there, because the shape is handed out ' +
+        'before anything is calculated and a host draws a legend from it.',
+    );
+  }
+  let refusal;
+  try {
+    shape.calc(data, held, {}, ctx);
+  } catch (thrown) {
+    refusal = thrown?.diagnostic?.code;
+  }
+  if (refusal !== 'OS6019') {
+    problems.push(
+      `a stored width of ${JSON.stringify(forbidden)} ran instead of being refused ` +
+        `(${refusal ?? 'nothing was raised'}). The declared default in the shape is not a repair: ` +
+        'the value the host stored still travels to the engine, so the reader is told which ' +
+        'row and which bound rather than being shown a study drawn to a setting nobody chose.',
+    );
+  }
+}
+
 const unexercised = [...atBuild, ...perCall].filter((member) => !(member in descriptor));
 if (process.argv.includes('--list')) {
   for (const [output, entry] of Object.entries(record.outputs ?? {})) {
@@ -428,7 +481,8 @@ console.log(
     `${narrowings} of them recorded as narrowings, ${(record.counts ?? []).length} count limit ` +
     'recorded, and the descriptor read back what it was asked for. A stored setting reached a ' +
     `declaration option at build and another at the call, over ${atBuild.size + perCall.size} ` +
-    'members recorded as one or the other.',
+    'members recorded as one or the other, and three stored values the input forbids reached ' +
+    'the declared default in the shape and OS6019 from the run.',
 );
 
 if (unexercised.length > 0) {

@@ -69,7 +69,7 @@
  * is not a fact about the leg and OS7017 is not raised on one.
  */
 import type { OrderSide } from './intent.js';
-import { workingUnits } from './row.js';
+import { isTerminal, workingUnits } from './row.js';
 import type { LedgerRow } from './row.js';
 
 /**
@@ -124,25 +124,55 @@ export interface Closable {
  * of that tag as well, so the leg is asked with no tag and a part is asked with
  * its own.
  *
- * **Only an order on the side that reduces what the leg holds now.** A row's
- * reduction was measured when the order was sent, and a leg that has changed
- * sign since is being reduced from the other side: an order still working on
- * the old side is adding to the leg rather than taking from it, and subtracting
- * it would leave a close sending less than there is to close.
+ * **Only an order on the side that reduces what the leg holds now**, and
+ * **every** order on that side. A row records what it reduced at the moment it
+ * was sent, and a leg that has changed sign since is being reduced from the
+ * other side: an order still working on the old side is adding to the leg
+ * rather than taking from it, and subtracting it would leave a close sending
+ * less than there is to close. The same sentence read the other way is the
+ * half that was missing. An order recorded as adding to a position, on a leg
+ * that has since gone the other way, is a reduction now whatever it was then,
+ * and leaving it out let a close be sized against a position an entry was
+ * already coming to take off: `buy(qty = 5)` unanswered on a leg the sells
+ * after it took short offered a close the whole twelve, five of which were
+ * already on their way.
+ *
+ * `holdings.ts` makes the same reading per position reference, and the two
+ * agree by construction: what a close may send across the leg is never more
+ * than the positions on that side can give it.
  */
 function committed(ctx: Closing, tag: string | null): Closable {
-  const side = closingSide(ctx.size());
+  const size = ctx.size();
+  const side = closingSide(size);
   if (side === undefined) return { units: 0, counted: true };
   let units = 0;
   let counted = true;
   for (const row of ctx.rows()) {
+    if (row.side !== side || isTerminal(row.status)) continue;
     const reduces = row.reduces;
-    if (reduces === null || row.side !== side) continue;
-    if (tag !== null && reduces.part !== tag) continue;
-    const working = workingUnits(row);
-    if (working === 0) continue;
-    units += working;
-    counted = counted && reduces.counted;
+    if (reduces !== null) {
+      if (tag !== null && reduces.part !== tag) continue;
+      const working = workingUnits(row);
+      if (working === 0) continue;
+      units += working;
+      counted = counted && reduces.counted;
+      continue;
+    }
+    // An order that was an entry when it left. Its own tag is what names it,
+    // because a reduction's `part` is the tag a close named and an entry named
+    // no part of anything.
+    if (tag !== null && row.tag !== tag) continue;
+    if (row.units === null) {
+      // A quantity in the declaration's own unit, working against the leg and
+      // unreadable as a number of units. Taken to cover the whole of what is
+      // there, which is the reading `stdlib.md` 17.1 already makes for the
+      // other order it cannot read: a close that sends nothing over an order
+      // that crosses zero.
+      units += Math.abs(size);
+      counted = false;
+      continue;
+    }
+    units += Math.max(0, row.units - row.filledQty);
   }
   return { units, counted };
 }

@@ -71,8 +71,8 @@ export type { SessionFacts, SessionHours } from './session/index.js';
 export type { Timeframe, TimeframeUnit } from './timeframe.js';
 export { bucketKeyOf, isIntraday, minutesOf, nominalMinutes, parseTimeframe } from './timeframe.js';
 
-export type { ResolvedInput, TimeResolver } from './inputs.js';
-export { constantValue, utcTime } from './inputs.js';
+export type { ResolvedInput, SettingCheck, TimeResolver } from './inputs.js';
+export { checkSetting, constantValue, utcTime } from './inputs.js';
 
 export { LANGUAGE_VERSIONS, capabilitiesFor, verify } from './verify.js';
 export type { VerifyOptions, VerifyResult } from './verify.js';

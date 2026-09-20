@@ -194,6 +194,23 @@ settle the position its own order named rather than whichever position is curren
 That is what the second order buys you, and it is why the split is the engine's
 job rather than a habit you are asked to remember.
 
+**The split does not wait for your destination to answer.** A position with five
+units still on their way is a position holding five, so the same `sell(qty = 8)`
+is the same two orders whether the entry has filled, is still at the venue, or
+has filled two of its five. That matters because a destination slower than the
+chart is ordinary: if the split were measured from what has settled, the same two
+lines of a script would send two orders on a fast day and one crossing order on a
+slow one, and only the slow one would be wrong. What does change it is the
+position changing: an entry that was rejected after filling two leaves two to
+close, not five.
+
+**A leg can hold more than one position, and then a close is more than one
+order.** That happens when a destination refuses one order of a pair, and it
+happens while an entry that opposes an unanswered entry is outstanding. Each
+position is closed by an order of its own, oldest first, for the same reason the
+flip is two orders. You do not have to do anything about it: `close()` still
+means flatten, and `pos.size` still reads the leg's net.
+
 One consequence catches everyone once. `sell()` does not mean "close a long". It
 means "subtract from this leg's position", which closes a long if one is open and
 keeps going into a short if the quantity is larger. To flatten, say so: `close()`.
@@ -539,9 +556,18 @@ The split is arithmetic on the order's own quantity, so it happens where the
 declaration counts in units. In lots, cash or an equity percent the quantity you
 write and the position the engine holds are two different kinds of number, the
 lot size that would join them is not a fact the engine is given, and such an
-order is sent as written: one order, one position reference. That is the same
-limit OS7017 is narrowed by, and `order.reverse()` is the spelling that works in
-every unit, because the engine sizes both of its orders itself.
+order is sent as written: one order, on a position reference of its own so that
+it crosses nothing. That is the same limit OS7017 is narrowed by, and
+`order.reverse()` is the spelling that works in every unit, because the engine
+sizes both of its orders itself.
+
+The position the instruction left behind is not lost. A `close()` works its own
+quantity out in units, so it is divided across the positions holding the leg's
+side and reaches that one in turn, and the position returns to zero the moment
+the leg's net comes back to its side. What the missing lot size costs you is the
+instruction itself closing it: on a leg that never comes back to that side, the
+position is carried for the rest of the run. If that matters to your strategy,
+write the reversal as `order.reverse()`, or declare in units.
 
 ```
 version 1

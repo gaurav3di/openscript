@@ -45,6 +45,14 @@ sent, and they are what a statement can be matched against.
 `stdlib.md` section 17.7. It is the field that makes a flip readable long after
 the fact, so read that section before writing anything that reasons about one.
 
+Two things about it are worth knowing before you reconcile against it. **A
+reference that opened on one sign never ends on the other**, so the rows sharing
+one reference are one position's own book and you can add them up. And **a leg
+can hold more than one at a time**, on one side as well as on each: an entry
+placed while the whole of a position is already in an order the destination still
+has opens a position of its own, because the one it would join is about to reach
+zero and end. So group by `positionRef` rather than assuming there is one.
+
 ## Statuses, and what terminal means
 
 The status words, and which of them are terminal, are the vocabulary of

@@ -399,6 +399,19 @@ come back on the chart under the same name, drawing different numbers from the
 ones the reader configured, with nothing on screen to say so. A message naming the
 row and the bound costs one dialog and loses nothing.
 
+**Meanwhile the study still describes itself, at its declared defaults.** A host
+asks a study for its shape before it asks for a calculation: the title, the pane,
+the settings rows, and every declaration option written as an `input()`, such as
+the `precision` above. That shape is built while the saved value is still stored,
+and the answer there is the **declared default** for any saved value the run will
+refuse. So a reader who saves 99 into a `max = 8` row sees the study's own
+declared precision in the legend, not 99, and sees the message about the bound as
+soon as anything is calculated. The saved value is not repaired: it travels to
+the engine exactly as it was saved, and it is what the message names. And the
+shape is not withheld: the settings dialog that lets the reader put the value
+right is built from it, so a study that refused to describe itself would be one
+whose bad setting could not be reached.
+
 A few compile-time checks catch the mistakes that are easy to make and hard to
 see. Titles must be unique within a file (OS3017), because the dialog, the legend
 and the saved layout all key a row by its title, and two rows with one title would

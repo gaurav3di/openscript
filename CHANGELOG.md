@@ -9,6 +9,71 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**An order now knows which position it belongs to.** An order picked its position
+reference by comparing its own side against the leg's net, which is folded from
+settled fills, so while an entry was unanswered the leg read flat and an order
+opposing that entry was not seen as opposing anything: `buy(qty = 6)` on one bar
+and `sell(qty = 9)` on the next, against a destination that had said nothing, put
+both orders on position reference 1, which opened six long and settled three
+short. That is one position holding both signs, which is the single failure the
+position reference exists to prevent, because a fill arriving late can no longer
+say which position it settled. The same script with the entry acknowledged first
+was already correct, which is the whole shape of the defect: **what a bar sends
+must not depend on how fast the destination answers**, and now it does not.
+
+A position is measured by what is on it, settled and what is still working
+together. A position with six units still to come is a position holding six, and
+an order that opposes it takes those six off it before it opens anything, because
+otherwise nothing can ever bring that position back to zero. Three more shapes
+went with it. A close after such an entry held nothing back for it and sent the
+position again, which is last round's runaway exit with an entry in place of the
+close. An order agreeing with the leg's net was attached to whichever position was
+current, which during a flip is the one carrying the other sign, so a buy of
+twelve took a position from nine short to three long. And a close or an
+`order.reverse` sized against the whole leg and attached the result to one
+position, with nothing asking whether that position could absorb it: a leg holding
+seventy two short across two positions was handed one order large enough to take
+either of them through zero. Each of them is now one order per position it
+reduces, oldest first.
+
+**A close is held to every order already coming off the leg, not only the ones
+that were reductions when they left.** An entry the destination has not answered,
+on a leg the orders after it took the other way, is a reduction now whatever it
+was then. Left out of the count, `close(qty = 12)` against a leg twelve short was
+accepted as true when five of the twelve were already on their way.
+
+**Pyramiding counts the entries the leg holds in a direction**, which is what the
+declaration option has always said, and which used to be the same number as the
+entries on one position reference. It is not any more: an entry placed while the
+whole of a position is already in an order the destination still has opens a
+position of its own, because the one it would join is about to reach zero and
+end. And whether an order is an entry at all is now read from the order rather
+than from the leg's net, which calls every order an entry while the leg reads
+flat.
+
+**In lots, cash and an equity percent, an opposing entry is still one order, and
+two things about it are now held.** It carries a position reference of its own
+whether or not anything has settled, which is the defect above wearing another
+unit and was not held before. And the position it leaves behind is named again: a
+close works its own quantity out in units, so it is divided across the positions
+holding the leg's side and reaches that one in turn, and it returns to zero as
+soon as the leg's net comes back to its side. What still waits on the instrument's
+lot size is the instruction itself closing it, and a leg whose net never returns
+to that side carries the position for the rest of the run. OS7005's deferral says
+so, and `tests/engine/ending.test.ts` asserts both halves rather than describing
+them.
+
+**What no engine answers for, recorded rather than left to be found.** A position
+settles on the side it did not open on only when an order on it was never answered
+in full: one still going, or one that ended rejected, cancelled or expired with
+part of its quantity unfilled. An order divided against an unanswered order is
+placed against units that were promised and may not arrive, and the alternative is
+holding an order back until the destination answers, which is an engine that stops
+trading when a destination is slow. Over six thousand generated runs against a
+destination that answers late, out of order, partially, with a rejection and not
+at all, every position all of whose orders were answered in full ended on the side
+it opened on.
+
 **A setting a reader stores now reaches the declaration option it was written
 into.** `docs/inputs.md` teaches `study("S", precision = input(2, "Places"))` as
 how a reader gets to change something the declaration decides. Through this
@@ -28,6 +93,32 @@ and which is which is recorded in `spec/chart-narrowings.json` and measured by
 still cannot be tuned and now says so: a plot's `style` is a plain string in the
 compiled format, so an `input()` written there is folded to its default with no
 diagnostic anywhere. That is issue 0018, and closing it is a format change.
+
+**And a stored setting the engine will refuse no longer reaches the chart.** The
+change above brought its own defect, in the half of it nothing had asked about:
+the declared shape is built before anything is calculated, so a settings map of
+`{ Places: 99 }` against `input(2, "Places", min = 0, max = 8)` put a precision
+of 99 into `plots[0].priceFormat`, and `{ Places: -4 }` put -4 there. The run
+refuses that map with OS6019 and nothing is drawn, but the descriptor a host was
+handed first carries a number the input forbids, and a host may show it in a
+legend or on a price scale before it asks for a bar. The adapter also kept a
+second idea of an unusable value beside the engine's: a stored `null` or object
+read as the declared default while the engine refused the same map, and a stored
+`"7"` read as neither, landing on the chart's own fallback of 4.
+
+Both are one question with one answer now, and it is the engine's own:
+`checkSetting` is the function the load refuses with, and the adapter asks it
+before a load exists. A stored value it will not take reads as the **declared
+default** in the declared shape, and travels to the engine exactly as the host
+stored it, so the run still stops with OS6019 naming the key and the bound.
+Neither half is a fallback: the value is not repaired, and the shape is not
+withheld, because the settings dialog a reader corrects the value in is built
+from it. The incremental path compares what the engine is handed rather than what
+the shape shows, because every refused value shows the same default and a
+signature taken from the shape would keep a held engine across a change from a
+setting that runs to one that cannot. `scripts/check-chart-surface.mjs` moves a
+plot width outside its declared bounds, as text and as `null`, and reads both the
+shape and the run on each.
 
 **An input written in place whose title is empty now has a code that is true of
 it: OS3024.** `input(14, "")` raised OS3021, whose message says the input "has no
@@ -76,6 +167,33 @@ now. `bollinger` said a span was "formed once". 20.1 gains the general rule so
 the next one is caught by reading, and two measured figures that were overstated
 as "most" are now the numbers: `fade`'s refused arrangement differs at 40 of the
 101 whole percentages, and `math.toDegrees`'s at 26 in every hundred.
+
+**A fourth one, and the rule that covers all four.** `swma` said "the two middle
+terms are formed as `2 * value`, and the four terms are added left to right":
+one sentence, one half of which can be failed and one of which cannot, with
+nothing to tell a reader which. Writing `value * 2` or `value + value` instead is
+bit identical on every finite value, measured over 25176 values covering every
+binade of the double range in both signs, the subnormals included. Writing the
+four additions in a different grouping is not: over twenty thousand four bar
+windows of ordinary prices, pairing them differs on 5281, adding right to left on
+7230, and dividing each term by 6 as it is added on 9564. The entry now states
+both, with the figures.
+
+Four sentences of one shape in three rounds is a pattern rather than three
+coincidences, so 20.1 now states the general rule rather than another list of
+instances: **an arrangement is where one rounding falls relative to another**.
+Only an operation that rounds can be part of one, and two operations that do not
+read each other have no order between them. The three things that fixed nothing
+become four, gaining the exact respelling of a step that does not round (`2 * v`,
+`v * 2`, `v + v`; `v / 2`, `v * 0.5`) and the order of accumulations that do not
+read each other, and the section now states the test a sentence has to pass to go
+in it: name the second arrangement it refuses and count where the two differ. The
+whole of section 20 was swept against that test, which found two more: `linreg`
+and `covariance` fixed the pass structure of accumulations that never read each
+other, `covariance`'s down to the order the three are written in. Both now fix
+what is real, which is that each total runs oldest first. `tests/stdlib` reads
+every figure above out of the page and measures it again, so rewording a claim or
+moving a figure fails a test instead of going on being quoted.
 
 **CLAUDE.md rule 5 now says what its check covers.** "Name nobody. No outside
 product, platform, company, trademark, market index or real instrument,

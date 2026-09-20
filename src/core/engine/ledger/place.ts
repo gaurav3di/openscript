@@ -1,6 +1,14 @@
 /**
  * One order call becomes one or more intents, `stdlib.md` 17.2 and 17.3.
  *
+ * **This file says what a call means; `sizing.ts` says how much it sends and
+ * against which position.** The two were one file until the second question
+ * arrived: how many orders a call becomes, how large each of them is and which
+ * position reference each one carries is arithmetic over what the leg holds, and
+ * it is long enough written down to crowd out the vocabulary of the calls. The
+ * sentences below about the split are still this file's, because they are why
+ * the calls mean what they mean.
+ *
  * **Every order states its own side and its own quantity outright.** Nothing
  * here computes a delta against an account position, for the reason 17.1 gives:
  * an account position is held per contract, so a second strategy, a manual
@@ -51,67 +59,12 @@
  */
 import type { OrderCall } from './call.js';
 import { closableUnits, closingSide } from './closable.js';
-import type { Closing } from './closable.js';
-import type { Identity, IntentBar, OrderIntent, OrderSide, OrderType } from './intent.js';
+import type { OrderIntent, OrderType } from './intent.js';
 import { isTerminal } from './row.js';
-import type { Reduction } from './row.js';
+import { NOTHING, adding, entering, flattening } from './sizing.js';
+import type { MappedOrder, Placement, PlacingContext } from './sizing.js';
 
-/**
- * An order this run is about to send, before it is given an id.
- *
- * The intent's own shape less the four fields that are the same for every
- * order this run sends, so that the mapping below cannot state one of them
- * differently from one call to the next.
- */
-export type Placement = Omit<OrderIntent, 'intentId' | 'instrument' | 'product' | 'bar'>;
-
-/** One order a call sends, and what that order takes out of the leg. */
-export interface MappedOrder {
-  readonly placement: Placement;
-  readonly reduces: Reduction | null;
-}
-
-/** An order that adds to a position, or whose size the engine cannot count. */
-function adding(placement: Placement): MappedOrder {
-  return { placement, reduces: null };
-}
-
-/** The fields every placement states, so each case below states only its own. */
-const NOTHING = {
-  side: null,
-  qty: null,
-  qtyType: 'units',
-  type: null,
-  limit: null,
-  trigger: null,
-  target: null,
-  stop: null,
-  profit: null,
-  loss: null,
-} as const;
-
-/** What the mapping and the refusals read: the declaration, the leg and the ledger. */
-export interface PlacingContext extends Closing {
-  readonly instrument: Identity;
-  readonly product: string;
-  /** The unit a quantity the script stated is counted in, `language.md` 13.3. */
-  readonly qtyType: string;
-  /** The size an order that names none takes, from the declaration. */
-  readonly declaredQty: number;
-  /** The instrument's tick size, absent where the host states none. */
-  readonly tickSize: number | null;
-  /** Entries allowed in one direction before one is refused, `language.md` 13.3. */
-  readonly pyramiding: number;
-  readonly bar: IntentBar;
-  /** The average price of the open position, absent while flat. */
-  avgPrice(): number | null;
-  /** The position an order placed now attaches to. */
-  reference(): number;
-  /** The position an order placed now would attach to, without minting one. */
-  current(): number | null;
-  /** A fresh position, for the replacement half of a flip. */
-  mint(): number;
-}
+export type { MappedOrder, Placement, PlacingContext } from './sizing.js';
 
 /**
  * The type the prices imply.
@@ -126,150 +79,6 @@ function typeOf(limit: number | null, trigger: number | null): OrderType {
   if (limit !== null) return 'limit';
   if (trigger !== null) return 'stop';
   return 'market';
-}
-
-/** What an entering order states, at one quantity and one position. */
-interface Entry {
-  readonly side: OrderSide;
-  readonly limit: number | null;
-  readonly trigger: number | null;
-  readonly type: OrderType;
-  readonly tag: string;
-}
-
-/** One order of an entry, at the quantity and the position it is given. */
-function placing(entry: Entry, qty: number, qtyType: string, positionRef: number): Placement {
-  return {
-    ...NOTHING,
-    kind: 'place',
-    side: entry.side,
-    qty,
-    qtyType,
-    type: entry.type,
-    limit: entry.limit,
-    trigger: entry.trigger,
-    tag: entry.tag,
-    positionRef,
-  };
-}
-
-/**
- * The orders an entry sends, which is two where it crosses zero.
- *
- * **An instruction that would take a leg from long to short is sent as two
- * orders** (`stdlib.md` 17.1), one that closes the outgoing position and one
- * that opens the replacement, each carrying its own position reference. The
- * reason is not tidiness: a single order that crossed zero would leave a late
- * fill with no way to say which of the two positions it settled, and during a
- * flip a leg holds both at once. `sell(qty = abs(pos.size) + more)` is the
- * spelling the documentation teaches, and it is `order.reverse` with the
- * arithmetic written out.
- *
- * **The closing half is what is left to close, not what the leg holds.** An
- * order the destination has not answered has filled nothing, so a leg with a
- * close already going has nothing left for the outgoing half to take, whether
- * that close was sent on this bar or on one before it.
- *
- * **The reference is minted in every unit; only the arithmetic waits.** The
- * split subtracts a position folded from filled quantities from a quantity the
- * script stated, and those are the same kind of number only in a declaration
- * counting in units: in lots, cash or an equity percent the engine cannot say
- * how much of the instruction closes and how much opens, and the lot size that
- * would tell it is the fact OS7005 is deferred on. Minting a reference needs
- * none of that arithmetic. So an order the engine cannot size against the leg
- * is still sent on a position of its own rather than on the outgoing one:
- * `buy(qty = 3)` then `sell(qty = 9)` under a declaration counting in lots took
- * reference 1 from seventy five units to minus one hundred and fifty, which is
- * the crossing 17.1 is unconditional about and the late fill with no owner the
- * split exists to prevent. What does not hold, and what has to exist before it
- * can, is written where a reader meets it: `stdlib.md` 17.1 and OS7005.
- */
-function entering(
-  ctx: PlacingContext,
-  entry: Entry,
-  qty: number | null,
-): readonly MappedOrder[] {
-  // The declaration's own size where the call named none, `stdlib.md` 17.2.
-  const wanted = qty ?? ctx.declaredQty;
-  const size = ctx.size();
-  // Nothing to cross: the leg is flat, or this order is on the side it holds.
-  if (size === 0 || size > 0 === (entry.side === 'buy')) {
-    return [adding(placing(entry, wanted, ctx.qtyType, ctx.reference()))];
-  }
-
-  const left = closableUnits(ctx, null);
-  if (left === 0) return [adding(placing(entry, wanted, ctx.qtyType, ctx.mint()))];
-  if (ctx.qtyType !== 'units') {
-    return [
-      {
-        // A position of its own, in every unit, because minting one needs no
-        // lot size. On the outgoing reference this order was the crossing
-        // 17.1 refuses outright: one order taking one position from one sign
-        // to the other, with a late fill on the entry it replaced settling
-        // against a book that had already gone the other way.
-        placement: placing(entry, wanted, ctx.qtyType, ctx.mint()),
-        // Unreadable in units, so it is taken to have reduced the whole of what
-        // was left: see `closable.ts` on why that is the only safe reading.
-        reduces: { part: null, units: left, counted: false },
-      },
-    ];
-  }
-
-  const closing = Math.min(wanted, left);
-  const opening = wanted - closing;
-  const reference = ctx.reference();
-  const out: MappedOrder = {
-    placement: placing(entry, closing, 'units', reference),
-    reduces: { part: null, units: closing, counted: true },
-  };
-  if (opening === 0) return [out];
-  // The replacement is a position of its own, minted here, so that a fill on
-  // the outgoing order settles the position it belonged to.
-  return [out, adding(placing(entry, opening, ctx.qtyType, ctx.mint()))];
-}
-
-/**
- * The units a flattening order sends.
- *
- * A quantity the script stated is in the declaration's own unit and is passed
- * through as written. A quantity the engine worked out is in units, because a
- * filled quantity is what it was folded from.
- *
- * `part` is what the order is counted against afterwards: the tag a close
- * named, or the leg as a whole. A stated quantity is counted only where the
- * declaration counts in units, for the reason `Reduction` gives.
- */
-function flattening(
-  ctx: PlacingContext,
-  units: number,
-  side: OrderSide,
-  qty: number | null,
-  tag: string,
-  part: string | null,
-): readonly MappedOrder[] {
-  // Nothing to flatten and no size named: an instruction about a position the
-  // strategy does not hold, which is not an error and is not an order either.
-  if (units <= 0 && qty === null) return [];
-  const sending = qty ?? units;
-  // A quantity the engine worked out is counted as itself. One the script
-  // stated in a unit the engine cannot read is counted as the whole of what was
-  // left, which is what keeps a close after it from sending the position again.
-  const counted = qty === null || ctx.qtyType === 'units';
-  return [
-    {
-      placement: {
-        ...NOTHING,
-        kind: 'place',
-        side,
-        qty: sending,
-        qtyType: qty === null ? 'units' : ctx.qtyType,
-        type: 'market',
-        tag,
-        positionRef: ctx.reference(),
-      },
-      reduces: { part, units: counted ? sending : units, counted },
-    },
-  ];
 }
 
 /**

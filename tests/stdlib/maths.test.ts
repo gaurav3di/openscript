@@ -7,7 +7,13 @@ import { test } from 'node:test';
 
 import * as lib from '../../src/core/stdlib/index.js';
 
-import { differing, figuresIn } from './section-20.js';
+import {
+  differing,
+  differingOver,
+  everyBinade,
+  figuresIn,
+  priceWindows,
+} from './section-20.js';
 
 // Catches: rounding halves to even, which is what most platform libraries do by
 // default and what a trader reading a price does not expect. It also catches
@@ -221,4 +227,126 @@ test('20.1: the power of two rule parts company when the other product underflow
     const s = root * (1 + i / 100);
     assert.ok(Object.is((2 * s) * s, 2 * (s * s)));
   }
+});
+
+/**
+ * 20.3's `swma`, both halves, and 20.1's rule about which half can exist.
+ *
+ * The sentence here fixed two things in one breath: that the middle terms are
+ * doubled as `2 * value`, and that the four terms are added left to right. The
+ * second is a real constraint and the first cannot be failed, which is the
+ * fourth sentence of that shape found in this section in three rounds. So both
+ * halves are measured rather than reasoned about, and the figures are the ones
+ * the page prints: reword the claim or move a figure and this fails.
+ */
+test('20.3: swma fixes the order of its additions and not the spelling of its doublings', () => {
+  // The page says "twenty thousand" in words, as its other populations do.
+  const OVER = 20_000;
+  const [regrouped] = figuresIn(/2 \* w\[1\] \+ w\[0\]\)` differs on (\d+), adding them/, 1);
+  const [rightwards] = figuresIn(/adding them right to left differs on (\d+)/, 1);
+  const [perTerm] = figuresIn(/rather than\s+dividing the sum differs on (\d+)/, 1);
+  const windows = priceWindows(OVER);
+  const at = (held: readonly number[], index: number): number => held[index] as number;
+  const written = (held: readonly number[]): number =>
+    at(held, 0) + 2 * at(held, 1) + 2 * at(held, 2) + at(held, 3);
+
+  assert.equal(
+    differingOver(
+      windows,
+      written,
+      (held) => at(held, 0) + 2 * at(held, 1) + (2 * at(held, 2) + at(held, 3)),
+    ),
+    regrouped,
+    'the grouping the page refuses',
+  );
+  assert.equal(
+    differingOver(
+      windows,
+      written,
+      (held) => at(held, 0) + (2 * at(held, 1) + (2 * at(held, 2) + at(held, 3))),
+    ),
+    rightwards,
+    'the same four terms added the other way',
+  );
+  assert.equal(
+    differingOver(
+      windows,
+      (held) => written(held) / 6,
+      (held) =>
+        at(held, 0) / 6 + (2 * at(held, 1)) / 6 + (2 * at(held, 2)) / 6 + at(held, 3) / 6,
+    ),
+    perTerm,
+    'the per-term division',
+  );
+
+  // And the half that cannot be failed, over the range the page names.
+  const [values] = figuresIn(/over (\d+) values covering every binade of the double range/, 1);
+  const spread = everyBinade();
+  assert.equal(spread.length, values, 'the population the page counts over');
+  // A population that cannot show a difference would report none for an
+  // arrangement that is wrong as readily as for one that cannot be. This one
+  // shows one: the same two multiplications regrouped are not the same value.
+  assert.ok(
+    differingOver(spread, (v) => (v * 3) * 3, (v) => v * 9) > 1000,
+    'the sweep can tell two arrangements apart, so its zeros below mean something',
+  );
+  assert.equal(differingOver(spread, (v) => 2 * v, (v) => v * 2), 0, 'one multiplication');
+  assert.equal(differingOver(spread, (v) => 2 * v, (v) => v + v), 0, 'a doubling as an addition');
+  assert.equal(
+    differingOver(spread, (v) => v / 2, (v) => v * 0.5),
+    0,
+    "20.1's halving, the other direction of the same rule",
+  );
+});
+
+/**
+ * 20.1's fourth rule, which two entries used to state as a constraint.
+ *
+ * `linreg` said its two accumulations run in one pass and `covariance` said its
+ * three run in one pass in that order. Neither total reads another, so each one
+ * adds its own terms in its own order whatever the pass structure around it is,
+ * and an implementer sent to reproduce the interleaving was sent to reproduce
+ * nothing. What is fixed, and what both entries still say, is that each total
+ * runs oldest first.
+ *
+ * The wrong implementation this catches is the reading that would make the old
+ * sentence true: it fails if interleaving ever changes one of the totals, which
+ * would mean the rule in 20.1 is wrong rather than the entries.
+ */
+test('20.1: accumulations that do not read each other have no order between them', () => {
+  const windows = priceWindows(4000);
+  const rows = windows.map(([a, b]) => [a as number, b as number] as const);
+  let reversed = 0;
+  for (let start = 0; start + 40 <= rows.length; start += 40) {
+    const slice = rows.slice(start, start + 40);
+    let cross = 0;
+    let squaresA = 0;
+    let squaresB = 0;
+    for (const [a, b] of slice) {
+      cross += a * b;
+      squaresA += a * a;
+      squaresB += b * b;
+    }
+    let apart = 0;
+    for (const [, b] of slice) apart += b * b;
+    let secondApart = 0;
+    for (const [a] of slice) secondApart += a * a;
+    let thirdApart = 0;
+    for (const [a, b] of slice) thirdApart += a * b;
+
+    assert.ok(Object.is(squaresB, apart), 'the total written last, taken first');
+    assert.ok(Object.is(squaresA, secondApart), 'and the one written second');
+    assert.ok(Object.is(cross, thirdApart), 'and the one written first, taken last');
+
+    // What is fixed is each total's own order, and these windows show it: the
+    // same terms added newest first are a different number on most of them, so
+    // the three assertions above are not a property of inert data.
+    let backward = 0;
+    for (let index = slice.length - 1; index >= 0; index -= 1) {
+      const row = slice[index]!;
+      backward += row[0] * row[1];
+    }
+    if (!Object.is(cross, backward)) reversed += 1;
+  }
+  assert.ok(reversed > 40, `reversing one total's own order differs on ${reversed} of 100 windows`);
 });

@@ -3365,6 +3365,286 @@ but a green build read as proof of something wider.
 
 ---
 
+## 49. Which position an order is sent against
+
+**Question.** Three rounds corrected how much a reducing order may send: against
+the call, against the bar, then against the run. None asked which position an
+order carries. `entering` decided whether an order crossed by comparing its side
+against `ctx.size()`, which is folded from settled fills, and attached it with
+`ctx.reference()`, which is whichever position is current. With a silent
+destination `buy(qty = 6)` and then `sell(qty = 9)` a bar later put both orders on
+position 1, which opened six long and settled three short: one reference holding
+both signs, which is the one failure 17.1 names, because a fill arriving late can
+no longer say which position it settled. Three more shapes reach the same root,
+and none of them is a regression: the branches are at `cc79ff9` and earlier and
+were never run, because every fixture for an opposing order spelled it `close()`
+and a close takes the reducing path.
+
+**Decision, part one. A position is measured by what is on it, settled and
+working together.** A reference with six units of buy still to come is a long
+position whether or not any of it has settled, and an opposing order takes those
+six off it before it opens anything: otherwise nothing can bring that reference
+back to zero, which is 17.7's sentence about how a position ends. The consequence
+worth stating is a property rather than a fix: **the orders a bar sends do not
+depend on how fast the destination answers.** Measured from the settled net, the
+same two lines of a script send two orders on a fast day and one crossing order
+on a slow one, and only the slow one is wrong.
+
+**Decision, part two. What an opposing entry may take and what a close may send
+are two different numbers.** An entry is sent at the size the script wrote
+whatever the leg holds, so the only thing being decided is where its units land,
+and it may be divided against a position that has not settled. A close works its
+own quantity out, so it may only work out one that has settled: a close counting
+an entry still working would sell units that may never exist, which is
+`closable.ts`'s rule, and this is that rule read per position. Both numbers live
+on the same `Holding`, so neither can be reached by accident.
+
+**Decision, part three. An order that spans more than one position is that many
+orders.** The reason is 17.1's own, the reason the flip is two orders: one order
+against two positions leaves a late fill unable to say which it settled. A leg
+holds more than one position whenever an order that opposes it is outstanding, so
+`flattening` divides across the positions holding the leg's own side, oldest
+first, bounded by what has settled on each.
+
+**Decision, part four. What is a reduction is decided by direction, not by
+record.** A row records what it reduced at the moment it was sent, and a position
+that has moved since is being reduced from the other side: an order recorded as
+adding is a reduction now. `closable.ts` already made half of that correction, on
+the side an order is on; it counted only the rows carrying a reduction, so an
+unanswered entry on a leg the orders after it took the other way was not held
+back and a close was offered twelve units, five of which were already on their
+way. The same reading per position is what keeps a close off a reference whose
+settled quantity is already spoken for.
+
+**Decision, part five. Whether an order adds or reduces is the mapping's
+answer.** `isEntry` read the leg's net, which is flat while an entry is unanswered
+and therefore calls every order an entry, and long while a leg is being flipped
+and therefore calls neither half of the flip one. The mapping has already divided
+the call into what comes off a position and what opens one, so OS7008 reads that.
+And what pyramiding counts is the entries the leg holds **in a direction**, which
+`language.md` 13.3 says and which used to be the same number as the entries on one
+reference. It is not any more: an entry placed while the whole of a position is
+already going opens one of its own, so a count keyed to a single reference reports
+none and lets a declaration of one entry hold two.
+
+**What is not kept, stated rather than left to be found.** A reference settles on
+the side it did not open on only when an order on it was never answered in full:
+still going, or ended rejected, cancelled or expired with part of its quantity
+unfilled. An entry divided against an unanswered entry is placed against units
+that may not arrive. The alternative is holding an order back until the
+destination answers, which is an engine that stops trading when a destination is
+slow, and 17.1's own reason is kept either way. Six thousand generated runs over a
+destination that answers late, out of order, partially, with a rejection and not
+at all: every reference all of whose orders were answered in full ended on the
+side it opened on, and every reference that did not had an order that was never
+answered in full.
+
+**And the half outside units.** Dividing a stated quantity into a closing half
+and an opening half needs the lot size, which is what OS7005 is deferred on, so
+an opposing entry in lots, cash or an equity percent is still one order. Two
+things are now held without it. The reference is minted whether or not anything
+has settled, which is this decision's own defect wearing another unit and was not
+held before: with the destination silent, both orders went on the outgoing
+reference in all three of those units. And the outgoing position is named again,
+because a close works its own quantity out in units and is divided across the
+positions holding the leg's side, so it returns to zero as soon as the leg's net
+comes back to that side. What is not held is the instruction closing it, and a
+leg whose net never returns there carries the position for the life of the run.
+That sentence is in OS7005's deferral, in 17.1 and in 17.7, and both halves of it
+are asserted in `tests/engine/ending.test.ts` rather than described.
+
+**Changes required.**
+
+- `src/core/engine/ledger/holdings.ts`: new. What a leg holds per position
+  reference, the two numbers, and the division.
+- `src/core/engine/ledger/sizing.ts`: new, split out of `place.ts`, which reached
+  the 500 line limit and was two subjects by then: what a call means, and how much
+  each of its orders sends and against which position.
+- `src/core/engine/ledger/row.ts`: `units` on the row, the order's own quantity in
+  units where the engine can read it, which is what makes a position being opened
+  visible before any of it has settled.
+- `src/core/engine/ledger/positions.ts`: `sizeOf`, and `reference` left to the one
+  caller that sends no order.
+- `src/core/engine/ledger/closable.ts`: `committed` counts every order still going
+  on the side that reduces what the leg holds now.
+- `src/core/engine/ledger/refuse.ts`: OS7008 reads the mapping's answer and counts
+  the entries the leg holds in a direction.
+- `spec/stdlib.md` 17.1 and 17.7; `spec/errors.json` and `spec/errors.md` OS7005's
+  deferral and OS7017's cause; `spec/feature-matrix.md`, six rows.
+- `tests/engine/attaching.test.ts` and `tests/engine/ending.test.ts`, and
+  `reversed`, `settledBook` and `sentOn` in `tests/engine/orders-support.ts`.
+- `docs/strategies/orders.md` and `docs/strategies/reading-the-books.md`.
+
+---
+
+## 50. What a stored setting the engine will refuse is worth to the chart
+
+**Question.** Decision 46 made the chart's declared shape resolve a declaration
+option against the settings the host states. It did not ask what happens when the
+host states a value the input's own declaration forbids. Measured: on
+`study("S", precision = input(2, "Places", min = 0, max = 8))`, a settings map of
+`{ Places: 99 }` gave `plots[0].priceFormat.precision` of 99, and `{ Places: -4 }`
+gave -4. The engine refuses that map with OS6019 and nothing is drawn, so the
+number never reaches a column; but the descriptor was handed over first, and a
+host can put a precision in a legend or on a price scale before it asks for a
+bar. Beside it the adapter kept a second answer to the same question: `null` and
+an object were nothing stored and read as the declared default, while
+`engineSettings` passed both through for the engine to refuse, and a stored `"7"`
+read as neither, landing on the chart's own fallback of 4. Four answers to one
+question.
+
+**Decision, part one. One question, and the engine's own check answers it.**
+`src/core/engine/inputs.ts` gains `checkSetting`, which is what `resolveInputs`
+refuses with, and the adapter asks it before a load exists. A second copy of the
+types and the bounds inside the adapter would be the same fact in two files,
+which is CLAUDE.md's sixth rule, and the failure above is what that rule
+predicts: two copies, each read as authoritative, answering differently.
+
+One answer is narrowed, and it is narrowed where the fact does not exist yet. A
+`"time"` input's stored string is read by the host's own conversion, which
+`run.ts` holds and `settings.ts` does not, so a caller with no resolver takes a
+string on trust and the load decides it. Every other kind is decided in one
+place.
+
+**Decision, part two. A value the engine will refuse reads as the declared
+default in the declared shape, and travels to the engine unchanged.** Three
+answers were possible and the other two are worse.
+
+- **Carrying the stored value into the shape** is what was there. It hands a host
+  a number the language will not produce, in a member whose whole purpose is to
+  say what the study is, at the one moment the host has nothing else to go on.
+- **Repairing the value on the way to the engine** is the trap `2.6` and this
+  module's own first paragraph are written against: a settings dialog that
+  silently ignores what a reader typed. Nothing is repaired. The stored value
+  reaches the engine exactly as the host holds it, and OS6019 names the key and
+  the bound.
+- **Refusing to build the shape at all** reads as the strictest answer and is the
+  one that traps a reader. The settings dialog is built from the descriptor's
+  `inputs`, so a study that refuses to describe itself is a study whose bad
+  setting cannot be reached: the reader is left with an error, no rows, and no
+  way to put the value back in range.
+
+What is left is the declared default, which is not invented. It is what the
+script declares, it is what the shape showed before any of this existed, and it
+is what the study draws the moment a settings map the engine takes arrives.
+
+**Decision, part three. The signature the incremental path compares is taken from
+what the engine is handed.** It was taken from the effective value, and under
+part two every refused value shows the same declared default, so a change from a
+setting that runs to one that cannot would read as no change at all: the held
+engine would be kept and the study would go on drawing the old numbers instead of
+reporting OS6019. The kind is spelled beside the value for the same reason,
+because a stored `7` and a stored `"7"` spell one string and the engine takes one
+of them.
+
+**How it is checked.** `scripts/check-chart-surface.mjs` gains a fourth question,
+on the field question 3 already moves: a plot width declared `min = 1, max = 10`
+is stored as 99, as `"wide"` and as `null`, and both halves are read each time,
+the shape holding the declared default and the run stopping with OS6019. Either
+half alone is half a rule, which is how this defect arrived: the half recorded
+last round was the value reaching the engine.
+
+**Changes required.**
+
+- `src/core/engine/inputs.ts`: `checkSetting` and `SettingCheck`, with
+  `resolveOne` reduced to what it does with the answer; `src/core/engine/index.ts`
+  exports both.
+- `src/adapters/charts/settings.ts`: `effectiveValue` asks `checkSetting`, and
+  `signatureOf` spells the stored value and its kind.
+- `scripts/check-chart-surface.mjs`: the fourth question, and `min` and `max` on
+  the fixture's width input.
+- `spec/chart-narrowings.json`: `resolution.unusable`.
+- `docs/inputs.md`: what the study shows while a saved value is refused.
+- `tests/adapters/charts/settings.test.ts`: both answers for eight stored values,
+  a colour of the same shape, and the two incremental cases.
+
+---
+
+## 51. What kind of sentence section 20 keeps writing, and the test it has to pass
+
+**Question.** Decision 41 found one sentence in `stdlib.md` section 20 that
+constrained nothing. Decision 47 found three more and wrote the general rule into
+20.1 as a list of three instances. A fourth has now been found in the same
+section, `swma`'s "the two middle terms are formed as `2 * value`", where
+`value * 2` and `value + value` are bit identical on every finite value. Four in
+three rounds is a pattern, and a list of instances has now failed twice to catch
+the next one.
+
+**Decision, part one. State the rule, and keep the instances under it.** An
+arrangement is **where one rounding falls relative to another**, and nothing
+else. Two things follow, and they are what the four instances have in common:
+only an operation that rounds can be part of an arrangement, and two operations
+that do not read each other have no order between them. The list stays, because
+an implementer reading one entry wants the case in front of them named, but it is
+now four items under the rule rather than standing in for it, and the fourth item
+is the one no list had: the exact respelling of a step that does not round, a
+doubling written `2 * v`, `v * 2` or `v + v`, a halving written `v / 2` or
+`v * 0.5`.
+
+**Decision, part two. The test a sentence has to pass to go in section 20.** Name
+the second arrangement it refuses, and count where the two differ. A clause with
+no second arrangement to name is not a constraint; a clause whose count is zero
+is one of the four items in a new spelling. Every withdrawn sentence fails that
+test and fails it the same way: it fixed something about one operation on its
+own, which way round its operands sat, whether its result was named, which of two
+exact spellings produced it.
+
+**Decision, part three. `swma`, both halves, with the figures.** The addition
+order is real and is now measured: over twenty thousand four bar windows of
+ordinary prices, pairing the four terms differs on 5281, adding them right to
+left on 7230, and dividing each term by 6 as it is added on 9564. The doubling is
+not: over 25176 values covering every binade of the double range in both signs,
+the subnormals included, the three spellings never differ.
+
+**Decision, part four. The sweep, and the two more it found.** Every sentence in
+section 20 was read against the test. Two fixed the order of accumulations that
+do not read each other, which is the fourth item: `linreg`'s "the two
+accumulations run in one pass over the window" and `covariance`'s "the three
+accumulations run in one pass over the window, in that order". Neither total
+reads another, so each adds its own terms in its own order whatever the structure
+around it, and an implementer sent to reproduce the interleaving was sent to
+reproduce nothing. Both entries now fix what is real, that each total runs oldest
+first, and `covariance` says what its two passes do fix, which is that both means
+are finished before any deviation is taken. `variance`'s two passes are the
+opposite case and are untouched: its second pass reads the first one's mean.
+
+Three more were read closely and left, each for a stated reason. `stoch`'s "the
+span is formed once" and `cmo`'s "the denominator is formed once" are the naming
+case, and decision 47 left them because in both the clause names which quantity
+the absence test beside it is about; that is still true. `bollinger`'s and
+`psar`'s "one rounding of the product and one of the sum" pass the test only
+because the arrangement they refuse is the fused multiply and add, which 20.1's
+first bullet already refuses for the whole section: they are restatements rather
+than constraints of their own, and they are left because the restatement is true
+and is worth meeting twice by an implementer reaching for an FMA.
+
+**What a check can and cannot do here.** It cannot decide whether a new sentence
+is vacuous. Deciding that means implementing the two readings of it and running
+them, and the sentences that fail are exactly the ones that name no second
+reading to implement, so there is nothing for a checker to read. What the test in
+part two does is turn an undecidable property into a decidable one: a sentence
+that names its second arrangement and prints a count is a sentence a test can run
+both ways, and `tests/stdlib/section-20.ts` reads the counts out of the page
+rather than from a constant typed beside the test, so rewording a claim, moving a
+figure or changing its population fails. A check that scanned the prose for the
+withdrawn phrasings would catch a sentence coming back word for word, which is
+not how any of these four arrived, and would state a reach it does not have.
+
+**Changes required.**
+
+- `spec/stdlib.md` 20.1: the rule, the four items, and the test.
+- `spec/stdlib.md` 20.3: `swma`'s two halves with their figures, and `linreg`'s
+  accumulations.
+- `spec/stdlib.md` 20.8: `covariance`'s accumulations, and what its two passes
+  fix.
+- `tests/stdlib/section-20.ts`: `differingOver`, `everyBinade` and
+  `priceWindows`, the two populations the figures above are measured over.
+- `tests/stdlib/maths.test.ts`: `swma`'s three refused arrangements and its three
+  dead spellings, read out of the page, and the fourth item measured directly,
+  three accumulations interleaved and taken apart.
+
+---
+
 ## Applier index
 
 Seven appliers, each owning its own files and nobody else's. A decision touching

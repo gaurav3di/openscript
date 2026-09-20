@@ -156,5 +156,63 @@ export function references(run: Run, side: string): readonly number[] {
     .map((one) => one.positionRef);
 }
 
+/**
+ * Every position reference that settled on the side it did not open on.
+ *
+ * The property of issue 0018, measured where it finally lands: not on what was
+ * sent but on what came back. `crossings` asks the question of the destination's
+ * inbox, which is the whole of what an engine controls; this asks it of the
+ * ledger after the frames have folded, which is what a host reconciles against.
+ *
+ * A reference opens on the side of the first order sent on it, and it holds that
+ * side for its life: a reference minted by a `buy` that settles short is one
+ * position wearing both signs, and a fill arriving late against it cannot say
+ * which position it belonged to.
+ *
+ * **A reference still waiting on an order is not measured.** An order that has
+ * not been answered in full, and one that ended rejected, cancelled or expired
+ * with part of its quantity unfilled, are both quantities that were counted and
+ * never arrived, and no engine can place an order against a position and then
+ * unplace it because the destination changed its mind about the other one. What
+ * an engine answers for is a reference every one of whose orders was answered in
+ * full, and that is what this measures.
+ */
+export function reversed(run: Run): readonly string[] {
+  const opened = new Map<number, number>();
+  const settled = new Map<number, number>();
+  const waiting = new Set<number>();
+  for (const row of run.engine.orders()) {
+    if (!opened.has(row.positionRef)) opened.set(row.positionRef, row.side === 'buy' ? 1 : -1);
+    const signed = row.side === 'buy' ? row.filledQty : -row.filledQty;
+    settled.set(row.positionRef, (settled.get(row.positionRef) ?? 0) + signed);
+    if (row.filledQty !== row.qty) waiting.add(row.positionRef);
+  }
+  const found: string[] = [];
+  for (const [ref, held] of settled) {
+    if (held === 0 || waiting.has(ref)) continue;
+    if (Math.sign(held) !== opened.get(ref)) {
+      found.push(`position ${ref} opened ${opened.get(ref) === 1 ? 'long' : 'short'} and settled ${held}`);
+    }
+  }
+  return found;
+}
+
+/** What each position reference has settled, in the order they were minted. */
+export function settledBook(run: Run): ReadonlyMap<number, number> {
+  const book = new Map<number, number>();
+  for (const row of run.engine.orders()) {
+    const signed = row.side === 'buy' ? row.filledQty : -row.filledQty;
+    book.set(row.positionRef, (book.get(row.positionRef) ?? 0) + signed);
+  }
+  return book;
+}
+
+/** The quantities of one side with the reference each was sent on, in order. */
+export function sentOn(run: Run, side: string): readonly string[] {
+  return run.sent
+    .filter((one) => one.kind === 'place' && one.side === side)
+    .map((one) => `${one.qty} on ${one.positionRef}`);
+}
+
 /** A leg that may hold several tags at once, so a part can be told from the whole. */
 export const PROBE = ['version 1', 'strategy("Probe", qty = 2, pyramiding = 50)'];

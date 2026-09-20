@@ -49,7 +49,7 @@ import type { Diagnostic } from '../../diagnostics/index.js';
 import type { OrderCall } from './call.js';
 import { closable } from './closable.js';
 import type { Identity, OrderSide } from './intent.js';
-import type { Placement, PlacingContext } from './place.js';
+import type { MappedOrder, Placement, PlacingContext } from './place.js';
 import { isTerminal } from './row.js';
 
 /**
@@ -126,18 +126,20 @@ function onTick(price: number, tick: number): boolean {
   return Math.abs(steps - nearest) <= 1e-9 * Math.max(1, Math.abs(steps));
 }
 
-/** Whether this order adds to a position rather than reducing one. */
-function isEntry(ctx: PlacingContext, side: OrderSide): boolean {
-  const size = ctx.size();
-  if (size === 0) return true;
-  return size > 0 === (side === 'buy');
-}
-
 /**
  * The entries already open in one direction, which is what pyramiding counts.
  *
- * The rows of the position an order placed now would join, on that order's own
- * side, that have actually filled something into it.
+ * `language.md` 13.3 says entries in one **direction**, and the message says
+ * the strategy already holds them, so the count is over every position the leg
+ * still holds on that side rather than over one of them. The two were the same
+ * number while every entry in a direction shared one reference, and they are
+ * not any more: an entry placed while the whole of a position is on its way out
+ * opens a position of its own (`holdings.ts`), so a count keyed to a single
+ * reference would report none and let a declaration of one entry hold two.
+ *
+ * **A position the leg no longer holds is not counted.** A reference ends when
+ * its quantity returns to zero through settled fills (`stdlib.md` 17.7), and
+ * the entries that made it up ended with it.
  *
  * **An order that has not filled is not an open entry**, and the count says so
  * because the code's own fix says so: OS7008 tells a reader to test `pos.size`,
@@ -147,12 +149,11 @@ function isEntry(ctx: PlacingContext, side: OrderSide): boolean {
  * one thing a fix may never do.
  */
 function entriesOpen(ctx: PlacingContext, side: OrderSide): number {
-  const position = ctx.current();
-  if (position === null) return 0;
+  const holding = side === 'buy' ? 1 : -1;
   let found = 0;
   for (const row of ctx.rows()) {
-    if (row.positionRef !== position || row.side !== side) continue;
-    if (row.filledQty === 0) continue;
+    if (row.side !== side || row.filledQty === 0) continue;
+    if (Math.sign(ctx.sizeOf(row.positionRef)) !== holding) continue;
     found += 1;
   }
   return found;
@@ -308,10 +309,11 @@ function wrongSide(
 /** What one order is wrong about, given the instrument and the leg. */
 function ordering(
   call: OrderCall,
-  placement: Placement,
+  order: MappedOrder,
   ctx: PlacingContext,
   sent: readonly SentOnBar[],
 ): Diagnostic | undefined {
+  const placement = order.placement;
   const side = placement.side;
   if (side === null) return undefined;
 
@@ -327,7 +329,15 @@ function ordering(
 
   // OS7008. Refusing rather than silently adding keeps a backtest from building
   // a position the declaration forbade.
-  if (isEntry(ctx, side)) {
+  //
+  // **Whether this order is an entry is the mapping's answer, not the leg's
+  // net.** The net is folded from settled fills, so it reads flat while an
+  // entry is still going and called every order an entry, and it reads long
+  // while a leg is being flipped and called neither half of the flip one. The
+  // mapping has already divided the call into what comes off a position the leg
+  // holds and what opens one, and an order that comes off a position is not an
+  // entry whatever the net says.
+  if (order.reduces === null) {
     const found = entriesOpen(ctx, side);
     if (found >= ctx.pyramiding) {
       return diagnosticFor('OS7008', call.at, { max: ctx.pyramiding, found });
@@ -357,11 +367,12 @@ function ordering(
  */
 export function refusalInOrder(
   call: OrderCall,
-  placement: Placement,
+  order: MappedOrder,
   ctx: PlacingContext,
   sent: readonly SentOnBar[],
 ): Diagnostic | undefined {
+  const placement = order.placement;
   if (placement.kind === 'cancel') return unknownTag(call, placement, ctx);
   if (placement.kind === 'bracket') return wrongSide(call, placement, ctx);
-  return ordering(call, placement, ctx, sent);
+  return ordering(call, order, ctx, sent);
 }

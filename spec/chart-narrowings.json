@@ -29,6 +29,10 @@
         "draws",
         "attach"
       ]
+    },
+    "unusable": {
+      "why": "What every member above resolves to when the host's stored value is one the engine will refuse: the declared default. The engine's own check decides it, `checkSetting` in src/core/engine/inputs.ts, which is the function the load refuses with, so there is one answer to what a stored value is worth rather than an adapter's and an engine's. The value is not repaired on the way to the engine either: it travels exactly as the host stored it and the run stops with OS6019 naming the key and the bound. The shape is still built, because the settings dialog a reader corrects the value in is built from it, and a study that refuses to describe itself is one whose bad setting cannot be reached. Before this, a stored 99 against an input declared max = 8 went into plots[0].priceFormat.precision as written, and the adapter kept a second idea of an unusable value besides: a stored null read as the declared default while the engine refused the same map, and a stored \"7\" read as neither and landed on the chart's own fallback. Checked by scripts/check-chart-surface.mjs, which moves one field outside its declared bounds, as a value of another type and as null, and reads both the shape and the run. One kind is narrowed and was before this: a \"time\" input is stored as a wall clock string and delivered to a script as a timestamp, and the conversion between them is the host's own, which run.ts has and this does not. So a time input written into a declaration option resolves here to the stored string rather than to the number the engine will hold, and a field that wants a number falls back to its own default. The compiler refuses a time input in a string field, OS3011, so the string itself never reaches one.",
+      "test": "tests/adapters/charts/settings.test.ts"
     }
   },
   "outputs": {

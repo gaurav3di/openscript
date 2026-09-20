@@ -35,11 +35,15 @@ export class Positions {
   private attaching: number | null = null;
 
   /**
-   * The reference an order placed now carries.
+   * The reference an instruction that orders nothing is labelled with.
    *
    * Minted when the leg is flat and nothing has been sent against a position
-   * yet, and kept while one is being opened, so two entries sent on two bars
-   * before either fills belong to one position rather than to two.
+   * yet, and kept while one is being opened. **It is not how an order picks its
+   * position**, and it was: an order attached to whatever was current went on a
+   * reference whose sign was not its own, which is issue 0018. Which position
+   * an order is sent against is decided from what the leg holds including what
+   * is working (`holdings.ts`), and this is left for the one caller that sends
+   * no order at all, a bracket, which sets a level on the leg and moves nothing.
    */
   reference(): number {
     if (this.attaching === null) this.attaching = this.mint();
@@ -47,14 +51,22 @@ export class Positions {
   }
 
   /**
-   * The position an order placed now would attach to, or none while flat.
+   * The settled size of one position reference, signed the way a position is.
    *
-   * The same answer as `reference()` and without minting one, for a rule that
-   * has to count what a position already holds before deciding whether an
-   * order may join it.
+   * **Per reference rather than per leg**, because which position an order is
+   * sent against is a question about one position and the leg's net cannot
+   * answer it: a leg holds more than one position whenever an order that
+   * opposes it is outstanding, and two that net to zero are not the same thing
+   * as no position at all. `holdings.ts` reads this beside the ledger's own
+   * rows, which is the division the rest of the engine already keeps: what
+   * settled is the position book's, what is working is the ledger's.
+   *
+   * Zero for a reference this book has never been given a fill for, which is
+   * both a reference minted for an order that has not settled and one that is
+   * not a reference at all.
    */
-  current(): number | null {
-    return this.attaching;
+  sizeOf(ref: number): number {
+    return this.held.get(ref)?.size ?? 0;
   }
 
   /** A fresh position, for the replacement half of a flip. */

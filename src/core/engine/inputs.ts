@@ -50,6 +50,11 @@ export type InputResult =
 /** A host's own conversion for a `"time"` input, which needs the chart's zone. */
 export type TimeResolver = (text: string) => number | null;
 
+/** What a stored value is worth to a declared input: the value, or the rule it breaks. */
+export type SettingCheck =
+  | { readonly ok: true; readonly value: Value; readonly field: string | undefined }
+  | { readonly ok: false; readonly refusal: string };
+
 /** The value a constant pool entry denotes. */
 export function constantValue(entry: Constant): Value {
   switch (entry[0]) {
@@ -96,35 +101,74 @@ function resolveOne(
     : undefined;
   const fallback = constantValue(declared.default);
 
-  if (declared.kind === 'source') {
-    const field = supplied === undefined ? fallback : supplied;
-    if (typeof field !== 'string' || !SOURCES.includes(field)) {
-      return refuse(declared.key, field, `a source names one of ${SOURCES.join(', ')}`);
-    }
-    if (!isBarField(field)) {
-      return refuse(declared.key, field, 'this engine has no bar field of that name');
-    }
-    return { input: { key: declared.key, slot: declared.slot, field, value: null } };
-  }
-
-  if (declared.kind === 'time') {
-    const held = supplied === undefined ? fallback : supplied;
-    const time = typeof held === 'number' ? held : typeof held === 'string' ? resolveTime(held) : null;
-    if (time === null) {
-      return refuse(declared.key, held, 'a time is a timestamp or a date and time the host can read');
-    }
-    return { input: { key: declared.key, slot: declared.slot, field: undefined, value: time } };
-  }
-
-  if (supplied === undefined) {
+  // A source and a time are checked even where the host stored nothing, because
+  // each declares its value as text that this engine still has to read. Every
+  // other kind takes its declared default unexamined, which is this engine's
+  // behaviour as it stands: a default is written in the source and validation
+  // here is about a value that arrived from outside it.
+  const askAnyway = declared.kind === 'source' || declared.kind === 'time';
+  if (supplied === undefined && !askAnyway) {
     return { input: { key: declared.key, slot: declared.slot, field: undefined, value: fallback } };
   }
 
-  const wrong = validate(declared, supplied);
-  if (wrong !== undefined) return refuse(declared.key, supplied, wrong);
+  const held = supplied === undefined ? fallback : supplied;
+  const checked = checkSetting(declared, held, resolveTime);
+  if (!checked.ok) return refuse(declared.key, held, checked.refusal);
   return {
-    input: { key: declared.key, slot: declared.slot, field: undefined, value: supplied as Value },
+    input: {
+      key: declared.key,
+      slot: declared.slot,
+      field: checked.field,
+      value: checked.value,
+    },
   };
+}
+
+/**
+ * What the engine will run with for one stored value, or the rule it breaks.
+ *
+ * **This is exported because the question is asked outside the engine as well.**
+ * A chart builds the settings dialog and the declared shape of a study before
+ * anything is loaded, so it has to know what a stored value is worth before the
+ * run that would refuse it exists. A second copy of these rules in an adapter
+ * would be the same fact written in two files, and the two would answer
+ * differently the first time either was edited: the chart adapter had its own
+ * idea of an unusable value, and handed out a precision an input's own `max`
+ * forbade while the engine beside it refused the same map with OS6019.
+ *
+ * `resolveTime` is optional, and leaving it out narrows exactly one answer. A
+ * `"time"` input's string is read by the host's own conversion, which is the
+ * host's to supply, so a caller with none takes a string on trust and leaves
+ * that half to the load. Every other kind is decided here.
+ */
+export function checkSetting(
+  declared: CompiledInput,
+  supplied: unknown,
+  resolveTime?: TimeResolver,
+): SettingCheck {
+  if (declared.kind === 'source') {
+    if (typeof supplied !== 'string' || !SOURCES.includes(supplied)) {
+      return { ok: false, refusal: `a source names one of ${SOURCES.join(', ')}` };
+    }
+    if (!isBarField(supplied)) {
+      return { ok: false, refusal: 'this engine has no bar field of that name' };
+    }
+    return { ok: true, value: null, field: supplied };
+  }
+
+  if (declared.kind === 'time') {
+    const unreadable = 'a time is a timestamp or a date and time the host can read';
+    if (typeof supplied === 'number') return { ok: true, value: supplied, field: undefined };
+    if (typeof supplied !== 'string') return { ok: false, refusal: unreadable };
+    if (resolveTime === undefined) return { ok: true, value: supplied, field: undefined };
+    const time = resolveTime(supplied);
+    if (time === null) return { ok: false, refusal: unreadable };
+    return { ok: true, value: time, field: undefined };
+  }
+
+  const wrong = validate(declared, supplied);
+  if (wrong !== undefined) return { ok: false, refusal: wrong };
+  return { ok: true, value: supplied as Value, field: undefined };
 }
 
 /** What rule the host's value broke, or nothing when it passes. */

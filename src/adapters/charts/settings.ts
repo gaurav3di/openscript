@@ -19,10 +19,29 @@
  * the rule it broke. Substituting the default here would be a settings dialog
  * that silently ignores what a user typed, which is the failure `2.6` is written
  * to prevent, and it would hide it one layer further down than the engine does.
+ *
+ * **And a stored value the engine will refuse is not a value this adapter has.**
+ * The declared shape is built before anything runs, so a settings map holding a
+ * precision of 99 against an input declared `max = 8` put 99 into
+ * `plots[0].priceFormat`, which a host can show in a legend or on a price scale
+ * before the calculation that refuses it has been asked for. What a stored value
+ * is worth has one answer and it is the engine's own: `checkSetting` is the
+ * function the load refuses with, asked here before the load exists. A value it
+ * will not take reads as the **declared default** in the declared shape, and
+ * travels to the engine exactly as the host stored it, so the run still stops
+ * with OS6019 naming the key and the bound.
+ *
+ * Neither half of that is a fallback. The value is not repaired, because the
+ * same map still refuses; and the shape is not withheld, because the settings
+ * dialog a reader corrects the value in is built from the descriptor, and a
+ * study that refuses to describe itself is one whose bad setting cannot be
+ * reached. What a host is handed meanwhile is the shape the script declared,
+ * which is the shape the study has until a settings map the engine takes
+ * arrives.
  */
 import type { CompiledInput, CompiledProgram, Constant } from '../../core/emit/index.js';
-import { constantValue } from '../../core/engine/index.js';
-import type { Value } from '../../core/engine/index.js';
+import { checkSetting, constantValue } from '../../core/engine/index.js';
+import type { ColourValue, Value } from '../../core/engine/index.js';
 import { cssColour, isColourValue, parseColour } from './colours.js';
 import type { ChartInput, ChartSettings, ChartSource } from './contract.js';
 import type { InputLookup } from './fields.js';
@@ -81,11 +100,20 @@ export function lookupFor(program: CompiledProgram, settings: ChartSettings): In
  * The incremental path is only valid while the engine it holds was loaded from
  * the same settings, and comparing the two spellings is cheaper and safer than
  * trusting a chart to have told us that a settings change happened.
+ *
+ * **It spells what the engine is handed, not what the declared shape shows.**
+ * Those part company the moment a stored value is one the engine refuses: every
+ * refused value shows the same declared default, so a signature taken from the
+ * shape would read a change from a setting that runs to one that cannot as no
+ * change at all, keep the held engine and go on drawing the old numbers instead
+ * of reporting OS6019. The kind is spelled beside the value for the same
+ * reason: a stored `7` and a stored `"7"` are one quotation mark apart, and one
+ * of them is refused.
  */
 export function signatureOf(program: CompiledProgram, settings: ChartSettings): string {
   const parts: string[] = [];
   for (const declared of program.inputs) {
-    parts.push(`${declared.key}=${spell(effectiveValue(declared, settings))}`);
+    parts.push(`${declared.key}=${spellStored(storedValue(declared, settings))}`);
   }
   return parts.join('\u0000');
 }
@@ -189,14 +217,23 @@ function storedValue(declared: CompiledInput, settings: ChartSettings): unknown 
   return supplied;
 }
 
-/** The effective value: the host's when it is one this adapter can read. */
+/**
+ * The effective value: the host's where the engine will run with it.
+ *
+ * The question is `checkSetting`'s, so there is no second list of types and
+ * bounds here to disagree with the first. This file decides only what to do
+ * with the answer, and the module's own paragraph says why a refused value
+ * reads as the declared default rather than as itself.
+ *
+ * One answer is narrowed and it is narrowed on purpose: a `"time"` input's
+ * stored string is read by the host's own conversion, which `run.ts` has and
+ * this has not, so a string is taken here and the load decides it.
+ */
 function effectiveValue(declared: CompiledInput, settings: ChartSettings): Value {
   const stored = storedValue(declared, settings);
-  if (stored === undefined || stored === null) return defaultValue(declared);
-  if (typeof stored === 'number' || typeof stored === 'boolean' || typeof stored === 'string') {
-    return stored;
-  }
-  return isColourValue(stored as Value) ? (stored as Value) : defaultValue(declared);
+  if (stored === undefined) return defaultValue(declared);
+  const checked = checkSetting(declared, stored);
+  return checked.ok ? checked.value : defaultValue(declared);
 }
 
 /** The declared option a stored string names, matched on its own spelling. */
@@ -206,6 +243,25 @@ function optionFor(options: readonly Constant[], supplied: string): Value | unde
     if (spell(value) === supplied) return value;
   }
   return undefined;
+}
+
+/**
+ * A stored value as the signature spells it, kind and all.
+ *
+ * Two stored values that spell one string are a settings change the incremental
+ * path does not notice, and a dialog stores numbers and text that look alike
+ * written out while the engine takes one and refuses the other. Every value of
+ * another kind spells the same word, which costs nothing: none of them can be
+ * behind a held engine, because the load that would have held one refused it.
+ */
+function spellStored(value: unknown): string {
+  if (value === undefined) return 'unset';
+  if (value === null) return 'none';
+  if (isColourValue(value as Value)) return `color ${cssColour(value as ColourValue)}`;
+  if (typeof value === 'number') return `number ${String(value)}`;
+  if (typeof value === 'boolean') return `bool ${String(value)}`;
+  if (typeof value === 'string') return `text ${value}`;
+  return 'of another kind';
 }
 
 /** A value as a settings control spells it. */

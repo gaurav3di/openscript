@@ -154,3 +154,128 @@ test('a settings map the descriptor was not built with does not move the declare
   descriptor.calc(bars(3), { Places: 3 }, {}, context(3));
   assert.deepEqual(descriptor.plots[0]?.priceFormat, { type: 'price', precision: 7 });
 });
+
+/**
+ * A stored value that is not a value, in both directions.
+ *
+ * The declared shape is built before anything is calculated, so the descriptor
+ * is the one thing a host holds while a settings map that cannot run is stored.
+ * Two ways of being wrong met here. The shape handed out a precision of 99
+ * against an input declared `max = 8`, which is a number the language will not
+ * produce and a host may put in a legend; and the adapter had its own idea of
+ * an unusable value, so a stored `null` read as the default while the engine
+ * refused the same map, and a stored `"7"` read as neither, landing on the
+ * chart's own fallback of 4.
+ *
+ * One rule settles both: the engine's own check decides, a value it will not
+ * take reads as the declared default, and the value still travels to the engine
+ * so the run stops. The wrong implementations these catch are the two that were
+ * there, and a third that a reader would reach for: refusing to build the
+ * descriptor at all, which takes away the dialog the value is corrected in.
+ */
+const BOUNDED = [
+  'version 1',
+  'study("S", precision = input(2, "Places", min = 0, max = 8))',
+  'plot(close, "C")',
+  '',
+].join(NEWLINE);
+
+/** What the declared shape says, and what the run says, for one stored value. */
+function bothAnswers(stored: unknown): { shape: number | undefined; code: string } {
+  const settings = { Places: stored } as Record<string, unknown>;
+  const descriptor = descriptorOfSource(BOUNDED, { settings });
+  const format = descriptor.plots[0]?.priceFormat;
+  return {
+    shape: format?.type === 'price' ? format.precision : undefined,
+    code: refusalOf(() => descriptor.calc(bars(3), settings, {}, context(3))).code,
+  };
+}
+
+test('a stored value outside the input\'s own bounds does not reach the declared shape', () => {
+  assert.deepEqual(bothAnswers(99), { shape: 2, code: 'OS6019' });
+  assert.deepEqual(bothAnswers(-4), { shape: 2, code: 'OS6019' });
+  // And the bound itself still runs, so this is a refusal and not a ceiling.
+  const allowed = descriptorOfSource(BOUNDED, { settings: { Places: 8 } });
+  assert.deepEqual(allowed.plots[0]?.priceFormat, { type: 'price', precision: 8 });
+});
+
+test('the declared shape and the engine agree on every unusable stored value', () => {
+  // The adapter used to answer this list for itself: null and an object were
+  // nothing stored, a number out of range was a value, and a string was passed
+  // to a field that did not want one. Four different answers to one question.
+  for (const stored of [99, -4, null, { a: 1 }, '7', true, [], Number.NaN]) {
+    assert.deepEqual(bothAnswers(stored), { shape: 2, code: 'OS6019' }, JSON.stringify(stored));
+  }
+});
+
+test('a stored colour the adapter cannot read is the declared colour and refuses', () => {
+  // The same rule on a kind whose stored spelling is converted on the way in,
+  // and where the old answer was a third thing again: the string reached a
+  // field that wanted a colour, so the plot carried no colour at all and a host
+  // drew it in whatever it uses for a plot that declared none.
+  const source = [
+    'version 1',
+    'study("Tinted", overlay = true)',
+    'plot(close, "Close", color = input(fade(aqua, 50), "Line colour"))',
+    '',
+  ].join(NEWLINE);
+  const stored = { 'Line colour': 'not a colour' };
+  const descriptor = descriptorOfSource(source, { settings: stored });
+  assert.equal(descriptor.plots[0]?.style?.color, 'rgba(0, 255, 255, 0.5)');
+  const refusal = refusalOf(() => descriptor.calc(bars(10), stored, {}, context(10)));
+  assert.equal(refusal.code, 'OS6019');
+});
+
+/**
+ * What the held engine is compared against, on the path that reuses it.
+ *
+ * `calc` reloads every time, so a settings map it cannot run is refused there
+ * whatever any signature says. `calcTail` is where the question is: it hands
+ * back the bars from `from` onwards out of the engine it is holding, and it
+ * gives up and returns nothing when that engine was not loaded from these
+ * settings. Each test below reads both answers, because "it returned nothing"
+ * proves the change was noticed only if the same call returns something when
+ * nothing changed.
+ */
+function tailAfter(first: unknown, second: unknown): { same: unknown; changed: unknown } {
+  // A store each. A tail run that serves the bars moves the held engine forward,
+  // so asking the same store twice answers the second question with the first
+  // one's leftovers: the count no longer matches and the answer is nothing
+  // whatever the settings say. That is how the first draft of this test passed
+  // against a signature that could not see the change.
+  const run = (held: unknown): unknown => {
+    const descriptor = descriptorOfSource(BOUNDED, { settings: { Places: first } });
+    const store = {};
+    const data = bars(6);
+    const last = data[data.length - 1]!;
+    const next = [...data, { ...last, time: last.time + 60 }];
+    const values = descriptor.calc(data, { Places: first }, store, context(6));
+    return descriptor.calcTail?.(
+      next,
+      { Places: held } as Record<string, unknown>,
+      data.length - 1,
+      values,
+      store,
+      context(7),
+    );
+  };
+  return { same: run(first), changed: run(second) };
+}
+
+test('the incremental path sees a change the declared shape cannot show', () => {
+  // Both maps below describe one shape, because a refused value shows the
+  // declared default, and one of them cannot run. A signature taken from the
+  // shape reads them as one map, keeps the engine it holds and goes on drawing,
+  // so the study reports numbers for a setting that was refused. It is taken
+  // from what the engine is handed for that reason.
+  const { same, changed } = tailAfter(2, 99);
+  assert.notEqual(same, null, 'the same settings reuse the engine, or this proves nothing');
+  assert.equal(changed, null, 'and a value the engine refuses does not');
+});
+
+test('the incremental path sees a stored number replaced by its own spelling', () => {
+  // `7` and `"7"` spell one string and the engine takes one of them.
+  const { same, changed } = tailAfter(7, '7');
+  assert.notEqual(same, null, 'the same settings reuse the engine, or this proves nothing');
+  assert.equal(changed, null, 'and the same number written as text does not');
+});

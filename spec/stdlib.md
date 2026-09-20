@@ -1402,6 +1402,45 @@ one that opens the replacement, each carrying its own position reference. A
 single order that crossed zero would leave a late fill with no way to say which
 of the two positions it settled, and during a flip a leg holds both at once.
 
+**Which position an order is sent against is decided by what the leg holds
+including what is working, not by its settled net.** A position is folded from
+settled fills and from nothing else, so while an entry is unanswered the net
+reads flat and an order opposing that entry is not opposing anything the net can
+see: `buy(qty = 6)`, and `sell(qty = 9)` a bar later against a silent
+destination, are one position that opened six long and settled three short. A
+position with six units still to come is a position holding six, and an opposing
+order takes those six off it before it opens anything, because otherwise nothing
+can bring that position back to zero. **The answer does not depend on how fast
+the destination answers.** The same instruction is the same two orders whether
+the entry has settled, is still in flight or has partly arrived; what changes it
+is the position changing, so an order that ended having filled three leaves three
+to take and one that ended having filled nothing leaves nothing at all.
+
+**An order that spans more than one position is that many orders**, for the
+reason the flip already gives. A leg holds more than one position whenever an
+order that opposes it is outstanding, and each of them is reduced by an order of
+its own, oldest first, so that a late fill can still say which position it
+settled. That is as true of a bare `close()` and of `order.reverse` as it is of
+an entry: sizing against the whole leg and attaching the result to one position
+sends an order large enough to take that position through zero and out the other
+side.
+
+**What an opposing entry may take and what a close may send are two different
+numbers**, and both are this section's. An entry is sent at the size the script
+wrote whatever the leg holds, so the only thing being decided is where its units
+land, and it may be divided against a position that has not settled. A close
+works its own quantity out, so it may only work out one that has settled: a close
+counting an entry that is still working would sell units that may never exist.
+
+**What no engine answers for is a destination that answers one order and not the
+other.** An entry divided against an unanswered entry is placed against units
+that were promised and may not arrive, and if the first order is rejected while
+the second fills, that position settles on the side it did not open on. Holding
+the second order back until the destination answers is an engine that stops
+trading when a destination is slow, which is worse. What this section is
+unconditional about is kept either way: every order names exactly one position,
+so every fill, however late, says which position it settled.
+
 **The two halves of that split need different things, and an engine keeps them
 apart.** Working out how much of an instruction closes and how much opens
 subtracts a position folded from filled quantities from a quantity the script
@@ -1415,6 +1454,15 @@ holding what it holds, which is the part that waits on the instrument's lot
 size. A leg then holds two positions at once, and the average entry price it
 reports is taken over the positions on the side of its net, so a position on its
 way out does not move the entry price of the one on its way in.
+
+**The position it left behind is still named again.** A close works its own
+quantity out in units and is divided across the positions holding the leg's own
+side, oldest first, so that position returns to zero as soon as the leg's net
+comes back to its side. What waits on the lot size is the instruction itself
+closing it: on a leg whose net never returns to that side, the position is
+carried for the life of the run with no order able to name it. That is the whole
+of what is not kept here, and `errors.md` OS7005, which nothing raises yet, says
+so where a reader meets it.
 
 **A close is never minted a position of its own.** It is named for reducing, and
 an engine that gave it a position would have made `close` open one, which is the
@@ -1853,6 +1901,22 @@ A fill settles the position its own order names, never whichever position is
 current, because a fill that arrives late would otherwise be applied to the
 position that replaced the one it belonged to.
 
+**An order that adds joins the position on its own side, and a reference is
+minted where there is none to join.** There is none when the leg holds nothing on
+that side, and there is none when the whole of what it holds is already in an
+order the destination still has: that position will reach zero and end, and an
+order joining it would have to settle into a position that has already ended. So
+a leg may hold more than one position on one side as well as one on each.
+
+**Every position a leg holds can be brought back to zero**, which is what makes
+the sentence above a rule rather than a hope. An order on the side that reduces
+a position, at the size that position holds, ends it, and a reducing order the
+engine sizes itself is divided across the positions holding the leg's own side so
+that it reaches them in turn. A reference nothing could ever close would be a
+leak in this record. The one shape where that is not kept is an instruction the
+engine cannot divide, which is 17.1's last paragraph and `errors.md` OS7005, a
+code nothing raises yet.
+
 **Statuses.** The ledger's `status` is one of these words. The Terminal column
 says which of them end an order, and the last column says which of them a host
 may send in a frame.
@@ -2269,24 +2333,49 @@ blocker. This section is what it refers to.
 - **An arrangement here is normative even where another is mathematically
   equal.** That is the whole reason the section exists. Where a second
   arrangement is in common use, the entry names it and says it is not this one.
-- **An arrangement is the order the operations run in, and nothing else.**
-  Three things therefore fix nothing and are never constrained here. Writing a
-  subexpression into a named intermediate and reading it back is bit identical
-  to writing it out, because every operation already rounds its result to
-  binary64 and 8.1 leaves no wider register for an unnamed one to be kept in.
-  Forming the same subexpression twice gives the same value both times, for the
-  same reason. And reordering the operands of one addition or one
-  multiplication gives the same value, because both are commutative in
-  binary64; so does regrouping a product one of whose factors is a power of
-  two, because scaling by a power of two is exact and may therefore be applied
-  before the other multiplication or after it. That last one is the only one of
-  the three with an edge, and the edge is not where it looks: the two groupings
-  part company when the **other** product underflows into the subnormal range,
-  where its rounding loses bits the scaling cannot put back, and that happens
-  whether or not the answer itself is subnormal. An entry that relies on the
-  rule says where its edge is. A sentence fixing any of these three would send
-  an implementer to check a half that cannot differ, which is the cost 20.10
-  exists to avoid on whole functions.
+- **An arrangement is where one rounding falls relative to another, and nothing
+  else.** Only an operation that rounds can be part of one, and two operations
+  that do not read each other have no order between them. Four things therefore
+  fix nothing and are never constrained here.
+
+  1. **Naming.** Writing a subexpression into a named intermediate and reading
+     it back is bit identical to writing it out, because every operation already
+     rounds its result to binary64 and 8.1 leaves no wider register for an
+     unnamed one to be kept in.
+  2. **Forming the same subexpression twice** gives the same value both times,
+     for the same reason.
+  3. **A step that does not round, spelled another way.** Reordering the
+     operands of one addition or one multiplication gives the same value,
+     because both are commutative in binary64. So does regrouping a product one
+     of whose factors is a power of two, because scaling by a power of two is
+     exact and may therefore be applied before the other multiplication or after
+     it. And so does writing that exact step differently: a doubling is one
+     value whether it is written `2 * v`, `v * 2` or `v + v`, and a halving is
+     one value whether it is written `v / 2` or `v * 0.5`. This is the only one
+     of the four with an edge, and the edge is not where it looks: two groupings
+     part company when the **other** product underflows into the subnormal
+     range, where its rounding loses bits the scaling cannot put back, and that
+     happens whether or not the answer itself is subnormal. An entry that relies
+     on the rule says where its edge is.
+  4. **The order of two accumulations that do not read each other.** Where a
+     pass over a window feeds more than one total, and no total is read by
+     another, each is a sum of its own terms in its own order: interleaving them
+     in one pass, running them in two, or swapping which is written first
+     changes none of them. What is fixed there is each total's own order, and
+     every entry states that as oldest first. A pass that reads what an earlier
+     pass produced is the opposite case and is fixed, as `variance`'s second
+     pass over the mean is.
+
+  **The test a sentence has to pass to go in here: name the second arrangement
+  it refuses, and count where the two differ.** A clause with no second
+  arrangement to name is not a constraint, and one whose count is zero is one of
+  the four above in a new spelling. Every sentence this section has had to
+  withdraw failed that test the same way: it fixed something about one operation
+  on its own, which way round its operands sat, whether its result was named,
+  which of two exact spellings produced it. Only a relation between two
+  roundings can be fixed, and not one of those is one. A sentence that cannot
+  bite sends an implementer to check a half that cannot differ, which is the
+  cost 20.10 exists to avoid on whole functions.
 - **A function this section does not name does not depend on the order of its
   operations.** Section 20.10 says which those are and why, so an implementer can
   tell a silence that means "no constraint" from a silence that means "nobody
@@ -2439,8 +2528,19 @@ once at the end:
 result = (w[3] + 2 * w[2] + 2 * w[1] + w[0]) / 6
 ```
 
-The two middle terms are formed as `2 * value`, and the four terms are added left
-to right.
+**The four terms are added left to right and the finished sum is divided once.**
+Over twenty thousand four bar windows of ordinary prices, regrouping them as
+`(w[3] + 2 * w[2]) + (2 * w[1] + w[0])` differs on 5281, adding them right to
+left differs on 7230, and dividing each term by 6 as it is added rather than
+dividing the sum differs on 9564.
+
+**Nothing is fixed about how the two middle terms are doubled.** `2 * w[2]`,
+`w[2] * 2` and `w[2] + w[2]` are one exact scaling however it is written, and
+over 25176 values covering every binade of the double range in both signs, the
+subnormals included, the three never differ: 20.1's third rule. The sentence
+that stood here fixed that spelling in the same breath as the addition order, so
+one sentence carried a half that can be failed and a half that cannot, with
+nothing to tell a reader which was which.
 
 **`vwma(src, len)`** forms this bar's product first and sums the products:
 
@@ -2529,9 +2629,10 @@ intercept = (sumY - slope * sumX) / len
 result    = intercept + slope * (len - 1 - offset)
 ```
 
-The two accumulations run in one pass over the window, oldest first. The result
-is absent where `divisor` is zero, which is every window of length 1: a line
-fitted to one point is not a fit.
+Each accumulation adds its own terms oldest first. Neither reads the other, so
+whether an engine runs them in one pass or in two is not fixed: 20.1's fourth
+rule. The result is absent where `divisor` is zero, which is every window of
+length 1: a line fitted to one point is not a fit.
 
 **`ma(src, len, type)`** is exactly the named average's arithmetic, with a state
 region of its own per type, so a run that switched type mid-history starts the
@@ -3104,8 +3205,14 @@ correlation = covariance / (sqrt(squaresA / len) * sqrt(squaresB / len))
 ```
 
 `sumA` and `sumB` are the window sums of 20.2.1 over each series, which is the
-first of the two passes, and the three accumulations run in one pass over the
-window, in that order. **The correlation divides by a product of two square
+first of the two passes. The three accumulations of the second pass each add
+their own terms oldest first, and none of them reads another, so neither the
+order they are written in nor whether an engine runs them in one pass or in
+three is fixed: 20.1's fourth rule. What the two passes do fix is that both
+means are finished before any deviation is taken, which is the difference
+between this and the single pass form refused below.
+
+**The correlation divides by a product of two square
 roots, and not by the square root of a product**: those are mathematically equal
 and differ in the last bit, and
 this is the one stated. The single pass arrangement, summing squares and cross
