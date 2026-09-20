@@ -287,7 +287,7 @@ export class Emitter {
     const index = this.libraryFunctions.length;
     this.libraryFunctions.push({
       name: entry.name,
-      arity: entry.parameters.length,
+      arity: arityOf(entry),
       state: entry.stateful,
       effect: effectOf(entry),
     });
@@ -395,10 +395,25 @@ export function inputKey(input: CheckedInput): string {
  * buffer that is committed with the columns (2.8); and a marker and an alert
  * reach the host through a channel declared `defer`, not through a call.
  */
-function effectOf(entry: LibraryEntry): LibraryFunction['effect'] {
+export function effectOf(entry: LibraryEntry): LibraryFunction['effect'] {
   if (entry.name === 'print') return 'log';
   if (entry.strategyOnly && entry.callable && entry.returns.kind === 'nothing') return 'order';
   return 'none';
+}
+
+/**
+ * The arguments a `CALL_LIB` pushes for one entry, which is its `arity` (2.5).
+ *
+ * The same for every entry but the order functions, which carry one argument
+ * more than the language surface shows: the names of the arguments the script
+ * wrote. `calls.ts` says why an order call needs it and no other call does.
+ *
+ * Stated here rather than at the two places that need it, because the count the
+ * program records and the count the instruction pushes disagreeing is a program
+ * no engine will load.
+ */
+export function arityOf(entry: LibraryEntry): number {
+  return entry.parameters.length + (effectOf(entry) === 'order' ? 1 : 0);
 }
 
 /** The argument written for one parameter of a resolved call, or nothing. */

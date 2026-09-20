@@ -257,7 +257,7 @@ smaller budget than it asked for produces a wrong number instead of a message.
   "manifest": 1,
   "functions": [
     { "name": "sma", "arity": 2, "state": true, "effect": "none" },
-    { "name": "buy", "arity": 4, "state": false, "effect": "order" }
+    { "name": "buy", "arity": 6, "state": false, "effect": "order" }
   ]
 }
 ```
@@ -272,12 +272,16 @@ A function entry:
 | Field | Type | Means |
 |---|---|---|
 | `name` | string | The manifest name, including any namespace, as in `math.round` |
-| `arity` | number | Argument count after defaults are filled, section 4.9 |
+| `arity` | number | Argument count after defaults are filled, section 4.10 |
 | `state` | bool | The function holds per-call-site state |
 | `effect` | string | `"none"`, `"signal"`, `"order"`, `"draw"` or `"log"`, section 5.4 |
 
 The `CALL_LIB` instruction names a function by its index in this array, so a
 program's own table is the only name resolution an engine does, once, at load.
+
+An order function's `arity` is one more than the language's own signature shows,
+because an order call carries the names of the arguments the script wrote and
+section 4.10 says why it has to.
 
 At load the engine checks every entry against its manifest: the name must exist,
 the arity must match, and `state` and `effect` must agree with the manifest. A
@@ -883,6 +887,9 @@ rather than identify it.
 of requests be known at load, and what makes a request that changed afterwards
 OS6013. An engine hands the host the whole list once (`host-interface.md` section
 5.2) and never discovers a new request during a bar.
+
+**Not raised yet.** OS6013 is in the catalogue and nothing raises it: a read's
+identity is settled once before bar 0 and nothing asks again.
 
 `warmup` is what a host extends the requested range backwards by, so that the
 first chart bar has a value rather than the first requested bar. It is a floor
@@ -1768,6 +1775,45 @@ consults a signature and never counts. A default that is an expression rather th
 a literal is compiled **into the call site**, not into the function body, so its
 per-call-site state lives with the call that used it, which is where
 `language.md` section 11.4 puts every other piece of state.
+
+**An order function takes one argument more than the language shows, and it is
+the names of the arguments the script wrote.** Filling a default in is the whole
+of the job for every other call, because the value is the whole of the answer.
+For an order call it is not, because two of its defaults are absence itself:
+`stdlib.md` 17.2 writes `buy(qty = the declaration's, limit = none, stop = none)`.
+Substitute those and an argument left out and an argument written that came out
+absent arrive as the same value, while `language.md` 6.8 gives them opposite
+meanings. `buy()` means "use the size I declared". `buy(qty = none)` means "I
+computed a size and it came out absent", which is a sizing calculation that has
+not warmed up or a divisor that was zero, and it is OS7002. With the two
+indistinguishable the refusal has nothing to fire on, and `buy(qty = 1, stop =
+lowest(low, 20))` places a **market** order on every bar of the window instead of
+the stop order it asks for.
+
+So the last argument of an order call is a string: the names of the arguments the
+script wrote, in parameter order, separated by single spaces, and the empty
+string where it wrote none. It is a value like any other and an engine reads it
+like any other, which is why this needs no new value, no new instruction and no
+new table. The `arity` of section 2.5 counts it, so a call to `buy` pushes six
+arguments and not five. An engine reads an argument the string does not name as
+the default `stdlib.md` states for it, and refuses one the string does name and
+that arrived absent.
+
+```
+// buy(qty = 1, stop = lowest(low, 20)), where the window is still absent
+["CONST", 5]            // qty, written: 1
+["CONST", 0]            // limit, not written: absence, which is no limit price
+["SLOAD", 2]            // low
+["CONST", 18]           // 20
+["CALL_LIB", 3, 2, 0]   // lowest, absent until the window fills
+["CONST", 19]           // "qty stop"
+["CALL_LIB", 4, 6, -1]  // buy: the stop was written and is absent, so OS7002
+```
+
+This is the only place the format distinguishes an argument by how it was
+written, and it is here because it is the only place where the two spellings mean
+opposite things. Everywhere else `atr()` and `atr(14)` are one program, which is
+what section 2.5's `arity` and this paragraph's first sentence are for.
 
 **A stateful library call names its region.** `st` is `-1` for a pure function and
 a region index otherwise. The region is created on first use and persists across

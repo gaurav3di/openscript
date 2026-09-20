@@ -40,6 +40,15 @@ export interface PendingEffect {
   /** The argument values as they stood when the call executed. */
   readonly args: readonly Value[];
   /**
+   * The names those values arrived under, from the engine's own manifest.
+   *
+   * Carried so that step 9 can name an argument without counting one. The
+   * ledger reads an order call by position and has to report it by name, and a
+   * table of names beside the table of positions is the same signature written
+   * out twice.
+   */
+  readonly params: readonly string[];
+  /**
    * Where the call is written.
    *
    * Carried on the record rather than looked up later, because step 9 runs

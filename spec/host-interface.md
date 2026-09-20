@@ -515,6 +515,9 @@ So a host is handed the list once and never discovers a new request during a bar
 That is what lets a host fetch in parallel, cache by instrument and timeframe, and
 have the answers in hand before the first bar runs.
 
+**Not raised yet.** OS6013 is in the catalogue and nothing raises it: a read's
+identity is settled once before bar 0 and nothing asks again.
+
 **One request per read the file writes, and not one per instrument.** Two reads
 of the same instrument at the same timeframe are two entries on the list, whether
 they are two lines of a study or one read written out a second time inside the
@@ -703,6 +706,9 @@ capability and finds no destination wired raises OS7015 the moment a script plac
 an order, with a fix that names the change: run the file as a `study()` and
 replace the order with a `signal()`.
 
+**Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
+with nowhere to send orders places intents that reach nobody.
+
 ### 7.1 What the engine hands over
 
 An **order intent**. Not an order: the destination makes the order, and the
@@ -886,6 +892,11 @@ has built something the rest of this document does not describe.
 | A frame arrives for an intent the engine does not know | Ignored, `stdlib.md` section 17.8 step 1 |
 | The destination reports a fill the engine never asked for | Ignored by the ledger and reported by the host as an account event. A strategy's ledger holds what that strategy did |
 
+**Not raised yet.** OS7015 and OS7014 are in the catalogue and nothing raises
+them. A strategy with nowhere to send orders places intents that reach nobody. A
+destination's own refusal is folded into the ledger row as a status and its
+text, and is reported against no line.
+
 ---
 
 ## 8. Settings storage
@@ -1042,6 +1053,9 @@ What follows:
   first bar would then compute against an instrument that does not exist yet.
 - The rule is the same one requests already live under: a request's identity is
   fixed before bar 0, and a request that changed mid-run is OS6013.
+
+  **Not raised yet.** OS6013 is in the catalogue and nothing raises it: a read's
+  identity is settled once before bar 0 and nothing asks again.
 
 ---
 

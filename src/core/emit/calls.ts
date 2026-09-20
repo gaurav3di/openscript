@@ -15,7 +15,7 @@ import { libraryEntries } from '../check/index.js';
 import { namedColour } from './colours.js';
 import type { Value } from './values.js';
 import type { Emitter, Frame } from './context.js';
-import { calleeText } from './context.js';
+import { arityOf, calleeText, effectOf } from './context.js';
 import { emitExpression } from './expressions.js';
 import { bodyFor } from './functions.js';
 import { emitDeclarationCall } from './outputs.js';
@@ -84,6 +84,29 @@ export function emitCall(e: Emitter, f: Frame, call: Call): void {
  * paragraph exists: a lookback of an absent length answers absence on every
  * bar for ever, so `atr()` written exactly as `stdlib.md` prints it compiled
  * clean, loaded clean, ran to the last bar and drew nothing at all.
+ *
+ * **An order call carries one argument more than the surface shows.** For every
+ * other call, filling a default is the whole of the job and the value is the
+ * whole of the answer. For an order call it is not, because two of its defaults
+ * are absence itself: `buy(qty = the declaration's, limit = none, stop = none)`.
+ * An argument left out and an argument written that came out absent then reach
+ * an engine as the same value, and `language.md` 6.8 gives them opposite
+ * meanings: the first takes the documented default, and the second is a size or
+ * a price nobody computed and is OS7002. `buy()` and `buy(qty = none)` compiled
+ * to byte identical programs, so the refusal had nothing to fire on, and
+ * `buy(qty = 1, stop = lowest(low, 20))`, which is the catalogue's own worked
+ * example for OS7002, sent a market order on every bar of the window instead.
+ *
+ * So the last argument of an order call is the names of the arguments the
+ * script wrote, in parameter order, separated by spaces. It is a value like any
+ * other and the engine reads it like any other, which is why this needs no new
+ * value, no new instruction and no change to the format: only the nine order
+ * functions' manifest signatures, `compiled-program.md` 2.5 and 4.10.
+ *
+ * It is the last argument rather than the first because that is where a reader
+ * of the program meets it after the arguments it describes, and it names the
+ * arguments rather than numbering them so that a compiled program stays
+ * readable by hand (2.14).
  */
 function emitLibraryCall(
   e: Emitter,
@@ -97,22 +120,31 @@ function emitLibraryCall(
   if (REQUEST_STATUS_CALLS.has(entry.name)) {
     emitReadHandle(e, f, call, args[0]?.value);
     f.builder.at(call.span);
-    f.builder.push('CALL_LIB', index, entry.parameters.length, -1);
+    f.builder.push('CALL_LIB', index, arityOf(entry), -1);
     return;
   }
 
+  const ordering = effectOf(entry) === 'order';
+  const written: string[] = [];
   for (let i = 0; i < entry.parameters.length; i += 1) {
     const argument = args[i];
+    const parameter = entry.parameters[i];
     if (argument !== undefined) {
+      if (parameter !== undefined) written.push(parameter.name);
       emitExpression(e, f, argument.value);
       continue;
     }
-    emitDefault(e, f, call, entry.parameters[i]);
+    emitDefault(e, f, call, parameter, ordering);
+  }
+
+  if (ordering) {
+    f.builder.at(call.span);
+    f.builder.push('CONST', e.pool.string(written.join(' ')));
   }
 
   f.builder.at(call.span);
   const state = entry.stateful ? f.layout.state(index) : -1;
-  f.builder.push('CALL_LIB', index, entry.parameters.length, state);
+  f.builder.push('CALL_LIB', index, arityOf(entry), state);
 }
 
 /**
@@ -135,6 +167,7 @@ function emitDefault(
   f: Frame,
   call: Call,
   parameter: LibraryParameter | undefined,
+  ordering: boolean,
 ): void {
   f.builder.at(call.span);
 
@@ -144,13 +177,20 @@ function emitDefault(
     // knows. Absence is what it carries, and whatever receives it decides.
     // Each one is recorded with its reason in `spec/default-exceptions.json`,
     // and nothing else may be in this state.
-    e.gap(
-      'an omitted optional argument is emitted as absent, because the specification states no ' +
-        'value for it and names the declaration that decides instead',
-      'compiled-program.md 4.10, against stdlib.md section 1',
-      call.span,
-      false,
-    );
+    //
+    // On an order call this is not a gap. The call carries the names of the
+    // arguments the script wrote, so absence here says "the script wrote
+    // nothing" rather than "the value is unknown", and the engine applies the
+    // default the specification states instead of guessing which it was.
+    if (!ordering) {
+      e.gap(
+        'an omitted optional argument is emitted as absent, because the specification states no ' +
+          'value for it and names the declaration that decides instead',
+        'compiled-program.md 4.10, against stdlib.md section 1',
+        call.span,
+        false,
+      );
+    }
     f.builder.push('CONST', e.pool.absent());
     return;
   }

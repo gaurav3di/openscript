@@ -810,6 +810,10 @@ lines earlier. The compiler emits warning OS8004 on an `if` whose condition can 
 absent and whose block assigns to a name used outside it, since that is the shape
 where warmup silently changes an answer.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 ### 6.7 Absence in the standard library
 
 Every library function that reads a window of bars propagates absence: if any bar
@@ -831,6 +835,14 @@ An order function given an absent price or an absent quantity does not place a
 malformed order and does not silently substitute a value. It rejects with OS7002,
 naming the argument that was absent. An order is the one place in the language
 where doing nothing quietly is worse than stopping loudly.
+
+**An argument the script did not write is not an absent argument.** `buy()` means
+"use the size I declared" and takes the default `stdlib.md` 17.2 states for it.
+`buy(qty = none)` means "I computed a size and it came out absent", and that is
+the case this section is about: a sizing calculation that has not warmed up, or a
+divisor that was zero, about to send an order at a size nobody chose. The two are
+told apart at compile time, where the difference is visible, and
+`compiled-program.md` 4.10 says how an engine is told which it was.
 
 ---
 

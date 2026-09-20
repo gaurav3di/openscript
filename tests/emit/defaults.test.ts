@@ -181,3 +181,50 @@ test('a read whose body omits a length asks for the bars that length needs', () 
   assert.equal(bare.program?.requests[0]?.warmup, 13);
   assert.equal(bare.program?.requests[0]?.warmup, written.program?.requests[0]?.warmup);
 });
+
+/**
+ * The one place where the two spellings must **not** be one program.
+ *
+ * Filling a default in at the call is right everywhere above and wrong on an
+ * order, because two of an order call's defaults are absence itself: `buy(qty =
+ * the declaration's, limit = none, stop = none)`. Substituting them made
+ * `buy()` and `buy(qty = none)` byte identical, so an engine could not tell "use
+ * the size I declared" from "I computed a size and it came out absent", and
+ * OS7002 had nothing to fire on.
+ *
+ * `compiled-program.md` 4.10 settles it where the difference is known, which is
+ * here: an order call carries the names of the arguments the script wrote. This
+ * asserts the difference exists in the program, which is stronger than
+ * asserting the refusal, because two identical programs cannot disagree on any
+ * bar of any dataset and it fails on the instruction rather than on bar 19.
+ */
+function strategy(body: string): Emitted {
+  return compile(
+    'orders.oscript',
+    ['version 1', 'strategy("Orders", qty = 2)', 'if bar.index == 1', `    ${body}`, ''].join('\n'),
+  );
+}
+
+const DISTINCT: readonly (readonly [string, string])[] = [
+  ['buy()', 'buy(qty = none)'],
+  ['buy(qty = 1)', 'buy(qty = 1, limit = none)'],
+  ['buy(qty = 1)', 'buy(qty = 1, stop = none)'],
+  ['close()', 'close(qty = none)'],
+  ['exit(tag = "in")', 'exit(tag = "in", stop = none)'],
+  ['order.reverse()', 'order.reverse(qty = none)'],
+];
+
+for (const [bare, absent] of DISTINCT) {
+  test(`${bare} and ${absent} are not the same program`, () => {
+    const left = strategy(bare);
+    const right = strategy(absent);
+    assert.deepEqual(left.diagnostics.map((one) => one.code), [], bare);
+    assert.deepEqual(right.diagnostics.map((one) => one.code), [], absent);
+    assert.notEqual(
+      executable(left),
+      executable(right),
+      `${bare} and ${absent} compile to one program, so no engine can tell a default from a ` +
+        `size or a price nobody computed`,
+    );
+  });
+}

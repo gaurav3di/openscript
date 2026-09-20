@@ -15,7 +15,7 @@
 export { emit } from './emit.js';
 export type { EmitResult } from './emit.js';
 export type { EmitOptions } from './context.js';
-export { DECLARATION_CALLS } from './context.js';
+export { DECLARATION_CALLS, arityOf, effectOf } from './context.js';
 export { BAR_FACTS, BAR_FIELDS } from './registers.js';
 export { REQUEST_CALLS, REQUEST_STATUS_CALLS } from './requests.js';
 

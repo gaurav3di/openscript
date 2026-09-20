@@ -122,6 +122,17 @@ order has finished, is `stdlib.md` section 17.3. OS7009 is a call that acts on a
 order rather than one that reads one, and its scope is the one `errors.md` gives
 it.
 
+A tag that has to name something is a **reference**, and a tag a call merely
+carries is a **label**; which one a tag argument is, is written in its default,
+and `stdlib.md` section 17.2 states the rule. The two references on the surface
+are answered in different places, because they are different questions. Whether
+an order is still working is something only a run knows, so `cancel` is refused
+by the engine with OS7009. Whether any order in the file could carry the tag at
+all is something the file settles, so a `close` naming a tag nothing places is
+OS7016 at the call, before any bar runs. A close on a tag that is placed
+somewhere in the file and holds nothing right now is neither: it sends nothing
+and says nothing, which is what makes closing the same tag twice safe to write.
+
 ### The positions
 
 In a file with one leg, the `pos` namespace is the position:
@@ -250,7 +261,8 @@ the day you want to find out from a panel rather than from a statement.
 |---|---|---|
 | A fill counted twice | Adding up reports instead of reading the total | `order.filled(tag)` is cumulative; take a difference if you need a delta |
 | `order.filled(tag)` never falls back to zero after an exit (planned) | It is that order's life total, not the position | Read `pos.size` for what is held |
-| OS7009 from `cancel` | The tag names no order to act on | Test with `order.working(tag)` first, and tag every order |
+| OS7009 from `cancel` | The tag names no order that is still working | Use the tag the order was placed with; `order.working(tag)` is the guard and is planned, so until it lands cancel on the condition the order was placed on, or call `cancelAll()` |
+| OS7016 on a `close` | The tag is one no order in the file is placed with, usually a typo | Use the tag the entry was placed with, or leave the tag out to flatten the whole leg |
 | A late fill applied to the wrong trade | Expecting fills to settle the current position | They settle their own position reference; a flip is two orders |
 | The strategy's position disagrees with the account's | Something else is trading that contract | `pos.isShared`, then find out who |
 | A reconciliation against the declared product fails | The destination translated the product | Reconcile against `leg.product(name)`, which is what was sent |

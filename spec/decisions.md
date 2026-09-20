@@ -700,6 +700,9 @@ citation survived.
 - `feature-matrix.md` section 26, after the row "Deletion and counting":
   `| A deleted object still held | OS8019, warning that a name or an array still refers to an object deleted earlier, because a stale handle in a setter is OS4005 one bar later | `specified` | `language.md` 5.4, `errors.md` OS8019 | `unit:draw/deleted-still-held` |`
 
+  **Not raised yet.** OS8019 is in the catalogue and nothing raises it: the
+  checker does not follow a reference to a deleted object.
+
 ---
 
 ## 19. (M9) The README credits a script that does not write "color ="
@@ -834,6 +837,10 @@ bug 12.3 exists to prevent.
   the `language.md` and `errors.md` renames, or the build fails in between.
 - None of the replacement names above is in the global scope: they were checked
   against the same list the checker builds from `stdlib.md` and `language.md`.
+
+  **Not raised yet.** OS4012 is in the catalogue and nothing raises it: a
+  computed name outside the accepted set produces absence on every bar, and only
+  a name written as a literal is refused, with OS3008.
 
 ---
 
@@ -2324,6 +2331,125 @@ the rule that tests it is planned, so a host decides today what a bracket does
 between the moment it is sent and the moment 17.9's standing levels exist. That
 is a question about the levels rather than about where a position comes from, and
 it needs its own decision.
+
+---
+
+## 39. What a tag argument means, and where a close that can never close anything is refused
+
+**Question.** Three statements in this repository, two answers. `stdlib.md` 17.3
+says OS7009 "is for a call that acts on an order, which is `cancel` and the two
+planned calls". `errors.md` OS7009's worked example is an `order.bracket` whose
+tag names no order, presented as a refusal. `src/core/engine/ledger/place.ts`
+said `exit` and `order.bracket` "attach a protective level to a tag", which reads
+as a tag that has to name one. And separately, in the same area: `close(tag)`
+with a tag no ledger row ever carried sends nothing and says nothing, so the
+position stays open and the script believes it has flattened.
+
+**What was measured**, against the built engine, before any of this was decided:
+
+- `order.bracket(tag = "entries", loss = 10)` after `buy(qty = 1, tag = "entry")`:
+  no diagnostic, and the intent leaves carrying the tag `"entries"`.
+- `order.bracket(loss = 10)` with no tag written: no diagnostic, and the intent
+  leaves carrying the empty tag.
+- `exit` behaves as `order.bracket` does, on both counts.
+- `cancel` with a tag naming no working order: OS7009, and nothing is sent.
+- `close(tag)` twice on a tag that has flattened: one order, no diagnostic.
+- `close(tag)` on a tag no row ever carried: nothing sent, nothing said.
+
+**Decision, part one. What a tag argument means is written in its default.** A
+tag that defaults to the empty string is a **label**: the call carries it to the
+destination and to the report, it names nothing that has to exist, and an empty
+one is an ordinary order. A tag that is required, or that defaults to absence, is
+a **reference**: it names something the strategy already has, and naming nothing
+is a mistake rather than a no-op.
+
+Every call on the order surface that acts obeys it. The calls that place an
+order, and both spellings of a bracket, default their tag to the empty string and
+take a label. `cancel` requires its tag and `close` defaults its to absence, and
+both take a reference. The planned `order.modify` and `order.oco` require theirs,
+and are references, which is what decision 30 already said.
+
+**The one exception is the reading calls of 17.3**, and it is in the rule's
+second half rather than its first: each of them requires its tag, so each takes a
+reference, and a tag naming no row is answered with the entry's documented empty
+value instead of being refused. Decision 30 settled that and gave the reason,
+which is that reading is how a script finds out. The exception is now stated in
+17.3 as an exception rather than left to be noticed.
+
+**So `errors.md` is the document that moves.** Its OS7009 example contradicted
+the implementation, `stdlib.md` 17.3, and decision 30, and the reading that saves
+it is not available: a reference defaulting to the empty string would be
+nonsense, a leg carries at most one stop and at most one target at a time (17.2)
+so a bracket cannot be attached to an individual order, and the engine already
+measures a bracket from the leg's own average entry price. The example is now a
+cancellation, which is a call that really does raise the code.
+
+**A second defect in the same entry.** OS7009's fix told the reader to test
+`order.working(tag)` before acting, and its after block was written around that
+call. `order.working` is marked planned, so the fix the catalogue handed a reader
+was itself a refusal, OS2020. Both now say something that compiles today: use the
+tag the order was placed with, or `cancelAll()`, which acts on whatever is
+working and refuses nothing.
+
+**Decision, part two. A `close` naming a tag no order in the file is placed with
+is OS7016, at the call, before any bar runs.** A close names the part of a
+position that one tag entered. A tag nothing places can never name a part of one,
+so the call could only send nothing on every bar while the position stayed open.
+A tag the script computes is not read, and neither is any close in a file where
+an order's tag is computed: nothing there is provable.
+
+**Why the checker rather than the engine, which is where the defect was found.**
+The engine cannot tell the mistake from an ordinary bar. A tag that has never
+named a ledger row is also what a working script looks like before its entry has
+fired: an exit signal that is true on the bar before the entry signal ever was is
+an ordinary chart, not a defect, and a strategy that scales into a position and
+exits the added part on a separate condition meets it on the first such bar. A
+refusal there would stop that script, and no guard against it can be written
+today, because every call that reads the ledger is planned. It would be a
+refusal that refuses a script for doing exactly what its own fix asks, which is
+the reason `refuse.ts` already gives for not counting an unfilled order as an
+open entry under OS7008.
+
+The file does not have that problem. What a file can place is all of what it will
+ever place, so the question is settled once, for every bar and every data set,
+and the fix always applies. `cancel` stays with the engine for the mirror reason:
+what it asks is whether an order is live now, and only a run knows that.
+
+**Why a code of its own rather than OS7009.** OS7009's message is "There is no
+working order tagged {tag}", and a close does not act on a working order: it acts
+on the part of a position a tag entered. One message covering both would be
+vaguer than either, and the two are refused at different stages by different
+evidence, so a reader meeting one code in two places would have to work out which
+of the two rules had fired.
+
+**What is not refused, and must not become so.** A close on a tag that is placed
+somewhere in the file and holds nothing right now sends nothing and says nothing.
+That is idempotence, it is how a strategy is ordinarily written, and it covers
+both the tag that has already flattened and the tag whose entry has not fired
+yet.
+
+**Changes required.**
+
+- `errors.md` OS7009, fix: "Use the tag the order was placed with, or cancelAll()
+  where the script means every order it has working." `errors.json` the same.
+- `errors.md` OS7009, example: before is `buy(qty = 1, tag = "entry")` followed by
+  `cancel("entries")`; after is the same pair with the tag spelled as it was
+  placed. `errors.json` the same.
+- `errors.md` and `errors.json`: a new entry, OS7016, stage `check`.
+- `errors.md` 4, the ranges table: the OS7xxx count and the total.
+- `stdlib.md` 17.2: the paragraph stating the rule, and the paragraph on what a
+  close's tag names and when it is OS7016.
+- `stdlib.md` 17.3: the reading calls take a reference and are the one place the
+  rule's second half does not follow.
+- `feature-matrix.md` 29: three rows, `order/tag-label-or-reference`,
+  `unit:order/close-unplaceable-tag` and `order/close-idempotent`.
+- `docs/strategies/orders.md`: the rule in the order identity section, OS7016 in
+  the refusal table, the OS7009 row corrected (a read does not raise it), and the
+  sentence advising a planned call replaced with one that compiles today.
+- `docs/strategies/reading-the-books.md`: the rule beside the reading calls, and
+  both codes in the pitfalls table.
+- `src/core/engine/ledger/place.ts`, the header: a bracket sets the leg's level
+  and its tag is a label; a close's tag is a reference.
 
 ---
 

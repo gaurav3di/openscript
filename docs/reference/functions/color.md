@@ -74,6 +74,9 @@ A colour computed from data and landing at 300 is a bug in the computation, and
 clamping it would draw a plausible picture from a broken number. The same
 applies to an alpha above 1 or below 0.
 
+**Not raised yet.** OS4009 is in the catalogue and nothing raises it: a channel
+outside its range reaches the chart rather than stopping the bar.
+
 ### `fade(color, percent)`
 
 The same colour at `percent` transparency.

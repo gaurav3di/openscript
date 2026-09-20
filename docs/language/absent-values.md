@@ -217,6 +217,10 @@ The compiler helps with the one shape where this quietly changes an answer. If a
 block, that is warning OS8004, and the fix is to decide what warmup means: give
 the name a starting value above the `if`, or test `isNone` explicitly.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 ## Testing for absence
 
 | Call | Returns | Use it for |
@@ -321,6 +325,10 @@ if not isNone(r)
 ```
 
 This is the shape the compiler warns about as OS8004.
+
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
 
 ### 2. A self-referencing series that is absent for ever
 

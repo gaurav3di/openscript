@@ -7,13 +7,22 @@
  * in two places. The mapping to orders and the refusals both read this record,
  * so neither of them counts arguments.
  *
- * **An argument the script left out and an argument it wrote as absent arrive
- * here the same way**, because the compiled program carries no difference
- * between them: an optional argument with no value in the surface is emitted as
- * absence (`compiled-program.md` 4.10, and the recorded exceptions beside it).
- * So `absent` names only the arguments the surface states no default for at all,
- * where absence can only have come from the script. Everywhere else the
- * documented default is what absence means, and the mapping applies it.
+ * **An argument the script left out and an argument it wrote as absent are not
+ * the same thing, and an order is where the difference matters most.** `buy()`
+ * means "use the size I declared" and takes the declaration's own quantity.
+ * `buy(qty = none)` means "I computed a size and it came out absent", which is a
+ * sizing calculation that has not warmed up or a divisor that was zero, and it
+ * is OS7002: an order is the one place in the language where doing nothing
+ * quietly is worse than stopping loudly (`language.md` 6.8).
+ *
+ * The two used to arrive here as one value, because two of an order call's
+ * defaults are absence itself and the compiler filled them in. So an order call
+ * now carries one argument more than the language surface shows, and it is the
+ * last one: the names of the arguments the script wrote, in parameter order
+ * (`compiled-program.md` 4.10). `absent` is read from it, and names every
+ * argument the script wrote that came out absent. Everything the script did not
+ * write is left absent here and takes the default `stdlib.md` documents, which
+ * the mapping applies.
  */
 import type { Span } from '../../span/index.js';
 import type { OrderSide, OrderType } from './intent.js';
@@ -37,7 +46,7 @@ export interface OrderCall {
   readonly name: string;
   /** Where the call is written, so a refusal points at it. */
   readonly at: Span;
-  /** Required arguments the script gave nothing at all, in signature order. */
+  /** Arguments the script wrote that came out absent, in signature order. */
   readonly absent: readonly string[];
   readonly side: OrderSide | null;
   /** The quantity the script stated, absent where it stated none. */
@@ -84,7 +93,7 @@ function text(args: readonly unknown[], index: number): string | null {
 }
 
 /**
- * Whether the script gave this argument nothing at all.
+ * Whether this argument holds no value.
  *
  * Absence and nothing at the position are the same answer, because a program
  * that supplied fewer arguments than the signature declares would have been
@@ -93,6 +102,28 @@ function text(args: readonly unknown[], index: number): string | null {
 function missing(args: readonly unknown[], index: number): boolean {
   const value = args[index];
   return value === null || value === undefined;
+}
+
+/**
+ * The arguments the script wrote that came out absent, in signature order.
+ *
+ * The last argument of an order call is the names of the arguments the script
+ * wrote, so this is the whole of telling a default apart from a value nobody
+ * computed. It reads the names rather than a list of its own, because the
+ * signature is the manifest's and a second copy of it here is one more thing to
+ * correct when a signature changes.
+ */
+function absentOf(params: readonly string[], args: readonly unknown[]): readonly string[] {
+  const last = params.length - 1;
+  if (last < 0) return [];
+  const value = args[last];
+  const written = new Set(typeof value === 'string' ? value.split(' ') : []);
+  const found: string[] = [];
+  for (let i = 0; i < last; i += 1) {
+    const name = params[i];
+    if (name !== undefined && written.has(name) && missing(args, i)) found.push(name);
+  }
+  return found;
 }
 
 /** A word that is one of a set, or nothing where it is not. */
@@ -115,7 +146,18 @@ function placing(side: OrderSide, args: readonly unknown[], at: Span): OrderCall
 }
 
 /** Reads one call, whichever of the nine it is. */
-export function callOf(name: string, args: readonly unknown[], at: Span): OrderCall {
+export function callOf(
+  name: string,
+  params: readonly string[],
+  args: readonly unknown[],
+  at: Span,
+): OrderCall {
+  const absent = absentOf(params, args);
+  const read = readCall(name, args, at);
+  return absent.length === 0 ? read : { ...read, absent };
+}
+
+function readCall(name: string, args: readonly unknown[], at: Span): OrderCall {
   switch (name) {
     case 'buy':
       return placing('buy', args, at);
@@ -146,26 +188,14 @@ export function callOf(name: string, args: readonly unknown[], at: Span): OrderC
       };
 
     case 'cancel':
-      // The tag is required, so absence here is the script's own.
-      return {
-        ...NOTHING,
-        name,
-        at,
-        absent: missing(args, 0) ? ['tag'] : [],
-        tag: text(args, 0),
-      };
+      return { ...NOTHING, name, at, tag: text(args, 0) };
 
     case 'order.place': {
-      // side, qty, type, price, trigger, tag. The first two are required, so
-      // absence in either is a value the script computed and not a default.
-      const absent: string[] = [];
-      if (missing(args, 0)) absent.push('side');
-      if (missing(args, 1)) absent.push('qty');
+      // side, qty, type, price, trigger, tag.
       return {
         ...NOTHING,
         name,
         at,
-        absent,
         side: oneOf(SIDES, text(args, 0)),
         qty: number(args, 1),
         type: oneOf(TYPES, text(args, 2)),

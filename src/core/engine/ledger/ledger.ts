@@ -98,14 +98,20 @@ export class Ledger {
    * not do; nothing reached a destination either way, since every call on a bar
    * is mapped before any of them is routed.
    */
-  place(name: string, args: readonly unknown[], bar: IntentBar, at: Span): PlacedCall {
+  place(
+    name: string,
+    params: readonly string[],
+    args: readonly unknown[],
+    bar: IntentBar,
+    at: Span,
+  ): PlacedCall {
     if (bar.index !== this.at) {
       this.at = bar.index;
       this.sent = [];
     }
 
     const ctx = this.contextFor(bar);
-    const call = callOf(name, args, at);
+    const call = callOf(name, params, args, at);
     const refused = refusalInCall(call, ctx);
     if (refused !== undefined) return { intents: [], refusal: refused };
 

@@ -208,6 +208,10 @@ The two that cost real money are OS8001 and OS8004. Both are about absence
 arriving somewhere it is not visible, and both are much cheaper to fix on the
 line where the editor puts them than to find later on a chart.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 ## Apply: putting the script on the chart
 
 Apply compiles the current text and hands the result to the chart. On a script

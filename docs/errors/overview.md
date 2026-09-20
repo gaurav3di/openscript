@@ -158,6 +158,10 @@ condition takes the false branch, so during warmup the block does not run and th
 name keeps whatever it held before. Warmup bars sit off the left edge of the
 screen, which is exactly why this shape changes an answer and nobody notices.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 **OS8011, `live var` makes live and backtest differ.** An ordinary `var` rolls
 back before each re-execution of the newest bar, which is what makes a live chart
 and a backtest of the same data agree. `live var` opts out of that by design, and
@@ -212,7 +216,9 @@ An entry:
 | `example` | `before`, the shortest script that raises it, and `after`, the same script fixed |
 | `spec` | The sections of `language.md` that define the rule |
 | `refines` | The broader code this one takes a case from, if any |
-| `test` | The directory holding the test that produces this code |
+| `test` | A file under `tests/` that writes this code, or `null` where no test names it |
+| `deferred` | Present only while nothing raises the code: what happens instead today |
+| `unexercised` | Present only where the code is raised and no example can reach it |
 
 A complete entry, as it appears in the file:
 
@@ -234,7 +240,7 @@ A complete entry, as it appears in the file:
   },
   "spec": "language.md 10.1",
   "refines": null,
-  "test": "tests/errors/OS1006"
+  "test": "tests/examples/rejected/OS1006.oscript"
 }
 ```
 
@@ -252,8 +258,9 @@ with the smallest change that compiles.
 
 ## The promise: every error is documented, and the build enforces it
 
-Documentation drifts from code because nothing fails when it does. Two rules run
-in continuous integration, and both fail the build rather than print a note.
+Documentation drifts from code because nothing fails when it does. Three rules
+run in continuous integration, and all of them fail the build rather than print a
+note.
 
 **Rule one. Every code the compiler can emit exists in the catalogue.** The
 compiler and every engine emit codes from one generated table, and nothing
@@ -270,25 +277,42 @@ site supplies must be exactly the placeholders the entry declares, so a message
 with an empty slot is a build failure rather than something you discover at
 three in the afternoon.
 
-**Rule two. Every entry has a test that produces it.** Each entry names a test
-directory. The test holds `example.before` and the expected diagnostic, and the
-runner asserts four things:
+**Rule two. Every worked example compiles, and every mistake raises its own
+code.** The `after` block is what you are handed at the moment you are stuck, and
+you will paste it, so every after block goes through the compiler and any
+diagnostic fails the build. The only two it tolerates are the ones that say the
+block stopped rather than that it is wrong: a name the fragment declares and does
+not go on to read, and an input it does not go on to use.
 
-1. Compiling or running `example.before` produces this code, at the expected line
-   and column.
-2. The diagnostic supplies exactly the placeholders the entry declares.
-3. Compiling or running `example.after` produces no diagnostic at all, which is
-   what makes the fix a fix rather than a suggestion.
-4. For a warning, the script still runs to completion and produces output.
+Every `before` block is compiled too, and has to raise the code it is filed
+under. A code the compiler settles is settled by compiling. A runtime code needs
+a bar, so the program is loaded on a host and driven over a fixed dataset, on a
+venue that fills orders and a venue that leaves them working.
+
+Where a case cannot be reached, the entry says so and the build counts it. A
+`deferred` sentence means nothing raises the code yet. An `unexercised` sentence
+says what the code needs that an example cannot carry, which is how a ceiling of
+a million elements is recorded rather than chased. An example `kind` of
+`transcript` marks the entries whose example is the host's input rather than a
+script. Each of those is on the entry, where you meet it, and never in a list
+inside the checker, where nobody would.
+
+**Rule three. The test an entry points at exists and names the code.** The `test`
+field is a file under `tests/` that writes the code, or `null` saying in the open
+that nothing tests it. A path that does not resolve fails the build, and so does
+a `null` on a code some test has since started to name. The codes nothing
+exercises are printed on every run rather than papered over with a pointer
+somebody invented to fill the column.
 
 Two smaller checks run in the same job: the schema check, which asserts every
 field is present, every placeholder is declared and used, and every fix is
 non-empty; and the independence check, which asserts that no product, platform or
 company is named anywhere in either file.
 
-Together the two rules close the loop. The compiler cannot emit an undocumented
-code, the catalogue cannot document a code that does not exist, and no entry can
-describe behaviour the implementation does not have.
+Together the three rules close the loop. The compiler cannot emit an undocumented
+code, the catalogue cannot document a code that does not exist, no entry can
+describe behaviour the implementation does not have, and no fix in the catalogue
+is a line that would not compile.
 
 ## Codes that refine another code
 
@@ -362,6 +386,9 @@ var startTime = none
 if session.isFirstBar
     startTime = time
 ```
+
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
 
 ## If you meet a code this page does not cover
 

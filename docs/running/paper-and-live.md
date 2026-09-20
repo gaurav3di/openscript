@@ -22,6 +22,9 @@ happened, the destination decides what happens, and nothing in the language
 reaches across. A strategy that placed an order and found no destination at all is
 OS7015, which says so rather than computing a position nothing ever took.
 
+**Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
+with nowhere to send orders places intents that reach nobody.
+
 ## Paper is the default, and nothing in a script can change that
 
 **A strategy is born unable to trade for real.** A new strategy sends its orders
@@ -106,6 +109,10 @@ instruments the account is not permitted to trade and orders outside a price
 band are ordinary events, and they arrive as OS7014 carrying the destination's
 own reason. The same order will keep being rejected until the account or the
 order changes, so a strategy that retries in a loop just makes the log longer.
+
+**Not raised yet.** OS7014 is in the catalogue and nothing raises it: a
+destination's own refusal is folded into the ledger row as a status and its
+text, and is reported against no line.
 
 ## Paper against backtest: the moving bar
 
@@ -363,6 +370,11 @@ of them is a matter of opinion.
     if the file enters as a unit; per session an exit time, an expiry square off
     and a daily loss limit.
 
+   **Not raised yet.** OS8004 and OS7012 are in the catalogue and nothing raises
+   them. The checker does not follow which names a branch on a possibly absent
+   condition assigns. Nothing compares the bar's time with the instrument's
+   session before an order is sent.
+
 **The numbers**
 
 11. A backtest over a range covering more than one regime, with at least a
@@ -418,6 +430,13 @@ of them is a matter of opinion.
 | OS7006 | Price is not on a tick | `roundToTick` on a limit or stop price |
 | OS7002 | An order argument is absent | The sizing path that can produce absence |
 | OS6009 | A data request failed | The feed, and whether the script depends on it to trade |
+
+**Not raised yet.** OS7014, OS7011, OS7012 and OS7005 are in the catalogue and
+nothing raises them. A destination's own refusal is folded into the ledger row
+as a status and its text, and is reported against no line. Nothing compares an
+order's cost with the capital the strategy has. Nothing compares the bar's time
+with the instrument's session before an order is sent. Nothing compares an
+order's quantity with the lot size its leg trades in.
 
 None of these stops the strategy silently. Each one names the argument or the
 reason, which is the difference between a failed order you can fix in a minute

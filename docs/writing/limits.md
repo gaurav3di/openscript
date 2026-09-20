@@ -207,6 +207,10 @@ from an empty array with `pop`, `shift`, `min`, `max` or `avg`, which has no
 answer; returning absence there would let a script drain an array without
 noticing.
 
+**Not raised yet.** OS4006 is in the catalogue and nothing raises it: an element
+taken from an empty array raises the broader OS4004, and summarising one returns
+absence.
+
 ## The string ceiling
 
 A string holds at most the host's ceiling in characters, reported as OS5008 with
@@ -323,6 +327,9 @@ Two consequences matter in practice.
   bars of warmup and the host loaded three hundred bars, most of the chart is
   warmup, and that is a data problem rather than a script problem. Say in the
   script's documentation how much history it needs.
+
+  **Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+  checker does not follow a bar index into a persistent value.
 
 ## When you reach a limit: a short decision table
 

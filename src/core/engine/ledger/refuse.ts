@@ -20,13 +20,6 @@
  * not evaluated at all, because a refusal with a wrong number in it is worse
  * than the silence it replaced:
  *
- * - **An absent quantity on `buy` and `sell`, OS7002.** `stdlib.md` 17.2 gives
- *   those two a default of the declaration's own size, and `compiled-program.md`
- *   4.10 emits an omitted optional argument as absence, so the two spellings
- *   reach an engine as the same value and nothing here can tell "the
- *   declaration's size" from "I do not know the size". The arguments the surface
- *   declares required, which are `order.place`'s side and quantity and
- *   `cancel`'s tag, carry no such default and are refused.
  * - **A quantity that is not a whole number of lots, OS7005**, and **an order
  *   outside the instrument's session, OS7012**: both are facts the leg would
  *   have to be given and neither is one the ledger holds today.
@@ -141,8 +134,11 @@ function entriesOpen(ctx: PlacingContext, side: OrderSide): number {
  * host.
  */
 export function refusalInCall(call: OrderCall, ctx: PlacingContext): Diagnostic | undefined {
-  // OS7002. Named in signature order, so a call missing two is reported on the
-  // first one a reader would fix.
+  // OS7002. Every argument the script wrote that came out absent, named in
+  // signature order, so a call with two is reported on the first one a reader
+  // would fix. An argument the script did not write is not one of them: it
+  // takes the default `stdlib.md` documents, and `call.ts` says how the two are
+  // told apart.
   const absent = call.absent[0];
   if (absent !== undefined) {
     return diagnosticFor('OS7002', call.at, { name: call.name, argument: absent });

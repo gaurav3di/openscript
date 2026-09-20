@@ -188,6 +188,9 @@ rejected. The engine rejects it too, with OS7005 naming the instrument, its lot
 size and the quantity, for the same reason the exchange would: a backtest that
 filled such an order would report a trade that could not have happened.
 
+**Not raised yet.** OS7005 is in the catalogue and nothing raises it: nothing
+compares an order's quantity with the lot size its leg trades in.
+
 | Fact | Call | Absent when |
 |---|---|---|
 | Units in one lot | `chart.lotSize` | The host has not said |
@@ -427,6 +430,9 @@ backtest does.
 | The size is right and the account holds twice it | Something else is trading the same contract | `pos.isShared`; the language never divides a shared position |
 | `pos.avgPrice` will not compile | The file declares more than one leg | Read `leg.avgPrice(name)`, one leg at a time |
 | Derivative sized as if one point were one unit of money | `chart.pointValue` left out of the arithmetic | Multiply by `orElse(chart.pointValue, 1)` |
+
+**Not raised yet.** OS7005 is in the catalogue and nothing raises it: nothing
+compares an order's quantity with the lot size its leg trades in.
 
 ## See also
 

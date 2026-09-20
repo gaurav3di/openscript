@@ -94,7 +94,7 @@ export function routedEffects(
       effects.push({ ...effect, intents: [] });
       continue;
     }
-    const placed = ledger.place(effect.name, effect.args, at, effect.at);
+    const placed = ledger.place(effect.name, effect.params, effect.args, at, effect.at);
     if (placed.refusal !== undefined) return { effects: [], refusal: placed.refusal };
     effects.push({ ...effect, intents: placed.intents });
   }

@@ -125,6 +125,9 @@ A level's exit order is an order like any other. It lands in the strategy's ledg
 it obeys the lot and tick rules, and it can be refused: a stop that rounds to no
 whole lot is OS7005 and a level off the tick is OS7006.
 
+**Not raised yet.** OS7005 is in the catalogue and nothing raises it: nothing
+compares an order's quantity with the lot size its leg trades in.
+
 ## Slippage
 
 `slippage` is a number of ticks of adverse slippage applied to every fill.
@@ -409,6 +412,10 @@ recognise them when the live account underperforms:
 | Rejections | Margin, product and permission refusals happen live and never in history | Handle OS7014 rather than assuming a fill |
 | Carry and funding | Holding overnight costs money that a bar series does not show | Account for it outside the strategy, per position per night |
 | Missed bars | A live script that was not running took no trades | Compare the trade list, not just the curve |
+
+**Not raised yet.** OS7014 is in the catalogue and nothing raises it: a
+destination's own refusal is folded into the ledger row as a status and its
+text, and is reported against no line.
 
 None of these is an argument against backtesting. They are the reason a backtest
 result is a hypothesis and a paper run is the test of it, which is why the same

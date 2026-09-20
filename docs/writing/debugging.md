@@ -348,6 +348,9 @@ every bar. Keeping an index in a persistent value earns warning OS8014 for that
 reason. The index is printed, because inside one run it is the number you type
 into `watchBar`, and it is not kept.
 
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
+
 ### Bisecting the script
 
 When the first-offender pattern tells you the bar but not the line, halve the
@@ -380,6 +383,9 @@ a lookback are visible at length 2 and invisible at length 20.
 | Right in the backtest, different live | The moving bar. A `live var`, an unguarded accumulation, or a signal on an unconfirmed bar | Put `bar.updates` and `bar.isConfirmed` in a debug panel |
 | The numbers change when you scroll back | A stored `bar.index` (OS8014), or a higher timeframe read in `"lookahead"` mode | Search the file for `bar.index` in a `var` and for `mode =` |
 
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
+
 ## Read the error, then read the catalogue
 
 Every diagnostic carries a stable code, a line, a column, a message and a fix,
@@ -393,6 +399,11 @@ Warnings deserve the same treatment. OS8001, OS8004, OS8010, OS8014 and OS8015
 each describe a shape that is nearly always a bug, and each of them has cost
 somebody an afternoon of the debugging this page describes. Clearing a warning
 is cheaper than the session it saves you.
+
+**Not raised yet.** OS8004 and OS8014 are in the catalogue and nothing raises
+them. The checker does not follow which names a branch on a possibly absent
+condition assigns. The checker does not follow a bar index into a persistent
+value.
 
 ## The loop, written out
 

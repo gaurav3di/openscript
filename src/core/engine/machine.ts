@@ -396,6 +396,7 @@ export class Machine {
         name: of.name,
         effect: of.effect,
         args,
+        params: of.params,
         at: this.here(),
       });
       stack.push(ABSENT);

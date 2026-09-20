@@ -336,6 +336,9 @@ and the same rule applies with more force to a coarser interval read.
   returns a timeframe string such as `"60"`, not a number of bars. It belongs in
   a coarser interval read, not in a length argument.
 
+  **Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+  checker does not follow a bar index into a persistent value.
+
 ## See also
 
 - [higher-timeframes.md](./higher-timeframes.md) for folding these bars up into

@@ -315,6 +315,11 @@ only the first two can catch it before the study draws anything.
 | Load | The reader's saved value against the input's type, `min`, `max` and `options` | The study reports the row and the bound, and does not run |
 | Bar | A legal setting that becomes an illegal argument: a length computed to zero, a colour channel out of range, a name that is not one of a function's accepted values | OS4003, OS4009, OS4012. The bar stops and the study is marked as errored |
 
+**Not raised yet.** OS4009 and OS4012 are in the catalogue and nothing raises
+them. A channel outside its range reaches the chart rather than stopping the
+bar. A computed name outside the accepted set produces absence on every bar, and
+only a name written as a literal is refused, with OS3008.
+
 **A saved value that fails validation stops the study rather than falling back to
 the default.** This is the decision most worth stating, because the alternative
 looks friendlier and is a trap. A study that silently substituted a default would

@@ -93,6 +93,9 @@ A channel argument outside its range is OS4009, not a clamp, because a colour
 computed from data and landing at 300 is a bug in the computation and clamping it
 would hide the bug at exactly the value that proves it exists.
 
+**Not raised yet.** OS4009 is in the catalogue and nothing raises it: a channel
+outside its range reaches the chart rather than stopping the bar.
+
 ```
 version 1
 

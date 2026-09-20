@@ -273,6 +273,9 @@ engine was given, and loading more history shifts every index. A persistent valu
 holding a bar index is warning OS8014 for exactly this reason. Store `time`, which
 does not move.
 
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
+
 ```
 version 1
 

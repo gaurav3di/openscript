@@ -280,6 +280,10 @@ assigns to a name used outside it, because the absorbing of absence at the
 branch, which is otherwise safe, becomes invisible once a persistent value
 carries the result forward.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 Make the absent case explicit and the problem disappears:
 
 ```

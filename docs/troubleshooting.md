@@ -222,6 +222,9 @@ given, not a universal address, so loading more history renumbers every bar and 
 stored index is compared against something that moved underneath it. The compiler
 warns with OS8014.
 
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
+
 **Fix.** Store `time` and compare timestamps. A bar's time does not move.
 
 ### 15. My warmup silently changed an answer
@@ -230,6 +233,10 @@ warns with OS8014.
 warmup, so a name the block assigns keeps whatever it held before, and warmup
 bars sit off the left edge of the screen where nobody looks. This is warning
 OS8004.
+
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
 
 **Fix.** Decide what warmup means and write it down: test `isNone(cond)`
 explicitly, or give the name a starting value above the `if`.
@@ -355,6 +362,12 @@ rejected the order and the reason came from the account rather than the script
 (OS7014); the instrument was outside its trading session (OS7012); or the
 strategy was never armed, since paper is the default and live is deliberate.
 
+**Not raised yet.** OS7015, OS7014 and OS7012 are in the catalogue and nothing
+raises them. A strategy with nowhere to send orders places intents that reach
+nobody. A destination's own refusal is folded into the ledger row as a status
+and its text, and is reported against no line. Nothing compares the bar's time
+with the instrument's session before an order is sent.
+
 **Fix.** Connect a destination, read the rejection reason, guard entries with
 `session.isOpen`, and set `closeOnSessionEnd = true` if you must be flat at the
 close. To test the logic without any of this, run the file as a `study()` and
@@ -373,6 +386,11 @@ replace `buy()` with `signal("BUY")`.
 | OS7008 | The entry was refused by pyramiding | Already at the declared maximum entries in that direction |
 | OS7011 | The order needs more capital than the strategy has | Size from equity, or test `pos.equity` first |
 | OS7013 | Two opposite orders on one bar | Two conditions that are not exclusive |
+| OS7016 | A close names a tag nothing places | A typo in a `close` tag, reported by the compiler rather than by a run |
+
+**Not raised yet.** OS7005 and OS7011 are in the catalogue and nothing raises
+them. Nothing compares an order's quantity with the lot size its leg trades in.
+Nothing compares an order's cost with the capital the strategy has.
 
 **Fix.** For the absent-argument case, guard the call rather than defaulting the
 value, because an order is the one place in the language where doing nothing

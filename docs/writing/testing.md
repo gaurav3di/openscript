@@ -289,6 +289,11 @@ cannot answer as a no.
 | The result is reproducible from fixed bars and fixed settings | Section 4 |
 | No warning is outstanding | Compile it and read them: OS8001, OS8004, OS8009, OS8011, OS8014 and OS8015 each describe a shape that is nearly always a bug |
 
+**Not raised yet.** OS8004 and OS8014 are in the catalogue and nothing raises
+them. The checker does not follow which names a branch on a possibly absent
+condition assigns. The checker does not follow a bar index into a persistent
+value.
+
 ### The honesty
 
 | Check | Why it matters |
@@ -299,6 +304,9 @@ cannot answer as a no.
 | `fillOn` is `"nextOpen"` | A decision made from a bar's close cannot be filled at that same close in the real market, and a backtest whose default is optimistic is a backtest that lies |
 | Every pivot's lag is accounted for | `pivotHigh` and `pivotLow` report `right` bars after the pivot formed, because that is the first bar on which the pivot is knowable |
 | No persistent value holds a bar index | Loading more history renumbers every bar (OS8014) |
+
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
 
 ### The cost model
 

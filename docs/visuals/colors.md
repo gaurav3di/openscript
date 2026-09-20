@@ -63,6 +63,9 @@ draw a plausible picture from a broken number. Where a computed channel can
 legitimately run past the end, say so in the script with `clamp`, which is one
 call and puts the decision where a reader can see it.
 
+**Not raised yet.** OS4009 is in the catalogue and nothing raises it: a channel
+outside its range reaches the chart rather than stopping the bar.
+
 ## Transparency, and the two conventions
 
 This is the one part of the colour surface that catches everybody once.
@@ -309,6 +312,9 @@ find-and-replace into an edit of three lines.
 | The label text cannot be read | `textColor` picked for the theme rather than the plate | Choose the text colour from the plate colour |
 | Two colours look identical when printed | Colour is the only difference | Add a line style, a shape or a position difference |
 | A gradient is muddy in the middle | Mixing end to end across a neutral midpoint | Mix from the middle outwards on each side |
+
+**Not raised yet.** OS4009 is in the catalogue and nothing raises it: a channel
+outside its range reaches the chart rather than stopping the bar.
 
 ## See also
 

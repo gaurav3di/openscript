@@ -89,6 +89,9 @@ a `study()` file is OS7001, which names the declaration to change. Running a
 strategy with nowhere for orders to go is OS7015, because a strategy with no
 destination would compute a position that nothing ever took.
 
+**Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
+with nowhere to send orders places intents that reach nobody.
+
 ## Choosing the interval
 
 The interval is the resolution of every decision in the file. It decides what

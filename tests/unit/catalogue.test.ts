@@ -13,7 +13,7 @@ import {
 test('the whole catalogue is generated, in ascending order', () => {
   const codes = allCodes();
 
-  assert.equal(codes.length, 145);
+  assert.equal(codes.length, 146);
   assert.deepEqual([...codes].sort(), [...codes]);
 });
 

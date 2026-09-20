@@ -415,6 +415,10 @@ above and both deserve fixing: the stateful call appears twice, which is two
 call sites and two independent pieces of state, and the absent case is not
 handled.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 ```
 r = rsi(close, 14)              // one call site, computed every bar
 

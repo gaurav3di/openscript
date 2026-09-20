@@ -127,6 +127,14 @@ close()
 this function. The checker tells them apart by syntax, and both spellings are
 the ones a trader expects.
 
+The `tag` here defaults to absence rather than to the empty string, and that is
+what says it is a reference: it names the part of the position that tag entered,
+so it has to be a tag some order in the file is placed with. One that nothing
+places is OS7016, at the call, before any bar runs, because such a call could
+only send nothing on every bar while the position stayed open. A tag that is
+placed somewhere and holds nothing right now is not that: the call sends nothing,
+says nothing, and closing the same tag twice is safe to write.
+
 ### `exit(tag = "", qty = none, limit = none, stop = none, profit = none, loss = none, leg = the only leg)`
 
 Set the leg's stop or target from a call site.

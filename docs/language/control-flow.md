@@ -117,6 +117,10 @@ if not isNone(r)
     zone = r > 70 ? "high" : (r < 30 ? "low" : "mid")
 ```
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 A condition built only from literals and constant options folds to one answer for
 the whole run, which makes one branch dead. That is warning OS8017, and it is
 usually a test that was pinned during debugging and left behind.
@@ -137,6 +141,10 @@ false arm, exactly as in an `if`.
 Prefer the ternary wherever the decision produces a value rather than an effect.
 It keeps a plot at the top level, it keeps a colour on one line, and it avoids the
 OS8004 shape entirely, because there is no branch that can fail to assign.
+
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
 
 ## for
 

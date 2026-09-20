@@ -251,6 +251,10 @@ The compiler emits warning OS8004 on an `if` whose condition can be absent and
 whose block assigns to a name used outside it, since that is the exact shape where
 warmup silently changes an answer.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 ## import
 
 **Reserved and unused in version 1.**

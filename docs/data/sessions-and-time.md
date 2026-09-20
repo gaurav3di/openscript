@@ -174,6 +174,9 @@ if session.isLastBar and pos.size != 0
     close()
 ```
 
+**Not raised yet.** OS7012 is in the catalogue and nothing raises it: nothing
+compares the bar's time with the instrument's session before an order is sent.
+
 `closeOnSessionEnd = true` and the explicit exit are not redundant in the way
 they look. The declaration option is the engine's guarantee. The explicit exit
 is the script's own decision about *where in the last bars* it wants out, and it
@@ -288,6 +291,9 @@ Every one of them takes an optional trailing `zone`. A field outside its range
 given to `date.from`, such as a month of 13, is OS4010 rather than a silent
 rollover into the next year.
 
+**Not raised yet.** OS4010 is in the catalogue and nothing raises it: a month
+past the end of the year rolls into the next one.
+
 An anchor a user picks is an input of kind `"time"`, which returns a number:
 
 ```
@@ -392,6 +398,9 @@ as the one exception and why the conformance suite fixes its value.
 - **Storing `bar.index` to mark "the bar the session opened on".** Every index
   shifts when more history loads, which the compiler warns about with OS8014.
   Store `session.startTime` or `time`.
+
+  **Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+  checker does not follow a bar index into a persistent value.
 
 ## See also
 

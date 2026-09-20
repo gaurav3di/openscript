@@ -211,9 +211,21 @@ export function entry(
   };
 }
 
-/** An entry whose work happens at step 9, so the call itself produces absence. */
+/**
+ * An entry whose work happens at step 9, so the call itself produces absence.
+ *
+ * **An order call takes one argument more than the language surface shows**,
+ * and it is appended here rather than written into each of the nine signatures,
+ * so that the count the program records and the count this table expects cannot
+ * be given different answers. It is the names of the arguments the script wrote,
+ * in parameter order, and `compiled-program.md` 4.10 says why an order call
+ * needs it: two of its defaults are absence itself, so an argument left out and
+ * an argument written that came out absent arrive as the same value, and
+ * `language.md` 6.8 gives those opposite meanings.
+ */
 export function deferred(name: string, params: string, effect: Effect): ManifestEntry {
-  return entry(name, params, () => null, { effect });
+  const all = effect === 'order' ? `${params} written`.trim() : params;
+  return entry(name, all, () => null, { effect });
 }
 
 /**

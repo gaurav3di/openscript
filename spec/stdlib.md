@@ -435,6 +435,9 @@ midnight, because the session is what the number means. On a daily or longer
 interval, where each bar is its own session, `vwap` equals `src` and the compiler
 emits warning OS8006 saying so.
 
+**Not raised yet.** OS8006 is in the catalogue and nothing raises it: the
+checker does not compare a session average's call with the chart's interval.
+
 **Count: 16 entries, of which 5 are planned.**
 
 ---
@@ -1393,7 +1396,10 @@ paper one, a backtest's own or a venue: the engine folds the price it is told
 twice, and neither applying it is a backtest that lies in the other direction.
 
 An order function given an absent price or quantity is OS7002 and places nothing,
-per `language.md` section 6.8.
+per `language.md` section 6.8. That is an argument the script wrote whose value
+came out absent. An argument it did not write takes the default the signature
+states: `buy()` takes the declaration's size, and `buy()` with neither price is a
+market order, which is section 17.2's own rule and not a substitution.
 
 ### 17.2 Placing orders
 
@@ -1442,6 +1448,32 @@ Two opposite orders on one leg on one bar are OS7013, and neither is placed. Two
 opposite orders on two different legs are ordinary: that is what a two-sided
 position is.
 
+**What a tag argument means is written in its default.** A tag that defaults to
+the empty string is a **label**: the call carries it to the destination and to
+the report, it names nothing that has to exist, and an empty one is an ordinary
+order. A tag that is required, or that defaults to absence, is a **reference**:
+it names something the strategy already has, and naming nothing is a mistake
+rather than a no-op. The rule is readable in every signature in this section and
+in 17.3. `buy`, `sell`, `exit`, `order.place`, `order.reverse` and
+`order.bracket` default theirs to the empty string, so a bracket whose tag names
+no order is not refused: a bracket sets the leg's level, which is the sentence
+above about a leg carrying one stop and one target, and the tag rides along as a
+label. `cancel` requires its tag and `close` defaults its to absence, and both
+name something that has to be there.
+
+The reading calls of 17.3 are the one exception, and it is stated there: their
+tag is a reference, and a tag that names no row reads as the entry's documented
+empty value instead of raising, because reading is how a script finds out.
+
+`close(tag)` names the part of the position that tag entered. A tag no order in
+the file is placed with can never name a part of one, so the call would send
+nothing on every bar and say nothing, and that is OS7016 at the call before any
+bar runs. It is read from the file rather than from the run because the run
+cannot tell it from an ordinary bar: a tag that has never named a ledger row is
+also what a working script looks like before its entry has fired. A tag the
+script computes is not read at all. Closing a tag that named rows which now hold
+nothing is not this: it is idempotence, it sends nothing, and it says nothing.
+
 ### 17.3 The `order` namespace
 
 | Call | Returns | For |
@@ -1475,6 +1507,13 @@ They read the ledger at any status, terminal included, which is when
 row reads as the entry's documented empty value; OS7009 is for a call that acts
 on an order, which is `cancel` and the two planned calls. Where a tag names more
 than one row, the reads read the most recently placed one.
+
+Each of them requires its tag, so each of them takes a reference under the rule
+of 17.2, and they are the one place the second half of that rule does not
+follow: naming nothing is answered rather than refused. Reading is how a script
+finds out, and a read that raised would mean a script could not ask the question
+without already knowing the answer. The rule holds without exception for the
+calls that act.
 
 `side` and `type` take the values of section 17.2.
 
@@ -1874,6 +1913,9 @@ A level's exit order is an order like any other. It lands in the ledger, it fold
 by section 17.8, and it obeys the lot and tick rules, so a stop that rounds to no
 whole lot is OS7005 and a level off the tick is OS7006.
 
+**Not raised yet.** OS7005 is in the catalogue and nothing raises it: nothing
+compares an order's quantity with the lot size its leg trades in.
+
 ### 17.11 Named events
 
 Every transition a rule causes is emitted as a named event carrying the bar's
@@ -1973,6 +2015,9 @@ would be a strategy nobody had ever tested.
 
 A strategy that places an order with no destination at all, armed or not, is
 OS7015.
+
+**Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
+with nowhere to send orders places intents that reach nobody.
 
 ### 17.14 Refusals defined here that the catalogue has no code for
 

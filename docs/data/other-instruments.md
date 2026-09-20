@@ -54,6 +54,9 @@ have already been drawn, so it is refused with OS6013, naming the bar where the
 identity changed. Compute the symbol and the timeframe from literals or inputs,
 never from bar data.
 
+**Not raised yet.** OS6013 is in the catalogue and nothing raises it: a read's
+identity is settled once before bar 0 and nothing asks again.
+
 ```
 // Refused: the symbol depends on a per-bar value.
 name = close > open ? "SYMBOL_A" : "SYMBOL_B"
@@ -360,6 +363,9 @@ which is the point of the absence rules.
   not, and the difference shows up as absent bars at one end of every session.
 - **Using `chart.lotSize` for an instrument that is not the chart's.** It is the
   chart's instrument's lot size, whatever the read says.
+
+**Not raised yet.** OS6013 is in the catalogue and nothing raises it: a read's
+identity is settled once before bar 0 and nothing asks again.
 
 ## See also
 

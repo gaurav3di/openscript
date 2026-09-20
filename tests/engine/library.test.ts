@@ -27,8 +27,8 @@ import test from 'node:test';
 
 import * as numeric from '../../src/core/stdlib/index.js';
 import type { Bar, Value as Numeric } from '../../src/core/stdlib/index.js';
-import { libraryEntries, libraryNames, typeText } from '../../src/core/index.js';
-import { BAR_FACTS, BAR_FIELDS, DECLARATION_CALLS, REQUEST_CALLS } from '../../src/core/emit/index.js';
+import { libraryEntries, libraryNames } from '../../src/core/index.js';
+import { BAR_FACTS, BAR_FIELDS, DECLARATION_CALLS, REQUEST_CALLS, arityOf, effectOf } from '../../src/core/emit/index.js';
 import { COLOUR_NAMES, manifestEntries, manifestEntry, namedColour } from '../../src/core/engine/library/index.js';
 import type { BarView, CallContext, ManifestEntry } from '../../src/core/engine/library/index.js';
 import { Heap } from '../../src/core/engine/values/index.js';
@@ -565,22 +565,21 @@ test('every stateful entry the engine implements is one this file compares', () 
  * state and what effect it has, and makes a mismatch OS6004 at load. This test
  * is the same comparison run in the repository, so a signature that changes on
  * one side fails here rather than at a customer's.
+ *
+ * The arity compared is the compiler's own `arityOf` rather than the count of
+ * parameters in the surface, because those two differ by one on an order call:
+ * an order call carries the names of the arguments the script wrote, which the
+ * language surface does not show and `compiled-program.md` 4.10 requires. Read
+ * from the emitter rather than restated here, so this compares the two tables
+ * against what will actually be written into a program.
  */
 test('every entry the engine implements agrees with the checker on state and effect', () => {
   for (const mine of manifestEntries()) {
-    const theirs = libraryEntries(mine.name).filter(
-      (one) => one.parameters.length === mine.arity,
-    );
+    const theirs = libraryEntries(mine.name).filter((one) => arityOf(one) === mine.arity);
     assert.ok(theirs.length > 0, `${mine.name}/${mine.arity} is not in the library surface`);
     for (const one of theirs) {
       assert.equal(one.stateful, mine.state, `${mine.name}/${mine.arity} state`);
-      const effect =
-        one.name === 'print'
-          ? 'log'
-          : one.strategyOnly && one.callable && typeText(one.returns) === 'nothing'
-            ? 'order'
-            : 'none';
-      assert.equal(mine.effect, effect, `${mine.name}/${mine.arity} effect`);
+      assert.equal(mine.effect, effectOf(one), `${mine.name}/${mine.arity} effect`);
     }
   }
 });
@@ -620,7 +619,7 @@ test('every name the checker accepts runs, says it is planned, or is a register'
     for (const one of libraryEntries(name)) {
       if (one.planned) continue;
       if (!one.callable && registers.has(name)) continue;
-      const arity = one.callable ? one.parameters.length : 0;
+      const arity = one.callable ? arityOf(one) : 0;
       if (manifestEntry(name, arity) === undefined) unrunnable.push(`${name}/${arity}`);
     }
   }

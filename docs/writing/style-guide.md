@@ -282,6 +282,9 @@ tone     = up ? upTone : down ? downTone : gray
 | A name assigned and never read | It still runs on every bar and implies something depends on it (OS8010) | Delete the line |
 | The same `req` read written twice | Two requests against the host's ceiling (OS5006) | Read once, name it, reuse the name |
 
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
+
 ## Treat warnings as part of the style
 
 An OS8xxx warning never stops anything, which makes it tempting to leave in

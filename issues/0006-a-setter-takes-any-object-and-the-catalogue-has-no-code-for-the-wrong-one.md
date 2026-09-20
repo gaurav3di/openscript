@@ -11,6 +11,9 @@ Severity: a script that is wrong in one of the two ways below compiles, runs,
 draws nothing and reports nothing. Neither is a compiler defect and both are
 input a user can write.
 
+**Not raised yet.** OS8019 is in the catalogue and nothing raises it: the
+checker does not follow a reference to a deleted object.
+
 ## What is wrong
 
 Eleven of the fourteen `draw` setters declare their object parameter as `any`:
@@ -87,6 +90,11 @@ exactly that.** OS4004 is an array index and its message reads
 read "Cell (3, 4) is outside a table of 7 rows and 2 columns". The call site is
 `src/core/engine/library/objects.ts`, in the table half of that file rather than
 the drawing half.
+
+**Not raised yet.** OS8019 and OS4008 are in the catalogue and nothing raises
+them. The checker does not follow a reference to a deleted object. A cell
+outside the declared grid raises the broader OS4004, which names an index rather
+than the shape.
 
 ## How it closed
 

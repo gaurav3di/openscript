@@ -339,6 +339,9 @@ A level's exit order is an order like any other. It lands in the strategy's ledg
 it folds like any other order, and it obeys the lot and tick rules, so a stop that
 rounds to no whole lot is OS7005 and a level off the tick is OS7006.
 
+**Not raised yet.** OS7005 is in the catalogue and nothing raises it: nothing
+compares an order's quantity with the lot size its leg trades in.
+
 ## The named events, and reading a log after a bad day
 
 Every transition a rule causes is emitted as a named event carrying the bar's time,

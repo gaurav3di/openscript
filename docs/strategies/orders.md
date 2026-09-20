@@ -70,6 +70,24 @@ Six bare names cover almost every script, and the `order` namespace holds the re
 That split is the library's general rule: a call a script reaches for on most days
 is bare, and the long tail is namespaced.
 
+**A default and an absent value are two different things, and an order is where
+the difference costs money.** Leave an argument out and you get the default the
+table prints: `buy()` is the size your declaration sets, and `buy(qty = 1)` with
+neither price is a market order. Write an argument whose value comes out absent
+and you get the other case, which is refused with OS7002 naming the argument.
+`buy(qty = 1, stop = lowest(low, 20))` is refused on every bar until the window
+has twenty lows behind it, rather than going out as a market order at a price
+nobody chose. Guard it, and the guard is the whole fix:
+
+```
+version 1
+strategy("Stop entry", overlay = true, precision = 2, qty = 1)
+
+trigger = lowest(low, 20)
+if not isNone(trigger) and close > ema(close, 50)
+    buy(qty = 1, stop = trigger)
+```
+
 ## Legs: the contracts a strategy trades
 
 A strategy trades the legs it declared. A leg names a contract outright with
@@ -297,7 +315,21 @@ What these reads do with a tag that names no row, and what they read once an
 order has finished, is `stdlib.md` section 17.3. Cancelling something that is no
 longer live is a different matter: it is refused with OS7009 rather than ignored,
 because a script acting on an order that has gone has lost track of its own state
-and will keep doing so. Test first with `order.working(tag)`.
+and will keep doing so. The guard for it is `order.working(tag)`, which is planned;
+until it lands, cancel on the same condition the order was placed on, or call
+`cancelAll()`, which acts on whatever is working and refuses nothing.
+
+**What a tag argument means is written in its default**, and the rule is worth
+learning once because it is readable in every signature on this page. A tag that
+defaults to the empty string is a **label**: the call carries it to the
+destination and to the report, it names nothing that has to exist, and a bracket
+whose tag matches no order is an ordinary call. A tag that is required, or that
+defaults to absence, is a **reference**: it names something the strategy already
+has, and naming nothing is a mistake. `cancel` requires its tag and `close`
+defaults its to absence, and those two are the references. The reading calls
+above take a reference too, and answer with their documented empty value instead
+of refusing, because reading is how a script finds out; `stdlib.md` section 17.2
+states the rule and 17.3 states that one exception.
 
 Two habits that pay for themselves: give every order a tag, even when the script
 has only one, and make the tag describe the intention (`"entry"`, `"stop"`,
@@ -391,6 +423,13 @@ mistake in the language.
 | Flatten a leg | `close()` | Whatever is held, long or short |
 | Flatten part | `close(qty = n)` | `n` is positive, whichever way the position points |
 | Flatten one part by name | `close(tag = "runner")` | Closes the part carrying that tag |
+
+A tag on `close` is a **reference**: it names the part of the position that tag
+entered, so it has to be a tag some order in the file is placed with. A tag
+nothing places is OS7016, reported at the call before any bar runs, because such
+a call could only send nothing on every bar and say nothing while the position
+stayed open. Closing a tag that has already flattened is not that: it sends
+nothing, says nothing, and is how a strategy is ordinarily written.
 | Set a stop or a target | `exit(...)` | Covered in the exits page |
 
 A partial close needs a whole, valid quantity like any other order, so size it and
@@ -510,7 +549,8 @@ codes you will actually meet:
 | OS7006 | Price is not on a tick | A limit computed as a percentage and never rounded |
 | OS7007 | A resting order has no price | An order kind named without its price |
 | OS7008 | The entry was refused by pyramiding | No position guard on the entry |
-| OS7009 | Unknown order tag | Cancelling or reading something that already filled |
+| OS7009 | Unknown order tag | Cancelling an order that has already filled, or a tag with a typo in it |
+| OS7016 | A close names a tag nothing places | A typo in the tag of a `close`, caught at compile time |
 | OS7011 | The order needs more capital than the strategy has | Fixed unit sizing against a small `capital` |
 | OS7012 | The instrument is outside its session | No `session.isOpen` guard |
 | OS7013 | Two opposite orders on one leg on one bar | Two independent `if` blocks that can both be true |
@@ -526,6 +566,14 @@ the order is refused and the refusal is recorded, which keeps the equity curve
 honest. OS7014 carries the destination's own words rather than a paraphrase of
 them, because the destination is the only party that knows why it refused, and
 `order.rejection(tag)` reads that text back.
+
+**Not raised yet.** OS7005, OS7011, OS7012, OS7014 and OS7015 are in the
+catalogue and nothing raises them. Nothing compares an order's quantity with the
+lot size its leg trades in. Nothing compares an order's cost with the capital
+the strategy has. Nothing compares the bar's time with the instrument's session
+before an order is sent. A destination's own refusal is folded into the ledger
+row as a status and its text, and is reported against no line. A strategy with
+nowhere to send orders places intents that reach nobody.
 
 ## Pitfalls
 

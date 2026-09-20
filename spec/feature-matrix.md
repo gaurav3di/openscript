@@ -837,6 +837,9 @@ from a `study()` file is OS7001.
 | `buy(...)` | Enter or add to a long position | `specified` | `stdlib.md` 17.2 | `order/buy` |
 | `sell(...)` | Enter or add to a short position | `specified` | `stdlib.md` 17.2 | `order/sell` |
 | `close(...)` | Flatten the position, or the part carrying one tag | `specified` | `stdlib.md` 17.2 | `order/close` |
+| What a tag argument means | A tag that defaults to the empty string is a label the destination carries; a tag that is required, or defaults to absence, is a reference to something that has to exist | `specified` | `stdlib.md` 17.2 | `order/tag-label-or-reference` |
+| A close naming a tag nothing places | OS7016 at the call, before any bar runs: the call could only send nothing on every bar and say nothing, and the file can prove it where the run cannot | `specified` | `stdlib.md` 17.2, `errors.md` OS7016 | `unit:order/close-unplaceable-tag` |
+| Closing a tag that holds nothing | Sends nothing and says nothing, whether the tag has already flattened or has not entered yet; a refusal here would break the shape a strategy is written in | `specified` | `stdlib.md` 17.2 | `order/close-idempotent` |
 | Limit, stop and stop-limit | `limit` alone, `stop` alone, both together, and neither for a market order: one function with optional prices rather than six names | `specified` | `stdlib.md` 17.2 | `order/price-qualifiers` |
 | A resting order with no price | OS7007 | `specified` | `stdlib.md` 17.2, `errors.md` OS7007 | `unit:order/resting-no-price` |
 | The side and type value sets | What `order.place` accepts, written where a script author reads; a value outside either is OS3008 | `specified` | `stdlib.md` 17.2, `errors.md` OS3008 | `order/side-and-type` |
@@ -918,7 +921,9 @@ from a `study()` file is OS7001.
 | A runtime error stops the bar | The study is marked errored and the message is shown on the chart, rather than producing a plausible wrong number | `specified` | `language.md` 16, `errors.md` 4 | `err/runtime-stops-bar` |
 | Catalogue authority | `errors.md` wins over any other document quoting a code | `specified` | `language.md` 1, `language.md` 16, `errors.md` 3 | `unit:err/catalogue-authority` |
 | No undocumented code | The build fails if the compiler can emit a code with no catalogue entry | `specified` | `errors.md` 5 | `unit:err/no-undocumented-code` |
-| No untested entry | The build fails if a catalogue entry has no test that produces it | `specified` | `errors.md` 5 | `unit:err/no-untested-entry` |
+| Every pointer resolves | The build fails on an entry whose `test` names a file that does not exist or does not write the code, and the codes no test names are printed rather than filled in | `specified` | `errors.md` 5 | `unit:err/test-pointer-resolves` |
+| Every fix compiles | The build fails on a worked example whose `after` block the compiler would refuse, because that block is what a stuck reader pastes | `specified` | `errors.md` 5 | `unit:err/after-block-compiles` |
+| Every mistake raises its own code | The build fails on a `before` block that does not raise the code it is filed under, by compiling it or, for a runtime code, by running it | `specified` | `errors.md` 5 | `unit:err/before-block-raises` |
 | Every error names a fix | A diagnostic that cannot state a fix is a defect in the diagnostic | `specified` | `language.md` 16, `errors.md` 3 | `unit:err/fix-present` |
 | `errors.json` is the machine copy | The catalogue is generated to a data file the compiler and the editor read, so the prose cannot drift from the codes | `specified` | `errors.md` 1 | `err/json-shape` |
 | Substitutions for OS1001 | The characters a source is most likely to carry by accident, each with the character to write instead | `specified` | `errors.md` 7 | `unit:err/os1001-substitutions` |

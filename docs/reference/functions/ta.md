@@ -750,6 +750,9 @@ at midnight, because the session is what the number means. On a daily or longer
 interval, where each bar is its own session, `vwap` equals `src` and the
 compiler says so with warning OS8006.
 
+**Not raised yet.** OS8006 is in the catalogue and nothing raises it: the
+checker does not compare a session average's call with the chart's interval.
+
 ### `vwapAnchor(src, resetWhen)`
 
 The same average, restarted on any bar the condition is true.

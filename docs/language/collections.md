@@ -169,6 +169,11 @@ shapes, resolved at compile time.
 | OS2013 | A literal mixing types | Arrays are homogeneous |
 | OS2015 | An empty literal with no type | Annotate it |
 
+**Not raised yet.** OS4006 and OS4007 are in the catalogue and nothing raises
+them. An element taken from an empty array raises the broader OS4004, and
+summarising one returns absence. A slice takes whatever range it is given and
+returns a shortened or empty array.
+
 The interesting one is OS4004, because it is deliberately the opposite of what
 the history operator does. `close[500]` on bar 7 is the absent value, not an
 error, because that value never existed. `element(arr, 500)` on an array of

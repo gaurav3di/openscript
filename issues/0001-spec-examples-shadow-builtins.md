@@ -71,6 +71,10 @@ both the `before` and the `after` block where the name appears, and in the
 | OS5008 | `log` | `logLines` |
 | OS8011 | `count` | `barCount` |
 
+**Not raised yet.** OS4012 is in the catalogue and nothing raises it: a computed
+name outside the accepted set produces absence on every bar, and only a name
+written as a literal is refused, with OS3008.
+
 ## Why it matters
 
 These are the examples a reader meets first: the one that introduces series

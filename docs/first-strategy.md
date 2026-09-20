@@ -465,6 +465,11 @@ The order errors, and what each one is telling you:
 | OS7013 | Two opposite orders on one bar | Two branches both fired. Make them exclusive |
 | OS7015 | The strategy has no order destination | Nowhere has been configured to receive orders |
 
+**Not raised yet.** OS7005, OS7011 and OS7015 are in the catalogue and nothing
+raises them. Nothing compares an order's quantity with the lot size its leg
+trades in. Nothing compares an order's cost with the capital the strategy has. A
+strategy with nowhere to send orders places intents that reach nobody.
+
 And the failure that produces no error at all: **nothing trades**. Work down this
 list.
 

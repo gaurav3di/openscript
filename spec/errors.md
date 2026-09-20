@@ -63,11 +63,12 @@ An entry:
 | `stage` | string | `lex`, `parse`, `check`, `runtime` or `host` |
 | `since` | number | The language version the code first appeared in |
 | `autofix` | boolean | Whether an editor can apply the fix without asking a question |
-| `example` | object | `before`, the shortest script that raises it, and `after`, the same script fixed |
+| `example` | object | `before`, the shortest script that raises it, and `after`, the same script fixed. `kind` is `transcript` on the entries whose example is the host's input rather than a script |
 | `spec` | string | The specification sections that define the rule |
 | `refines` | string or null | The broader code this one takes a case from, if any |
-| `test` | string | The directory holding the test that produces this code |
+| `test` | string or null | A file under `tests/` that writes this code, or `null` saying that no test in this repository names it |
 | `deferred` | string, or absent | Present only while no code path raises the code: what happens instead today, and what has to exist before it is raised |
+| `unexercised` | string, or absent | Present only where the code is raised and no example can reach it: what it needs that an example cannot carry |
 
 A complete entry, as it appears in the file:
 
@@ -89,7 +90,7 @@ A complete entry, as it appears in the file:
   },
   "spec": "language.md 10.1",
   "refines": null,
-  "test": "tests/errors/OS1006"
+  "test": "tests/examples/rejected/OS1006.oscript"
 }
 ```
 
@@ -185,9 +186,9 @@ up is not renumbered.
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
-| OS7xxx | Orders | An order could not be placed as written. | error | 15 |
+| OS7xxx | Orders | An order could not be placed as written. | error | 16 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **145** |
+| | | | **Total** | **146** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -202,8 +203,8 @@ every link that ever quoted a code.
 
 ## 5. What the build enforces
 
-Documentation drifts from code because nothing fails when it does. Two rules,
-both run in continuous integration, both of which fail the build rather than
+Documentation drifts from code because nothing fails when it does. Three rules,
+all run in continuous integration, all of which fail the build rather than
 print a note.
 
 ### Rule 1. Every code the compiler can emit exists here
@@ -221,6 +222,14 @@ them in both directions:
   sends a reader looking for a cause that cannot occur. A code that is genuinely
   retired stays in the file with an explicit retirement, and a retired code is
   never reused.
+- An entry raised somewhere other than the stage it names fails the build as
+  well. "Emitted somewhere" is one step short of the question a reader is asking:
+  a code raised by one call site for one case, whose entry points at a section
+  describing another, is a promise nothing keeps while the check stays green. So
+  the sites are counted against the stage the entry declares, which is also the
+  word the reader is shown, and a code raised only elsewhere names both places
+  when it fails. One of the two is wrong, and either the entry or the raise is
+  corrected.
 
 A code that no code path raises **yet** is the third state, and it says so in the
 entry. `deferred` holds a sentence naming what happens instead today and what has
@@ -240,29 +249,102 @@ The check covers the message templates too: the placeholders the emitting call
 site supplies must be exactly the placeholders the entry declares. A message with
 an unfilled slot is a build failure, not a run-time surprise.
 
-### Rule 2. Every entry here has a test that produces it
+**And it reads every document, not the two that define.** A deferral recorded
+here, in part 8 and in the feature matrix is invisible on the page a reader
+actually meets the code on, and that page goes on teaching a refusal in the
+present tense. So every Markdown file in the repository is read, and a deferred
+code taught as something that happens today fails the build, naming the file and
+the line. The shape is narrow, because a page may reasonably name a code it does
+not teach: what it may not do is describe a deferred code as current behaviour.
+A mention passes when the sentence, row or item it sits in says the code is not
+raised yet, or when a sentence in the same section says so and names the code,
+which is where a note belongs and where a reader will meet it.
 
-Each entry names a test directory in its `test` field. The test holds the source
-from `example.before` and the expected diagnostic. The runner asserts four
-things:
+A page's note is a copy of a fact this file owns, so it expires the same way the
+rest of them do. A note opens **Not raised yet.** and its first clause names the
+codes it is about, and every one of those has to be a code still deferred here.
+The day something raises one, the pages repeating the deferral fail the build
+instead of going on telling a reader that the refusal does not happen.
 
-- Compiling or running `example.before` produces this code, at the expected line
-  and column.
-- The diagnostic supplies exactly the placeholders the entry declares, so the
-  rendered message has no empty slots.
-- Compiling or running `example.after` produces no diagnostic at all, which is
-  what makes the fix a fix rather than a suggestion.
-- For a warning, the script still runs to completion and produces output.
+### Rule 2. Every worked example compiles, and every mistake raises its own code
 
-An entry whose condition the host raises rather than the source (`stage` is
-`host`) is tested the same way with the host input its example shows: the runner
-drives the engine with the failing input, then with the passing one.
+The `after` block is read at the one moment a reader is stuck, and it is read as
+authoritative because everything around it is. They paste it. So every after
+block goes through the whole front end, to the program a host is handed, and any
+diagnostic fails the build: an error because the paste would be refused, a
+warning because the compiler that has just told the reader what to do would then
+complain about their doing it. Two warnings are the exception, and they are the
+two that say the block stopped rather than that it is wrong: a name the fragment
+declares and does not go on to read, and an input it does not go on to use. A
+fragment always ends one line before the line that would use its last value.
+Neither is excused for the entry that is about it.
 
-An entry with no test directory fails the build. A test that produces a different
-code than the one it is filed under fails the build. Together with rule 1 this
-closes the loop: the compiler cannot emit an undocumented code, the catalogue
-cannot document a code that does not exist, and no entry can describe behaviour
-that the implementation does not have.
+The `before` block is held to the case it names. A lex, parse or check code is
+settled by compiling it. A runtime code is not: it needs a bar, so the program is
+loaded on a host and driven over a fixed dataset, on a venue that fills orders
+and a venue that leaves them working, and the code has to appear. This is the
+step rule 1 does not take. Rule 1 asks whether some call site can raise the code
+at the stage the entry names; this asks whether the mistake the entry prints
+raises it, which is the question a reader is actually asking when they compare
+their script with the example.
+
+Both blocks are fragments, and section 1 says so. A fragment is compiled inside
+the smallest program it could be part of: a `version` line and a declaration
+where it has neither, and a binding for each conventional name it reads and does
+not declare. Nothing is repaired. A block that has a declaration keeps its own,
+and a before block is compiled as written as well, because several entries are
+about the very line a harness would helpfully supply.
+
+Where a case cannot be reached, the entry says so and the check counts it. There
+is no list of exemptions inside the checker, for the reason rule 1 gives about
+deferrals: a list there is invisible to everybody who reads the catalogue.
+
+- `deferred` already means nothing raises the code yet, so no example can.
+- `unexercised` is a sentence saying what the code needs that an example cannot
+  carry. A ceiling of a million elements is not an example, it is a fortnight.
+  Like a deferral it expires by itself: an entry that carries one and is then
+  proved fails the build.
+- `example.kind` of `transcript` marks the entries whose example is the host
+  input that fails and the host input that passes rather than source. A
+  transcript is held to the opposite rule, so the field cannot be used to take a
+  compiling example out of the check: a block declared not to be source that
+  compiles fails the build.
+
+And one state that is not declared anywhere, because it follows from the entry's
+own `stage`: a host code is the host's answer to the engine, and the check drives
+one host that answers everything the ordinary way. Those entries are compiled,
+run, and counted as not proved, by name, on every run. A check that silently
+skipped them would be the more comfortable design and the worthless one.
+
+This rule is `scripts/check-examples-compile.mjs`.
+
+### Rule 3. The test an entry points at exists and names the code
+
+Each entry's `test` field is a file under `tests/` that writes the code, or
+`null`. There is no third state: a reader is either sent somewhere or told in the
+open that there is nowhere to go. Both directions fail the build. A path that
+does not exist, or that exists and does not write the code, is the dead pointer
+this rule was written for: for the whole life of this repository every entry
+pointed at a directory that has never existed, printed beside a sentence
+promising a test, and nothing read the field. A `null` on a code some test does
+name fails as well, so the null expires the day somebody writes the test.
+
+The pointer is not a claim that the test asserts the code, and the check does not
+make one. It is a claim that the file exists and the code is written in it, which
+is what a reader chasing the proof needs and is the whole of what can be settled
+by reading. The convention that a test asserts a code and a span, and never the
+message text, is what makes naming the code mean something.
+
+The codes that no test names are printed on every run, split into the ones
+nothing raises yet and the ones documented as current behaviour. The second list
+is the one that matters, and it is worth more than a full column of pointers
+would have been.
+
+The same check compares part 8 with `errors.json`, character for character, for
+the pointer sentence and for both example blocks. Part 8 is a copy, copies drift,
+and a page printing a different example from the one rule 2 compiles is a page
+whose example nothing has checked. This rule is
+`scripts/check-catalogue-tests.mjs`.
 
 Two smaller checks run in the same job, because they are cheap and they catch the
 same class of rot: the schema check (every field present, every placeholder
@@ -353,7 +435,7 @@ and it is the token a consumer reads.
 
 ### OS1001 Unexpected character
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.1, 3.3, 3.12. Test `tests/errors/OS1001`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.1, 3.3, 3.12. Test `tests/examples/rejected/OS1001.oscript`. The editor can apply the fix.
 
 **Message.** `Unexpected character {char}. {suggestion}`
 
@@ -380,7 +462,7 @@ if not ready
 
 ### OS1002 Tab in indentation
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1002`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/examples/rejected/OS1002.oscript`. The editor can apply the fix.
 
 **Message.** `This line is indented with a tab.`
 
@@ -404,7 +486,7 @@ if close > open
 
 ### OS1003 Indentation does not match this block
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1003`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/examples/rejected/OS1003.oscript`. The editor can apply the fix.
 
 **Message.** `This line is indented {found} spaces; the block opened at line {line} is indented {expected}.`
 
@@ -420,21 +502,21 @@ Before:
 
 ```
 if trending
-    fast = ema(close, 9)
-     slow = ema(close, 21)
+    body = close - open
+     wick = high - low
 ```
 
 After:
 
 ```
 if trending
-    fast = ema(close, 9)
-    slow = ema(close, 21)
+    body = close - open
+    wick = high - low
 ```
 
 ### OS1004 Unterminated string literal
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.6. Test `tests/errors/OS1004`.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.6. Test `tests/examples/rejected/OS1004.oscript`.
 
 **Message.** `This string literal opens with {quote} and the line ends before a matching {quote}.`
 
@@ -458,7 +540,7 @@ signal("BUY")
 
 ### OS1005 Unknown escape sequence
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.6. Test `tests/errors/OS1005`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.6. Test `tests/examples/rejected/OS1005.oscript`. The editor can apply the fix.
 
 **Message.** `{sequence} is not an escape sequence.`
 
@@ -482,7 +564,7 @@ path = "C:\\data\\bars"
 
 ### OS1006 Assignment used as a condition
 
-Severity error. Stage parser. Since language version 1. Reference language.md 10.1. Test `tests/errors/OS1006`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 10.1. Test `tests/examples/rejected/OS1006.oscript`. The editor can apply the fix.
 
 **Message.** `= assigns a value, and a condition needs a comparison.`
 
@@ -506,7 +588,7 @@ if len == 14
 
 ### OS1007 Semicolon
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1007`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.10. Test `tests/examples/rejected/OS1007.oscript`. The editor can apply the fix.
 
 **Message.** `; is not part of the language.`
 
@@ -529,7 +611,7 @@ slow = ema(close, 21)
 
 ### OS1008 Chained comparison
 
-Severity error. Stage parser. Since language version 1. Reference language.md 9.3. Test `tests/errors/OS1008`.
+Severity error. Stage parser. Since language version 1. Reference language.md 9.3. Test `tests/examples/rejected/OS1008.oscript`.
 
 **Message.** `A comparison cannot be chained: {op1} is already applied before {op2}.`
 
@@ -556,7 +638,7 @@ if 30 < r and r < 70
 
 ### OS1009 break or continue outside a loop
 
-Severity error. Stage parser. Since language version 1. Reference language.md 10.5. Test `tests/errors/OS1009`.
+Severity error. Stage parser. Since language version 1. Reference language.md 10.5. Test `tests/examples/rejected/OS1009.oscript`.
 
 **Message.** `{word} is only valid inside a for or a while body.`
 
@@ -586,7 +668,7 @@ fn firstAbove(values, mark) =>
 
 ### OS1010 Block header with no body
 
-Severity error. Stage parser. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1010`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 3.10. Test `tests/examples/rejected/OS1010.oscript`. The editor can apply the fix.
 
 **Message.** `{header} opens a block, and the next line is not indented more deeply.`
 
@@ -612,7 +694,7 @@ if crossUp(fast, slow)
 
 ### OS1011 var with no initial value
 
-Severity error. Stage parser. Since language version 1. Reference language.md 8.2. Test `tests/errors/OS1011`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 8.2. Test `tests/examples/rejected/OS1011.oscript`. The editor can apply the fix.
 
 **Message.** `var {name} has no initial value.`
 
@@ -640,7 +722,7 @@ if isNone(runningHigh) or high > runningHigh
 
 ### OS1012 Bracket is never closed
 
-Severity error. Stage parser. Since language version 1. Reference language.md 3.11. Test `tests/errors/OS1012`.
+Severity error. Stage parser. Since language version 1. Reference language.md 3.11. Test `tests/examples/rejected/OS1012.oscript`.
 
 **Message.** `The {bracket} opened at line {line} is never closed.`
 
@@ -665,7 +747,7 @@ plot(ema(close, 9), "EMA", aqua)
 
 ### OS1013 Mismatched closing bracket
 
-Severity error. Stage parser. Since language version 1. Reference language.md 19. Test `tests/errors/OS1013`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 19. Test `tests/examples/rejected/OS1013.oscript`. The editor can apply the fix.
 
 **Message.** `Found {found} where {expected} was expected, closing the {opener} opened at line {line}.`
 
@@ -692,7 +774,7 @@ total = sum(closes)
 
 ### OS1014 Missing comma between arguments
 
-Severity error. Stage parser. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS1014`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 11.2. Test `tests/examples/rejected/OS1014.oscript`. The editor can apply the fix.
 
 **Message.** `Two arguments run together; a comma is missing before {token}.`
 
@@ -716,7 +798,7 @@ plot(ema(close, 9), "EMA", aqua)
 
 ### OS1015 Ternary with no second arm
 
-Severity error. Stage parser. Since language version 1. Reference language.md 9.5. Test `tests/errors/OS1015`.
+Severity error. Stage parser. Since language version 1. Reference language.md 9.5. Test `tests/examples/rejected/OS1015.oscript`.
 
 **Message.** `This ? has no matching :`
 
@@ -738,7 +820,7 @@ plot(ready ? value : none, "Value", aqua)
 
 ### OS1016 else does not follow an if
 
-Severity error. Stage parser. Since language version 1. Reference language.md 10.2. Test `tests/errors/OS1016`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 10.2. Test `tests/examples/rejected/OS1016.oscript`. The editor can apply the fix.
 
 **Message.** `This else is indented {found} spaces and the nearest if is indented {expected}.`
 
@@ -769,7 +851,7 @@ else
 
 ### OS1017 case or default in the wrong place
 
-Severity error. Stage parser. Since language version 1. Reference language.md 10.6. Test `tests/errors/OS1017`.
+Severity error. Stage parser. Since language version 1. Reference language.md 10.6. Test `tests/examples/rejected/OS1017.oscript`.
 
 **Message.** `{word} is only valid inside a switch, and default must be its last arm.`
 
@@ -801,7 +883,7 @@ switch method
 
 ### OS1018 More than one statement on a line
 
-Severity error. Stage parser. Since language version 1. Reference language.md 3.10. Test `tests/errors/OS1018`.
+Severity error. Stage parser. Since language version 1. Reference language.md 3.10. Test `tests/examples/rejected/OS1018.oscript`.
 
 **Message.** `Unexpected {token} after the end of this statement.`
 
@@ -826,7 +908,7 @@ slow = ema(close, 21)
 
 ### OS1019 Reserved word used as a name
 
-Severity error. Stage parser. Since language version 1. Reference language.md 3.4. Test `tests/errors/OS1019`.
+Severity error. Stage parser. Since language version 1. Reference language.md 3.4. Test `tests/examples/rejected/OS1019.oscript`.
 
 **Message.** `{word} is a reserved word and cannot be used as a name.`
 
@@ -851,7 +933,7 @@ mode = input("fast", "Mode", options = ["fast", "slow"])
 
 ### OS1020 Incomplete for header
 
-Severity error. Stage parser. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS1020`.
+Severity error. Stage parser. Since language version 1. Reference language.md 10.3. Test `tests/examples/rejected/OS1020.oscript`.
 
 **Message.** `A for header needs = start to end or in array; found {token}.`
 
@@ -877,7 +959,7 @@ for i = 0 to 9
 
 ### OS1021 The version declaration is not first
 
-Severity error. Stage parser. Since language version 1. Reference language.md 4. Test `tests/errors/OS1021`. The editor can apply the fix.
+Severity error. Stage parser. Since language version 1. Reference language.md 4. Test `tests/examples/rejected/OS1021.oscript`. The editor can apply the fix.
 
 **Message.** `version must be the first line that is not blank and not a comment; line {line} came before it.`
 
@@ -904,7 +986,7 @@ study("EMA cross")
 
 ### OS1022 Expression expected
 
-Severity error. Stage parser. Since language version 1. Reference language.md 3.11. Test `tests/errors/OS1022`.
+Severity error. Stage parser. Since language version 1. Reference language.md 3.11. Test `tests/examples/rejected/OS1022.oscript`.
 
 **Message.** `An expression was expected after {token}.`
 
@@ -923,12 +1005,12 @@ len = input(14, "Length") +
 After:
 
 ```
-len = input(14, "Length") + 1
+len = input(14, "Length")
 ```
 
 ### OS1023 A function declared inside a block
 
-Severity error. Stage parser. Since language version 1. Reference language.md 11.1. Test `tests/errors/OS1023`.
+Severity error. Stage parser. Since language version 1. Reference language.md 11.1. Test `tests/examples/rejected/OS1023.oscript`.
 
 **Message.** `fn {name} is declared inside a block, and a function is declared at the top level of the file.`
 
@@ -951,13 +1033,13 @@ After:
 ```
 fn smoothed(src) => sma(src, 9)
 
-if trending
-    plot(smoothed(close), "Smooth", aqua)
+smooth = smoothed(close)
+plot(trending ? smooth : none, "Smooth", aqua)
 ```
 
 ### OS1024 Assignment to an indexed element
 
-Severity error. Stage parser. Since language version 1. Reference language.md 9.6, 14.1, 19. Test `tests/errors/OS1024`.
+Severity error. Stage parser. Since language version 1. Reference language.md 9.6, 14.1, 19. Test `tests/examples/rejected/OS1024.oscript`.
 
 **Message.** `An assignment writes to a name, and this target is an index into {name}.`
 
@@ -983,7 +1065,7 @@ set(prices, 0, close)
 
 ### OS1025 Assignment to a member
 
-Severity error. Stage parser. Since language version 1. Reference language.md 15.2, 19. Test `tests/errors/OS1025`.
+Severity error. Stage parser. Since language version 1. Reference language.md 15.2, 19. Test `tests/examples/rejected/OS1025.oscript`.
 
 **Message.** `An assignment writes to a name, and this target is the member {member} of {name}.`
 
@@ -1010,7 +1092,7 @@ plot(close + tickStep, "Stepped", aqua)
 
 ### OS1026 Block comment
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.2. Test `tests/errors/OS1026`.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.2. Test `tests/examples/rejected/OS1026.oscript`.
 
 **Message.** `{marker} does not open or close a comment. A comment is written // and runs to the end of its line.`
 
@@ -1034,7 +1116,7 @@ lookback = 14 // bars
 
 ### OS1027 Malformed colour literal
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.8. Test `tests/errors/OS1027`.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.8. Test `tests/examples/rejected/OS1027.oscript`.
 
 **Message.** `{written} is not a colour: a colour literal is # and six or eight hexadecimal digits.`
 
@@ -1058,7 +1140,7 @@ plot(close, "Close", #ff8800)
 
 ### OS1028 A continuation line is not indented past its statement
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.11. Test `tests/errors/OS1028`. The editor can apply the fix.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.11. Test `tests/examples/rejected/OS1028.oscript`. The editor can apply the fix.
 
 **Message.** `A continuation line must be indented more deeply than the line its statement began on; line {line} is indented {statement} and this line is indented {found}.`
 
@@ -1086,7 +1168,7 @@ total = ema(close, 9) +
 
 ### OS1029 A name written against a number
 
-Severity error. Stage lexer. Since language version 1. Reference language.md 3.3, 3.5. Test `tests/errors/OS1029`.
+Severity error. Stage lexer. Since language version 1. Reference language.md 3.3, 3.5. Test `tests/examples/rejected/OS1029.oscript`.
 
 **Message.** `{written} is neither a number nor a name: the number literal ends at {number}, and a name cannot begin with a digit.`
 
@@ -1115,7 +1197,7 @@ mask = 0x0b
 
 ### OS2001 Name is not defined here
 
-Severity error. Stage checker. Since language version 1. Reference language.md 12.2, 12.5. Test `tests/errors/OS2001`.
+Severity error. Stage checker. Since language version 1. Reference language.md 12.2, 12.5. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is not defined at this point in the file.`
 
@@ -1142,7 +1224,7 @@ plot(spread, "Spread", aqua)
 
 ### OS2002 The name already exists in an enclosing scope
 
-Severity error. Stage checker. Since language version 1. Reference language.md 12.3, 12.4. Test `tests/errors/OS2002`.
+Severity error. Stage checker. Since language version 1. Reference language.md 12.3, 12.4. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is already declared at line {line}, so a second one cannot be declared here.`
 
@@ -1175,7 +1257,7 @@ fn smooth(src) =>
 
 ### OS2003 Types do not match
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 5.4, 10.1. Test `tests/errors/OS2003`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 5.4, 10.1. Test `tests/unit/check-handles.test.ts`.
 
 **Message.** `{leftType} and {rightType} do not mix here.`
 
@@ -1200,7 +1282,7 @@ s = "count: " + text(5)
 
 ### OS2004 This value has no history
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.2, 5.4. Test `tests/errors/OS2004`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.2, 5.4. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `{expr} has no history, so [] cannot read a past value of it.`
 
@@ -1227,7 +1309,7 @@ plot(trending ? body[1] : none, "Previous body", aqua)
 
 ### OS2005 Recursive call
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.4. Test `tests/errors/OS2005`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.4. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} calls itself: {cycle}.`
 
@@ -1259,7 +1341,7 @@ fn total(n) =>
 
 ### OS2006 Assignment to a loop variable
 
-Severity error. Stage checker. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS2006`.
+Severity error. Stage checker. Since language version 1. Reference language.md 10.3. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is this loop's variable and cannot be assigned inside the body.`
 
@@ -1287,7 +1369,7 @@ for i = 0 to 9
 
 ### OS2007 The file has no declaration
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.1. Test `tests/errors/OS2007`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.1. Test `tests/unit/check-support.ts`.
 
 **Message.** `A file needs one study() or strategy() declaration before any other statement.`
 
@@ -1313,7 +1395,7 @@ plot(fast, "Fast", aqua)
 
 ### OS2008 More than one declaration
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.1. Test `tests/errors/OS2008`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.1. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `This file already declares {kind} at line {line}.`
 
@@ -1339,7 +1421,7 @@ strategy("EMA cross", overlay = true)
 
 ### OS2009 Unknown member of a namespace
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS2009`.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{namespace} has no member named {member}.`
 
@@ -1365,7 +1447,7 @@ plot(bar.index, "Bar", aqua)
 
 ### OS2010 This name is not a function
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.1. Test `tests/errors/OS2010`.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.1. No test in this repository names this code.
 
 **Message.** `{name} is {type}, not a function, so it cannot be called.`
 
@@ -1391,7 +1473,7 @@ v = sma(volume, 20)
 
 ### OS2011 A condition must be a bool
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 10.2. Test `tests/errors/OS2011`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.3, 10.2. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `This condition is {type}; a condition must be bool or none.`
 
@@ -1418,7 +1500,7 @@ if hitCount > 0
 
 ### OS2012 The two arms of the ternary have different types
 
-Severity error. Stage checker. Since language version 1. Reference language.md 9.5. Test `tests/errors/OS2012`.
+Severity error. Stage checker. Since language version 1. Reference language.md 9.5. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `The arms of this ? : are {leftType} and {rightType}.`
 
@@ -1443,7 +1525,7 @@ label = up ? "up" : "down"
 
 ### OS2013 An array literal mixes types
 
-Severity error. Stage checker. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS2013`.
+Severity error. Stage checker. Since language version 1. Reference language.md 14.1. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `This array holds {firstType} at index 0 and {otherType} at index {index}.`
 
@@ -1470,7 +1552,7 @@ lengths = [14, 9]
 
 ### OS2014 A function cannot be used as a value
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.1, 18. Test `tests/errors/OS2014`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.1, 18. Test `tests/emit/worked-example.test.ts`.
 
 **Message.** `{name} is a function, and version 1 has no function values.`
 
@@ -1496,7 +1578,7 @@ plot(src, "EMA", aqua)
 
 ### OS2015 The element type of this empty array is unknown
 
-Severity error. Stage checker. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS2015`.
+Severity error. Stage checker. Since language version 1. Reference language.md 14.1. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `An empty array literal needs its element type from an annotation or from a first use.`
 
@@ -1520,7 +1602,7 @@ plot(size(hits), "Hits", aqua)
 
 ### OS2016 Unknown type in an annotation
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 5.4, 19. Test `tests/errors/OS2016`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 5.4, 19. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `{type} is not a type.`
 
@@ -1546,7 +1628,7 @@ fn band(src: series number, len: number = 20) =>
 
 ### OS2017 A function with this name is already declared
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.1. Test `tests/errors/OS2017`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.1. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is already declared as a function at line {line}.`
 
@@ -1572,7 +1654,7 @@ fn band(src, len = 20) => sma(src, len)
 
 ### OS2018 Duplicate parameter name
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS2018`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} appears twice in this parameter list.`
 
@@ -1596,7 +1678,7 @@ fn ratio(src, len) => src / src[len]
 
 ### OS2019 This type cannot be an array element
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 14.1, 19. Test `tests/errors/OS2019`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 14.1, 19. Test `tests/unit/check-types.test.ts`.
 
 **Message.** `array<{type}> is not a type: {type} cannot be an array element.`
 
@@ -1623,7 +1705,7 @@ fill(upperEdge, lowerEdge, color = fade(aqua, 88))
 
 ### OS2020 Name is planned, not implemented
 
-Severity error. Stage checker. Since language version 1. Reference stdlib.md 1. Test `tests/errors/OS2020`.
+Severity error. Stage checker. Since language version 1. Reference stdlib.md 1. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is planned and is not implemented in this version.`
 
@@ -1654,7 +1736,7 @@ plot((doubled - 1) / (doubled + 1), "Squashed", aqua)
 
 ### OS3001 Wrong number of arguments
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3001`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{name} takes {expected} arguments and {found} were given.`
 
@@ -1670,7 +1752,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 Before:
 
 ```
-e = ema(close)
+e = ema(close, 9, 2)
 ```
 
 After:
@@ -1681,7 +1763,7 @@ e = ema(close, 9)
 
 ### OS3002 Unknown named argument
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3002`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{name} has no argument called {argument}.`
 
@@ -1708,7 +1790,7 @@ plot(v, "V", color = aqua)
 
 ### OS3003 This option must be a constant
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. Test `tests/errors/OS3003`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{option} is read once, before the first bar, so it cannot depend on bar data.`
 
@@ -1727,12 +1809,12 @@ study("Range", precision = round(close / 1000))
 After:
 
 ```
-study("Range", precision = input(2, "Precision"))
+study("Range", precision = 2)
 ```
 
 ### OS3004 Argument is not a valid whole number
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 10.3. Test `tests/errors/OS3004`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.1, 10.3. Test `tests/engine/machine.test.ts`.
 
 **Message.** `{name}'s {argument} must be a whole number {range}; {found} was given.`
 
@@ -1748,18 +1830,18 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 Before:
 
 ```
-s = sma(close, len / 2)
+t = table("Summary", 2.5, 2)
 ```
 
 After:
 
 ```
-s = sma(close, floor(len / 2))
+t = table("Summary", 3, 2)
 ```
 
 ### OS3005 Positional argument after a named one
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3005`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `A positional argument cannot follow a named one.`
 
@@ -1781,7 +1863,7 @@ b = band(close, len = 20, mult = 3)
 
 ### OS3006 This call must be at the top level
 
-Severity error. Stage checker. Since language version 1. Reference language.md 7.1, 15.3; stdlib.md 17.6. Test `tests/errors/OS3006`.
+Severity error. Stage checker. Since language version 1. Reference language.md 7.1, 15.3; stdlib.md 17.6. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{name} defines part of the study's fixed shape and cannot appear inside {construct}.`
 
@@ -1807,7 +1889,7 @@ plot(trending ? ema20 : none, "EMA 20", aqua)
 
 ### OS3007 input() must be at the top level
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS3007`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `input() builds one row of the settings dialog, which is read once before the first bar.`
 
@@ -1826,13 +1908,13 @@ After:
 
 ```
 len = input(20, "Length")
-if useBand
-    b = sma(close, len)
+b = sma(close, len)
+plot(useBand ? b : none, "Band", aqua)
 ```
 
 ### OS3008 The value is not valid for this parameter
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS3008`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{argument} accepts {values}; {found} is not one of them.`
 
@@ -1859,7 +1941,7 @@ strategy("Breakout", qtyType = "units")
 
 ### OS3009 This option needs another option to be set
 
-Severity error. Stage checker. Since language version 1. Reference language.md 7.5, 13.2. Test `tests/errors/OS3009`.
+Severity error. Stage checker. Since language version 1. Reference language.md 7.5, 13.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{option} = {value} requires {required}.`
 
@@ -1877,7 +1959,7 @@ Before:
 study("Ticks")
 
 if close > open
-    alert("Up", frequency = "everyUpdate")
+    alert("Up", id = "up", frequency = "everyUpdate")
 ```
 
 After:
@@ -1886,12 +1968,12 @@ After:
 study("Ticks", onUnconfirmed = true)
 
 if close > open
-    alert("Up", frequency = "everyUpdate")
+    alert("Up", id = "up", frequency = "everyUpdate")
 ```
 
 ### OS3010 Two arguments that cannot both be given
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.3, 15.3. Test `tests/errors/OS3010`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.3, 15.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{first} and {second} set the same thing two ways.`
 
@@ -1916,7 +1998,7 @@ exit(limit = 105)
 
 ### OS3011 Argument has the wrong type
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.2, 5.3. Test `tests/errors/OS3011`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.2, 5.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{name}'s {argument} is {expected}; {found} was given.`
 
@@ -1943,7 +2025,7 @@ e = ema(close, 9)
 
 ### OS3012 A required argument is missing
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.2, 13.2. Test `tests/errors/OS3012`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2, 13.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{name} requires {argument}, which has no default.`
 
@@ -1969,7 +2051,7 @@ study("Range breakout", overlay = true)
 
 ### OS3013 Argument given twice
 
-Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/errors/OS3013`.
+Severity error. Stage checker. Since language version 1. Reference language.md 11.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{argument} is given twice at this call site.`
 
@@ -1993,7 +2075,7 @@ b = band(close, len = 20)
 
 ### OS3014 limits() is in the wrong place
 
-Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS3014`.
+Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `limits() appears at most once, immediately after the declaration; this one is at line {line}.`
 
@@ -2023,7 +2105,7 @@ len = input(20, "Length")
 
 ### OS3015 limits() takes literal numbers
 
-Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS3015`.
+Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `limits() is read before the first bar, so {option} must be a literal number.`
 
@@ -2047,7 +2129,7 @@ limits(loops = 50_000_000)
 
 ### OS3016 range must be a low and a high
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.2. Test `tests/errors/OS3016`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.2. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `range is [{low}, {high}]; it takes two numbers and the first must be below the second.`
 
@@ -2072,7 +2154,7 @@ study("RSI", range = [0, 100])
 
 ### OS3017 Two of these share a name
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS3017`.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{kind} names must be unique in a file; {name} is also used at line {line}.`
 
@@ -2100,7 +2182,7 @@ plot(slow, "EMA slow", orange)
 
 ### OS3018 The default is not in the options list
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS3018`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `This input's default {default} is not one of options {values}.`
 
@@ -2125,7 +2207,7 @@ mode = input("fast", "Mode", options = ["fast", "slow"])
 
 ### OS3019 A declaration handle in an object argument
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 15.3. Test `tests/errors/OS3019`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 15.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `{name}'s {argument} is {expected}; {found} is a declaration handle, which has no value at run time.`
 
@@ -2153,7 +2235,7 @@ plot(basis + dev, "Upper", color = close > basis ? lime : red)
 
 ### OS3020 fill needs two declared plots
 
-Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 15.3. Test `tests/errors/OS3020`.
+Severity error. Stage checker. Since language version 1. Reference language.md 5.4, 15.3. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `fill's {argument} is {found}; it takes a plot declared by plot() or plotCandles().`
 
@@ -2184,7 +2266,7 @@ fill(upper, lower, color = fade(aqua, 88))
 
 ### OS4001 History index is not usable
 
-Severity error. Stage engine. Since language version 1. Reference language.md 7.4. Test `tests/errors/OS4001`.
+Severity error. Stage engine. Since language version 1. Reference language.md 7.4. Test `tests/engine/machine.test.ts`.
 
 **Message.** `[{index}] is not a whole number of bars at or above zero.`
 
@@ -2208,7 +2290,7 @@ prev = close[floor(len / 2)]
 
 ### OS4002 History index is deeper than the retained depth
 
-Severity error. Stage engine. Since language version 1. Reference language.md 7.4, 10.7. Test `tests/errors/OS4002`.
+Severity error. Stage engine. Since language version 1. Reference language.md 7.4, 10.7. Test `tests/engine/machine.test.ts`.
 
 **Message.** `[{index}] reaches past the retained depth of {depth} bars.`
 
@@ -2224,22 +2306,23 @@ Before:
 
 ```
 study("Long lookback")
+limits(history = 50)
 
-old = close[5000]
+old = close[120]
 ```
 
 After:
 
 ```
 study("Long lookback")
-limits(history = 5001)
+limits(history = 120)
 
-old = close[5000]
+old = close[120]
 ```
 
 ### OS4003 A whole number was required here
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4003`.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. No test in this repository names this code.
 
 **Message.** `{name}'s {argument} was {found} on this bar; a whole number was required.`
 
@@ -2254,18 +2337,18 @@ Severity error. Stage engine. Since language version 1. Reference language.md 14
 Before:
 
 ```
-mid = element(values, size(values) / 2)
+s = sma(close, len / 2)
 ```
 
 After:
 
 ```
-mid = element(values, floor(size(values) / 2))
+s = sma(close, floor(len / 2))
 ```
 
 ### OS4004 Array index out of range
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4004`.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/engine/machine.test.ts`.
 
 **Message.** `Index {index} is outside {name}, which holds {size} elements.`
 
@@ -2291,7 +2374,7 @@ last = size(values) > 10 ? values[10] : none
 
 ### OS4005 The drawing object no longer exists
 
-Severity error. Stage engine. Since language version 1. Reference language.md 5.4. Test `tests/errors/OS4005`.
+Severity error. Stage engine. Since language version 1. Reference language.md 5.4. Test `tests/engine/objects.test.ts`.
 
 **Message.** `This {kind} was deleted on bar {bar} and cannot be changed.`
 
@@ -2328,7 +2411,7 @@ if not isNone(top)
 
 ### OS4006 The array is empty
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4006`.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. Taking an element from an empty array raises the broader OS4004, and summarising one returns absence, which is the silent drain this entry exists to refuse. Raised when the array library tells the empty case apart from an index outside a filled array, language.md 14.1.
 
@@ -2354,7 +2437,7 @@ oldest = size(window) > 0 ? shift(window) : none
 
 ### OS4007 Slice range is invalid
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4007`.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. slice takes whatever range it is given and returns a shortened or empty array, so a reversed or out of range pair produces a plausible answer instead of a refusal. Raised when the array library checks the range against the array, language.md 14.1.
 
@@ -2382,7 +2465,7 @@ tail = slice(values, max(0, size(values) - 10), size(values))
 
 ### OS4008 Table cell is outside the table
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS4008`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.3. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. A write outside the declared grid raises the broader OS4004, which names an index rather than the shape the declaration fixed. Raised when the table surface reports the cell against the table it was written to, language.md 15.3.
 
@@ -2413,7 +2496,7 @@ cell(t, 2, 0, "Total")
 
 ### OS4009 Colour channel is out of range
 
-Severity error. Stage engine. Since language version 1. Reference language.md 3.8. Test `tests/errors/OS4009`.
+Severity error. Stage engine. Since language version 1. Reference language.md 3.8. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. The colour calls build a colour from whatever channels they are given, so a channel outside its range reaches the chart rather than stopping the bar. Raised when the colour library checks each channel, language.md 3.8.
 
@@ -2441,7 +2524,7 @@ tint = rgb(min(255, max(0, 255 * strength)), 0, 0)
 
 ### OS4010 Calendar field is out of range
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4010`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. Building a date returns absence only when a field is not a whole number, so a month past the end of the year rolls into the next one and becomes a timestamp the script never meant. Raised when the calendar library checks each field against its range, language.md 15.2.
 
@@ -2469,7 +2552,7 @@ t = date.from(2026 + floor(month / 12), mod(month, 12) + 1, 1)
 
 ### OS4011 String position is outside the string
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4011`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. Taking part of a string slices the code points it holds, so a position outside the string returns a shorter string or an empty one, which is the plausible empty result this entry refuses. Raised when the string library checks the position against the string, language.md 15.2.
 
@@ -2496,7 +2579,7 @@ c = str.length(sym) > 10 ? str.substring(sym, 10, 11) : ""
 
 ### OS4012 That value is not one of the accepted names
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4012`.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. A computed name outside the accepted set produces absence on every bar rather than stopping, and only a name written as a literal is refused, at compile time, with OS3008. Raised when the engine checks a computed name on the bar that produced it, language.md 14.1.
 
@@ -2526,7 +2609,7 @@ sort(values, sortOrder)
 
 ### OS4013 A loop bound is absent
 
-Severity error. Stage engine. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS4013`.
+Severity error. Stage engine. Since language version 1. Reference language.md 10.3. Test `tests/engine/machine.test.ts`.
 
 **Message.** `This loop's {bound} is absent on this bar.`
 
@@ -2557,7 +2640,7 @@ if not isNone(lookback)
 
 ### OS5001 Loop budget exhausted
 
-Severity error. Stage engine. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS5001`.
+Severity error. Stage engine. Since language version 1. Reference language.md 10.7. Test `tests/engine/budget.test.ts`.
 
 **Message.** `This bar used its {budget} loop iterations, and the loop at line {line} was still running.`
 
@@ -2586,7 +2669,9 @@ while i < 500 and close[i] > close[i + 1]
 
 ### OS5002 The array is too large
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS5002`.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/engine/budget.test.ts`.
+
+**Not exercised.** The ceiling is the engine's own and it is a large one, so an example that reached it would be a run long enough to fill it rather than a script anybody would read. The before block shows the window that is never trimmed, which is the shape that gets there, and not the bar it stops on.
 
 **Message.** `An array holds at most {max} elements; {name} reached {size}.`
 
@@ -2616,7 +2701,7 @@ if size(window) > 500
 
 ### OS5003 The host refused this limits() value
 
-Severity error. Stage host. Since language version 1. Reference language.md 10.7; host-interface.md 10.1. Test `tests/errors/OS5003`.
+Severity error. Stage host. Since language version 1. Reference language.md 10.7; host-interface.md 10.1. Test `tests/engine/verify.test.ts`.
 
 **Message.** `This host allows {option} up to {max}; the file asks for {found}.`
 
@@ -2642,7 +2727,7 @@ limits(loops = 50_000_000)
 
 ### OS5004 The program needs more state regions than the engine allows
 
-Severity error. Stage checker. Since language version 1. Reference compiled-program.md, state regions. Test `tests/errors/OS5004`.
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, state regions. Test `tests/engine/verify.test.ts`.
 
 **Message.** `This program needs {found} state regions and the engine allows {max}; {first} calls {second} on several paths.`
 
@@ -2673,7 +2758,9 @@ v = base - base[1]
 
 ### OS5005 Nesting is too deep
 
-Severity error. Stage parser. Since language version 1. Reference language.md 19. Test `tests/errors/OS5005`.
+Severity error. Stage parser. Since language version 1. Reference language.md 19. Test `tests/unit/parse-diagnostics.test.ts`.
+
+**Not exercised.** The ceiling is far above anything written by hand, which is the whole point of it: generated source is how a file reaches it. The before block shows the shape at four levels, where a reader can see it, and nothing that short can raise the code.
 
 **Message.** `{construct} is nested {found} deep and the ceiling is {max}.`
 
@@ -2700,7 +2787,7 @@ z = a ? (b ? inner : 4) : 5
 
 ### OS5006 Too many outstanding data requests
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS5006`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/engine/requests-load.test.ts`.
 
 **Message.** `This file makes {found} data requests and the host allows {max}.`
 
@@ -2729,7 +2816,7 @@ weekHigh = req.timeframe("1W", high)
 
 ### OS5007 The bar took too long
 
-Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/errors/OS5007`.
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/engine/budget.test.ts`.
 
 **Message.** `Bar {bar} ran for {ms} ms and the host allows {max} ms.`
 
@@ -2758,7 +2845,9 @@ total += close
 
 ### OS5008 The string is too long
 
-Severity error. Stage engine. Since language version 1. Reference language.md 5.1. Test `tests/errors/OS5008`.
+Severity error. Stage engine. Since language version 1. Reference language.md 5.1. Test `tests/engine/budget.test.ts`.
+
+**Not exercised.** The ceiling is the engine's own and a bar appends a few characters, so reaching it takes a run of thousands of bars rather than an example. The before block shows the log that is never trimmed, which is the shape that gets there.
 
 **Message.** `A string holds at most {max} characters; this one reached {found}.`
 
@@ -2787,7 +2876,7 @@ if size(logLines) > 50
 
 ### OS5009 The program is too large
 
-Severity error. Stage checker. Since language version 1. Reference language.md 10.7. Test `tests/errors/OS5009`.
+Severity error. Stage host. Since language version 1. Reference language.md 10.7. Test `tests/engine/verify.test.ts`.
 
 **Message.** `This file compiles to {found} instructions and the ceiling is {max}.`
 
@@ -2817,7 +2906,9 @@ a3 = avgOf(30)
 
 ### OS5010 Too many drawing objects
 
-Severity error. Stage engine. Since language version 1. Reference stdlib.md 14.4. Test `tests/errors/OS5010`.
+Severity error. Stage engine. Since language version 1. Reference stdlib.md 14.4. Test `tests/engine/objects.test.ts`.
+
+**Not exercised.** The ceiling is the host's and a bar creates one object, so reaching it takes a run of thousands of bars rather than an example. The before block shows the script that creates on every bar and deletes on none, which is the shape that gets there.
 
 **Message.** `A script holds at most {max} drawing objects; this one would be number {found}.`
 
@@ -2851,7 +2942,7 @@ if size(zones) > 50
 
 ### OS6001 Unknown timeframe
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6001`.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/unit/check-repaint.test.ts`.
 
 **Message.** `{value} is not a timeframe.`
 
@@ -2875,7 +2966,7 @@ d = req.timeframe("1h", high)
 
 ### OS6002 The requested timeframe is lower than the chart's
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6002`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/engine/requests-load.test.ts`.
 
 **Message.** `The chart is {chart} and the request asks for {requested}.`
 
@@ -2900,7 +2991,7 @@ h1 = req.timeframe("60", close)
 
 ### OS6003 A per-bar name inside a request expression
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6003`.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/unit/check-repaint.test.ts`.
 
 **Message.** `{name} is computed on this chart's bars, so it has no meaning on the requested ones.`
 
@@ -2925,7 +3016,9 @@ d = req.timeframe("1D", close > sma(close, 20))
 
 ### OS6004 The library manifest disagrees with the program
 
-Severity error. Stage host. Since language version 1. Reference compiled-program.md, the function table. Test `tests/errors/OS6004`.
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, the function table. Test `tests/engine/verify.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `Entry {index} of the program names {name} with {arity} arguments; this engine's manifest has {manifest}.`
 
@@ -2954,7 +3047,7 @@ engine:  library 4, entry "stdev" arity 2
 
 ### OS6005 Unknown timezone
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6005`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/stdlib/calendar.test.ts`.
 
 **Message.** `{value} is not a timezone this host knows.`
 
@@ -2978,7 +3071,9 @@ h = date.hour(time, "Asia/Kolkata")
 
 ### OS6006 The engine lacks a capability the program requires
 
-Severity error. Stage host. Since language version 1. Reference compiled-program.md, capability tags. Test `tests/errors/OS6006`.
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, capability tags. Test `tests/engine/verify.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `This program requires {tag} and this engine does not have it.`
 
@@ -3004,7 +3099,7 @@ engine has:       core.1, arrays
 
 ### OS6007 Unknown symbol or exchange
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6007`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/hosts/host.ts`.
 
 **Message.** `The host does not know {symbol} on {exchange}.`
 
@@ -3029,7 +3124,7 @@ other = req.symbol("SYMBOL", "1D", close, exchange = "EXCHANGE")
 
 ### OS6008 The request returned no bars
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6008`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/hosts/host.ts`.
 
 **Message.** `{symbol} at {timeframe} returned no bars over the range this chart covers.`
 
@@ -3054,7 +3149,7 @@ fut = req.symbol("CURRENT_CONTRACT", "1D", close)
 
 ### OS6009 The request failed
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6009`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/engine/requests-host.test.ts`.
 
 **Message.** `The host could not fetch {symbol} at {timeframe}: {reason}.`
 
@@ -3084,7 +3179,9 @@ else
 
 ### OS6010 The engine was given no bars
 
-Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/errors/OS6010`.
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/engine/series.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `There are no bars for {symbol} at {timeframe}, so the script cannot run.`
 
@@ -3109,7 +3206,9 @@ host input: symbol SYMBOL, interval 5, bars 1240
 
 ### OS6011 The bars are not in order
 
-Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/errors/OS6011`.
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/engine/series.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `Bar {index} is dated {time}, which is not after bar {previous}.`
 
@@ -3141,7 +3240,7 @@ host input:
 
 ### OS6012 An instrument fact is not known
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6012`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/engine/requests-host.test.ts`.
 
 **Message.** `The host did not supply {fact} for {symbol}.`
 
@@ -3167,7 +3266,7 @@ qty = lots * lotSize
 
 ### OS6013 The request changed after the first bar
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6013`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. A read's identity is settled once before bar 0 and nothing asks again, so there is no second identity for the engine to compare the first one against. Raised when the engine resolves a read's identity per bar, language.md 15.2.
 
@@ -3197,7 +3296,7 @@ h = req.timeframe(tf, high)
 
 ### OS6014 The feed does not offer this timeframe
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6014`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/hosts/reads.ts`.
 
 **Message.** `The host has no {timeframe} data for {symbol}; it offers {available}.`
 
@@ -3223,7 +3322,7 @@ r = req.timeframe("5", close)
 
 ### OS6015 The requested timeframe does not fold into the chart's
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6015`.
+Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/engine/requests-load.test.ts`.
 
 **Message.** `{requested} is not a whole multiple of {chart}.`
 
@@ -3249,7 +3348,9 @@ r = req.timeframe("60", close)
 
 ### OS6016 The compiled format version is not one this engine implements
 
-Severity error. Stage host. Since language version 1. Reference compiled-program.md, loading a program. Test `tests/errors/OS6016`.
+Severity error. Stage host. Since language version 1. Reference compiled-program.md, loading a program. Test `tests/engine/verify.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `This program is in compiled format {found} and this engine implements format {max}; a different major number is a different format, whether it is higher or lower.`
 
@@ -3276,7 +3377,9 @@ engine:  compiled format 1.0
 
 ### OS6017 The program's language version is not one this engine implements
 
-Severity error. Stage host. Since language version 1. Reference language.md 4.1. Test `tests/errors/OS6017`.
+Severity error. Stage host. Since language version 1. Reference language.md 4.1. Test `tests/engine/verify.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `This program was compiled from language version {found}, and this engine implements {versions}.`
 
@@ -3303,7 +3406,9 @@ engine:  language version 1
 
 ### OS6018 The compiled program is malformed
 
-Severity error. Stage host. Since language version 1. Reference compiled-program.md 3.5, 9.4. Test `tests/errors/OS6018`.
+Severity error. Stage host. Since language version 1. Reference compiled-program.md 3.5, 9.4. Test `tests/engine/verify.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `The program failed verification at {location}: {reason}.`
 
@@ -3328,7 +3433,9 @@ instruction 402: JUMP target 411, program holds 812 instructions
 
 ### OS6019 A host setting fails the input's validation
 
-Severity error. Stage host. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS6019`.
+Severity error. Stage host. Since language version 1. Reference language.md 13.4. Test `tests/engine/verify.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `The host supplied {value} for {key}, and {validation}.`
 
@@ -3360,7 +3467,7 @@ host setting: len = 14
 
 ### OS7001 Only a strategy can do that
 
-Severity error. Stage checker. Since language version 1. Reference language.md 13.1, 13.3. Test `tests/errors/OS7001`.
+Severity error. Stage checker. Since language version 1. Reference language.md 13.1, 13.3. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is available only in a file declared with strategy().`
 
@@ -3391,7 +3498,7 @@ if crossUp(fast, slow)
 
 ### OS7002 An order argument is absent
 
-Severity error. Stage engine. Since language version 1. Reference language.md 6.8. Test `tests/errors/OS7002`.
+Severity error. Stage engine. Since language version 1. Reference language.md 6.8. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `{name}'s {argument} is absent on this bar.`
 
@@ -3418,7 +3525,7 @@ if not isNone(s)
 
 ### OS7003 An order function inside a request expression
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7003`.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/unit/check-repaint.test.ts`.
 
 **Message.** `{name} inside a request expression would place an order from another instrument's bars.`
 
@@ -3444,7 +3551,7 @@ if up
 
 ### OS7004 Order quantity is zero or negative
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7004`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `{name} was given a quantity of {qty}.`
 
@@ -3471,7 +3578,7 @@ if delta > 0
 
 ### OS7005 Quantity is not a multiple of the lot size
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7005`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. Nothing compares an order's quantity with the lot size its leg trades in, so a quantity no exchange would accept is sent and a backtest can report a trade that could not have happened. Raised when order validation lands, stdlib.md 17.2.
 
@@ -3500,7 +3607,7 @@ buy(qty = 2)
 
 ### OS7006 Price is not on a tick
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7006`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `{symbol} ticks at {tick}, and {price} does not fall on one.`
 
@@ -3527,7 +3634,7 @@ sell(qty = 1, limit = target)
 
 ### OS7007 A resting order has no price
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7007`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `A {type} order needs {argument}, and none was given.`
 
@@ -3552,7 +3659,7 @@ order.place("buy", 1, type = "limit", price = close - chart.tickSize)
 
 ### OS7008 The entry was refused by pyramiding
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7008`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `This strategy allows {max} entries in one direction and already holds {found}.`
 
@@ -3581,7 +3688,7 @@ if signalUp and pos.size == 0
 
 ### OS7009 Unknown order tag
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2; stdlib.md 17.3. Test `tests/errors/OS7009`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2; stdlib.md 17.3. Test `tests/engine/tags.test.ts`.
 
 **Message.** `There is no working order tagged {tag}.`
 
@@ -3589,26 +3696,25 @@ Severity error. Stage engine. Since language version 1. Reference language.md 15
 
 **Cause.** A tag names an order from the moment it is placed. Acting on a tag that names nothing is a script that has lost track of its own orders, and ignoring the call would leave it believing an order exists that does not. This code is for a call that acts on an order. The reading calls of stdlib.md section 17.3 read the ledger, which keeps a row after the order finishes, so a tag that names no row reads as the entry's documented empty value rather than raising.
 
-**Fix.** Use the tag the order was placed with, and test order.working({tag}) before acting on it.
+**Fix.** Use the tag the order was placed with, or cancelAll() where the script means every order it has working.
 
 Before:
 
 ```
 buy(qty = 1, tag = "entry")
-order.bracket(tag = "entries", loss = 10)
+cancel("entries")
 ```
 
 After:
 
 ```
 buy(qty = 1, tag = "entry")
-if order.working("entry")
-    order.bracket(tag = "entry", loss = 10)
+cancel("entry")
 ```
 
 ### OS7010 A bracket price is on the wrong side of the entry
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7010`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `A {side} entry at {entry} cannot take a {leg} at {price}.`
 
@@ -3624,20 +3730,24 @@ Severity error. Stage engine. Since language version 1. Reference language.md 13
 Before:
 
 ```
-buy(qty = 1)
-exit(limit = pos.avgPrice - atrValue, stop = pos.avgPrice + atrValue)
+if pos.isFlat
+    buy(qty = 1)
+else
+    exit(limit = pos.avgPrice - atrValue, stop = pos.avgPrice + atrValue)
 ```
 
 After:
 
 ```
-buy(qty = 1)
-exit(limit = pos.avgPrice + atrValue, stop = pos.avgPrice - atrValue)
+if pos.isFlat
+    buy(qty = 1)
+else
+    exit(limit = pos.avgPrice + atrValue, stop = pos.avgPrice - atrValue)
 ```
 
 ### OS7011 The order needs more capital than the strategy has
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7011`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. Nothing compares an order's cost with the capital the strategy has, so a backtest can spend money it never had and report a return nobody could have earned. Raised when the ledger holds a capital figure to check against, language.md 13.3.
 
@@ -3665,7 +3775,7 @@ buy(qty = 10)
 
 ### OS7012 The instrument is outside its session
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7012`.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.2. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. Nothing compares the bar's time with the instrument's session before an order is sent, so an order outside the session leaves the engine as though the venue were open. Raised when order validation reads the session, language.md 15.2.
 
@@ -3688,13 +3798,13 @@ if crossUp(fast, slow)
 After:
 
 ```
-if crossUp(fast, slow) and session.isOpen
+if crossUp(fast, slow) and session.isIn("0915-1530")
     buy(qty = 1)
 ```
 
 ### OS7013 Two opposite orders on one bar
 
-Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7013`.
+Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/engine/refusals.test.ts`.
 
 **Message.** `{first} and {second} were both placed on bar {bar}.`
 
@@ -3709,24 +3819,26 @@ Severity error. Stage engine. Since language version 1. Reference language.md 13
 Before:
 
 ```
+r = rsi(close, 14)
 if crossUp(fast, slow)
     buy(qty = 1)
-if rsi(close, 14) > 70
+if r > 70
     sell(qty = 1)
 ```
 
 After:
 
 ```
+r = rsi(close, 14)
 if crossUp(fast, slow)
     buy(qty = 1)
-else if rsi(close, 14) > 70
+else if r > 70
     sell(qty = 1)
 ```
 
 ### OS7014 The destination rejected the order
 
-Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7014`.
+Severity error. Stage host. Since language version 1. Reference language.md 13.3. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. A refusal that comes back is folded into the ledger row as a status and its text, and no diagnostic is raised, so nothing reports it against the line that placed the order. Raised when a refused fold reports, stdlib.md 17.8.
 
@@ -3755,7 +3867,7 @@ buy(qty = 1)
 
 ### OS7015 The strategy has no order destination
 
-Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7015`.
+Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/hosts/strategy.test.ts`.
 
 **Deferred.** Nothing raises this yet. A strategy with nowhere to send orders is not stopped: it places intents that reach nobody, and nothing says so. Raised when the engine checks for a destination before the first order, host-interface.md 7.4.
 
@@ -3781,13 +3893,43 @@ if crossUp(fast, slow)
     signal("BUY")
 ```
 
+### OS7016 A close names a tag nothing places
+
+Severity error. Stage checker. Since language version 1. Reference stdlib.md 17.2. Test `tests/unit/check-tags.test.ts`.
+
+**Message.** `No order in this file is placed with the tag {tag}.`
+
+- `{tag}` is the tag the close was given.
+
+**Cause.** A close names the part of a position that one tag entered. A tag no order in the file is placed with can never name a part of one, so the call sends nothing on every bar and says nothing, and the script goes on believing it has flattened. It is read from the file rather than from the run because the run cannot tell this from an ordinary bar: a tag that has never named a ledger row is also what a working script looks like before its entry has happened. A tag the script computes is not read, and neither is any close in a file where an order's tag is computed.
+
+**Fix.** Use the tag the entry was placed with, or leave the tag out to flatten the whole leg.
+
+Before:
+
+```
+if pos.isFlat
+    buy(qty = 1, tag = "entry")
+else
+    close(tag = "entries")
+```
+
+After:
+
+```
+if pos.isFlat
+    buy(qty = 1, tag = "entry")
+else
+    close(tag = "entry")
+```
+
 ---
 
 ## 8.8 OS8xxx Warnings
 
 ### OS8001 A stateful call inside a branch
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 11.4. Test `tests/errors/OS8001`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 11.4. Test `tests/unit/check-conditional.test.ts`.
 
 **Message.** `{name} advances only on the bars where this branch runs, and is absent on the rest.`
 
@@ -3814,7 +3956,7 @@ plot(trending ? e : none, "EMA", aqua)
 
 ### OS8002 A higher timeframe read with onUnconfirmed
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 7.5. Test `tests/errors/OS8002`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.5. Test `tests/unit/check-repaint.test.ts`.
 
 **Message.** `This file sets onUnconfirmed = true and reads {timeframe}; together they repaint.`
 
@@ -3844,7 +3986,7 @@ if close > d
 
 ### OS8003 No version declaration
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 4. Test `tests/errors/OS8003`. The editor can apply the fix.
+Severity warning. Stage checker. Since language version 1. Reference language.md 4. Test `tests/unit/diagnostics.test.ts`. The editor can apply the fix.
 
 **Message.** `This file declares no language version; it was compiled as version {version}.`
 
@@ -3870,7 +4012,7 @@ study("EMA cross")
 
 ### OS8004 A branch on an absent condition changes a value used later
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 6.6. Test `tests/errors/OS8004`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.6. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. The checker does not follow which names a branch on a possibly absent condition assigns, so the warmup shape this warns about compiles silently. Raised when the checker follows assignments out of a conditional block, language.md 6.6.
 
@@ -3903,7 +4045,7 @@ plot(zone == "high" ? 1 : 0, "Zone", aqua)
 
 ### OS8005 A lookahead read
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 7.5. Test `tests/errors/OS8005`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.5. Test `tests/unit/check-repaint.test.ts`.
 
 **Message.** `This read uses {mode}, so the study shows values the bar it is drawn on could not have known.`
 
@@ -3927,7 +4069,7 @@ d = req.timeframe("1D", high)
 
 ### OS8006 A session average on a session-length bar
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS8006`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 15.2. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. The checker does not compare a session average's call with the chart's interval, so the accumulation this warns about compiles silently. Raised when the checker reads the declared interval at the call site, language.md 15.2.
 
@@ -3953,7 +4095,7 @@ plot(hlc3, "Typical price", aqua)
 
 ### OS8007 A plot sets the price pane's own formatting
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. Test `tests/errors/OS8007`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. No test in this repository names this code.
 
 **Message.** `{title} sets {option} while drawing over the price pane, which reformats the instrument's own axis.`
 
@@ -3980,7 +4122,7 @@ plot(upper, "Upper", aqua)
 
 ### OS8008 An alert with no fixed id
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS8008`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/unit/check-repaint.test.ts`.
 
 **Message.** `This alert has no fixed id, so its identity is derived from its position at line {line}.`
 
@@ -4006,7 +4148,7 @@ if crossUp(fast, slow)
 
 ### OS8009 This plot can never draw
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 6.7. Test `tests/errors/OS8009`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.7. Test `tests/unit/check-warmup.test.ts`.
 
 **Message.** `{title} plots a value that is absent on every bar.`
 
@@ -4030,7 +4172,7 @@ plot(ema(close, 20), "EMA 20", aqua)
 
 ### OS8010 A name is never read
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 12.2. Test `tests/errors/OS8010`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 12.2. Test `tests/unit/diagnostics.test.ts`.
 
 **Message.** `{name} is assigned at line {line} and never read.`
 
@@ -4056,7 +4198,7 @@ plot(ema(close, 9), "Fast", aqua)
 
 ### OS8011 live var makes live and backtest differ
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 7.5, 8.2. Test `tests/errors/OS8011`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.5, 8.2. Test `tests/unit/check-handles.test.ts`.
 
 **Message.** `{name} is a live var, so it keeps its value across the updates of the moving bar.`
 
@@ -4084,7 +4226,7 @@ plot(barCount, "Bars", aqua)
 
 ### OS8012 An ordered comparison against none is always absent
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 6.4, 6.5. Test `tests/errors/OS8012`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.4, 6.5. No test in this repository names this code.
 
 **Message.** `This {op} has none on one side, so it is absent on every bar.`
 
@@ -4110,7 +4252,7 @@ if not isNone(value)
 
 ### OS8013 Deprecated
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 4.1. Test `tests/errors/OS8013`. The editor can apply the fix.
+Severity warning. Stage checker. Since language version 1. Reference language.md 4.1. No test in this repository names this code. The editor can apply the fix.
 
 **Deferred.** Nothing raises this yet. No name in the library is marked deprecated and there is no marker for one to carry, so the checker has nothing to warn about. Raised when the library carries a deprecation marker the checker reads, language.md 4.1.
 
@@ -4138,7 +4280,7 @@ plot(newName(close, 14), "Value", aqua)
 
 ### OS8014 A persistent value holds a bar index
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 7.2. Test `tests/errors/OS8014`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 7.2. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. The checker does not follow a bar index into a persistent value, so the stored position this warns about compiles silently. Raised when the checker follows a bar index into persistent state, language.md 7.2.
 
@@ -4168,7 +4310,7 @@ if enter
 
 ### OS8015 This loop never runs
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 10.3. Test `tests/errors/OS8015`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 10.3. No test in this repository names this code.
 
 **Message.** `The loop starts at {start}, ends at {end} and steps {step}, so the body never runs.`
 
@@ -4196,7 +4338,7 @@ for i = 9 to 0 step -1
 
 ### OS8016 Unreachable code
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 11.3. Test `tests/errors/OS8016`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 11.3. No test in this repository names this code.
 
 **Message.** `Line {line} follows a return that always runs, so it never executes.`
 
@@ -4223,7 +4365,7 @@ fn pick(x) =>
 
 ### OS8017 The condition is constant
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 10.2. Test `tests/errors/OS8017`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 10.2. No test in this repository names this code.
 
 **Message.** `This condition is {value} on every bar.`
 
@@ -4249,7 +4391,7 @@ if crossUp(fast, slow)
 
 ### OS8018 An input is never used
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/errors/OS8018`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/unit/check-calls.test.ts`.
 
 **Message.** `The input {title} is declared at line {line} and never read.`
 
@@ -4276,7 +4418,7 @@ plot(ema(close, len), "EMA", aqua)
 
 ### OS8019 A deleted object is still held
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 5.4. Test `tests/errors/OS8019`.
+Severity warning. Stage checker. Since language version 1. Reference language.md 5.4. No test in this repository names this code.
 
 **Deferred.** Nothing raises this yet. The checker does not follow a reference to a deleted object, so the held handle this warns about compiles silently. Raised when the checker follows a deletion to the names and elements still holding the object, language.md 5.4.
 

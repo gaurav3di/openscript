@@ -190,6 +190,9 @@ different history loads.
 
 OS8014's message is the clearest statement of the general problem:
 
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
+
 > {name} keeps a bar index across bars, and every index shifts when more history
 > loads.
 
@@ -263,6 +266,11 @@ fix, and they exist because the shapes they name are almost always mistakes.
 | OS8004 | A branch on an absent condition changes a value used later | The warmup path quietly changes an answer |
 | OS8011 | A `live var` keeps its value across the updates of the moving bar | Live and backtest differ by design |
 | OS8014 | A persistent value holds a bar index, and every index shifts when more history loads | The reload test will fail |
+
+**Not raised yet.** OS8004 and OS8014 are in the catalogue and nothing raises
+them. The checker does not follow which names a branch on a possibly absent
+condition assigns. The checker does not follow a bar index into a persistent
+value.
 
 The compiler also warns on a `"developing"` read and on a `"lookahead"` read,
 naming the line and what the study will now do.

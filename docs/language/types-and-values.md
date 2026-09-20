@@ -158,6 +158,9 @@ Two colours are equal when all four channels match. A channel outside its range
 is OS4009 rather than a clamp, because a colour computed from data and landing at
 300 is a bug in the computation.
 
+**Not raised yet.** OS4009 is in the catalogue and nothing raises it: a channel
+outside its range reaches the chart rather than stopping the bar.
+
 ## The absent value, in one paragraph
 
 `none` is the absent value. It is what a moving average holds before it has

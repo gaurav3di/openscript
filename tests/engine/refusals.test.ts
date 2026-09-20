@@ -21,6 +21,7 @@
  * entry offers.
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import type { Diagnostic } from '../../src/core/index.js';
@@ -240,4 +241,153 @@ test('the fix OS7008 offers is one that works', () => {
   ]);
   assert.equal(ran(run, 8), undefined);
   assert.equal(run.sent.length, 1);
+});
+
+/**
+ * The catalogue's own worked example for OS7002, run.
+ *
+ * `spec/errors.json` prints `buy(qty = 1, stop = lowest(low, 20))` as the before
+ * of OS7002 and the guarded form as the after. Run on a host built from the
+ * specification, the before raised nothing at all. The window is absent for its
+ * first twenty bars, an absent stop reached the engine as the same value as a
+ * stop nobody wrote, and the call became a **market** order on every one of
+ * those bars: nineteen unprotected entries, then stop orders, from the example
+ * the catalogue teaches the refusal with. A stop entry silently became a market
+ * entry on every warmup bar.
+ *
+ * Both halves are read out of the catalogue rather than copied here, so an edit
+ * that breaks the example fails here rather than in a reader's editor.
+ */
+const CATALOGUE = new URL('../../../spec/errors.json', import.meta.url);
+
+function example(code: string): { readonly before: string; readonly after: string } {
+  const text = readFileSync(CATALOGUE, 'utf8');
+  const parsed = JSON.parse(text) as { readonly entries: readonly Entry[] };
+  const found = parsed.entries.find((one) => one.code === code);
+  assert.ok(found?.example, `${code} has no worked example in the catalogue`);
+  return found.example;
+}
+
+interface Entry {
+  readonly code: string;
+  readonly example?: { readonly before: string; readonly after: string };
+}
+
+/** A declaration that lets an entry repeat, so the after runs past its first. */
+const ROOM = ['version 1', 'strategy("Probe", qty = 2, pyramiding = 50)'];
+
+test("the catalogue's before for OS7002 is refused, and sends nothing", () => {
+  const run = runFor([...ROOM, ...example('OS7002').before.split('\n')]);
+  const diagnostic = ran(run, 25);
+  assert.equal(diagnostic?.code, 'OS7002');
+  // The stop, not the quantity: the quantity was written and is a number.
+  assert.equal(diagnostic?.values['argument'], 'stop');
+  assert.equal(diagnostic?.span.line, 3);
+  assert.deepEqual(run.sent, [], 'the window had not filled and an order was sent anyway');
+});
+
+test("the catalogue's after for OS7002 runs, and every order it sends is a stop", () => {
+  const run = runFor([...ROOM, ...example('OS7002').after.split('\n')]);
+  assert.equal(ran(run, 25), undefined);
+  // Bar 19 is the first with twenty lows behind it, so the guard opens there.
+  assert.equal(run.sent.length, 6);
+  for (const intent of run.sent) {
+    assert.equal(intent.kind === 'place' ? intent.type : null, 'stop');
+  }
+});
+
+/**
+ * Every order argument that carries a default, written and absent.
+ *
+ * One shape, swept rather than sampled, because the defect was the shape and
+ * not the argument: a default the compiler substituted for a value the script
+ * wrote. An absent quantity sent the declared size, an absent limit or stop sent
+ * a market order, an absent quantity on a close flattened the whole position,
+ * and an absent tag untagged the order. Each row writes the argument as `none`
+ * and expects to be named by the refusal.
+ *
+ * `cancelAll` is not here because it takes no argument, and `leg` is not here
+ * because a file with one leg names no leg (`stdlib.md` 17.2).
+ */
+const WRITTEN_ABSENT: readonly (readonly [string, string])[] = [
+  ['buy(qty = none)', 'qty'],
+  ['buy(qty = 1, limit = none)', 'limit'],
+  ['buy(qty = 1, stop = none)', 'stop'],
+  ['buy(qty = 1, tag = none)', 'tag'],
+  ['sell(qty = none)', 'qty'],
+  ['sell(qty = 1, limit = none)', 'limit'],
+  ['sell(qty = 1, stop = none)', 'stop'],
+  ['sell(qty = 1, tag = none)', 'tag'],
+  ['close(tag = none)', 'tag'],
+  ['close(qty = none)', 'qty'],
+  ['exit(tag = none)', 'tag'],
+  ['exit(tag = "in", qty = none)', 'qty'],
+  ['exit(tag = "in", limit = none)', 'limit'],
+  ['exit(tag = "in", stop = none)', 'stop'],
+  ['exit(tag = "in", profit = none)', 'profit'],
+  ['exit(tag = "in", loss = none)', 'loss'],
+  ['cancel(none)', 'tag'],
+  ['order.place(none, 1)', 'side'],
+  ['order.place("buy", none)', 'qty'],
+  ['order.place("buy", 1, type = none)', 'type'],
+  ['order.place("buy", 1, price = none)', 'price'],
+  ['order.place("buy", 1, trigger = none)', 'trigger'],
+  ['order.place("buy", 1, tag = none)', 'tag'],
+  ['order.reverse(qty = none)', 'qty'],
+  ['order.reverse(tag = none)', 'tag'],
+  ['order.bracket(tag = none)', 'tag'],
+  ['order.bracket(profit = none)', 'profit'],
+  ['order.bracket(loss = none)', 'loss'],
+];
+
+for (const [source, argument] of WRITTEN_ABSENT) {
+  test(`${source} is OS7002 naming ${argument}`, () => {
+    const run = runFor([...PROBE, 'if bar.index == 1', `    ${source}`]);
+    const diagnostic = ran(run, 4);
+    assert.equal(diagnostic?.code, 'OS7002');
+    assert.equal(diagnostic?.values['argument'], argument);
+    assert.equal(diagnostic?.span.line, 4);
+    assert.deepEqual(run.sent, [], 'a call the engine refused reached the destination');
+  });
+}
+
+/**
+ * The other half, which is the half that must not become a refusal.
+ *
+ * An argument the script does not write takes the default `stdlib.md` prints,
+ * and that is what the defaults work earlier in this phase exists for. A rule
+ * that refused absence outright would refuse every one of these.
+ */
+test('an argument left out takes its documented default and is not refused', () => {
+  // No prices written at all: a market order, stdlib.md 17.2.
+  const market = runFor([...PROBE, 'if bar.index == 1', '    buy(qty = 1)']);
+  assert.equal(ran(market, 4), undefined);
+  assert.equal(market.sent.length, 1);
+  assert.equal(
+    market.sent[0]?.kind === 'place' ? market.sent[0].type : null,
+    'market',
+  );
+
+  // A stop written: a stop order, which is what the market order above was
+  // standing in for on every warmup bar of the catalogue's example.
+  const resting = runFor([...PROBE, 'if bar.index == 1', '    buy(qty = 1, stop = 99.95)']);
+  assert.equal(ran(resting, 4), undefined);
+  assert.equal(resting.sent[0]?.kind === 'place' ? resting.sent[0].type : null, 'stop');
+
+  // No quantity written: the declaration's own size.
+  const sized = runFor([...PROBE, 'if bar.index == 1', '    buy(tag = "in")']);
+  assert.equal(ran(sized, 4), undefined);
+  assert.equal(sized.sent[0]?.qty, 2);
+
+  // No quantity written on a close: the whole position.
+  const flat = runFor([
+    ...PROBE,
+    'if bar.index == 1',
+    '    buy(qty = 3, tag = "in")',
+    'if bar.index == 3',
+    '    close()',
+  ]);
+  assert.equal(ran(flat, 6), undefined);
+  assert.equal(flat.sent.length, 2);
+  assert.equal(flat.sent[1]?.qty, 3);
 });

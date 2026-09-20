@@ -40,6 +40,18 @@ export const DEFAULTS_MODULE = '../dist/core/emit/defaults.js';
 export const COLOURS_MODULE = '../dist/core/emit/colours.js';
 
 /**
+ * The page-built host the engine suite drives, from the built test tree.
+ *
+ * A check that runs a program needs a host, and the one host in this repository
+ * written from `host-interface.md` rather than against the engine is the suite's.
+ * A second host written here would be a second reading of that document, which
+ * is the drift the suite's own duty test exists to stop. It comes from the test
+ * build rather than the package build, so a check that names it says which
+ * build it needs.
+ */
+export const TEST_HOSTS_MODULE = '../dist-test/tests/hosts/index.js';
+
+/**
  * The same path as the working directory sees it, for a message or an existence
  * check, derived from the loader spelling rather than written beside it.
  */

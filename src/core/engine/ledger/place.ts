@@ -16,10 +16,22 @@
  * replacement, each carrying its own position reference, so that a fill
  * arriving late can still say which of the two it settled.
  *
- * **A bracket is an instruction, not an order.** `exit` and `order.bracket`
- * attach a protective level to a tag. They send an intent so that a host has
- * something to act on, and they append no ledger row and move no position,
- * because nothing has been ordered until the level is reached.
+ * **A bracket is an instruction, not an order.** `exit` and `order.bracket` set
+ * the leg's own protective level, which is what `stdlib.md` 17.2 means when it
+ * says a leg carries at most one stop and at most one target at a time. The tag
+ * they take defaults to the empty string and rides along as a label, for the
+ * destination and the report. It is not a reference to an order that has to
+ * exist, so a bracket naming a tag nothing was ever placed with is an ordinary
+ * call and is not refused: the level it sets belongs to the leg either way, and
+ * `refuse.ts` measures it from the leg's own average entry price. They send an
+ * intent so that a host has something to act on, and they append no ledger row
+ * and move no position, because nothing has been ordered until the level is
+ * reached.
+ *
+ * **A tag on a call that flattens is the other kind.** `close`'s tag defaults to
+ * absence rather than to the empty string, and it names the part of the position
+ * that tag entered, which is a reference to rows this ledger holds. A tag no
+ * order in the file can place is OS7016, at the call, before any bar runs.
  *
  * **Nothing here refuses anything.** This file says what a call means; `refuse.ts`
  * says what the language will not do, and the ledger asks it first. The two were

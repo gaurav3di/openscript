@@ -126,6 +126,13 @@ declared pyramiding limit (OS7008), for needing more capital than the strategy h
 (OS7011), for arriving outside the instrument's trading session (OS7012), or by
 the destination itself with its own reason (OS7014).
 
+**Not raised yet.** OS7005, OS7011, OS7012 and OS7014 are in the catalogue and
+nothing raises them. Nothing compares an order's quantity with the lot size its
+leg trades in. Nothing compares an order's cost with the capital the strategy
+has. Nothing compares the bar's time with the instrument's session before an
+order is sent. A destination's own refusal is folded into the ledger row as a
+status and its text, and is reported against no line.
+
 This is why a strategy is not just a study with the markers renamed. Every refusal
 above is a bar where the chart shows an arrow and the account holds nothing.
 
@@ -285,6 +292,9 @@ is not.
 | Exclusivity | `else if` | Two opposite orders on one leg on one bar is OS7013 |
 | Session | `session.isOpen` | An order outside the session cannot be worked by the exchange (OS7012) |
 
+**Not raised yet.** OS7012 is in the catalogue and nothing raises it: nothing
+compares the bar's time with the instrument's session before an order is sent.
+
 ```
 version 1
 
@@ -325,6 +335,9 @@ model: the chart shows what happened, the destination decides what happens.
 A strategy with no order destination configured is not run silently. The host
 reports OS7015, and the stated fix is the honest one: connect a destination, or
 run the file as a `study()` with `signal("BUY")` in place of `buy()`.
+
+**Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
+with nowhere to send orders places intents that reach nobody.
 
 ## A strategy cannot trade for real until it is armed
 
@@ -373,6 +386,9 @@ second.
 | Orders appear on history and not live | The condition is true intrabar and false at the close | Nothing to fix, that is the deferral working |
 | An arrow on the chart with no trade in the account | The order was refused | Read the OS7xxx code the run reports |
 | Equity curve moves in a backtest but the account does not | The strategy has no destination | OS7015, connect one or run it as a study |
+
+**Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
+with nowhere to send orders places intents that reach nobody.
 
 ## See also
 

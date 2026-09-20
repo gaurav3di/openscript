@@ -59,6 +59,9 @@ the chart. A request whose identity changed on bar 4000 would need a second
 fetch for bars already drawn. So the timeframe comes from a literal or an
 `input()`, never from bar data:
 
+**Not raised yet.** OS6013 is in the catalogue and nothing raises it: a read's
+identity is settled once before bar 0 and nothing asks again.
+
 ```
 // Refused: the timeframe depends on this bar's prices.
 tf = close > open ? "1h" : "1D"

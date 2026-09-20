@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Eleven checks enforce these, and each one of them is a rule somebody broke once.
+Thirteen checks enforce these, and each one of them is a rule somebody broke once.
 `npm test` runs all of them, and so does every pull request. The count is here to
 be corrected when it changes, not to be trusted: `package.json`'s `test` script
 is the list.
@@ -55,6 +55,23 @@ a code taught as current behaviour that nothing can produce is a promise nothing
 keeps, and `scripts/check-raises.mjs` fails the build on one. The deferral goes
 in the catalogue, never in the checker, because a list of exemptions inside a
 check is read by nobody and grows by a line whenever somebody is in a hurry.
+
+**A worked example is compiled, and its mistake raises its own code.** Every
+entry's `after` block goes through the compiler, because it is the fix a reader
+is handed at the moment they are stuck and they will paste it; every `before`
+block is compiled, and run where the code needs a bar, and has to raise the code
+it is filed under. `scripts/check-examples-compile.mjs` does both, and what it
+cannot reach it says and counts rather than skipping. The three states it
+accepts are fields on the entry, beside `deferred` and for the same reason: an
+`unexercised` sentence for a code no example can reach, and an example `kind` of
+`transcript` for the entries whose example is the host's input rather than
+source.
+
+**A test an entry points at is a test that exists.** The `test` field names a
+file under `tests/` that writes the code, or `null` saying in the open that
+nothing tests it. `scripts/check-catalogue-tests.mjs` resolves every pointer,
+fails a `null` the day a test does name the code, and prints the codes nothing
+exercises every run.
 
 ## Tests
 

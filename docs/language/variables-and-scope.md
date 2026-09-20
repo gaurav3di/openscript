@@ -377,6 +377,10 @@ Give a name its "we do not know yet" value above the branch that refines it. Thi
 is the fix for warning OS8004, and it makes warmup an explicit state rather than
 an accident.
 
+**Not raised yet.** OS8004 is in the catalogue and nothing raises it: the
+checker does not follow which names a branch on a possibly absent condition
+assigns.
+
 ```
 zone = "unknown"
 if not isNone(r)
@@ -414,6 +418,9 @@ plot(sessionLow,  "Session low",  orange, width = 2, style = "step")
 Loading more history renumbers every bar, so a stored index compared later is
 being compared against something that moved underneath it. The compiler warns with
 OS8014 when a persistent value holds one.
+
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it: the
+checker does not follow a bar index into a persistent value.
 
 ```
 var entryTime = none            // survives more history being loaded
@@ -459,6 +466,11 @@ script that used one as a name.
 | OS8010 | A name is assigned and never read | Use it, or delete the line |
 | OS8011 | A `live var` makes live and backtest differ | Use `var` unless counting intrabar updates is the intent |
 | OS8014 | A persistent value holds a bar index | Store `time` instead |
+
+**Not raised yet.** OS8004 and OS8014 are in the catalogue and nothing raises
+them. The checker does not follow which names a branch on a possibly absent
+condition assigns. The checker does not follow a bar index into a persistent
+value.
 
 ## See also
 

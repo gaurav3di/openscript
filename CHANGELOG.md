@@ -9,6 +9,53 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**Every worked example in the error catalogue is now compiled, and every
+pointer in it resolves.** The catalogue carries a before and an after block per
+entry. The after block is the fix a reader is handed at the moment they are
+stuck, and they paste it; nothing had ever put one through a compiler. That is
+how OS7009's fix came to call a function the language does not have, be cited in
+five documents and sit there being read. Four more did not compile: OS7012's
+names a planned call, OS1023's puts a `plot` inside an `if`, and OS1022's and
+OS3003's are both refused by the emitter, which is a defect in the emitter and is
+recorded as one. Five compiled and warned, which is the compiler complaining about
+the reader for doing what it had just told them to do. Every after block now
+compiles with no diagnostic, bar the two warnings that say a fragment stopped
+rather than that it is wrong.
+
+The before blocks were held to the code they are filed under, by compiling them
+and, for a runtime code, by loading the program on a host and running it over a
+fixed dataset on two venues. Seven were about a different code than the one they
+were printed under. OS3001, wrong number of arguments, showed a call with one
+argument missing, which is OS3012. OS3004, a literal that is not a whole number,
+showed a computed value, which is OS4003 on a bar. OS4003 showed an array index,
+which `compiled-program.md` assigns to OS4004. OS4002, a read past the retained
+depth, declared no depth to pass. OS7010, a bracket on the wrong side of the
+entry, read the entry price on the bar the entry was placed, where it is absent,
+so the refusal a reader would have met is OS7002. Each of those is now the
+example its own code is about. Four codes are ceilings an example cannot reach,
+a million array elements among them, and each of those entries now carries an
+`unexercised` sentence saying so, which expires by itself the day one is proved.
+Eight entries whose example is the host's input rather than a script say that in
+an example `kind`, and are held to it: a block declared not to be source that
+compiles fails the build.
+
+Every entry also used to carry `"test": "tests/errors/<CODE>"`, and that
+directory has never existed in any commit. A hundred and forty-five pointers,
+every one dead, printed as "Test `tests/errors/OS7009`" beside a rule promising
+that every entry has a test. They now name a file under `tests/` that writes the
+code, or `null`. Twenty-four codes carry the null, seventeen of them deferred and
+seven taught as current behaviour and exercised by nothing, which is printed on
+every run and recorded as an issue rather than papered over with a row somebody
+invented. `spec/errors.md` part 8 is compared with `errors.json` character for
+character for the pointer and both example blocks, because it is a copy and this
+pair had drifted for every entry at once.
+
+Two checks, `scripts/check-examples-compile.mjs` and
+`scripts/check-catalogue-tests.mjs`, enforce all of it, and both say what they
+cannot reach and count it: eleven host codes are the host's own answer and this
+harness drives one host, so they are compiled, run, and listed by name as not
+proved on every run.
+
 **The order layer now refuses what the specification says it refuses.** Eight
 codes of the orders range were written into the catalogue, taught across five
 documents in the present tense, credited by a shipped example with protecting it,
@@ -23,13 +70,46 @@ anything is handed over: every order call on a bar is mapped before any of them
 is routed, so a refused order reaches no destination rather than being sent and
 then reported. OS7005, OS7011, OS7012, OS7014 and OS7015 stay deferred in the
 catalogue, each with the sentence saying what has to exist before it is raised.
-`buy` and `sell` still take the declaration's size when they are given no
-quantity: a compiled program carries no difference between an argument left out
-and one written as absent, so refusing that absence would refuse every script
-using the documented default, and the arguments the library surface declares
-required are the ones refused instead. The example that credited OS7013 with a
+An argument the script left out and an argument it wrote that came out absent are
+no longer one thing. They used to be: two of an order call's defaults are absence
+itself, the compiler substituted them, and `buy()` and `buy(qty = none)` compiled
+to byte identical programs, so OS7002 had nothing to fire on. The catalogue's own
+worked example for that refusal, `buy(qty = 1, stop = lowest(low, 20))`, placed a
+market order on every bar of the twenty bar window and then stop orders: a stop
+entry silently became a market entry on every warmup bar. An order call now
+carries the names of the arguments the script wrote, so `buy()` still takes the
+declaration's size and `buy()` with neither price is still a market order, while
+every order argument written as a value that came out absent, a quantity, a
+limit, a stop, a trigger, a type, a tag, a bracket's target or its distance, is
+OS7002 naming that argument and reaches no destination. The example that credited OS7013 with a
 protection now says what that refusal covers and what the shape of the script
 covers.
+
+**A `close` that could never close anything is now refused, and the repository
+now says one thing about what a tag argument means.** `close(tag = "entryy")`,
+a tag no order in the file is placed with, sent nothing and said nothing: the
+position stayed open and the script believed it had flattened. It is now OS7016,
+reported at the call before any bar runs. The checker rather than the engine,
+because the engine cannot tell that mistake from an ordinary bar: a tag that has
+never named a ledger row is also what a working script looks like before its
+entry has fired, and refusing that would stop a strategy whose exit signal simply
+came first, with no guard available to write, since every call that reads the
+ledger is planned. A file, unlike a run, is complete. What is not refused, and is
+covered by a test of its own so that it stays that way, is a close on a tag that
+holds nothing right now: closing the same tag twice sends one order and says
+nothing about the second call.
+
+Underneath it is a rule that was always in the signatures and had never been
+written down: **a tag that defaults to the empty string is a label the call
+carries to the destination, and a tag that is required or defaults to absence is
+a reference to something that has to exist.** The catalogue disagreed with it.
+OS7009's worked example was a bracket whose tag named no order, presented as a
+refusal, while the engine sends that bracket without a word, as it should: a
+bracket sets the leg's own level and its tag rides along as a label. The example
+is now a cancellation, which does raise the code. OS7009's fix was worse than
+wrong: it told the reader to test `order.working(tag)`, which is marked planned,
+so the fix the catalogue handed a reader was itself a refusal. Both halves now
+say something that compiles today.
 
 **A strategy's position is folded from what it traded, and a host is no longer
 asked for one.** The five position facts answered from a position row on the

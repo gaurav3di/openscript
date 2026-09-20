@@ -12,7 +12,8 @@
  * What is left over is the small set of things that can only be known once
  * everything has been seen: whether a name was ever read, whether an empty
  * array literal ever received an element, whether two columns were given one
- * title, and which names need a series register rather than a slot.
+ * title, whether a tag a `close` names is one this file can place, and which
+ * names need a series register rather than a slot.
  */
 import type { Script } from '../ast/index.js';
 import type { DiagnosticSink } from '../diagnostics/index.js';
@@ -23,6 +24,7 @@ import { checkDeclaration, checkLimits, readHeader } from './declaration.js';
 import { checkFunctionDeclarations, checkRemainingFunctions } from './functions.js';
 import { reportRepeatedAlertIds } from './outputs.js';
 import { checkStatement } from './statements.js';
+import { reportUnplaceableTags } from './tags.js';
 import { elementOf } from './types.js';
 
 export function check(file: SourceFile, script: Script, sink: DiagnosticSink): CheckedScript {
@@ -54,6 +56,7 @@ export function check(file: SourceFile, script: Script, sink: DiagnosticSink): C
   reportNamesNeverRead(checker);
   reportRepeatedTitles(checker);
   reportRepeatedAlertIds(checker);
+  reportUnplaceableTags(checker);
 
   return checker.finish();
 }
