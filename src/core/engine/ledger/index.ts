@@ -8,8 +8,9 @@
  * how a cumulative quantity becomes a double counted one.
  *
  * The door carries the shapes that cross a boundary and the one class that
- * holds state. The fold, the position book and the mapping from a call to an
- * order stay behind it: they are one algorithm with one caller.
+ * holds state. The fold, the position book, the mapping from a call to an
+ * order and the refusals stay behind it: they are one algorithm with one
+ * caller.
  */
 export type {
   Identity,
@@ -22,6 +23,6 @@ export type {
 } from './intent.js';
 
 export { Ledger } from './ledger.js';
-export type { LedgerOptions } from './ledger.js';
+export type { LedgerOptions, PlacedCall } from './ledger.js';
 
 export type { FrameOutcome, FrameRefusal, LedgerRow, OrderStatus } from './row.js';

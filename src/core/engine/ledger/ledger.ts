@@ -18,6 +18,9 @@
  * one execution and a re-execution of a moving bar sees exactly what the first
  * execution saw (`host-interface.md` 7.4).
  */
+import type { Diagnostic } from '../../diagnostics/index.js';
+import type { Span } from '../../span/index.js';
+import { callOf } from './call.js';
 import type {
   Identity,
   IntentBar,
@@ -29,6 +32,8 @@ import type {
 import { intentFor, placementsFor } from './place.js';
 import type { PlacingContext } from './place.js';
 import { Positions } from './positions.js';
+import { refusalInCall, refusalInOrder } from './refuse.js';
+import type { SentOnBar } from './refuse.js';
 import { foldFrame } from './row.js';
 import type { FrameOutcome, LedgerRow } from './row.js';
 
@@ -38,6 +43,23 @@ export interface LedgerOptions {
   readonly product: string;
   readonly qtyType: string;
   readonly declaredQty: number;
+  /** The instrument's tick size, absent where the host states none. */
+  readonly tickSize: number | null;
+  /** Entries allowed in one direction before one is refused. */
+  readonly pyramiding: number;
+}
+
+/**
+ * What one order call sent, or why it sent nothing.
+ *
+ * The two are exclusive, and that is the shape rather than an accident: a
+ * refused call mints no id, appends no row and returns no intent, so there is
+ * nothing for a host to send and nothing to take back afterwards.
+ */
+export interface PlacedCall {
+  readonly intents: readonly OrderIntent[];
+  /** Why the call was refused, `errors.md` OS7002 to OS7013. */
+  readonly refusal: Diagnostic | undefined;
 }
 
 export class Ledger {
@@ -47,6 +69,10 @@ export class Ledger {
   private waiting: OrderFrame[] = [];
   private next = 1;
   private readonly options: LedgerOptions;
+  /** The bar `sent` describes, so the list empties when a new one begins. */
+  private at = -1;
+  /** The orders this bar has sent, which is what OS7013 is asked about. */
+  private sent: SentOnBar[] = [];
 
   constructor(options: LedgerOptions) {
     this.options = options;
@@ -58,11 +84,39 @@ export class Ledger {
    * A row is appended when the order is sent, at `placed`, which is the
    * engine's own status: an intent has left and nothing has come back, and a
    * host cannot report a state the destination has never described.
+   *
+   * **The whole call is read, mapped and refused before any of it is sent.**
+   * Every order the call produces is held against `refuse.ts` first, and only
+   * then does any of them take an id, so a refused call appends no row and
+   * returns no intent: there is nothing for a host to send and nothing to take
+   * back afterwards. A call that sends two orders sends both or neither.
+   *
+   * A refusal that names an order call earlier on the same bar, which OS7013
+   * is, leaves that earlier call's row where it is. The row is not deleted to
+   * match a later decision, because a row is the record of what the engine
+   * handed over and rewriting one backwards is the guesswork this ledger does
+   * not do; nothing reached a destination either way, since every call on a bar
+   * is mapped before any of them is routed.
    */
-  place(name: string, args: readonly unknown[], bar: IntentBar): readonly OrderIntent[] {
+  place(name: string, args: readonly unknown[], bar: IntentBar, at: Span): PlacedCall {
+    if (bar.index !== this.at) {
+      this.at = bar.index;
+      this.sent = [];
+    }
+
     const ctx = this.contextFor(bar);
+    const call = callOf(name, args, at);
+    const refused = refusalInCall(call, ctx);
+    if (refused !== undefined) return { intents: [], refusal: refused };
+
+    const placements = placementsFor(call, ctx);
+    for (const placement of placements) {
+      const bad = refusalInOrder(call, placement, ctx, this.sent);
+      if (bad !== undefined) return { intents: [], refusal: bad };
+    }
+
     const intents: OrderIntent[] = [];
-    for (const placement of placementsFor(name, args, ctx)) {
+    for (const placement of placements) {
       const intentId = this.next;
       this.next += 1;
       const intent = intentFor(placement, intentId, ctx);
@@ -74,9 +128,10 @@ export class Ledger {
       const { side, qty, type } = intent;
       if (intent.kind === 'place' && side !== null && qty !== null && type !== null) {
         this.append(intent, { side, qty, type }, bar);
+        this.sent.push({ name: call.name, line: at.line, side });
       }
     }
-    return intents;
+    return { intents, refusal: undefined };
   }
 
   /** A frame from the destination, held until the next bar boundary. */
@@ -177,9 +232,13 @@ export class Ledger {
       product: this.options.product,
       qtyType: this.options.qtyType,
       declaredQty: this.options.declaredQty,
+      tickSize: this.options.tickSize,
+      pyramiding: this.options.pyramiding,
       bar,
       size: () => this.positions.size(),
+      avgPrice: () => this.positions.avgPrice(),
       reference: () => this.positions.reference(),
+      current: () => this.positions.current(),
       mint: () => this.positions.mint(),
       rows: () => this.placed,
     };

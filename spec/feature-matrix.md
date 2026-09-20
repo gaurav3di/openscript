@@ -19,10 +19,10 @@ The checker reads this file and takes every table row that sits under a numbered
 is a feature row with five cells, in order: Feature, What it is, Status, Section,
 Test. Tables above that rule are prose and are not read.
 
-**A row is valid when all five of these hold.**
+**A row is valid when all six of these hold.**
 
-1. **Status** is exactly one of `specified`, `implemented`, `planned`, in
-   backticks.
+1. **Status** is exactly one of `specified`, `implemented`, `planned`,
+   `deferred`, in backticks.
 2. **Section** is either the literal `none` or a comma-separated list of one or
    more citations. A citation is a document name in backticks, optionally followed
    by one space and a locator. The document must be a Markdown file that exists in
@@ -32,9 +32,9 @@ Test. Tables above that rule are prose and are not read.
    `^#{2,4} <locator>[. ]` and an error code matches `^### <code> `. A citation
    with no locator names the document as a whole and resolves when the file
    exists.
-3. A row whose Status is `specified` or `implemented` has a Section that is not
-   `none`. A row whose Status is `planned` may have either, and cites a section
-   only when that section names the feature without defining it.
+3. A row whose Status is `specified`, `implemented` or `deferred` has a Section
+   that is not `none`. A row whose Status is `planned` may have either, and cites
+   a section only when that section names the feature without defining it.
 4. **Test** is exactly one identifier in backticks, of the form `<area>/<name>` or
    `unit:<area>/<name>`, where `<area>` is one of the areas listed below and
    `<name>` is lowercase letters, digits and hyphens. No two rows in this file
@@ -42,10 +42,14 @@ Test. Tables above that rule are prose and are not read.
 5. A row whose Status is `implemented` names a test that exists and passed in this
    run: a `unit:` identifier is a compiler unit test, and any other is the
    directory `cases/<identifier>` of the conformance suite.
+6. A row whose Feature or What it is cell names an error code that
+   `spec/errors.json` defers has Status `deferred`, and a `deferred` row names
+   such a code. `scripts/check-raises.mjs` enforces both halves on every run, so
+   neither this file nor the catalogue can move without the other.
 
 **The build fails when any of these is true.**
 
-1. A feature row is invalid under any of the five rules above. The message names
+1. A feature row is invalid under any of the six rules above. The message names
    the section, the feature and the rule.
 2. A citation does not resolve: the document is absent from `spec/`, or the
    locator is not a heading in it. This is the failure that this file was rebuilt
@@ -77,10 +81,21 @@ feature claims, is untouched.
 | `specified` | A section of a document that exists defines the behaviour completely. No implementation yet. |
 | `implemented` | Specified, implemented, and the named test passes in the last CI run. |
 | `planned` | Agreed as in scope for language version 1, and not yet defined completely by any section. |
+| `deferred` | Specified completely, and the implementation deliberately does not do it yet. The row names an error code that `spec/errors.json` defers, and that entry says in a sentence what happens instead today and what has to exist before the code is raised. |
 
-Every row in this matrix is currently `specified` or `planned`, because the
-compiler is not written yet. The first `implemented` row appears when a compiler
-stage passes the test that row names, and not before.
+Every row in this matrix is currently `specified`, `planned` or `deferred`,
+because the compiler is not written yet. The first `implemented` row appears when
+a compiler stage passes the test that row names, and not before.
+
+`deferred` exists because `specified` was doing two jobs and only saying one of
+them. It is true of a refusal that no code path can produce, and nearly every row
+in this file says it, so the word had become this file's way of saying "this is
+how it works". A reader consults this matrix to decide what they can rely on, and
+a whole range of the error catalogue was documented here, and in five other
+documents, as behaviour they could rely on while nothing anywhere raised it. A
+row that promises a refusal the implementation cannot make now says so in the
+column the reader is already looking at, and `scripts/check-raises.mjs` will not
+let this file and the catalogue disagree again.
 
 `planned` is not a soft form of `specified`. A `planned` row means the design
 question is still open in at least one detail, and that detail has to be decided
@@ -199,7 +214,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Absent version declaration | Compiled at the newest version, with warning OS8003 naming the line to add | `specified` | `language.md` 4, `errors.md` OS8003 | `version/undeclared-warns` |
 | Front end selection | Version 1 source is always parsed by the version 1 front end, which is kept forever | `specified` | `language.md` 4.1 | `version/front-end-pinned` |
 | Compatibility promise | A script that compiles under version N compiles under every later release and produces the same numbers | `specified` | `language.md` 4.1 | `version/promise-corpus` |
-| Deprecation instead of removal | A construct that was a mistake keeps working and gains OS8013 naming its replacement | `specified` | `language.md` 4.1, `errors.md` OS8013 | `version/deprecation-warns` |
+| Deprecation instead of removal | A construct that was a mistake keeps working and gains OS8013 naming its replacement | `deferred` | `language.md` 4.1, `errors.md` OS8013 | `version/deprecation-warns` |
 
 ## 3. Types and conversion
 
@@ -269,7 +284,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Three-valued logic | The `and`, `or`, `not` table with absence meaning unknown, both operators commutative | `specified` | `language.md` 6.6, `compiled-program.md` 4.7 | `absent/three-valued-logic` |
 | Short circuit | An operand is evaluated only when it can change the result | `specified` | `language.md` 6.6, `language.md` 9.4 | `absent/short-circuit` |
 | Absent condition | An absent condition takes the false branch, in `if`, `while`, the ternary, a switch arm and an alert | `specified` | `language.md` 6.6 | `absent/condition-false-branch` |
-| OS8004 warning | Warns on an `if` whose condition can be absent and whose block assigns a name read outside it | `specified` | `language.md` 6.6, `errors.md` OS8004 | `unit:absent/os8004-warning` |
+| OS8004 warning | Warns on an `if` whose condition can be absent and whose block assigns a name read outside it | `deferred` | `language.md` 6.6, `errors.md` OS8004 | `unit:absent/os8004-warning` |
 | Library propagation | A window function is absent if any bar in its window is absent | `specified` | `language.md` 6.7, `stdlib.md` 2.4 | `absent/window-propagation` |
 | The three skipping functions | `sumSkip`, `avgSkip`, `countPresent`, named for what they do | `specified` | `language.md` 6.7, `stdlib.md` 9 | `absent/skip-functions` |
 | The one exception in the library | `trueRange()` on bar 0 is `high - low` rather than absent, written down here rather than left to the engine | `specified` | `stdlib.md` 6 | `absent/true-range-bar-zero` |
@@ -325,7 +340,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | History versus persistence | Two unrelated ideas that share a syntax; `x[1]` on a `var` reads the persistent value one bar ago | `specified` | `language.md` 8.3 | `persist/history-vs-persistence` |
 | `history(expr, n)` | The explicit form, always history, for lines where `[]` would read ambiguously | `specified` | `language.md` 9.6, `stdlib.md` 9 | `persist/history-explicit` |
 | `element(arr, i)` | The explicit form, always element access | `specified` | `language.md` 9.6, `language.md` 14.1 | `array/element-explicit` |
-| A persistent value holding a bar index | OS8014, because a bar index is not stable when history is paged in | `specified` | `errors.md` OS8014 | `unit:persist/bar-index-warning` |
+| A persistent value holding a bar index | OS8014, because a bar index is not stable when history is paged in | `deferred` | `errors.md` OS8014 | `unit:persist/bar-index-warning` |
 
 ## 8. Expressions and operators
 
@@ -453,7 +468,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | `group` | Category in a picker | `specified` | `language.md` 13.2 | `decl/option-group` |
 | `onUnconfirmed` | Allows signals, alerts and orders on a moving bar | `specified` | `language.md` 13.2, `language.md` 7.5 | `decl/option-on-unconfirmed` |
 | An option that requires another | OS3009, naming the option that has to be set with it | `specified` | `language.md` 13.2, `errors.md` OS3009 | `unit:decl/option-needs-option` |
-| An option value that is not an accepted name | OS3008 at compile time, OS4012 at run time | `specified` | `language.md` 13.2, `errors.md` OS3008, `errors.md` OS4012 | `unit:decl/option-unknown-value` |
+| An option value that is not an accepted name | OS3008 at compile time, OS4012 at run time | `deferred` | `language.md` 13.2, `errors.md` OS3008, `errors.md` OS4012 | `unit:decl/option-unknown-value` |
 | Two outputs sharing a title | OS3017, because a legend with two identical rows cannot be read | `specified` | `errors.md` OS3017 | `unit:decl/duplicate-title` |
 | `capital` | Starting equity for the backtest | `specified` | `language.md` 13.3 | `decl/option-capital` |
 | `currency` | Display label for money in the report | `specified` | `language.md` 13.3, `stdlib.md` 3.4 | `decl/option-currency` |
@@ -509,13 +524,13 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | `shift` and `unshift` | Remove and return the first, and insert at the front | `specified` | `language.md` 14.1 | `array/shift-unshift` |
 | `insert` and `remove` | Insert before an index, and remove and return an index | `specified` | `language.md` 14.1 | `array/insert-remove` |
 | `clear(arr)` | Remove everything | `specified` | `language.md` 14.1 | `array/clear` |
-| `slice(arr, from, to)` | A new array, `from` inclusive, `to` exclusive; an invalid range is OS4007 | `specified` | `language.md` 14.1, `errors.md` OS4007 | `array/slice` |
+| `slice(arr, from, to)` | A new array, `from` inclusive, `to` exclusive; an invalid range is OS4007 | `deferred` | `language.md` 14.1, `errors.md` OS4007 | `array/slice` |
 | `copy(arr)` | An independent copy | `specified` | `language.md` 14.1 | `array/copy` |
 | `indexOf(arr, v)` | First index, or -1 | `specified` | `language.md` 14.1 | `array/index-of` |
 | `sort(arr, order)` | In place, ascending or descending, and stable so two engines agree on ties | `specified` | `language.md` 14.1 | `array/sort` |
 | `reverse(arr)` | In place | `specified` | `language.md` 14.1 | `array/reverse` |
 | Array statistics | `sum`, `avg`, `min`, `max`, `stdev` over the whole array | `specified` | `language.md` 14.1 | `array/statistics` |
-| An operation on an empty array | OS4006, rather than an invented value | `specified` | `language.md` 14.1, `errors.md` OS4006 | `array/empty-operation` |
+| An operation on an empty array | OS4006, rather than an invented value | `deferred` | `language.md` 14.1, `errors.md` OS4006 | `array/empty-operation` |
 | Out-of-range index | OS4004 naming the index and the size, because an array has an extent the script chose | `specified` | `language.md` 14.1, `errors.md` OS4004 | `array/out-of-range` |
 | Element limit | 1,000,000 by default; exceeding it is OS5002 and `limits()` does not raise it in version 1 | `specified` | `language.md` 14.1, `errors.md` OS5002 | `array/element-limit` |
 | Persistent array | An array in a `var` persists, and rollback restores its contents | `specified` | `language.md` 14.1, `language.md` 7.5 | `array/persistent` |
@@ -586,7 +601,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
 | `str.length` | Count of Unicode code points, not bytes and not UTF-16 units | `specified` | `stdlib.md` 10 | `str/length` |
-| Code point semantics | Length, indexing and slicing all count code points, so one engine cannot disagree with another; a position outside the string is OS4011 | `specified` | `stdlib.md` 10, `errors.md` OS4011 | `str/code-points` |
+| Code point semantics | Length, indexing and slicing all count code points, so one engine cannot disagree with another; a position outside the string is OS4011 | `deferred` | `stdlib.md` 10, `errors.md` OS4011 | `str/code-points` |
 | `str.upper`, `str.lower` | Case conversion, invariant rather than locale aware, so a result never depends on a machine setting | `specified` | `stdlib.md` 10 | `str/case` |
 | `str.trim` | Leading and trailing spaces removed | `specified` | `stdlib.md` 10 | `str/trim` |
 | `str.contains` | Substring test | `specified` | `stdlib.md` 10 | `str/contains` |
@@ -616,7 +631,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | `alpha`, `withAlpha` | Read a colour's alpha, and set it on the 0 to 1 convention | `specified` | `stdlib.md` 11.2 | `color/alpha` |
 | `mix(a, b, weight)` | Blend of two colours | `specified` | `stdlib.md` 11.2 | `color/mix` |
 | Channel rounding | Colour-producing calls round red, green and blue with the language's own rounding, and the alpha becomes a byte as round(alpha * 255) at the contract boundary | `specified` | `stdlib.md` 11.2, `compiled-program.md` 3.1, `conformance.md` 6 | `color/channel-rounding` |
-| Channel out of range | OS3004 as a literal and OS4009 at run time, not a clamp, because a colour computed from data and landing at 300 is a bug | `specified` | `stdlib.md` 11.2, `errors.md` OS4009 | `color/channel-range` |
+| Channel out of range | OS3004 as a literal and OS4009 at run time, not a clamp, because a colour computed from data and landing at 300 is a bug | `deferred` | `stdlib.md` 11.2, `errors.md` OS4009 | `color/channel-range` |
 | Absent colour | An absent colour paints nothing and is not an error, which is how a conditional paint switches itself off | `specified` | `stdlib.md` 14.3, `language.md` 6.7 | `color/absent` |
 | One alpha convention | A colour carries its own alpha everywhere, so a band, a box fill and a background are all dimmed the same way | `specified` | `stdlib.md` 11.2, `stdlib.md` 14.2 | `color/one-alpha-convention` |
 | `hsl`, `gradient` | Hue-saturation-lightness construction and positioning a value between two colours, named and not defined | `planned` | `stdlib.md` 11.2 | `color/planned-construction` |
@@ -642,7 +657,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Volatility and bands | `trueRange`, `atr`, `natr`, `stdev`, `variance`, `bollinger`, `bbWidth`, `bbPercent`, `keltner`, `donchian`, `chop`, `hv` | `specified` | `stdlib.md` 6 | `ta/volatility` |
 | Population by default | `stdev` and `variance` divide by `len`, with `sample = true` for the other divisor, so neither camp writes the correction by hand | `specified` | `stdlib.md` 6 | `ta/stdev-population` |
 | Volume studies | `vwap`, `vwapAnchor`, `obv`, `ad`, `adOsc`, `mfi`, `cmf`, `pvt`, `eom`, `forceIndex`, `relativeVolume` | `specified` | `stdlib.md` 7 | `ta/volume` |
-| `vwap` resets on the session | Not at midnight, because the session is what the number means; on a session-length bar it equals its source and warns with OS8006 | `specified` | `stdlib.md` 7, `errors.md` OS8006 | `ta/vwap-session` |
+| `vwap` resets on the session | Not at midnight, because the session is what the number means; on a session-length bar it equals its source and warns with OS8006 | `deferred` | `stdlib.md` 7, `errors.md` OS8006 | `ta/vwap-session` |
 | A volume study with no volume | Every function of the volume family returns absence on every bar when the host supplies no volume | `specified` | `stdlib.md` 7, `stdlib.md` 3.1 | `ta/volume-absent` |
 | Exact warmup per function | Each function's first present bar is fixed by the entry and asserted per function | `specified` | `language.md` 7.3, `stdlib.md` 1 | `ta/warmup-exact` |
 | Absence behaviour per function | Window propagation, or the named skipping behaviour, asserted per function | `specified` | `language.md` 6.7, `stdlib.md` 2.4 | `ta/absence-behaviour` |
@@ -676,7 +691,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Clock fields | `date.hour`, `date.minute`, `date.second` | `specified` | `stdlib.md` 12.2 | `time/clock-fields` |
 | `date.dayOfWeek` | 1 for Monday through 7 for Sunday, so a trading week is a contiguous range | `specified` | `stdlib.md` 12.2 | `time/day-of-week` |
 | `date.weekOfYear` | Week number, weeks starting Monday | `specified` | `stdlib.md` 12.2 | `time/week-of-year` |
-| `date.from` | Build a timestamp from calendar and clock fields plus a zone; a field outside its range is OS4010 | `specified` | `stdlib.md` 12.2, `errors.md` OS4010 | `time/construct` |
+| `date.from` | Build a timestamp from calendar and clock fields plus a zone; a field outside its range is OS4010 | `deferred` | `stdlib.md` 12.2, `errors.md` OS4010 | `time/construct` |
 | Calendar boundaries | `date.startOfDay`, `date.startOfWeek`, `date.startOfMonth`, `date.isSameDay` | `specified` | `stdlib.md` 12.2 | `time/boundaries` |
 | `date.format` | A closed set of placeholders, with English invariant month and weekday abbreviations, never a locale default | `specified` | `stdlib.md` 12.3 | `time/format` |
 | Session flags | `session.isOpen`, `session.isFirstBar`, `session.isLastBar`, the last known from the session's scheduled close rather than from a bar arriving | `specified` | `stdlib.md` 12.4, `host-interface.md` 4.3 | `session/flags` |
@@ -737,7 +752,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Fixed rows, columns and corner | Registered in the contract with its rows, columns, corner and options, so its shape is declaration-time even though its cells are written per bar | `specified` | `compiled-program.md` 2.8, `stdlib.md` 14.3 | `table/fixed-shape` |
 | `cell(t, row, col, text, ...)` | Text, text colour and background colour per cell, written on any bar and from anywhere | `specified` | `stdlib.md` 14.3 | `table/cell-content` |
 | Cell alignment | Per cell, through the `align` argument, which takes `"left"`, `"center"` or `"right"` | `specified` | `stdlib.md` 14.3 | `table/cell-alignment` |
-| A cell outside the grid | OS4008, naming the cell and the grid's size | `specified` | `errors.md` OS4008 | `unit:table/cell-out-of-range` |
+| A cell outside the grid | OS4008, naming the cell and the grid's size | `deferred` | `errors.md` OS4008 | `unit:table/cell-out-of-range` |
 | `clear(t)` | Empties every cell, so a table can be rebuilt from scratch and a "show table" input can switch it off | `specified` | `stdlib.md` 14.3, `language.md` 5.4 | `table/clear` |
 | `clear` is one overloaded name | `clear(arr)` is the array operation and `clear(t)` is the table one, told apart by the argument's type | `specified` | `stdlib.md` 14.3, `stdlib.md` 2.2, `language.md` 14.1 | `table/clear-overload` |
 | Per-bar update | Cells go to an output buffer cleared at the start of each execution of a bar and committed with the rest, so the last write of the last bar is what is shown | `specified` | `compiled-program.md` 2.8, `compiled-program.md` 5.1 | `table/per-bar-update` |
@@ -759,7 +774,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Line extension | `draw.setExtend` continues a line to the pane edge, left or right | `specified` | `stdlib.md` 14.4 | `draw/extend` |
 | Tooltip | Detail shown while the pointer rests on an object | `specified` | `stdlib.md` 14.4 | `draw/tooltip` |
 | Deletion and counting | `draw.delete`, `draw.deleteAll` and `draw.count` | `specified` | `stdlib.md` 14.4, `language.md` 5.4 | `draw/delete` |
-| A deleted object still held | OS8019, warning that a name or an array still refers to an object deleted earlier, because a stale handle in a setter is OS4005 one bar later | `specified` | `language.md` 5.4, `errors.md` OS8019 | `unit:draw/deleted-still-held` |
+| A deleted object still held | OS8019, warning that a name or an array still refers to an object deleted earlier, because a stale handle in a setter is OS4005 one bar later | `deferred` | `language.md` 5.4, `errors.md` OS8019 | `unit:draw/deleted-still-held` |
 | Identity across bars | An object held in a `var` is the same object next bar | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `draw/identity` |
 | Engine capability | A program that creates objects declares the `objects` capability, and an engine without it refuses at load with OS6006 | `specified` | `compiled-program.md` 2.2, `errors.md` OS6006 | `draw/capability` |
 | Hit identity | A click identity on a box or a label, beyond the tooltip | `planned` | `none` | `draw/hit-identity` |
@@ -784,7 +799,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Waiting for the host | The read is absent until the answer arrives, the study reports itself loading, and the rest of it keeps drawing | `specified` | `stdlib.md` 15.5 | `req/waiting` |
 | `req.isReady`, `req.error` | Whether the host has answered, and the reason a read failed | `specified` | `stdlib.md` 15.1 | `req/status` |
 | A refused or empty request | OS6007 for an unknown symbol or exchange, OS6008 for no bars, OS6009 for a failure, each with a reason the script can read | `specified` | `stdlib.md` 15.5, `errors.md` OS6007, `errors.md` OS6008, `errors.md` OS6009 | `req/failed-request` |
-| A request that changes after bar 0 | OS6013, because the set of requests is part of the program's shape | `specified` | `errors.md` OS6013 | `unit:req/request-stable` |
+| A request that changes after bar 0 | OS6013, because the set of requests is part of the program's shape | `deferred` | `errors.md` OS6013 | `unit:req/request-stable` |
 | Too many outstanding requests | OS5006, with the count named rather than a quiet cap | `specified` | `errors.md` OS5006 | `req/request-budget` |
 | A feed that does not offer a timeframe | OS6014, distinct from a timeframe the language does not know | `specified` | `errors.md` OS6014 | `req/feed-timeframe` |
 | Alignment onto the chart's bars | Which chart bar each higher timeframe value first appears on: a bucket is keyed by a bar's open instant, and a confirmed read steps on the first chart bar of the next bucket | `specified` | `compiled-program.md` 2.16.2 | `req/alignment` |
@@ -847,7 +862,7 @@ from a `study()` file is OS7001.
 | Reading a finished order | The ledger keeps a row after the order ends, so the reading calls read a terminal row and an unknown tag reads empty rather than raising | `specified` | `stdlib.md` 17.3, `errors.md` OS7009 | `order/ledger-reads` |
 | Sizing helpers | `order.qtyForCash`, `order.qtyForRisk`, `order.qtyForEquityPercent`, rounding down by default because a size rounded up compounds with every entry | `specified` | `stdlib.md` 17.3 | `order/sizing-helpers` |
 | `order.qtyForRisk` with no distance | Returns `none` rather than raising, and the order function refuses the absent quantity with OS7002 naming the argument | `specified` | `stdlib.md` 17.3, `errors.md` OS7002 | `order/qty-for-risk-absent` |
-| `order.roundToLot` | To a whole multiple of the lot size, down unless told otherwise; a quantity that is not a multiple is OS7005 | `specified` | `stdlib.md` 17.3, `errors.md` OS7005 | `order/round-to-lot` |
+| `order.roundToLot` | To a whole multiple of the lot size, down unless told otherwise; a quantity that is not a multiple is OS7005 | `deferred` | `stdlib.md` 17.3, `errors.md` OS7005 | `order/round-to-lot` |
 | Quantity types | Units, lots, cash and equity percent, from the declaration | `specified` | `language.md` 13.3 | `order/qty-types` |
 | Default quantity | Taken from the declaration when an order names none | `specified` | `language.md` 13.3, `stdlib.md` 17.2 | `order/default-qty` |
 | Zero or negative quantity | OS7004 | `specified` | `errors.md` OS7004 | `unit:order/qty-non-positive` |
@@ -857,12 +872,12 @@ from a `study()` file is OS7001.
 | Slippage | Ticks of adverse slippage applied to every fill | `specified` | `language.md` 13.3, `stdlib.md` 17.1 | `order/slippage` |
 | Commission models | Per trade, per unit and percent | `specified` | `language.md` 13.3, `stdlib.md` 17.1 | `order/commission` |
 | Product type | Intraday versus overnight, and what each implies for carrying a position | `specified` | `language.md` 13.3 | `order/product-type` |
-| Session flattening | `closeOnSessionEnd` flattens at the session close, and an order outside the session is OS7012 | `specified` | `language.md` 13.3, `errors.md` OS7012 | `order/session-flatten` |
+| Session flattening | `closeOnSessionEnd` flattens at the session close, and an order outside the session is OS7012 | `deferred` | `language.md` 13.3, `errors.md` OS7012 | `order/session-flatten` |
 | Absent argument | An absent price or quantity is OS7002 naming the argument, and places nothing | `specified` | `language.md` 6.8, `errors.md` OS7002 | `order/absent-argument` |
 | Deferral on a moving bar | An order decided intrabar is placed when the bar confirms, or not at all, and returns absent while deferred rather than inventing an id | `specified` | `language.md` 7.5, `compiled-program.md` 5.4 | `order/deferred` |
-| Not enough capital | OS7011, naming what the order needed | `specified` | `errors.md` OS7011 | `order/insufficient-capital` |
+| Not enough capital | OS7011, naming what the order needed | `deferred` | `errors.md` OS7011 | `order/insufficient-capital` |
 | Two opposite orders on one bar | OS7013, because the pair has no honest fill order | `specified` | `errors.md` OS7013 | `unit:order/opposite-orders` |
-| Rejection reporting | Every refused order reports an OS7xxx code and a reason: OS7014 from the destination, OS7015 when there is no destination at all | `specified` | `errors.md` OS7014, `errors.md` OS7015 | `order/rejection-reported` |
+| Rejection reporting | Every refused order reports an OS7xxx code and a reason: OS7014 from the destination, OS7015 when there is no destination at all | `deferred` | `errors.md` OS7014, `errors.md` OS7015 | `order/rejection-reported` |
 | Orders reach no contract field | They go to the host's order interface; what reaches the chart is their consequence, one marker per fill | `specified` | `stdlib.md` 17.5 | `order/no-contract-field` |
 | Market-specific costs | Taxes, exchange and regulator charges and duties for the market being traded | `planned` | `none` | `order/market-costs` |
 | `order.modify`, `order.oco` | Changing a working order in place, and cancelling one when the other fills; named and not defined | `planned` | `stdlib.md` 17.3 | `order/planned` |

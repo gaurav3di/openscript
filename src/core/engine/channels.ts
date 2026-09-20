@@ -25,6 +25,7 @@
  * A second write on the same bar replaces the first, so the last write wins and
  * no surface needs a rule of its own.
  */
+import type { Span } from '../span/index.js';
 import type { Effect } from './library/index.js';
 import type { Channel } from './types.js';
 import type { Value } from './values/index.js';
@@ -38,6 +39,15 @@ export interface PendingEffect {
   readonly effect: Effect;
   /** The argument values as they stood when the call executed. */
   readonly args: readonly Value[];
+  /**
+   * Where the call is written.
+   *
+   * Carried on the record rather than looked up later, because step 9 runs
+   * after the machine has finished and the position of an instruction is
+   * knowable only while it is executing. A refusal that could not name a line
+   * would point a reader at the file and not at the call.
+   */
+  readonly at: Span;
 }
 
 export class Channels {

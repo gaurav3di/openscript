@@ -81,9 +81,11 @@ timeOut = afterExit
 // One close, with the reason attached, rather than three blocks that could each
 // send one on the same bar. The position stays short until the fill on the next
 // bar's open, so three blocks whose conditions were all true would place three
-// flattening orders against one short position. OS7013 catches two opposite
-// orders on one bar and this is not that, so the shape of the script is the only
-// thing standing between it and a position flattened three times over.
+// flattening orders against one short position. The engine refuses two opposite
+// orders on one bar with OS7013 and places neither of them, and three closes are
+// three orders on one side, which that refusal is not about: this single if is
+// the whole of what stands between the script and a position flattened three
+// times over.
 if pos.isShort and (hit or banked or timeOut)
     close()
     alert("BUY " + text(lots, 0) + " lots of " + otherLeg, id = "other-leg-exit")

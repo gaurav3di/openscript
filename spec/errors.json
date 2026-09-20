@@ -1693,7 +1693,8 @@
       },
       "spec": "language.md 14.1",
       "refines": null,
-      "test": "tests/errors/OS4006"
+      "test": "tests/errors/OS4006",
+      "deferred": "Nothing raises this yet. Taking an element from an empty array raises the broader OS4004, and summarising one returns absence, which is the silent drain this entry exists to refuse. Raised when the array library tells the empty case apart from an index outside a filled array, language.md 14.1."
     },
     {
       "code": "OS4007",
@@ -1716,7 +1717,8 @@
       },
       "spec": "language.md 14.1",
       "refines": null,
-      "test": "tests/errors/OS4007"
+      "test": "tests/errors/OS4007",
+      "deferred": "Nothing raises this yet. slice takes whatever range it is given and returns a shortened or empty array, so a reversed or out of range pair produces a plausible answer instead of a refusal. Raised when the array library checks the range against the array, language.md 14.1."
     },
     {
       "code": "OS4008",
@@ -1740,7 +1742,8 @@
       },
       "spec": "language.md 15.3",
       "refines": null,
-      "test": "tests/errors/OS4008"
+      "test": "tests/errors/OS4008",
+      "deferred": "Nothing raises this yet. A write outside the declared grid raises the broader OS4004, which names an index rather than the shape the declaration fixed. Raised when the table surface reports the cell against the table it was written to, language.md 15.3."
     },
     {
       "code": "OS4009",
@@ -1763,7 +1766,8 @@
       },
       "spec": "language.md 3.8",
       "refines": null,
-      "test": "tests/errors/OS4009"
+      "test": "tests/errors/OS4009",
+      "deferred": "Nothing raises this yet. The colour calls build a colour from whatever channels they are given, so a channel outside its range reaches the chart rather than stopping the bar. Raised when the colour library checks each channel, language.md 3.8."
     },
     {
       "code": "OS4010",
@@ -1786,7 +1790,8 @@
       },
       "spec": "language.md 15.2",
       "refines": null,
-      "test": "tests/errors/OS4010"
+      "test": "tests/errors/OS4010",
+      "deferred": "Nothing raises this yet. Building a date returns absence only when a field is not a whole number, so a month past the end of the year rolls into the next one and becomes a timestamp the script never meant. Raised when the calendar library checks each field against its range, language.md 15.2."
     },
     {
       "code": "OS4011",
@@ -1808,7 +1813,8 @@
       },
       "spec": "language.md 15.2",
       "refines": null,
-      "test": "tests/errors/OS4011"
+      "test": "tests/errors/OS4011",
+      "deferred": "Nothing raises this yet. Taking part of a string slices the code points it holds, so a position outside the string returns a shorter string or an empty one, which is the plausible empty result this entry refuses. Raised when the string library checks the position against the string, language.md 15.2."
     },
     {
       "code": "OS4012",
@@ -1831,7 +1837,8 @@
       },
       "spec": "language.md 14.1",
       "refines": null,
-      "test": "tests/errors/OS4012"
+      "test": "tests/errors/OS4012",
+      "deferred": "Nothing raises this yet. A computed name outside the accepted set produces absence on every bar rather than stopping, and only a name written as a literal is refused, at compile time, with OS3008. Raised when the engine checks a computed name on the bar that produced it, language.md 14.1."
     },
     {
       "code": "OS4013",
@@ -2366,7 +2373,8 @@
       },
       "spec": "language.md 15.2",
       "refines": null,
-      "test": "tests/errors/OS6013"
+      "test": "tests/errors/OS6013",
+      "deferred": "Nothing raises this yet. A read's identity is settled once before bar 0 and nothing asks again, so there is no second identity for the engine to compare the first one against. Raised when the engine resolves a read's identity per bar, language.md 15.2."
     },
     {
       "code": "OS6014",
@@ -2611,7 +2619,8 @@
       },
       "spec": "language.md 13.3",
       "refines": null,
-      "test": "tests/errors/OS7005"
+      "test": "tests/errors/OS7005",
+      "deferred": "Nothing raises this yet. Nothing compares an order's quantity with the lot size its leg trades in, so a quantity no exchange would accept is sent and a backtest can report a trade that could not have happened. Raised when order validation lands, stdlib.md 17.2."
     },
     {
       "code": "OS7006",
@@ -2745,7 +2754,8 @@
       },
       "spec": "language.md 13.3",
       "refines": null,
-      "test": "tests/errors/OS7011"
+      "test": "tests/errors/OS7011",
+      "deferred": "Nothing raises this yet. Nothing compares an order's cost with the capital the strategy has, so a backtest can spend money it never had and report a return nobody could have earned. Raised when the ledger holds a capital figure to check against, language.md 13.3."
     },
     {
       "code": "OS7012",
@@ -2767,7 +2777,8 @@
       },
       "spec": "language.md 15.2",
       "refines": null,
-      "test": "tests/errors/OS7012"
+      "test": "tests/errors/OS7012",
+      "deferred": "Nothing raises this yet. Nothing compares the bar's time with the instrument's session before an order is sent, so an order outside the session leaves the engine as though the venue were open. Raised when order validation reads the session, language.md 15.2."
     },
     {
       "code": "OS7013",
@@ -2812,7 +2823,8 @@
       },
       "spec": "language.md 13.3",
       "refines": null,
-      "test": "tests/errors/OS7014"
+      "test": "tests/errors/OS7014",
+      "deferred": "Nothing raises this yet. A refusal that comes back is folded into the ledger row as a status and its text, and no diagnostic is raised, so nothing reports it against the line that placed the order. Raised when a refused fold reports, stdlib.md 17.8."
     },
     {
       "code": "OS7015",
@@ -2831,7 +2843,8 @@
       },
       "spec": "language.md 13.3",
       "refines": null,
-      "test": "tests/errors/OS7015"
+      "test": "tests/errors/OS7015",
+      "deferred": "Nothing raises this yet. A strategy with nowhere to send orders is not stopped: it places intents that reach nobody, and nothing says so. Raised when the engine checks for a destination before the first order, host-interface.md 7.4."
     },
     {
       "code": "OS8001",
@@ -2917,7 +2930,8 @@
       },
       "spec": "language.md 6.6",
       "refines": null,
-      "test": "tests/errors/OS8004"
+      "test": "tests/errors/OS8004",
+      "deferred": "Nothing raises this yet. The checker does not follow which names a branch on a possibly absent condition assigns, so the warmup shape this warns about compiles silently. Raised when the checker follows assignments out of a conditional block, language.md 6.6."
     },
     {
       "code": "OS8005",
@@ -2959,7 +2973,8 @@
       },
       "spec": "language.md 15.2",
       "refines": null,
-      "test": "tests/errors/OS8006"
+      "test": "tests/errors/OS8006",
+      "deferred": "Nothing raises this yet. The checker does not compare a session average's call with the chart's interval, so the accumulation this warns about compiles silently. Raised when the checker reads the declared interval at the call site, language.md 15.2."
     },
     {
       "code": "OS8007",
@@ -3110,7 +3125,8 @@
       },
       "spec": "language.md 4.1",
       "refines": null,
-      "test": "tests/errors/OS8013"
+      "test": "tests/errors/OS8013",
+      "deferred": "Nothing raises this yet. No name in the library is marked deprecated and there is no marker for one to carry, so the checker has nothing to warn about. Raised when the library carries a deprecation marker the checker reads, language.md 4.1."
     },
     {
       "code": "OS8014",
@@ -3131,7 +3147,8 @@
       },
       "spec": "language.md 7.2",
       "refines": null,
-      "test": "tests/errors/OS8014"
+      "test": "tests/errors/OS8014",
+      "deferred": "Nothing raises this yet. The checker does not follow a bar index into a persistent value, so the stored position this warns about compiles silently. Raised when the checker follows a bar index into persistent state, language.md 7.2."
     },
     {
       "code": "OS8015",
@@ -3241,7 +3258,8 @@
       },
       "spec": "language.md 5.4",
       "refines": null,
-      "test": "tests/errors/OS8019"
+      "test": "tests/errors/OS8019",
+      "deferred": "Nothing raises this yet. The checker does not follow a reference to a deleted object, so the held handle this warns about compiles silently. Raised when the checker follows a deletion to the names and elements still holding the object, language.md 5.4."
     }
   ]
 }

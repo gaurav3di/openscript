@@ -20,8 +20,16 @@
  * attach a protective level to a tag. They send an intent so that a host has
  * something to act on, and they append no ledger row and move no position,
  * because nothing has been ordered until the level is reached.
+ *
+ * **Nothing here refuses anything.** This file says what a call means; `refuse.ts`
+ * says what the language will not do, and the ledger asks it first. The two were
+ * one file once, and what that produced was a call whose quantity did not make
+ * sense returning an empty list: no order, no refusal, and a script that had
+ * been told nothing.
  */
+import type { OrderCall } from './call.js';
 import type { Identity, IntentBar, OrderIntent, OrderSide, OrderType } from './intent.js';
+import { isTerminal } from './row.js';
 import type { LedgerRow } from './row.js';
 
 /**
@@ -47,7 +55,7 @@ const NOTHING = {
   loss: null,
 } as const;
 
-/** What the mapping below reads: the declaration, the leg and the ledger. */
+/** What the mapping and the refusals read: the declaration, the leg and the ledger. */
 export interface PlacingContext {
   readonly instrument: Identity;
   readonly product: string;
@@ -55,26 +63,23 @@ export interface PlacingContext {
   readonly qtyType: string;
   /** The size an order that names none takes, from the declaration. */
   readonly declaredQty: number;
+  /** The instrument's tick size, absent where the host states none. */
+  readonly tickSize: number | null;
+  /** Entries allowed in one direction before one is refused, `language.md` 13.3. */
+  readonly pyramiding: number;
   readonly bar: IntentBar;
   /** The leg's net position in units, folded from settled fills. */
   size(): number;
+  /** The average price of the open position, absent while flat. */
+  avgPrice(): number | null;
   /** The position an order placed now attaches to. */
   reference(): number;
+  /** The position an order placed now would attach to, without minting one. */
+  current(): number | null;
   /** A fresh position, for the replacement half of a flip. */
   mint(): number;
   /** The rows this strategy placed, newest last. */
   rows(): readonly LedgerRow[];
-}
-
-/** A number the script stated, or nothing where it stated none. */
-function stated(args: readonly unknown[], index: number): number | null {
-  const value = args[index];
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function word(args: readonly unknown[], index: number): string {
-  const value = args[index];
-  return typeof value === 'string' ? value : '';
 }
 
 /**
@@ -92,13 +97,6 @@ function typeOf(limit: number | null, trigger: number | null): OrderType {
   return 'market';
 }
 
-const TYPES: readonly OrderType[] = ['market', 'limit', 'stop', 'stopLimit'];
-const SIDES: readonly OrderSide[] = ['buy', 'sell'];
-
-function isLive(row: LedgerRow): boolean {
-  return row.status === 'placed' || row.status === 'working' || row.status === 'triggerPending';
-}
-
 /** The side that reduces a position, or nothing when there is none to reduce. */
 function closingSide(size: number): OrderSide | undefined {
   if (size > 0) return 'sell';
@@ -114,14 +112,13 @@ function entering(
   trigger: number | null,
   tag: string,
 ): readonly Placement[] {
-  const size = qty ?? ctx.declaredQty;
-  if (!(size > 0)) return [];
   return [
     {
       ...NOTHING,
       kind: 'place',
       side,
-      qty: size,
+      // The declaration's own size where the call named none, `stdlib.md` 17.2.
+      qty: qty ?? ctx.declaredQty,
       qtyType: ctx.qtyType,
       type: typeOf(limit, trigger),
       limit,
@@ -146,15 +143,15 @@ function flattening(
   qty: number | null,
   tag: string,
 ): readonly Placement[] {
+  // Nothing to flatten and no size named: an instruction about a position the
+  // strategy does not hold, which is not an error and is not an order either.
   if (units <= 0 && qty === null) return [];
-  const size = qty ?? units;
-  if (!(size > 0)) return [];
   return [
     {
       ...NOTHING,
       kind: 'place',
       side,
-      qty: size,
+      qty: qty ?? units,
       qtyType: qty === null ? 'units' : ctx.qtyType,
       type: 'market',
       tag,
@@ -220,50 +217,35 @@ function bracketing(
  * about a position the strategy does not hold, and inventing a side for either
  * would be the engine deciding a direction the script never stated.
  */
-export function placementsFor(
-  name: string,
-  args: readonly unknown[],
-  ctx: PlacingContext,
-): readonly Placement[] {
-  switch (name) {
+export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Placement[] {
+  const side = call.side;
+
+  switch (call.name) {
     case 'buy':
-      return entering(ctx, 'buy', stated(args, 0), stated(args, 1), stated(args, 2), word(args, 3));
     case 'sell':
-      return entering(
-        ctx,
-        'sell',
-        stated(args, 0),
-        stated(args, 1),
-        stated(args, 2),
-        word(args, 3),
-      );
+      if (side === null) return [];
+      return entering(ctx, side, call.qty, call.limit, call.trigger, call.tag ?? '');
 
     case 'order.place': {
       // A side that is not one of the two is not a direction, and a buy is not
       // the safe guess: the checker refuses a written value outside the set
       // with OS3008, and a computed one that reaches here sends nothing rather
-      // than sending the opposite of what the script meant.
-      const asked = word(args, 0);
-      const side = SIDES.find((one) => one === asked);
-      if (side === undefined) return [];
-      const limit = stated(args, 3);
-      const trigger = stated(args, 4);
-      // A type outside the set falls back to the one the prices imply, which is
-      // the correspondence `stdlib.md` 17.2 fixes between the two.
-      const type = TYPES.find((one) => one === word(args, 2)) ?? typeOf(limit, trigger);
-      const qty = stated(args, 1) ?? ctx.declaredQty;
-      if (!(qty > 0)) return [];
+      // than sending the opposite of what the script meant. A side the script
+      // stated as absent never reaches here at all: that is OS7002.
+      if (side === null) return [];
       return [
         {
           ...NOTHING,
           kind: 'place',
           side,
-          qty,
+          qty: call.qty ?? ctx.declaredQty,
           qtyType: ctx.qtyType,
-          type,
-          limit,
-          trigger,
-          tag: word(args, 5),
+          // A type outside the set falls back to the one the prices imply,
+          // which is the correspondence `stdlib.md` 17.2 fixes between the two.
+          type: call.type ?? typeOf(call.limit, call.trigger),
+          limit: call.limit,
+          trigger: call.trigger,
+          tag: call.tag ?? '',
           positionRef: ctx.reference(),
         },
       ];
@@ -271,33 +253,32 @@ export function placementsFor(
 
     case 'close': {
       const size = ctx.size();
-      const side = closingSide(size);
-      if (side === undefined) return [];
-      const tag = typeof args[0] === 'string' ? (args[0] as string) : null;
+      const closing = closingSide(size);
+      if (closing === undefined) return [];
+      const tag = call.tag;
       // A tag names the part of the position that tag entered, which is the
       // settled quantity of its own rows. Bounded by what the leg holds, so
       // that closing a part can never cross zero.
       const held =
         tag === null ? Math.abs(size) : Math.min(Math.abs(heldUnder(ctx, tag)), Math.abs(size));
-      return flattening(ctx, held, side, stated(args, 1), tag ?? '');
+      return flattening(ctx, held, closing, call.qty, tag ?? '');
     }
 
     case 'order.reverse': {
       const size = ctx.size();
-      const side = closingSide(size);
-      if (side === undefined) return [];
-      const tag = word(args, 1);
-      const qty = stated(args, 0);
-      const out = flattening(ctx, Math.abs(size), side, null, tag);
+      const closing = closingSide(size);
+      if (closing === undefined) return [];
+      const tag = call.tag ?? '';
+      const out = flattening(ctx, Math.abs(size), closing, null, tag);
       // The replacement is a position of its own, minted here, so that a fill
       // on the outgoing order settles the position it belonged to.
       const ref = ctx.mint();
       const opening: Placement = {
         ...NOTHING,
         kind: 'place',
-        side,
-        qty: qty ?? Math.abs(size),
-        qtyType: qty === null ? 'units' : ctx.qtyType,
+        side: closing,
+        qty: call.qty ?? Math.abs(size),
+        qtyType: call.qty === null ? 'units' : ctx.qtyType,
         type: 'market',
         tag,
         positionRef: ref,
@@ -306,38 +287,26 @@ export function placementsFor(
     }
 
     case 'exit':
-      // tag, qty, limit, stop, profit, loss. An absolute price and a distance
-      // for the same side cannot both be given, which the checker refuses at
-      // the call with OS3010.
       return bracketing(
         ctx,
-        word(args, 0),
-        stated(args, 1),
-        stated(args, 2),
-        stated(args, 3),
-        stated(args, 4),
-        stated(args, 5),
+        call.tag ?? '',
+        call.qty,
+        call.target,
+        call.stop,
+        call.profit,
+        call.loss,
       );
 
     case 'order.bracket':
-      // tag, profit, loss: distances only, which is the whole of this spelling.
-      return bracketing(
-        ctx,
-        word(args, 0),
-        null,
-        null,
-        null,
-        stated(args, 1),
-        stated(args, 2),
-      );
+      return bracketing(ctx, call.tag ?? '', null, null, null, call.profit, call.loss);
 
     case 'cancel':
-      return [cancelling(word(args, 0))];
+      return [cancelling(call.tag ?? '')];
 
     case 'cancelAll': {
       const tags: string[] = [];
       for (const row of ctx.rows()) {
-        if (isLive(row) && !tags.includes(row.tag)) tags.push(row.tag);
+        if (!isTerminal(row.status) && !tags.includes(row.tag)) tags.push(row.tag);
       }
       return tags.map((tag) => cancelling(tag));
     }

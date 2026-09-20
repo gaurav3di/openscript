@@ -390,12 +390,13 @@ export class Engine {
     // Step 8: the columns, whatever the bar's state.
     this.channels.publish(index);
     // Step 9. The deferred channels and the pending effects, together: a
-    // marker, an alert and an order are one decision about one bar.
+    // marker, an alert and an order are one decision about one bar, and an
+    // order the language will not place stops the bar with nothing routed.
     const applied = this.facts.isConfirmed || this.onUnconfirmed;
     const pending = this.channels.decide(index, applied);
-    const effects = routedEffects(this.ledger, pending, { index, time: bar.time ?? null });
-    const route = this.options.host?.route;
-    if (route !== undefined) for (const effect of effects) route(effect, index);
+    const sending = { index, time: bar.time ?? null };
+    const routed = routedEffects(this.ledger, pending, sending, this.options.host?.route);
+    if (routed.refusal !== undefined) return this.stopped(new ScriptError(routed.refusal));
     const alerts = applied
       ? this.alerting.raise(
           { index, time: bar.time ?? null, isRealtime: this.facts.isRealtime },
@@ -410,7 +411,7 @@ export class Engine {
       index,
       columns: this.channels.row(index),
       applied,
-      effects,
+      effects: routed.effects,
       frames,
       alerts,
       diagnostic: undefined,

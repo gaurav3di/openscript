@@ -9,6 +9,28 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The order layer now refuses what the specification says it refuses.** Eight
+codes of the orders range were written into the catalogue, taught across five
+documents in the present tense, credited by a shipped example with protecting it,
+and raised by nothing: an order call became an intent and was held against no
+rule at all. Measured on a host built from the page, an absent quantity was
+replaced with the declaration's size and filled, two opposite orders on one bar
+both filled while the position read zero for the whole run, a pyramiding limit of
+one let three entries through, and a typed order with no price for that type went
+out unrefused. OS7002, OS7004, OS7006, OS7007, OS7008, OS7009, OS7010 and OS7013
+are now raised at the call that wrote them, and each of them refuses before
+anything is handed over: every order call on a bar is mapped before any of them
+is routed, so a refused order reaches no destination rather than being sent and
+then reported. OS7005, OS7011, OS7012, OS7014 and OS7015 stay deferred in the
+catalogue, each with the sentence saying what has to exist before it is raised.
+`buy` and `sell` still take the declaration's size when they are given no
+quantity: a compiled program carries no difference between an argument left out
+and one written as absent, so refusing that absence would refuse every script
+using the documented default, and the arguments the library surface declares
+required are the ones refused instead. The example that credited OS7013 with a
+protection now says what that refusal covers and what the shape of the script
+covers.
+
 **A strategy's position is folded from what it traded, and a host is no longer
 asked for one.** The five position facts answered from a position row on the
 engine's host type, which no specification document describes and which a host

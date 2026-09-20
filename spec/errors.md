@@ -67,6 +67,7 @@ An entry:
 | `spec` | string | The specification sections that define the rule |
 | `refines` | string or null | The broader code this one takes a case from, if any |
 | `test` | string | The directory holding the test that produces this code |
+| `deferred` | string, or absent | Present only while no code path raises the code: what happens instead today, and what has to exist before it is raised |
 
 A complete entry, as it appears in the file:
 
@@ -220,6 +221,20 @@ them in both directions:
   sends a reader looking for a cause that cannot occur. A code that is genuinely
   retired stays in the file with an explicit retirement, and a retired code is
   never reused.
+
+A code that no code path raises **yet** is the third state, and it says so in the
+entry. `deferred` holds a sentence naming what happens instead today and what has
+to exist before the code is raised, and the entry's page in part 8 repeats that
+sentence under its first line, where somebody looking the code up will meet it.
+
+The field is on the entry rather than in a list inside the checker on purpose. A
+list inside a checker is read by nobody: it is invisible to the reader of the
+entry, invisible to the pages that teach the code, and it grows by a line every
+time somebody is in a hurry. This field is an edit to the specification that a
+reviewer sees, and it expires by itself, because the build fails while a deferred
+code is raised as well as while an undeferred code is not. `deferred` is also the
+status such a code's rows carry in `feature-matrix.md`, and the same check
+compares the three files. This half of rule 1 is `scripts/check-raises.mjs`.
 
 The check covers the message templates too: the placeholders the emitting call
 site supplies must be exactly the placeholders the entry declares. A message with
@@ -2315,6 +2330,8 @@ if not isNone(top)
 
 Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4006`.
 
+**Deferred.** Nothing raises this yet. Taking an element from an empty array raises the broader OS4004, and summarising one returns absence, which is the silent drain this entry exists to refuse. Raised when the array library tells the empty case apart from an index outside a filled array, language.md 14.1.
+
 **Message.** `{name} cannot take an element from an empty array.`
 
 - `{name}` is the call, one of pop, shift, min, max or avg.
@@ -2338,6 +2355,8 @@ oldest = size(window) > 0 ? shift(window) : none
 ### OS4007 Slice range is invalid
 
 Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4007`.
+
+**Deferred.** Nothing raises this yet. slice takes whatever range it is given and returns a shortened or empty array, so a reversed or out of range pair produces a plausible answer instead of a refusal. Raised when the array library checks the range against the array, language.md 14.1.
 
 **Message.** `slice({from}, {to}) is not a range inside an array of {size} elements.`
 
@@ -2364,6 +2383,8 @@ tail = slice(values, max(0, size(values) - 10), size(values))
 ### OS4008 Table cell is outside the table
 
 Severity error. Stage engine. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS4008`.
+
+**Deferred.** Nothing raises this yet. A write outside the declared grid raises the broader OS4004, which names an index rather than the shape the declaration fixed. Raised when the table surface reports the cell against the table it was written to, language.md 15.3.
 
 **Message.** `Cell ({row}, {column}) is outside a table of {rows} rows and {columns} columns.`
 
@@ -2394,6 +2415,8 @@ cell(t, 2, 0, "Total")
 
 Severity error. Stage engine. Since language version 1. Reference language.md 3.8. Test `tests/errors/OS4009`.
 
+**Deferred.** Nothing raises this yet. The colour calls build a colour from whatever channels they are given, so a channel outside its range reaches the chart rather than stopping the bar. Raised when the colour library checks each channel, language.md 3.8.
+
 **Message.** `{name}'s {argument} is {found}; channels run 0 to 255 and alpha runs 0 to 1.`
 
 - `{name}` is the colour function: rgb, rgba or fade.
@@ -2419,6 +2442,8 @@ tint = rgb(min(255, max(0, 255 * strength)), 0, 0)
 ### OS4010 Calendar field is out of range
 
 Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4010`.
+
+**Deferred.** Nothing raises this yet. Building a date returns absence only when a field is not a whole number, so a month past the end of the year rolls into the next one and becomes a timestamp the script never meant. Raised when the calendar library checks each field against its range, language.md 15.2.
 
 **Message.** `{field} is {found}; it runs {range}.`
 
@@ -2446,6 +2471,8 @@ t = date.from(2026 + floor(month / 12), mod(month, 12) + 1, 1)
 
 Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS4011`.
 
+**Deferred.** Nothing raises this yet. Taking part of a string slices the code points it holds, so a position outside the string returns a shorter string or an empty one, which is the plausible empty result this entry refuses. Raised when the string library checks the position against the string, language.md 15.2.
+
 **Message.** `Position {index} is outside a string of {length} characters.`
 
 - `{index}` is the position that was requested.
@@ -2470,6 +2497,8 @@ c = str.length(sym) > 10 ? str.substring(sym, 10, 11) : ""
 ### OS4012 That value is not one of the accepted names
 
 Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/errors/OS4012`.
+
+**Deferred.** Nothing raises this yet. A computed name outside the accepted set produces absence on every bar rather than stopping, and only a name written as a literal is refused, at compile time, with OS3008. Raised when the engine checks a computed name on the bar that produced it, language.md 14.1.
 
 **Message.** `{argument} accepts {values}; {found} was computed on this bar.`
 
@@ -3140,6 +3169,8 @@ qty = lots * lotSize
 
 Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS6013`.
 
+**Deferred.** Nothing raises this yet. A read's identity is settled once before bar 0 and nothing asks again, so there is no second identity for the engine to compare the first one against. Raised when the engine resolves a read's identity per bar, language.md 15.2.
+
 **Message.** `This request asked for {first} on bar 0 and for {found} on bar {bar}.`
 
 - `{first}` is the symbol and timeframe requested on the first bar.
@@ -3442,6 +3473,8 @@ if delta > 0
 
 Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7005`.
 
+**Deferred.** Nothing raises this yet. Nothing compares an order's quantity with the lot size its leg trades in, so a quantity no exchange would accept is sent and a backtest can report a trade that could not have happened. Raised when order validation lands, stdlib.md 17.2.
+
 **Message.** `{symbol} trades in lots of {lot}, and {qty} is not a multiple of it.`
 
 - `{symbol}` is the instrument being traded.
@@ -3606,6 +3639,8 @@ exit(limit = pos.avgPrice + atrValue, stop = pos.avgPrice - atrValue)
 
 Severity error. Stage engine. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7011`.
 
+**Deferred.** Nothing raises this yet. Nothing compares an order's cost with the capital the strategy has, so a backtest can spend money it never had and report a return nobody could have earned. Raised when the ledger holds a capital figure to check against, language.md 13.3.
+
 **Message.** `This order needs {required} and the strategy has {available}.`
 
 - `{required}` is the capital the order would consume.
@@ -3631,6 +3666,8 @@ buy(qty = 10)
 ### OS7012 The instrument is outside its session
 
 Severity error. Stage engine. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS7012`.
+
+**Deferred.** Nothing raises this yet. Nothing compares the bar's time with the instrument's session before an order is sent, so an order outside the session leaves the engine as though the venue were open. Raised when order validation reads the session, language.md 15.2.
 
 **Message.** `{symbol} is outside its trading session at {time}.`
 
@@ -3691,6 +3728,8 @@ else if rsi(close, 14) > 70
 
 Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7014`.
 
+**Deferred.** Nothing raises this yet. A refusal that comes back is folded into the ledger row as a status and its text, and no diagnostic is raised, so nothing reports it against the line that placed the order. Raised when a refused fold reports, stdlib.md 17.8.
+
 **Message.** `The order destination rejected {name}: {reason}.`
 
 - `{name}` is the order function that was called.
@@ -3717,6 +3756,8 @@ buy(qty = 1)
 ### OS7015 The strategy has no order destination
 
 Severity error. Stage host. Since language version 1. Reference language.md 13.3. Test `tests/errors/OS7015`.
+
+**Deferred.** Nothing raises this yet. A strategy with nowhere to send orders is not stopped: it places intents that reach nobody, and nothing says so. Raised when the engine checks for a destination before the first order, host-interface.md 7.4.
 
 **Message.** `This strategy placed an order and the host supplied no destination.`
 
@@ -3831,6 +3872,8 @@ study("EMA cross")
 
 Severity warning. Stage checker. Since language version 1. Reference language.md 6.6. Test `tests/errors/OS8004`.
 
+**Deferred.** Nothing raises this yet. The checker does not follow which names a branch on a possibly absent condition assigns, so the warmup shape this warns about compiles silently. Raised when the checker follows assignments out of a conditional block, language.md 6.6.
+
 **Message.** `{condition} can be absent, and this block assigns {name}, which is read at line {line}.`
 
 - `{condition}` is the condition expression as written.
@@ -3885,6 +3928,8 @@ d = req.timeframe("1D", high)
 ### OS8006 A session average on a session-length bar
 
 Severity warning. Stage checker. Since language version 1. Reference language.md 15.2. Test `tests/errors/OS8006`.
+
+**Deferred.** Nothing raises this yet. The checker does not compare a session average's call with the chart's interval, so the accumulation this warns about compiles silently. Raised when the checker reads the declared interval at the call site, language.md 15.2.
 
 **Message.** `A session anchored average resets each session, and each bar of {interval} is a whole session, so it equals its source.`
 
@@ -4067,6 +4112,8 @@ if not isNone(value)
 
 Severity warning. Stage checker. Since language version 1. Reference language.md 4.1. Test `tests/errors/OS8013`. The editor can apply the fix.
 
+**Deferred.** Nothing raises this yet. No name in the library is marked deprecated and there is no marker for one to carry, so the checker has nothing to warn about. Raised when the library carries a deprecation marker the checker reads, language.md 4.1.
+
 **Message.** `{name} is deprecated since language version {version}; {replacement} does the same thing.`
 
 - `{name}` is the deprecated function or option.
@@ -4092,6 +4139,8 @@ plot(newName(close, 14), "Value", aqua)
 ### OS8014 A persistent value holds a bar index
 
 Severity warning. Stage checker. Since language version 1. Reference language.md 7.2. Test `tests/errors/OS8014`.
+
+**Deferred.** Nothing raises this yet. The checker does not follow a bar index into a persistent value, so the stored position this warns about compiles silently. Raised when the checker follows a bar index into persistent state, language.md 7.2.
 
 **Message.** `{name} keeps a bar index across bars, and every index shifts when more history loads.`
 
@@ -4228,6 +4277,8 @@ plot(ema(close, len), "EMA", aqua)
 ### OS8019 A deleted object is still held
 
 Severity warning. Stage checker. Since language version 1. Reference language.md 5.4. Test `tests/errors/OS8019`.
+
+**Deferred.** Nothing raises this yet. The checker does not follow a reference to a deleted object, so the held handle this warns about compiles silently. Raised when the checker follows a deletion to the names and elements still holding the object, language.md 5.4.
 
 **Message.** `{name} still holds the {kind} deleted at line {line}.`
 

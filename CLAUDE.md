@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Ten checks enforce these, and each one of them is a rule somebody broke once.
+Eleven checks enforce these, and each one of them is a rule somebody broke once.
 `npm test` runs all of them, and so does every pull request. The count is here to
 be corrected when it changes, not to be trusted: `package.json`'s `test` script
 is the list.
@@ -47,6 +47,14 @@ concrete fix is a badly designed error; redesign the error.
 
 Error codes and their text live in `spec/errors.json` and are generated into the
 compiler. Nothing under `src/` retypes a message.
+
+**A documented refusal is a refusal something raises.** A code in the catalogue
+is raised by some code path, or the entry carries a `deferred` sentence saying
+what happens instead today and what has to exist first. There is no third case:
+a code taught as current behaviour that nothing can produce is a promise nothing
+keeps, and `scripts/check-raises.mjs` fails the build on one. The deferral goes
+in the catalogue, never in the checker, because a list of exemptions inside a
+check is read by nobody and grows by a line whenever somebody is in a hurry.
 
 ## Tests
 

@@ -391,7 +391,13 @@ export class Machine {
     const of = this.parts.library[index] as ManifestEntry;
 
     if (of.effect !== 'none') {
-      this.parts.channels.defer({ fn: index, name: of.name, effect: of.effect, args });
+      this.parts.channels.defer({
+        fn: index,
+        name: of.name,
+        effect: of.effect,
+        args,
+        at: this.here(),
+      });
       stack.push(ABSENT);
       return;
     }

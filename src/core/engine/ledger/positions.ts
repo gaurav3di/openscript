@@ -46,6 +46,17 @@ export class Positions {
     return this.attaching;
   }
 
+  /**
+   * The position an order placed now would attach to, or none while flat.
+   *
+   * The same answer as `reference()` and without minting one, for a rule that
+   * has to count what a position already holds before deciding whether an
+   * order may join it.
+   */
+  current(): number | null {
+    return this.attaching;
+  }
+
   /** A fresh position, for the replacement half of a flip. */
   mint(): number {
     const ref = this.next;
