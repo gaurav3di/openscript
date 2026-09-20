@@ -15,129 +15,33 @@
  * nothing else, which is right, so the second close measured against the same
  * position the first one did.
  *
- * **Every assertion here is on the destination.** A fix that refused the second
- * close and a fix that sized it against what is left are both acceptable
- * answers to 0016, so a test that asserted the diagnostic alone would hold one
- * of them and fail the other. What both answers have to produce is a
- * destination that was never handed an order taking a position through zero,
- * which is what `crossings` below measures: it walks the intents in the order
- * they were handed over and reports any order that takes its own position
- * reference from one sign to the other.
+ * **Every assertion here is on the destination**, through the recording
+ * `orders-support.ts` keeps. This file asks its questions of one bar;
+ * `working.test.ts` asks the same questions of a run, which is where the same
+ * sentence was broken next.
  *
  * The three properties, each asserted rather than described:
  *
- *   - the orders one bar sends never sum past the position they are reducing,
+ *   - the orders one bar sends never sum past what is available to reduce,
  *   - a leg is never left short after a call named `close`, on any path,
  *   - an entry that crosses sends two orders with two position references.
  */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { Diagnostic } from '../../src/core/index.js';
-import type { HostBar, OrderFrame, OrderIntent } from '../../src/core/engine/index.js';
-import { Engine } from '../../src/core/engine/index.js';
-import { HOST, running, timeOf } from './support.js';
-
-const CONFIRMED = { isConfirmed: true };
-const MOVING = { isConfirmed: false };
-
-interface Run {
-  readonly engine: Engine;
-  /** Every intent the destination was handed, which is the whole of what it saw. */
-  readonly sent: OrderIntent[];
-}
-
-function runFor(lines: readonly string[]): Run {
-  const sent: OrderIntent[] = [];
-  const engine = running(lines.join('\n'), {
-    host: {
-      ...HOST,
-      route: (effect) => {
-        for (const intent of effect.intents) sent.push(intent);
-      },
-    },
-  });
-  return { engine, sent };
-}
-
-/** A bar at one price, dated so that a series stays strictly increasing. */
-function at(index: number, close: number): HostBar {
-  return { open: close, high: close, low: close, close, volume: 1, time: timeOf(index) };
-}
-
-function frame(intentId: number, filledQty: number, price: number): OrderFrame {
-  return { intentId, status: 'filled', filledQty, avgFillPrice: price };
-}
-
-/** Runs bars until one fails, filling every order the bar sent. */
-function ran(run: Run, bars: number): Diagnostic | undefined {
-  let answered = 0;
-  for (let index = 0; index < bars; index += 1) {
-    while (answered < run.sent.length) {
-      const intent = run.sent[answered] as OrderIntent;
-      answered += 1;
-      if (intent.kind !== 'place' || intent.qty === null) continue;
-      run.engine.deliver(frame(intent.intentId, intent.qty, 100));
-    }
-    const result = run.engine.append(at(index, 100 + index), CONFIRMED, bars);
-    if (result.diagnostic !== undefined) return result.diagnostic;
-  }
-  return undefined;
-}
-
-/**
- * Every order the destination was handed that takes a position through zero.
- *
- * The property itself, and the whole of what a host can see. Each intent
- * carries the position reference it settles (`host-interface.md` 7.1), so the
- * orders of one reference are one position's own book: an order that takes that
- * book from long to short, or from short to long, is an order that crossed
- * zero. Filling is not needed and is not done here, because the defect is in
- * what was sent rather than in what came back.
- *
- * Quantities are compared as numbers, which they are only where the declaration
- * counts in units. A bar that mixes a quantity stated in lots with one the
- * engine worked out in units is two kinds of number, and the tests about those
- * declarations say what they assert instead.
- */
-function crossings(run: Run): readonly string[] {
-  const book = new Map<number, number>();
-  const found: string[] = [];
-  for (const intent of run.sent) {
-    if (intent.kind !== 'place' || intent.qty === null || intent.side === null) continue;
-    const units = intent.side === 'buy' ? intent.qty : -intent.qty;
-    const before = book.get(intent.positionRef) ?? 0;
-    const after = before + units;
-    if (before !== 0 && after !== 0 && Math.sign(after) !== Math.sign(before)) {
-      found.push(
-        `position ${intent.positionRef} held ${before} and was sent ${units} on bar ` +
-          `${intent.bar.index}`,
-      );
-    }
-    book.set(intent.positionRef, after);
-  }
-  return found;
-}
-
-/** The quantities of one side, in the order the destination was handed them. */
-function quantities(run: Run, side: string): readonly (number | null)[] {
-  return run.sent.filter((one) => one.kind === 'place' && one.side === side).map((one) => one.qty);
-}
-
-/** What one side sent in total, which is what a ceiling is about. */
-function total(run: Run, side: string): number {
-  return quantities(run, side).reduce((sum: number, one) => sum + (one ?? 0), 0);
-}
-
-/** The position references the orders of one side carried. */
-function references(run: Run, side: string): readonly number[] {
-  return run.sent
-    .filter((one) => one.kind === 'place' && one.side === side)
-    .map((one) => one.positionRef);
-}
-
-/** A leg that may hold several tags at once, so a part can be told from the whole. */
-const PROBE = ['version 1', 'strategy("Probe", qty = 2, pyramiding = 50)'];
+import {
+  CONFIRMED,
+  MOVING,
+  PROBE,
+  at,
+  crossings,
+  frame,
+  quantities,
+  ran,
+  references,
+  runFor,
+  total,
+} from './orders-support.js';
 
 /**
  * The defect of issue 0016, measured.
@@ -473,4 +377,81 @@ test('a close under pyramiding sends the position once', () => {
   assert.deepEqual(crossings(run), []);
   assert.deepEqual(quantities(run, 'sell'), [6]);
   assert.equal(run.engine.column(0)[6], 0);
+});
+
+/**
+ * The split, in every unit the declaration may count in.
+ *
+ * The two halves of the split need different things. Working out how much of
+ * the instruction closes and how much opens subtracts a position folded from
+ * filled quantities from a quantity the script stated, and those are the same
+ * kind of number only under `"units"`. **Minting a position reference needs
+ * none of that arithmetic**, and that is the half 17.1 is unconditional about:
+ * the opposing order must not carry the outgoing position's reference, because
+ * a late fill on the entry it replaced would settle against a book that had
+ * already gone the other way, and that reference could never return to zero.
+ *
+ * Measured before this held: under `"lots"`, `"cash"` and `"equityPercent"`,
+ * `buy(qty = 3)` then `sell(qty = 9)` sent one order of nine on reference 1. At
+ * a lot size of twenty five the destination saw reference 1 go from seventy
+ * five units to minus one hundred and fifty.
+ *
+ * Catches an implementation that mints only where it can do the arithmetic,
+ * which is the one this replaced, and the assertion is the reference rather
+ * than the count: outside units the engine cannot say how many orders the
+ * instruction is, and it does not pretend to.
+ */
+test('an opposing entry never carries the outgoing reference, in any unit', () => {
+  for (const qtyType of ['units', 'lots', 'cash', 'equityPercent']) {
+    const run = runFor([
+      'version 1',
+      `strategy("Probe", qty = 2, pyramiding = 50, qtyType = "${qtyType}")`,
+      'if bar.index == 1',
+      '    buy(qty = 3)',
+      'if bar.index == 3',
+      '    sell(qty = 9)',
+    ]);
+    assert.equal(ran(run, 6), undefined, qtyType);
+    assert.deepEqual(crossings(run), [], qtyType);
+    const entry = references(run, 'buy');
+    const opposing = references(run, 'sell');
+    assert.ok(opposing.length > 0, qtyType);
+    assert.notEqual(
+      opposing[opposing.length - 1],
+      entry[0],
+      `under ${qtyType} the replacement carried the position it replaced`,
+    );
+  }
+});
+
+/**
+ * And the quantities, which are the half that waits on the lot size.
+ *
+ * Under `"units"` the engine sizes both halves itself: three close the outgoing
+ * position and six open the replacement. Outside it the instruction is sent as
+ * written, on a position of its own, and this asserts that rather than
+ * describing it, so that the day the lot size reaches the ledger this test is
+ * what has to change.
+ */
+test('the quantities of a crossing entry are split only where they can be', () => {
+  const units = runFor([
+    ...PROBE,
+    'if bar.index == 1',
+    '    buy(qty = 3)',
+    'if bar.index == 3',
+    '    sell(qty = 9)',
+  ]);
+  assert.equal(ran(units, 6), undefined);
+  assert.deepEqual(quantities(units, 'sell'), [3, 6]);
+
+  const lots = runFor([
+    'version 1',
+    'strategy("Probe", qty = 2, pyramiding = 50, qtyType = "lots")',
+    'if bar.index == 1',
+    '    buy(qty = 3)',
+    'if bar.index == 3',
+    '    sell(qty = 9)',
+  ]);
+  assert.equal(ran(lots, 6), undefined);
+  assert.deepEqual(quantities(lots, 'sell'), [9], 'the engine subtracted units from lots');
 });

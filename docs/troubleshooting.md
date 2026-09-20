@@ -387,7 +387,7 @@ replace `buy()` with `signal("BUY")`.
 | OS7011 | The order needs more capital than the strategy has | Size from equity, or test `pos.equity` first |
 | OS7013 | Two opposite orders on one bar | Two conditions that are not exclusive |
 | OS7016 | A close names a tag nothing places | A typo in a `close` tag, reported by the compiler rather than by a run |
-| OS7017 | A close states more than it is closing | A `qty` on a `close` larger than what is left to close, which is what the leg or the tag holds less what this bar has already sent |
+| OS7017 | A close states more than it is closing | A `qty` on a `close` larger than what is left to close, which is what the leg or the tag holds less everything already working against it, including an order sent on an earlier bar that the destination has not answered |
 
 **Not raised yet.** OS7005 and OS7011 are in the catalogue and nothing raises
 them. Nothing compares an order's quantity with the lot size its leg trades in.

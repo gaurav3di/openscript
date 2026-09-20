@@ -55,6 +55,32 @@ export interface ChartAdapterOptions {
   /** The category a picker groups the study under, when `meta.group` is empty. */
   readonly category?: string;
   /**
+   * What the host has stored for this study's inputs, for the declared shape.
+   *
+   * A declaration option may be written as an `input()`, and `docs/inputs.md`
+   * teaches that as how a reader changes something the declaration decides:
+   * `study("S", precision = input(2, "Places"))` puts the pane's precision on
+   * the settings dialog. The engine resolves such a field against the settings
+   * it was loaded with. The descriptor's declared shape is fixed before bar 0
+   * and is a value rather than a call, so the only settings it can be resolved
+   * against are the ones a host states here; built without them, every one of
+   * those fields reads the declared default and a stored value reaches none of
+   * them.
+   *
+   * A host that keeps one descriptor per study instance passes that instance's
+   * stored settings and builds again when a user changes one. A host that
+   * registers one descriptor for a script and runs several instances against it
+   * gets the declared shape of whatever it built with, and the parts that are
+   * asked for again per call follow each instance: which those are is recorded
+   * in `spec/chart-narrowings.json`, and `scripts/check-chart-surface.mjs`
+   * measures both halves rather than leaving the sentence to be believed.
+   *
+   * These are the chart's own settings object, in the chart's own spelling, and
+   * the same conversions apply as on the calculation path: a colour arrives as
+   * a CSS string and a choice as the text of an option.
+   */
+  readonly settings?: ChartSettings;
+  /**
    * The plate colour a marker takes when the script named none.
    *
    * `signal`'s colour argument defaults to absence, which `stdlib.md` 14.3

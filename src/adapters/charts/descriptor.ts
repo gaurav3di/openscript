@@ -22,6 +22,18 @@
  * asks about one bar, and building a column of strings to answer that would cost
  * the history.
  *
+ * **A declaration option written as an `input()` is resolved against the
+ * settings the host states, not against the default.** That is the whole point
+ * of writing one: `study("S", precision = input(2, "Places"))` is how a reader
+ * changes something the declaration decides. The declared shape is fixed before
+ * bar 0 and every field of it is a value rather than a call, so the settings
+ * have to be in hand when it is built; `ChartAdapterOptions.settings` is where
+ * they come from, and a descriptor built without them reads every such field at
+ * its declared default. Which parts of the descriptor are resolved here and
+ * which are asked for again per call is recorded in
+ * `spec/chart-narrowings.json` and measured by
+ * `scripts/check-chart-surface.mjs`.
+ *
  * **The id is the source hash, not the title.** A saved layout stores the
  * descriptor id and the settings, and two scripts can easily share a title while
  * an edited script keeps the one it had. Hashing the source means the same
@@ -69,10 +81,12 @@ export function descriptorFor(
   options: ChartAdapterOptions = {},
 ): ChartDescriptor {
   // The declared shape is fixed before bar 0, so the fields that make it up are
-  // read against the declared defaults. The ones a settings change may move
+  // read once, against the settings the host states. A host that states none
+  // gets the declared defaults, which is what a script with no `input()` in a
+  // declaration option has anyway. The ones a settings change may move
   // afterwards carry a settings key instead of a value, and the two that cannot
   // are read again per call: a level's style and the pane's range.
-  const declared = lookupFor(program, {});
+  const declared = lookupFor(program, options.settings ?? {});
 
   const overlay = boolField(program.meta.overlay, declared) === true;
   const plots = buildPlots(program, declared, !overlay);

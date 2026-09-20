@@ -142,10 +142,15 @@ would open the opposite position under a call named `close`. So
 `close(tag = "runner", qty = 1)` on it is refused. If a scale-out can fire twice
 on one position, guard it on `pos.size`.
 
-What is left to close is measured against this bar as well as against the
-ledger. A position moves when a fill settles, so an order sent earlier on the
-same bar has not moved it, and the engine counts what the bar has already sent
-rather than letting two closes each send the whole position.
+What is left to close is the settled position less everything already working
+against it, which is why the ledger is the thing to read. A position moves when
+a fill settles, so an order the destination has not answered has not moved it,
+whether it was sent a line ago or ten bars ago, and the engine counts what is
+still going rather than letting each close send the whole position. An order is
+still going while it has not ended and has not fully filled, so a partial fill
+releases what settled and a rejection, a cancellation or an expiry releases the
+rest. `cancel(tag)` is what releases one the destination has simply gone quiet
+about.
 
 ### The positions
 

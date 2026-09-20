@@ -1400,23 +1400,63 @@ flattens it. **No order crosses zero.** An instruction that would take a leg fro
 long to short is sent as two orders, one that closes the outgoing position and
 one that opens the replacement, each carrying its own position reference. A
 single order that crossed zero would leave a late fill with no way to say which
-of the two positions it settled, and during a flip a leg holds both at once. An
-engine holds every order to this that it can read as a number of units, which is
-all of them but one, and that one is named two paragraphs below.
+of the two positions it settled, and during a flip a leg holds both at once.
 
-**The orders one bar sends can never sum past the position they are reducing**,
-and every quantity this section's own calls work out keeps that rule outright.
-A position is folded from settled fills and from nothing else (section 17.8), so
-an order this bar has already sent has filled nothing and has moved no position
-figure. Measured against the position alone, the second close of a bar sends the
-whole of it a second time: two bare closes on one bar would take a leg holding
-three long to three short, under one position reference, with no quantity
-written anywhere. So every order that reduces a position is measured against
-what is left to reduce after the orders this bar has already sent, rather than
-against what the leg held when the bar began. `close()` twice on one bar sends
-one order and then nothing, which is the idempotence of 17.2 rather than an
-exception to it, and a bar declared `onUnconfirmed` is one bar however many
-times it is executed.
+**The two halves of that split need different things, and an engine keeps them
+apart.** Working out how much of an instruction closes and how much opens
+subtracts a position folded from filled quantities from a quantity the script
+stated, and those are the same kind of number only under `qtyType = "units"`.
+**Minting a position reference needs none of that arithmetic**, so an engine
+does it in every unit: an entry that opposes what the leg holds and whose
+quantity the engine cannot read carries a position reference of its own and
+never the outgoing one. The quantity it sends is the quantity written, because
+there is no sound way to divide it, and the outgoing position is then left
+holding what it holds, which is the part that waits on the instrument's lot
+size. A leg then holds two positions at once, and the average entry price it
+reports is taken over the positions on the side of its net, so a position on its
+way out does not move the entry price of the one on its way in.
+
+**A close is never minted a position of its own.** It is named for reducing, and
+an engine that gave it a position would have made `close` open one, which is the
+mistake 17.2 refuses a stated quantity for. A close is sent against the position
+it is closing. So where the engine cannot read the quantity a close states, that
+position is what the order may take past zero, and that is the one shape of this
+section an engine does not keep outright, named again at the end of it.
+
+**What is available to reduce is the settled position less everything already
+working against it.** A position is folded from settled fills and from nothing
+else (section 17.8), so an order the destination has not answered has filled
+nothing and has moved no position figure: measured against the position alone,
+every reducing order sends the whole of it again. That is one defect with two
+faces, and both are reachable from an ordinary script. Two bare closes on one
+bar would take a leg holding three long to three short under one position
+reference, with no quantity written anywhere. And with a destination slower than
+the chart, `close()` on every bar while `pos.size` is positive sends one close
+per bar for the length of the run, because `pos.size` correctly still reads what
+settled: six bars end twelve short and it grows without limit.
+
+**So the scope is the run and the position, not the bar.** What is still working
+against a position is what the ledger of section 17.7 holds: an order that is
+neither terminal nor fully filled, counted by the part of it that has not
+filled. A partial fill releases what settled. A rejection, a cancellation and an
+expiry release the rest, because nothing more is coming from an order that has
+ended, and that is how a strategy whose close was refused closes again.
+`cancel()` is how a strategy whose close was never answered gets its way out. An
+order that adds to a position holds nothing at all: an entry that has not
+settled is not a position, and counting it would send a close for units that may
+never exist.
+
+`close()` twice on one bar sends one order and then nothing, and so does
+`close()` on the bar after one whose close is still working: that is the
+idempotence of 17.2 rather than an exception to it. **A bar declared
+`onUnconfirmed` is one bar however many times it is executed, for this count and
+for no other rule.** The orders its earlier executions sent really were handed
+over, so they are working like any other. It is not a general statement about
+the bar: an entry is not a reducing order and is not held to this, so
+`buy(qty = 3)` on a bar executed four times sends four orders and the leg holds
+twelve where the script wrote one entry. That is `language.md` section 7.5, a
+script may not assume it runs once and guards with `bar.isConfirmed`, and it is
+the rule an engine keeps there.
 
 That count is in units, because a position is. A quantity the engine worked out
 is in units already, and a quantity the script stated is in the declaration's
@@ -1428,12 +1468,13 @@ sends nothing and an order that crosses zero this section has already chosen.
 So the rule above is kept outright for every quantity the engine works out,
 which is every close that states none, the closing half of a flip and the
 closing half of `order.reverse`, and for every quantity a script states in a
-declaration counting in units. **A quantity stated in lots, cash or an equity
-percent is the one thing it cannot be kept for**, because that order cannot be
-added to the bar's count at all: it is sent as written, and it is the one shape
-of this section an engine does not enforce. 17.2's close paragraph and
-`errors.md` OS7017 say so at the call a reader writes, and the fact it waits on
-is the instrument's lot size, which no leg is given today.
+declaration counting in units, on the bar it was sent and on every bar after it.
+**A quantity stated on a close in lots, cash or an equity percent is the one
+thing it cannot be kept for**, because that order cannot be added to the count
+at all: it is sent as written, against the position it is closing, and it is the
+one shape of this section an engine does not enforce. 17.2's close paragraph and
+`errors.md` OS7017 say so at the call a reader writes, and the fact both of them
+wait on is the instrument's lot size, which no leg is given today.
 
 One position per leg, rather than one net book across every leg, because legs are
 different contracts: adding a position in one to a position in another produces a
@@ -1479,7 +1520,14 @@ and a value outside either set is OS3008.
 `leg` argument defaults to that leg and is never written. In a file with more
 than one, leaving it out is OS3012: there is no leg the engine could invent. A
 `leg` that is not one of the declared names is OS3008, whose message lists the
-names that are.
+names that are. **A `leg` written in a file that declares none is OS3023**,
+whatever it names and whether the name was written or computed: the set of
+accepted names is empty, so the value is not what is wrong, and the fix is to
+take the argument out. It is a check rather than a note because ignoring the
+argument is silent in the most expensive way an order can be, a script that
+enters under one name and closes another trading the leg it did not name.
+17.6's declarations are planned, so OS3023 is what every `leg` argument meets in
+this release and OS3008 is what it will meet once a file can declare one.
 
 `exit` prices may be given as absolute prices (`limit`, `stop`) or as distances
 from the entry (`profit`, `loss`, in the instrument's own price units). Giving
@@ -1527,8 +1575,8 @@ nothing is not this: it is idempotence, it sends nothing, and it says nothing.
 
 **A `qty` written on a close may not be larger than what that close is
 closing**, which is the whole leg where no tag is named and the part one tag
-entered where one is, less whatever this bar's own orders have already committed
-to closing (17.1). Larger is OS7017, naming what was asked for and what is left,
+entered where one is, less whatever is already working against it (17.1). Larger
+is OS7017, naming what was asked for and what is left,
 and the call sends nothing: no order crosses zero (17.1), and a stated quantity
 is the one number a close sends without working it out. A ceiling applied
 silently would send a quantity the script did not ask for and leave it believing
@@ -1554,8 +1602,9 @@ first.
 
 **This is why `close(tag = "entry", qty = 1)` on a tag that has already
 flattened is refused while `close(tag = "entry")` on the same tag is silent**,
-and why the second of two bare closes on one bar sends nothing rather than being
-refused: the engine was asked for a number and the number is zero.
+and why a bare close sends nothing rather than being refused when the whole of
+the leg is already going, whether the order going was sent on this bar or on one
+before it: the engine was asked for a number and the number is zero.
 The two look inconsistent and are not. A quantity is an argument the script
 wrote, so it is a claim about the strategy's own position and the claim can be
 false; a call that writes no quantity asks the engine for the right number, and
@@ -2220,6 +2269,24 @@ blocker. This section is what it refers to.
 - **An arrangement here is normative even where another is mathematically
   equal.** That is the whole reason the section exists. Where a second
   arrangement is in common use, the entry names it and says it is not this one.
+- **An arrangement is the order the operations run in, and nothing else.**
+  Three things therefore fix nothing and are never constrained here. Writing a
+  subexpression into a named intermediate and reading it back is bit identical
+  to writing it out, because every operation already rounds its result to
+  binary64 and 8.1 leaves no wider register for an unnamed one to be kept in.
+  Forming the same subexpression twice gives the same value both times, for the
+  same reason. And reordering the operands of one addition or one
+  multiplication gives the same value, because both are commutative in
+  binary64; so does regrouping a product one of whose factors is a power of
+  two, because scaling by a power of two is exact and may therefore be applied
+  before the other multiplication or after it. That last one is the only one of
+  the three with an edge, and the edge is not where it looks: the two groupings
+  part company when the **other** product underflows into the subnormal range,
+  where its rounding loses bits the scaling cannot put back, and that happens
+  whether or not the answer itself is subnormal. An entry that relies on the
+  rule says where its edge is. A sentence fixing any of these three would send
+  an implementer to check a half that cannot differ, which is the cost 20.10
+  exists to avoid on whole functions.
 - **A function this section does not name does not depend on the order of its
   operations.** Section 20.10 says which those are and why, so an implementer can
   tell a silence that means "no constraint" from a silence that means "nobody
@@ -2430,10 +2497,18 @@ for position = 0 to len - 1:
 result = total / norm
 ```
 
-The denominator of the exponent is formed as `2 * spread * spread`, left to
-right. The kernel depends only on the position, so an engine may build it once,
-provided the values it builds are the ones these lines produce. This is the one
-average whose value depends on `exp`: see 20.11.
+The denominator of the exponent is **one product, divided once**. A chain of
+divisions, `-(gap * gap) / 2 / spread / spread`, is the arrangement in
+circulation and is not this one: over the kernels built at eight lengths, seven
+sigmas and six offsets it differs on 4529 of the 17598 exponents, about one in
+four. How that one product is grouped is not fixed, because one of its factors
+is 2, and over those same 17598 exponents the two groupings never differ: see
+20.1, whose edge case needs a `spread` below about 1.5 times 10 to the minus
+154th, so that its square is subnormal, which at a length of 1 is a `sigma` above
+about 6.7 times 10 to the 153rd. The
+kernel depends only on the position, so an engine may build it once, provided
+the values it builds are the ones these lines produce. This is the one average
+whose value depends on `exp`: see 20.11.
 
 **`linreg(src, len, offset)`** fits over `x` running 0 at the oldest bar of the
 window to `len - 1` at this one. The sums over `x` are constants of `len` and are
@@ -2618,13 +2693,22 @@ so a rising bar contributes an exact zero to the down side.
 never moved and in which both averages are zero. The ratio has no value there,
 and every reference reading is 100.
 
-**The arrangement of the last line is normative.** Two others are in circulation
-and neither is this one. `100 * up / (up + down)` is mathematically equal and
-lands one unit in the last place away on ordinary data. Rounding the ratio into a
-named intermediate first and then writing `100 - (100 / (1 + ratio))` is the same
-expression with an extra rounding in it, and is also not this one. The order is:
-the ratio, then one added to it, then 100 divided by that, then subtracted from
-100.
+**The arrangement of the last line is normative.** The order is: the ratio, then
+one added to it, then 100 divided by that, then subtracted from 100. One other
+arrangement is in circulation and is not this one: `100 * up / (up + down)` is
+mathematically equal and lands one unit in the last place away on ordinary data.
+Over the eighty bar fixture the release gate compares bit for bit it differs from
+these lines on 31 of the 73 values at length 7, 31 of the 66 at length 14 and 29
+of the 59 at length 21.
+
+**Naming the ratio first is not a second arrangement.** Writing
+`ratio = averageUp / averageDown` and then `100 - (100 / (1 + ratio))` is these
+same four operations in this same order, and it is bit identical to the line
+above on every value at all three of those lengths. It is written out here because the
+opposite was written here, and an implementer who believed it would have had two
+ways to be wrong: change correct code to avoid a difference that does not exist,
+or put a conformance vector on a distinction no conforming engine can make.
+20.1 says why no naming can change a value.
 
 **`stoch(len, smoothK, smoothD)`** places the close in the window's outright
 range, which is the bars' own highs and lows and not the close's extremes:
@@ -2794,8 +2878,9 @@ true range for the second. The multiplier is applied to the width and the produc
 added to the basis, which is one rounding of the product and one of the sum.
 `bbWidth` and `bbPercent` are computed from the bands as reported rather than
 from the basis and the width again, so a study that plots all three and a study
-that plots one reading agree to the last bit. The span in `bbPercent` is formed
-once.
+that plots one reading agree to the last bit. Nothing is fixed about whether the
+span the two readings share is written into a name or written out twice: 20.1
+says why that cannot change either of them.
 
 **The basis of `keltner` is the close**, averaged at `len` by the type `maType`
 names, and not the typical price. Section 6 writes the call without a source
@@ -2951,8 +3036,10 @@ roundToTick(p)     = roundToStep(p, the instrument's tick size)
 ```
 
 **`math.toDegrees(x)`** is `(x * 180) / pi` and **`math.toRadians(x)`** is
-`(x * pi) / 180`: multiply first, divide second. The other association is a
-different number at most arguments.
+`(x * pi) / 180`: multiply first, divide second. The other association, folding
+the constant into one factor, is a different number at about a quarter of the
+arguments: measured over forty thousand values spread across nine decades, 26 in
+every hundred for the first and 29 for the second.
 
 **`mod(a, b)`** is written out in section 8.1 and the formula there is the
 arithmetic: the division, then the floor, then the multiplication, then the
@@ -3047,7 +3134,9 @@ requires, and the alpha is clamped without being rounded.
 is the arithmetic as well as the meaning: in its `(100 - percent) / 100` the
 subtraction happens before the division. Forming the alpha as
 `1 - percent / 100` instead is mathematically equal and is a different number at
-most percentages, 33 among them, so it is not this one. Scaling the alpha the
+40 of the 101 whole percentages, 33 among them, so it is not this one. That is
+not a rarity a contrived argument has to reach for: it is two in five of the
+values a reader writes. Scaling the alpha the
 colour already carried, rather than setting it, is a third answer again, and it
 is the one that breaks the nesting identity 11.2 states.
 

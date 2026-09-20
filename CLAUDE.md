@@ -30,6 +30,24 @@ is the list.
    or real instrument, anywhere: not in source, comments, documentation, examples,
    test names or commit messages. Describe prior art generically. Examples use
    placeholder symbols.
+
+   **What the check covers is narrower than the rule, and a green build is not
+   proof of the rule.** `scripts/check-names.mjs` reads every file in the tree
+   against a fixed list: about eighteen products and platforms, and thirteen
+   indices and instruments, each stored encoded so that the checker is not the
+   one file breaking the rule it enforces. A name on that list is caught
+   anywhere, in any file; a name that is not on it passes, and so does every
+   name nobody has thought of yet. The list also leaves out, on purpose,
+   identifiers that are ordinary English words, because a build that fails on a
+   sentence costs more than the leak it would catch.
+
+   So the mechanical half is "these names, everywhere", and the rest is
+   attention: a reviewer reading a new comment, a new example symbol or a new
+   commit message. That is the whole of what can be mechanised here, and it is
+   written down rather than implied, because this repository's own standard is
+   that a check overstating its reach is worse than a small one stated
+   truthfully. A name that does get through is added to the list in the same
+   change that removes it, so the list grows by the cases attention missed.
 6. **No fact stated twice.** A value set written out in two files is a fact you
    would have to edit two places to change, and every copy reads as authoritative.
 
@@ -83,6 +101,15 @@ file under `tests/` that writes the code, or `null` saying in the open that
 nothing tests it. `scripts/check-catalogue-tests.mjs` resolves every pointer,
 fails a `null` the day a test does name the code, and prints the codes nothing
 exercises every run.
+
+**And the page says what the file says.** `spec/errors.md` is the catalogue a
+reader is sent to and `spec/errors.json` is what the compiler is generated from,
+so the two are compared character for character: every heading, first line,
+message, placeholder gloss, cause, fix, deferral and example block, and the two
+tables outside part 8 that are copies of the file as well. Until that was
+enforced, one word of a message could differ between them and the whole build
+passed. `scripts/lib/catalogue-page.mjs` holds the comparison and says which
+parts of the page it does not reach.
 
 ## Tests
 

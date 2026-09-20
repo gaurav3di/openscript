@@ -118,6 +118,14 @@ one, leaving it out is OS3012: there is no leg the engine could invent. A `leg`
 that is not one of the declared names is OS3008, and the message lists the names
 that are.
 
+**In this release, writing `leg` at all is OS3023.** The declarations above are
+planned, so no file can declare a leg, so there is no name the argument could
+carry. It is refused whatever you write there and whether you wrote the name or
+computed it, because the value is not what is wrong: the fix is to take the
+argument out and the order acts on the only leg there is. Before this was
+refused, `buy(qty = 1, leg = "a")` followed by `close(leg = "b")` flattened the
+position and said nothing.
+
 ### A contract named by description
 
 `leg.fixed` names a contract the host already knows. `leg.relative` names one by
@@ -441,15 +449,33 @@ sends nothing. The engine does not quietly send what is there instead: that
 would be a quantity you did not write, and your script would carry on believing
 it had closed the one you did.
 
-**What a close is measured against is what is left on this bar, not what the leg
-held when the bar began.** A position moves when a fill settles, and an order
-your script sent a line ago has not filled yet, so two closes on one bar would
-each be sized to the whole position and the second would take the leg short. The
-engine counts what the bar has already sent: the second of two bare closes sends
-nothing, and a second `close(qty = 2)` on a leg of three is OS7017 with one left
-rather than three. The same count covers a `sell` that reduces a long leg, the
-closing half of `order.reverse`, and a bar declared `onUnconfirmed` that is
-executed several times.
+**What a close is measured against is what is left to close, which is what has
+settled less everything already working against it.** A position moves when a
+fill settles, so an order your script sent a line ago has not filled yet and the
+leg still reads what it held before it left. Two closes on one bar would each be
+sized to the whole position and the second would take the leg short. So would a
+close on the bar after one whose close the destination has not answered, and
+that one is worse, because it repeats: `close()` under `if pos.size > 0` against
+a slow destination sends one close per bar for the length of the run, and six
+bars leave you twelve short of a leg that opened long three.
+
+What is still working is what your ledger says is working: an order that has not
+ended and has not fully filled, counted by the part of it that has not filled.
+Three sold with one filled leaves two working, so the next close sends two. A
+rejection, a cancellation or an expiry releases what it was holding, and you may
+close again. An order that is still at the destination holds its part until one
+of those comes back, which is why `cancel()` is the way out of a destination
+that never answers.
+
+So the second of two bare closes sends nothing, a second `close(qty = 2)` on a
+leg of three is OS7017 with one left rather than three, and a close on a bar
+whose earlier close is still working sends nothing at all. The same count covers
+a `sell` that reduces a long leg and the closing half of `order.reverse`. **A
+bar declared `onUnconfirmed` is one bar for this count and for nothing else**:
+the orders of its earlier executions really were handed over, so they are
+working like any other. It is not a general rule about the bar, and an entry is
+not held to it: `buy(qty = 3)` on a bar executed four times sends four orders and
+the leg holds twelve, which is why you guard an entry with `bar.isConfirmed`.
 
 The two rules meet in a place worth knowing about before you meet it.
 `close(tag = "runner")` on a tag that has already flattened is silent, and
@@ -619,6 +645,8 @@ nowhere to send orders places intents that reach nobody.
 | A `sell` went short instead of flattening | `sell` subtracts, it does not close | `close()` |
 | Two entries where the script meant one | Guarded on `pos.isFlat` alone while an order was still working | Add `and order.pending == 0` |
 | OS3012 on every order | More than one leg declared and no `leg` named | Name the leg on every order |
+| OS3023 on an order that names a `leg` | Leg declarations are planned, so this file declares none and the name has nothing to refer to | Take the `leg` argument out; the order acts on the only leg there is |
+| A close is sent once and then never again | The first one is still at the destination, so there is nothing left to close | `cancel(tag)` releases it, or wait for the frame that ends it |
 | A closing order for a contract the strategy never held | A relative contract re-described at exit instead of read back | Read `leg.symbol(name)`; the resolution is fixed before bar 0 |
 | The strategy never enters and reports no loss | An order that computed against the account row | Nothing to fix in the language: no call returns that row |
 | Orders appear on history and not live | The condition is true intrabar and false at the close | Nothing to fix, that is the deferral working |

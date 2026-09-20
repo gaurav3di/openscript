@@ -90,3 +90,67 @@ test('a source input selects the series the engine reads each bar', () => {
   assert.deepEqual(closes['p0'], data.map((one) => one.close));
   assert.deepEqual(highs['p0'], data.map((one) => one.high));
 });
+
+/**
+ * The documented example, end to end.
+ *
+ * `docs/inputs.md` teaches `study("S", precision = input(2, "Places"))` as how a
+ * reader gets to change something the declaration decides, and for the life of
+ * this module the descriptor read the declared default whatever the host had
+ * stored: the number a user typed reached the engine and reached nothing the
+ * chart drew it with. The wrong implementation these catch is the one that was
+ * there, `lookupFor(program, {})`, which is bit for bit the same descriptor for
+ * every settings map in the world.
+ */
+const PLACES = [
+  'version 1',
+  'study("S", precision = input(2, "Places"))',
+  'plot(close, "C")',
+  '',
+].join(NEWLINE);
+
+test('a declaration option written as an input reads the declared default when nothing is stored', () => {
+  assert.deepEqual(descriptorOfSource(PLACES).plots[0]?.priceFormat, {
+    type: 'price',
+    precision: 2,
+  });
+});
+
+test('a declaration option written as an input reads the value the host stored', () => {
+  const tuned = descriptorOfSource(PLACES, { settings: { Places: 7 } });
+  assert.deepEqual(tuned.plots[0]?.priceFormat, { type: 'price', precision: 7 });
+});
+
+test('the descriptor and the engine agree on the value, not only on the key', () => {
+  // The two resolve the same field from the same settings, so a host that hands
+  // one map to both gets a pane formatted to the number the column is computed
+  // at. They disagreed here: the engine resolved 7 and the chart formatted at 2.
+  const stored = { places: 7 };
+  const source = [
+    'version 1',
+    'places = input(2, "Places")',
+    'study("S", precision = places)',
+    'plot(round(close, places), "C")',
+    '',
+  ].join(NEWLINE);
+  const descriptor = descriptorOfSource(source, { settings: stored });
+  const data = bars(3);
+  const column = descriptor.calc(data, stored, {}, context(3));
+  const drawn = descriptor.plots[0]?.priceFormat;
+
+  assert.equal(drawn?.type === 'price' ? drawn.precision : undefined, 7);
+  assert.deepEqual(
+    column['p0'],
+    data.map((one) => Number(one.close.toFixed(7))),
+  );
+});
+
+test('a settings map the descriptor was not built with does not move the declared shape', () => {
+  // The honest half of the same fact. The declared shape is a value rather than
+  // a call, so it answers the settings the descriptor was built with and a host
+  // that keeps one descriptor per study instance builds again on a change.
+  // `spec/chart-narrowings.json` records which members do follow a later map.
+  const descriptor = descriptorOfSource(PLACES, { settings: { Places: 7 } });
+  descriptor.calc(bars(3), { Places: 3 }, {}, context(3));
+  assert.deepEqual(descriptor.plots[0]?.priceFormat, { type: 'price', precision: 7 });
+});

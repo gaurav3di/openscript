@@ -182,13 +182,13 @@ up is not renumbered.
 |---|---|---|---|---|
 | OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 29 |
 | OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 20 |
-| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 20 |
+| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 24 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 17 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **147** |
+| | | | **Total** | **151** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -346,6 +346,24 @@ and a page printing a different example from the one rule 2 compiles is a page
 whose example nothing has checked. This rule is
 `scripts/check-catalogue-tests.mjs`.
 
+**And the same check compares the rest of what a reader acts on.** Every
+heading's title, every first line's severity, stage, language version,
+specification reference and autofix sentence, every deferral, every unexercised
+sentence, every message template, every placeholder gloss, every cause and every
+fix, character for character against the file the compiler is generated from.
+Two tables outside part 8 go with them, because both are the same fact written
+twice: part 4's ranges table, which restates `ranges` and counts the entries in
+each block, and part 6's refinements table, which is the set of entries carrying
+`refines`. Until that was enforced, one word of a message could differ between
+the page and the file and the whole build passed.
+
+**What it does not compare is the prose around all of it.** Parts 1 to 3, this
+part and part 7 are the design `errors.json` implements rather than a copy of
+it, and a check that held them to the file would be a check nobody could keep
+green. That reach is stated here and in `scripts/lib/catalogue-page.mjs`, which
+holds the comparison, rather than left to be assumed, because a check
+overstating what it covers is worse than a small one that says so.
+
 Two smaller checks run in the same job, because they are cheap and they catch the
 same class of rot: the schema check (every field present, every placeholder
 declared and used, every fix non-empty and ending in a full stop) and the
@@ -378,6 +396,8 @@ than general. The family code remains correct for every case not listed here.
 | OS3019 | OS3011 | A declaration handle where a runtime object belongs |
 | OS3020 | OS3011 | fill's first two arguments, which name two declared plots |
 | OS3022 | OS3017 | An input written in place whose title is another input's name |
+| OS3023 | OS3008 | An order naming a leg in a file that declares none |
+| OS3024 | OS3021 | An input written in place whose title is empty |
 
 **Reassignments.** Where a sibling document quotes a code that this catalogue
 assigns to something else, the catalogue's assignment is the one the compiler
@@ -2308,6 +2328,59 @@ After:
 width = input(2, "Width")
 plot(close + width * input(3, "Multiplier"), "Band", aqua)
 ```
+
+### OS3023 An order names a leg this file does not declare
+
+Severity error. Stage checker. Since language version 1. Reference stdlib.md 17.1, 17.2. Test `tests/unit/check-calls.test.ts`.
+
+**Message.** `{name} was given a {argument}, and this file declares none.`
+
+- `{name}` is the order function that was called.
+- `{argument}` is the parameter that names the declaration, which is leg.
+
+**Cause.** Every order function names the leg it acts on, and a leg is a contract declared before the run (stdlib.md 17.1, 17.6). A file that declares no leg has exactly one, the instrument its chart is showing, and every order acts on it with no leg named. So in a file with no leg declaration there is no name a leg argument could carry, and one written there names nothing. Ignored, it is silent in the most expensive way an order can be: a script that entered under one name and closed another flattened the only leg there is and was told nothing, and a name the script computed was dropped just as quietly. It is refused whatever the argument holds, rather than held against a list of accepted values the way OS3008 holds every other fixed set, because here the list is empty and the value is not what is wrong.
+
+**Fix.** Leave {argument} out. A file that declares no leg has exactly one, and every order acts on it.
+
+Before:
+
+```
+if pos.isFlat
+    buy(qty = 1, leg = "hedge")
+else
+    close()
+```
+
+After:
+
+```
+if pos.isFlat
+    buy(qty = 1)
+else
+    close()
+```
+
+### OS3024 An input written in place has an empty title
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.4, host-interface.md 8.1. Test `tests/unit/check-calls.test.ts`.
+
+**Message.** `An input() assigned to no name is named by its title, and this one's title is empty.`
+
+**Cause.** The title of an input written where a value belongs is its settings key as well as its dialog label (host-interface.md 8.1), and the empty string is neither. There is nothing to store a user's value under and nothing to label the row with, and a second input written the same way would land on the same empty key and take the same stored value. This is the case OS3021 refuses, reached by a different edit, and it carries its own code because OS3021 tells a reader to give the input a title written as a string literal and this reader has written one. A message and a fix that are both already true of the program in front of somebody send them to change nothing. What is wrong here is not that the title was left out: it is that the title says nothing, and the fix is to give it something to say. An input assigned to a name is not this. It has a key already, and an empty title there is read as no title and labelled with the name, which language.md 13.4 states.
+
+**Fix.** Give the title something to say: input(2, "Precision").
+
+Before:
+
+```
+study("Range", precision = input(2, ""))
+```
+
+After:
+
+```
+study("Range", precision = input(2, "Precision"))
+```
 ---
 
 ## 8.4 OS4xxx Runtime
@@ -3628,7 +3701,7 @@ if delta > 0
 
 Severity error. Stage engine. Since language version 1. Reference language.md 13.3. No test in this repository names this code.
 
-**Deferred.** Nothing raises this yet. Nothing compares an order's quantity with the lot size its leg trades in, so a quantity no exchange would accept is sent and a backtest can report a trade that could not have happened. Raised when order validation lands, stdlib.md 17.2.
+**Deferred.** Nothing raises this yet. Nothing compares an order's quantity with the lot size its leg trades in, so a quantity no exchange would accept is sent and a backtest can report a trade that could not have happened. The same missing fact is what leaves two other shapes of stdlib.md 17.1 unheld, and all three are settled together: a quantity stated on a close in a declaration counting in lots, cash or an equity percent cannot be held against a position folded in units, which is the narrowing OS7017 carries; and an order that opposes what the leg holds in such a declaration cannot be divided into the half that closes the outgoing position and the half that opens its replacement, so it is sent whole, on a position reference of its own so that it crosses nothing, leaving the outgoing position open and its reference unable to return to zero. Raised when order validation lands, stdlib.md 17.2, which is also when the ledger is given the lot size its leg trades in.
 
 **Message.** `{symbol} trades in lots of {lot}, and {qty} is not a multiple of it.`
 
@@ -3979,9 +4052,9 @@ Severity error. Stage engine. Since language version 1. Reference stdlib.md 17.1
 
 - `{qty}` is the quantity the call stated.
 - `{part}` is what the close is closing: the leg, or the tag it named.
-- `{held}` is what is left for a close to send: what that part holds, less what this bar's earlier orders already close.
+- `{held}` is what is left for a close to send: what that part holds, less what is already working against it.
 
-**Cause.** No order crosses zero, and the orders one bar sends can never sum past the position they are reducing. A close larger than what is left to close sends one order that flattens the position and opens the opposite one under the same position reference, so a leg that was long ends the bar short and a call named close has opened a position. The quantity is an argument the script wrote, which makes it a claim about the strategy's own position, and this claim is false. Sending what is there instead would leave the script believing it closed the number it asked for, and reading it as a reversal would make close open a position, which is the most expensive naming mistake available. What is left to close is what the leg holds, or what the tag the close names holds, less what this bar's earlier orders have already committed to closing. A position is folded from settled fills, so an order sent earlier on the same bar has filled nothing and the leg still reads what it held when the bar began: measured against that alone, two closes of two on a leg of three each pass the ceiling and the pair ends the leg one short. A close that states no quantity is not this: the engine works out what is left and sends it, which is nothing at all once the bar has committed the whole of it, and closing a tag that holds nothing sends nothing and says nothing. The comparison is made in full only where the two numbers count the same thing, which is a declaration whose quantity type is units: elsewhere a position folded from filled quantities and a quantity stated in the declaration's own unit are two different kinds of number, and a refusal with the wrong one in it is worse than none. The half of it that needs no conversion is made whatever the declaration counts in, because nothing left to close is zero in every unit. What that leaves unheld is one shape, a quantity stated against a position that is still there in a declaration counting in lots, cash or an equity percent, and joining those two numbers needs the instrument's lot size, which is the fact OS7005 is deferred on.
+**Cause.** No order crosses zero, and a reducing order can never send more than is available to reduce. A close larger than what is left to close sends one order that flattens the position and opens the opposite one under the same position reference, so a leg that was long ends short and a call named close has opened a position. The quantity is an argument the script wrote, which makes it a claim about the strategy's own position, and this claim is false. Sending what is there instead would leave the script believing it closed the number it asked for, and reading it as a reversal would make close open a position, which is the most expensive naming mistake available. What is left to close is what the leg holds, or what the tag the close names holds, less everything already working against it. A position is folded from settled fills, so an order the destination has not answered has filled nothing and the leg still reads what it held before that order left: measured against that alone, two closes of two on a leg of three each pass the ceiling and the pair ends the leg one short, and a close on every bar against a destination that never answers ends the run short by the position once per bar. The scope is therefore the run and the position rather than the bar, and what is still working is read from the ledger of stdlib.md 17.7: an order neither terminal nor fully filled, counted by the part of it that has not filled. A rejection, a cancellation and an expiry release what they were holding, because nothing more is coming from an order that has ended. A close that states no quantity is not this: the engine works out what is left and sends it, which is nothing at all once the whole of it is going, and closing a tag that holds nothing sends nothing and says nothing. The comparison is made in full only where the two numbers count the same thing, which is a declaration whose quantity type is units: elsewhere a position folded from filled quantities and a quantity stated in the declaration's own unit are two different kinds of number, and a refusal with the wrong one in it is worse than none. The half of it that needs no conversion is made whatever the declaration counts in, because nothing left to close is zero in every unit. What that leaves unheld is one shape, a quantity stated against a position that is still there in a declaration counting in lots, cash or an equity percent, and joining those two numbers needs the instrument's lot size, which is the fact OS7005 is deferred on.
 
 **Fix.** Leave the quantity out and close() flattens what is left, or size the part from pos.size and keep the quantity at or under {held}.
 

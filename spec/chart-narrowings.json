@@ -1,5 +1,36 @@
 {
   "note": "Every field of a compiled program's outputs, and whether the chart adapter carries it. Read by scripts/check-chart-surface.mjs, which compiles a study declaring two of everything, builds a descriptor from it, and refuses a field the program carries that this file does not mention, a field mentioned here that the format no longer has, and a declaration the descriptor drops whose count is not recorded below. A narrowing is a fact about this chart's descriptor and never about the language: the compiled program carries all of it, and another host may draw all of it.",
+  "resolution": {
+    "note": "When each member of the descriptor resolves a declaration option that was written as an input(). A declaration option may be an input() (docs/inputs.md), so the value behind it is the host's stored setting rather than the literal in the source. The two halves below are the only two answers there are, and a member in neither is one whose answer to a settings change is whatever it happens to be. Read by scripts/check-chart-surface.mjs, which moves one field of each kind and refuses a descriptor member neither list names.",
+    "atBuild": {
+      "why": "Resolved once, against the settings descriptorFor was given, because these members are values rather than calls and there is nowhere later to ask. A host that changes a setting and wants the declared shape to follow builds the descriptor again. That is the honest limit of a declared shape: nothing is dropped, and what a member answers is the settings it was built with.",
+      "members": [
+        "id",
+        "name",
+        "category",
+        "placement",
+        "range",
+        "inputs",
+        "plots",
+        "fills",
+        "alerts"
+      ]
+    },
+    "perCall": {
+      "why": "Resolved again on every call, against the settings handed to that call, because these members are functions and the chart passes its current settings into each one. A settings change reaches them with no rebuild.",
+      "members": [
+        "calc",
+        "calcTail",
+        "levels",
+        "barColors",
+        "background",
+        "markers",
+        "table",
+        "draws",
+        "attach"
+      ]
+    }
+  },
   "outputs": {
     "plots": {
       "carried": [

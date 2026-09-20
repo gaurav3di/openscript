@@ -1,6 +1,6 @@
 # 0017 A close still working when the next bar closes again
 
-Status: open
+Status: closed 2026-09-20
 Opened: 2026-09-20
 Against: `src/core/engine/ledger/closable.ts` (`committed`, which reads the
 bar's own orders and not the ledger's working rows)
@@ -96,3 +96,69 @@ The reproduction above, driven with a host that acknowledges nothing on the
 first close: assert that the orders carrying one position reference never sum
 past what that position opened with, which is what
 `tests/engine/crossing.test.ts` already measures within a bar.
+
+## How it was settled
+
+Decision 44. **What is available to reduce is the settled position less
+everything already working against it, and the scope is the run and the position
+rather than the bar.** A bar-scoped rule is the special case of that one in which
+nothing has been answered yet, so it subsumed `closable.ts`'s reading rather than
+sitting beside it, and the bar keeps no record of its own any more: the only
+question left that really is a bar's is OS7013, two opposite orders on one bar,
+and `SentOnBar` moved to `refuse.ts` with that question alone.
+
+The second obstacle this issue raised turned out not to be one. A row does not
+need to carry its `qtyType`, because what the reduction has to be compared with
+is not the row's quantity but the units the engine measured when the order was
+sent, which it already worked out: the `Reduction` the bar's record carried now
+rides on the row, in units, beside the row's filled quantity, which is in units
+too. `workingUnits` is the difference, and it is zero on a row that has ended.
+The narrowing to units that this issue expected is therefore not needed for the
+count at all; it is needed only for the one shape below.
+
+The rule a working order means to a later bar, which this issue said needed
+deciding rather than assuming:
+
+- A **partial fill** releases what settled. Three sold with one filled leaves two
+  working, so the next close sends two.
+- A **rejection**, a **cancellation** and an **expiry** release the rest, because
+  nothing more is coming from an order that has ended, and the script may close
+  again.
+- A destination that **never answers** leaves the close working, and the strategy
+  cannot close again, which is right: it already has a close going. `cancel()` is
+  the way out this issue was worried about, and it works, because the
+  cancellation comes back as a frame that ends the row. That is asserted end to
+  end in `tests/engine/working.test.ts` rather than assumed.
+- An **entry** working against the same leg adds nothing. Nothing has settled, so
+  there is nothing extra to close.
+
+The reproduction in this issue is `tests/engine/working.test.ts`, driven over
+twelve bars rather than two, because the defect grows with the run and a test
+over two bars would pass an engine that held only the bar after.
+
+## The other shape, and where it now stands
+
+Two shapes wait on the same missing fact. OS7005 is not raised yet, and its
+deferral now names both of them rather than one:
+
+1. A quantity stated on a close in a declaration counting in lots, cash or an
+   equity percent may still take the position it is closing past zero. Unchanged,
+   and `stdlib.md` 17.1 and 17.2 and OS7017 all say so at the point a reader
+   meets it.
+2. An entry that opposes what the leg holds in such a declaration cannot be
+   divided into the half that closes and the half that opens. **The half of that
+   which needed no lot size is held now**: minting a position reference needs no
+   arithmetic, so the order carries one of its own in all four units rather than
+   the outgoing position's. Before, at a lot size of twenty five, `buy(qty = 3)`
+   then `sell(qty = 9)` had the destination take reference 1 from seventy five
+   units to minus one hundred and fifty. What still waits is that the outgoing
+   position is not closed by an order of its own, so its reference does not
+   return to zero.
+
+## The documentation this issue pointed at
+
+`docs/strategies/orders.md`'s scale-out example is unchanged and its problem is
+unchanged: it declares `qtyType = "lots"` and sizes from `pos.size`, which is in
+units. It is the same missing fact, it cannot be corrected by editing the example
+alone, and it is recorded here rather than in a third place.
+

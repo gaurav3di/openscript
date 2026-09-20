@@ -10,6 +10,21 @@
  * that spells out the very words it forbids would be the one file in the
  * repository breaking the rule it exists to enforce.
  *
+ * ## What this proves, and what it does not
+ *
+ * It proves that **the names below appear nowhere**, in any file the project
+ * holds. It does not prove the rule in CLAUDE.md, which is about every outside
+ * name there is, and no check can: a machine cannot be handed the set of every
+ * product and trademark in the world, and one that tried would fail the build
+ * on ordinary English. A name nobody has thought of passes here.
+ *
+ * So the reach is stated in the passing line as well as here, because the
+ * failure mode of a check like this one is not a false negative: it is a green
+ * build read as proof of something wider. The rest of the rule is a reviewer's
+ * attention, and a name that gets past it is added to the list in the same
+ * change that removes it, so the list grows by exactly the cases attention
+ * missed.
+ *
  * Run: node scripts/check-names.mjs [--staged]
  * Exit code 1 on any hit, with the file, line and column of each one.
  */
@@ -78,6 +93,7 @@ function listFiles() {
 }
 
 let hits = 0;
+let read = 0;
 
 for (const file of listFiles()) {
   let text;
@@ -87,6 +103,7 @@ for (const file of listFiles()) {
   } catch {
     continue;
   }
+  read++;
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     for (const { re, why } of patterns) {
@@ -107,4 +124,10 @@ if (hits > 0) {
   process.exit(1);
 }
 
-console.log('Independence check passed: no outside product or company named.');
+console.log(
+  `Independence check passed: none of the ${ENCODED_PRODUCTS.length} products and platforms or ` +
+    `the ${ENCODED_MARKETS.length} indices and instruments on this file's list appears in any of ` +
+    `the ${read} files read. That is the whole of what this proves. CLAUDE.md's rule is about ` +
+    'every outside name there is, which no list can hold, so the rest of it is a reviewer ' +
+    'reading the change rather than a build passing.',
+);

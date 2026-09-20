@@ -9,6 +9,163 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A setting a reader stores now reaches the declaration option it was written
+into.** `docs/inputs.md` teaches `study("S", precision = input(2, "Places"))` as
+how a reader gets to change something the declaration decides. Through this
+package's own chart adapter it did not: `descriptorFor` took no settings at all,
+so `plots[0].priceFormat.precision` was 2 whatever the host had stored, and 5
+when the script wrote `input(5, ...)`, which is the default and not the setting.
+The engine loaded with the same stored value resolved it correctly, so the chart
+formatted a pane at one precision while the column beside it was computed at
+another. `ChartAdapterOptions` gains **`settings`**, and every declaration field
+written as an `input()` now resolves against it: the study's name and category,
+its placement, and every plot, band and alert field. A host that keeps one
+descriptor per study instance passes that instance's stored settings and builds
+again when a user changes one; the parts that follow a later change with no
+rebuild are the calls, `levels`, `range`, the painting hooks and the calculation,
+and which is which is recorded in `spec/chart-narrowings.json` and measured by
+`scripts/check-chart-surface.mjs` rather than promised. One declaration option
+still cannot be tuned and now says so: a plot's `style` is a plain string in the
+compiled format, so an `input()` written there is folded to its default with no
+diagnostic anywhere. That is issue 0018, and closing it is a format change.
+
+**An input written in place whose title is empty now has a code that is true of
+it: OS3024.** `input(14, "")` raised OS3021, whose message says the input "has no
+title written as a string literal" and whose fix says to give it one. The reader
+had. It was empty, and the sentence told them to make the edit they had already
+made. OS3021 keeps the two programs it describes, an input with no title argument
+and one whose title is not a literal; the empty title is OS3024, whose fix is to
+give the title something to say. Beside it, a decision that had been made by
+nobody is now written down: **an input assigned to a name and given an empty
+title is labelled by the name**, exactly as one given no title is, because a
+named input has its key already and what an empty title costs there is only a
+label. `language.md` 13.4 states it, and a test pins it.
+
+**`spec/errors.md` and `spec/errors.json` are now compared in full.** The page is
+named the authority a reader is sent to, and the file is what the compiler is
+generated from, and until now only the test pointer and the two example blocks
+were held to each other: changing one word of a message on the page passed the
+whole build, showing a reader one sentence and the user of the compiler a
+different one. Every heading, first line, message, placeholder gloss, cause, fix,
+deferral and unexercised sentence is now compared character for character, along
+with the two tables outside part 8 that are copies of the file as well. Both of
+those had already drifted: the ranges table said the argument block held 20
+entries and the catalogue held 147, against 23 and 150, and the refinements table
+was missing an entry added in the last release.
+
+**The error code check reads the whole tree, not only its Markdown.** Its own
+docstring said "nothing else in the repository gets to invent one" while it
+walked `.md` files, and source comments cite codes heavily: changing one in a
+comment to a code the catalogue does not define passed the whole build. It now
+reads every file the project holds, source and tests and tooling alike, and
+prints the count it read. A number outside every thousand block the catalogue
+declares is not a code and is counted rather than refused, which is what lets
+four checks go on attacking their own rules with a fabricated entry; those
+citations and the files holding them are printed on every run.
+
+**Three sentences in `stdlib.md` section 20 fixed nothing and have been
+replaced.** Section 20 is the manifest a second engine implements from, so a
+sentence there that cannot be violated costs an implementer the time the section
+exists to save. `rsi` said that naming the ratio first and writing
+`100 - (100 / (1 + ratio))` was "the same expression with an extra rounding in
+it": there is no extra rounding, and the two spellings are bit identical on every
+value at all three gate lengths. `alma` fixed the grouping of `2 * spread *
+spread`, which cannot differ because one factor is a power of two; the
+arrangement that does differ is the chain of divisions, and that is what it names
+now. `bollinger` said a span was "formed once". 20.1 gains the general rule so
+the next one is caught by reading, and two measured figures that were overstated
+as "most" are now the numbers: `fade`'s refused arrangement differs at 40 of the
+101 whole percentages, and `math.toDegrees`'s at 26 in every hundred.
+
+**CLAUDE.md rule 5 now says what its check covers.** "Name nobody. No outside
+product, platform, company, trademark, market index or real instrument,
+anywhere" is enforced by a fixed list of eighteen products and thirteen indices.
+A name on the list is caught in any file and a name that is not on it passes,
+which is the only mechanizable form of the rule; the rule was written as though
+the check covered all of it. It now says which half is mechanical and which is
+attention, and `scripts/check-names.mjs` says the same in its passing line,
+because a green build read as proof of something wider is the way this one fails.
+
+**A close still working at the destination is no longer sent again on the next
+bar.** A position moves when a fill settles and from nothing else, so an order a
+strategy has sent and not had answered has moved no position figure: the leg
+still reads what it held before it left. The previous release held the orders of
+one bar against that, and one bar out the defect was still there. Measured, with
+the entry acknowledged and the closes not acknowledged, on the plainest exit a
+strategy can write:
+
+```
+strategy("P", qty = 3)
+if bar.index == 0
+    buy(qty = 3)
+if bar.index > 0 and pos.size > 0
+    close()
+```
+
+six bars sent one close per bar and netted **twelve short** under one position
+reference, ten bars netted twenty four, and it grew with the run. With the closes
+filling one of three at a time it sent 3, then 3, then 3 and ended three short.
+Nothing was reported, on a leg that opened long three, and a destination slower
+than the chart is the whole of what it takes. The script was not wrong: `pos.size`
+is folded from settled fills and correctly still read three.
+
+**What is available to reduce is now the settled position less everything already
+working against it**, over the run rather than over the bar, which subsumes the
+bar rule rather than sitting beside it. What is working is read from the ledger:
+an order that has not ended and has not fully filled, counted by the part of it
+that has not filled. A partial fill releases what settled, so three sold with one
+filled leaves two working and the next close sends two. A rejection, a
+cancellation or an expiry releases the rest, and the script may close again.
+`cancel()` is the way out of a destination that never answers, and it now works
+end to end. An unsettled entry adds nothing to what a close may reduce, because
+nothing has settled. `close(qty = ...)` against a leg whose close is already
+going is **OS7017** naming nothing left, where before it sent the position a
+second time.
+
+**A crossing entry carries a position reference of its own in every `qtyType`.**
+Under `"lots"`, `"cash"` and `"equityPercent"`, `buy(qty = 3)` then `sell(qty = 9)`
+sent one order on the outgoing position's reference: at a lot size of twenty five
+the destination saw reference 1 go from seventy five units to minus one hundred
+and fifty, which is the crossing the split exists to prevent. Dividing the
+quantity into a closing half and an opening half needs the instrument's lot size
+and still waits on it, but **minting a reference needs no arithmetic**, so it is
+done in all four. What still waits is written where a reader meets it, in
+`stdlib.md` 17.1 and in OS7005's deferral: the outgoing position is not closed by
+an order of its own.
+
+**`pos.avgPrice` is now averaged over the positions on the side the leg holds.**
+A leg holds more than one position whenever an opposing order is outstanding.
+Summed across both, the cost of a position on its way out was subtracted from the
+cost of the one on its way in: three hundred bought at one hundred beside two
+hundred and twenty five sold at one hundred and ten reported an entry at
+**seventy**, and every level measured from the entry would have been measured
+from that. It also corrects the same blend during a flip, where a leg long three
+at one hundred with a new short five at one hundred and ten reported one hundred
+and twenty five.
+
+**An order that names a `leg` is now refused: OS3023.** `stdlib.md` promised that
+a leg outside the declared names was refused, and nothing raised it:
+`buy(qty = 3, leg = "nosuchleg")` placed the order on the only leg with no
+diagnostic, and a computed name was ignored too. The sharp case is
+`buy(qty = 3, leg = "a")` followed by `close(leg = "b")`, which flattened the
+position: a script that named one leg and closed another traded the leg it did
+not name and was told nothing. Leg declarations are planned, so no file can
+declare one, so there is no name the argument could carry; it is refused whatever
+it holds and whether the name was written or computed, and the fix is to take the
+argument out. It is a code of its own rather than OS3008 because OS3008's fix
+sentence is "use one of these values" and here there are none, and a fix a reader
+cannot act on is worse than no fix.
+
+**Two sentences of `stdlib.md` 17.1 corrected.** One claimed the engine held
+every order it can read in units to "no order crosses zero" bar one named
+exception; the across-bars case above was entirely in units and was not that
+exception, so the engine was made true and the sentence now says what is. The
+other, "a bar declared `onUnconfirmed` is one bar however many times it is
+executed", is true of the reducing count and read as a general rule about the
+bar: on such a bar executed four times a close sends one order and `buy(qty = 3)`
+sends four, which is `language.md` 7.5 working as designed. The sentence now
+carries its scope, and both halves are asserted in tests.
+
 **A settings value now stays on the row it was stored for.** An `input()` may be
 written anywhere a value belongs, and one written in a declaration option or
 inside a larger expression is bound to no name, so it was keyed by its position:

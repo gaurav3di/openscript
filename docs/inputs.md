@@ -112,7 +112,24 @@ var start = input(0, "Start")                  // filed under start
 Because the title is a key, two rows cannot carry the same one: that is OS3017.
 A title that spells another input's name is the same clash from the other side
 and is OS3022. And an input with neither a name nor a title has nothing to be
-filed under at all, which is OS3021.
+filed under at all, which is OS3021. Writing the title as an empty string reaches
+the same dead end by a different edit, and it carries a code of its own, OS3024,
+so that the sentence you are handed is about the line you wrote rather than
+telling you to write the title you have already written.
+
+```
+study("Range", precision = input(2))              // OS3021, no title at all
+study("Range", precision = input(2, ""))          // OS3024, a title saying nothing
+study("Range", precision = input(2, "Places"))    // correct
+```
+
+**A named input is not this, and is not refused.** It has a key already, so its
+title is only the dialog label, and an empty one is read as no title: the row
+takes the name, exactly as it does when the title is left out.
+
+```
+len = input(14, "")   // one row, labelled len, the same as input(14)
+```
 
 ## var in front of an input
 
@@ -366,7 +383,7 @@ only the first two can catch it before the study draws anything.
 
 | Moment | Checked | Failure |
 |---|---|---|
-| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries | OS3007, OS3003, OS3018, OS3017, OS3021, OS3022. The script does not compile |
+| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries | OS3007, OS3003, OS3018, OS3017, OS3021, OS3024, OS3022. The script does not compile |
 | Load | The reader's saved value against the input's type, `min`, `max` and `options` | The study reports the row and the bound, and does not run |
 | Bar | A legal setting that becomes an illegal argument: a length computed to zero, a colour channel out of range, a name that is not one of a function's accepted values | OS4003, OS4009, OS4012. The bar stops and the study is marked as errored |
 
@@ -454,6 +471,7 @@ setting the reader can flip is a claim the script no longer makes.
 | A default computed from bar data | OS3003 | Use a literal, or an input for the thing the default depended on |
 | Two rows with one title | OS3017 | Rename one; the saved layout keys on the title |
 | A row with no name and no title | OS3021 | Give it a title written as a string literal |
+| A row with no name and an empty title | OS3024 | Give the title something to say |
 | A title that spells another input's name | OS3022 | Retitle this one, or rename the other input |
 | A `var` holding an input used as an option | OS3003 | Drop the `var`, or pass the setting the `var` started from |
 | A select default outside its list | OS3018 | Add it to `options`, or pick a listed value |

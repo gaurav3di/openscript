@@ -13,8 +13,36 @@
  * total would report a position the strategy never held. Taking the greatest
  * cumulative quantity instead makes a repeat cost nothing and makes a terminal
  * frame that overtook a partial one carry the whole remainder in one piece.
+ *
+ * **A row also carries what its order takes out of the position**, because that
+ * is the only record of it that outlives the bar the order was sent on. A
+ * position moves when a fill settles, so an order that has been sent and not
+ * answered has moved nothing and is invisible to every position figure; the row
+ * is where it is visible. `closable.ts` reads the reduction back, and what makes
+ * the reading work is that a row already says whether the order is still going:
+ * an order neither terminal nor fully filled is one the destination still has.
  */
 import type { Identity, OrderFrame, OrderSide, OrderType } from './intent.js';
+
+/**
+ * What one order takes out of a position, in units.
+ *
+ * Absent on an order that adds to a position, and absent on one whose quantity
+ * the engine cannot count in units, which are two different facts with the same
+ * consequence: neither subtracts anything from what is left to close.
+ */
+export interface Reduction {
+  /** The tag the close named, or absent where it reduces the leg as a whole. */
+  readonly part: string | null;
+  /** The units it takes out of that part. */
+  readonly units: number;
+  /**
+   * Whether `units` is the order's own quantity or the most it could have been.
+   * False on an order whose quantity the engine cannot read in units, where
+   * `units` is the whole of what was left to close at the moment it was sent.
+   */
+  readonly counted: boolean;
+}
 
 /**
  * The words a row's status may take, `stdlib.md` 17.7.
@@ -99,6 +127,43 @@ export interface LedgerRow {
   rejection: string;
   readonly placedAt: number | null;
   updatedAt: number | null;
+  /**
+   * What this order takes out of the position, absent where it takes nothing.
+   *
+   * Fixed when the order was sent and never rewritten, because it is a record
+   * of what the engine measured at that moment and not a running total. What
+   * moves is `filledQty` beside it, and the two together say how much of the
+   * reduction the destination still has.
+   */
+  readonly reduces: Reduction | null;
+}
+
+/**
+ * The units this row still has working against the position it reduces.
+ *
+ * **An order that has been sent and not answered is the whole of what this
+ * file exists to make visible.** A position is folded from settled fills and
+ * from nothing else (17.8), so such an order has moved no position figure: the
+ * leg still reads what it held before it was sent, and a second reducing order
+ * measured against the leg alone sends the position a second time.
+ *
+ * Three facts decide the number, and each of them is a case a strategy meets:
+ *
+ * - **A partial fill.** Three sold with one filled leaves two working, because
+ *   the one that filled has already moved the leg and only the other two are
+ *   still to come.
+ * - **An order that has ended.** A rejection, a cancellation and an expiry all
+ *   put the row at a terminal status, and nothing more is coming from any of
+ *   them, so the remainder is released and the strategy may close again. That
+ *   is the script's way out of a destination that refused its close.
+ * - **An order that adds**, which reduces nothing and holds nothing: an entry
+ *   that has not settled is not a position, and counting it would let a close
+ *   be sent for units that may never exist.
+ */
+export function workingUnits(row: LedgerRow): number {
+  const reduces = row.reduces;
+  if (reduces === null || isTerminal(row.status)) return 0;
+  return Math.max(0, reduces.units - row.filledQty);
 }
 
 /** Why a frame was refused, `stdlib.md` 17.14. */

@@ -48,10 +48,29 @@ import { diagnosticFor } from '../../diagnostics/index.js';
 import type { Diagnostic } from '../../diagnostics/index.js';
 import type { OrderCall } from './call.js';
 import { closable } from './closable.js';
-import type { SentOnBar } from './closable.js';
 import type { Identity, OrderSide } from './intent.js';
 import type { Placement, PlacingContext } from './place.js';
 import { isTerminal } from './row.js';
+
+/**
+ * An order this bar has already sent, which is what OS7013 is asked about.
+ *
+ * The bar's own record, and the only rule left that is scoped to a bar: two
+ * opposite orders on one leg on one bar are refused because which of them to
+ * honour has no defensible answer, and that question is about one bar's
+ * decision rather than about what the destination still has. What a close is
+ * measured against is a different question with a different scope, and it is
+ * answered from the ledger's rows (`closable.ts`).
+ *
+ * The record is the bar's rather than the execution's, so a bar declared
+ * `onUnconfirmed` and executed again is still one bar for it: the orders of its
+ * earlier executions really were handed over.
+ */
+export interface SentOnBar {
+  readonly name: string;
+  readonly line: number;
+  readonly side: OrderSide;
+}
 
 /**
  * How a message names an instrument the host gave no symbol for.
@@ -148,10 +167,11 @@ function entriesOpen(ctx: PlacingContext, side: OrderSide): number {
  * position reference, with a call named close having opened a position.
  *
  * **What it is held against is what is left to close**, which `closable.ts`
- * answers: what the part holds, less what this bar's earlier orders have
- * already committed to closing. Held against the leg alone, `close(qty = 2)`
- * twice on a leg of three passed twice and the leg ended one short, each order
- * inside the ceiling and the pair outside it.
+ * answers: what the part holds, less everything already working against it.
+ * Held against the leg alone, `close(qty = 2)` twice on a leg of three passed
+ * twice and the leg ended one short, each order inside the ceiling and the pair
+ * outside it; and `close(qty = 3)` on the bar after one whose close of three was
+ * still at the destination passed as well, for the same reason one scope out.
  *
  * **Refused rather than clamped**, because the quantity is an argument the
  * script wrote and is therefore a claim about the strategy's own position.

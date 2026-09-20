@@ -1,20 +1,51 @@
 /**
- * What is left for this bar to close, `stdlib.md` 17.1 and 17.2.
+ * What is left to reduce, `stdlib.md` 17.1 and 17.2.
  *
- * **The orders one bar sends can never sum past the position they are
- * reducing.** A position is folded from settled fills and from nothing else
- * (17.8), which is right and is what makes this file necessary: an order this
- * bar has already sent has filled nothing, so the leg still reads what it held
- * when the bar began. Measured against that alone, the second close of a bar
- * sends the whole position a second time. Two bare closes on one bar took a leg
- * holding three long to three short, under one position reference, with no
- * quantity written anywhere and nothing said.
+ * **What is available to reduce is the settled position less everything already
+ * working against it.** A position is folded from settled fills and from
+ * nothing else (17.8), which is right and is what makes this file necessary: an
+ * order the destination has not answered has filled nothing, so the leg still
+ * reads what it held before that order left. Measured against that alone, every
+ * reducing order sends the whole position again.
  *
- * So a reducing order is measured against what is left to reduce after the
- * orders this bar has already committed to, and the bar's own record of those
- * orders lives here beside the arithmetic that reads it. The ceiling OS7017
- * applies was always the right ceiling; the number it was applied to was what
- * the bar began with rather than what is left.
+ * **The scope is the run and the position, not the bar.** That correction is
+ * the whole of this file's history and it was arrived at twice. The first
+ * reading counted the orders of one call, and `close()` twice on one bar took a
+ * leg holding three long to three short. The second counted the orders of one
+ * bar, and the same two closes one bar apart did the same thing: the bar's own
+ * record was emptied when the bar index changed, so bar three asked what the leg
+ * held, was told three, and sent three. With a destination slower than the chart
+ * the plainest exit a strategy can write,
+ *
+ *     if bar.index > 0 and pos.size > 0
+ *         close()
+ *
+ * sent one close per bar for the length of the run, and a flat exit became a
+ * short position that grew without limit. The script was not wrong: `pos.size`
+ * is folded from settled fills and correctly still read three.
+ *
+ * So the record is not the call's and not the bar's. It is the ledger's, which
+ * is the run's, and the ledger already holds it: a row carries a status and a
+ * filled quantity, and an order the destination still has is exactly a row that
+ * is neither terminal nor fully filled (`row.ts`, `workingUnits`). A bar-scoped
+ * rule is the special case of this one where nothing has been answered yet, so
+ * this subsumes it rather than sitting beside it, and the bar keeps no record of
+ * its own.
+ *
+ * Four cases decide the shape, and each is a case a strategy meets:
+ *
+ * - **A partial fill.** Three sold with one filled leaves two working, not
+ *   three and not none, because the one that filled has already moved the leg.
+ * - **A rejection.** The row ends, the working quantity is released, and the
+ *   script may close again. That is correct, and it is why a frame matters.
+ * - **A destination that never answers.** The strategy cannot close again,
+ *   which is right: it already has a close working, and a second one would sell
+ *   a position it is already selling. `cancel` is the way out, and it works
+ *   because the cancellation comes back as a frame that ends the row.
+ * - **An entry working against the same leg.** An unsettled `buy` adds nothing
+ *   to what a close may reduce. Nothing has settled, so there is nothing extra
+ *   to close, and counting it would send a close for a position that may never
+ *   exist.
  *
  * **In units, because a position is.** A quantity the script stated is in the
  * declaration's own unit (`host-interface.md` 7.1), so it is a number this file
@@ -38,50 +69,25 @@
  * is not a fact about the leg and OS7017 is not raised on one.
  */
 import type { OrderSide } from './intent.js';
+import { workingUnits } from './row.js';
 import type { LedgerRow } from './row.js';
 
 /**
- * What one order takes out of a position, in units.
+ * The side that reduces a position, or nothing when there is none to reduce.
  *
- * Absent on an order that adds to a position, and absent on one whose quantity
- * the engine cannot count in units, which are two different facts with the same
- * consequence here: neither subtracts anything from what is left to close.
+ * One fact with two readers. The mapping uses it to give a close its direction,
+ * and the arithmetic below uses it to tell an order that is on its way out of
+ * the position from one that is on its way in, which is the difference between
+ * a reduction that is still working and an entry that holds nothing.
  */
-export interface Reduction {
-  /** The tag the close named, or absent where it reduces the leg as a whole. */
-  readonly part: string | null;
-  /** The units it takes out of that part. */
-  readonly units: number;
-  /**
-   * Whether `units` is the order's own quantity or the most it could have been.
-   * False on an order whose quantity the engine cannot read in units, where
-   * `units` is the whole of what was left to close at the moment it was sent.
-   */
-  readonly counted: boolean;
+export function closingSide(size: number): OrderSide | undefined {
+  if (size > 0) return 'sell';
+  if (size < 0) return 'buy';
+  return undefined;
 }
 
 /**
- * An order this bar has already sent.
- *
- * Two rules read it and neither can be answered from one call alone. OS7013
- * asks whether the bar has already sent the opposite side, and `closableUnits`
- * asks what the bar has already committed to closing, which is the whole of why
- * a second close on one bar is not a second whole position.
- *
- * The record is the bar's rather than the execution's, so a bar declared
- * `onUnconfirmed` and executed again still sends one position's worth of
- * closes: the orders of its earlier executions really were handed over.
- */
-export interface SentOnBar {
-  readonly name: string;
-  readonly line: number;
-  readonly side: OrderSide;
-  /** What it takes out of the position, absent where it takes nothing. */
-  readonly reduces: Reduction | null;
-}
-
-/**
- * What the arithmetic below needs: the leg, its rows and the bar's own orders.
+ * What the arithmetic below needs: the leg and the rows of its own ledger.
  *
  * Narrower than the context the mapping is given, so that this file states what
  * it reads rather than importing the whole of it.
@@ -91,8 +97,6 @@ export interface Closing {
   size(): number;
   /** The rows this strategy placed, newest last. */
   rows(): readonly LedgerRow[];
-  /** The orders this bar has already sent, oldest first. */
-  sent(): readonly SentOnBar[];
 }
 
 /** The settled units held under one tag, signed the way a position is. */
@@ -114,20 +118,30 @@ export interface Closable {
 }
 
 /**
- * The units this bar's orders have already committed to reducing.
+ * The units already working against the position, across the whole run.
  *
  * Every reduction comes out of the leg, and a reduction naming a tag comes out
  * of that tag as well, so the leg is asked with no tag and a part is asked with
  * its own.
+ *
+ * **Only an order on the side that reduces what the leg holds now.** A row's
+ * reduction was measured when the order was sent, and a leg that has changed
+ * sign since is being reduced from the other side: an order still working on
+ * the old side is adding to the leg rather than taking from it, and subtracting
+ * it would leave a close sending less than there is to close.
  */
 function committed(ctx: Closing, tag: string | null): Closable {
+  const side = closingSide(ctx.size());
+  if (side === undefined) return { units: 0, counted: true };
   let units = 0;
   let counted = true;
-  for (const order of ctx.sent()) {
-    const reduces = order.reduces;
-    if (reduces === null) continue;
+  for (const row of ctx.rows()) {
+    const reduces = row.reduces;
+    if (reduces === null || row.side !== side) continue;
     if (tag !== null && reduces.part !== tag) continue;
-    units += reduces.units;
+    const working = workingUnits(row);
+    if (working === 0) continue;
+    units += working;
     counted = counted && reduces.counted;
   }
   return { units, counted };
@@ -138,9 +152,9 @@ function committed(ctx: Closing, tag: string | null): Closable {
  *
  * The whole leg where the call names no tag, and the part that tag entered
  * where it names one, bounded by what the leg holds so that closing a part can
- * never cross zero, and less what this bar has already committed to closing.
- * Zero while the leg is flat, zero for a tag whose rows have netted to nothing,
- * and zero once the bar's own orders have committed the whole of it.
+ * never cross zero, and less what is already working against it. Zero while the
+ * leg is flat, zero for a tag whose rows have netted to nothing, and zero once
+ * the orders already sent have the whole of it going.
  *
  * Both readers ask this one question. The quantity a script states is refused
  * against this number (OS7017) and the quantity the engine works out for itself

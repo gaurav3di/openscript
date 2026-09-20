@@ -83,6 +83,16 @@ export interface CheckedInput {
   /** The name the value was assigned to, or an empty string where it was not. */
   readonly name: string;
   readonly title: string;
+  /**
+   * A title was written as a string literal, which an empty one still is.
+   *
+   * `title` cannot carry that on its own: a call with no title argument, a call
+   * whose title is an expression rather than a literal, and a call whose title
+   * is `""` all leave it empty, and the three are three different mistakes with
+   * three different fixes. The first two are OS3021 and the third is OS3024,
+   * whose message and fix have to be true of the program in front of the reader.
+   */
+  readonly titleWritten: boolean;
   readonly kind: InputKind;
   readonly type: Type;
   readonly span: Span;

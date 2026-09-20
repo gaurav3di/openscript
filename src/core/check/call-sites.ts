@@ -242,6 +242,7 @@ function checkInput(checker: Checker, call: Call, checked: CheckedCall): Checked
     call,
     name: '',
     title: title ?? '',
+    titleWritten: title !== undefined,
     kind: inputKind,
     type: returns,
     span: call.span,

@@ -138,6 +138,20 @@ export interface LibraryEntry {
   readonly planned: boolean;
   /** Arguments with a closed set of accepted strings: OS3008. */
   readonly values: Readonly<Record<string, readonly string[]>>;
+  /**
+   * Arguments that name something the file declares, where this release has no
+   * declaration that could fill the set: OS3023.
+   *
+   * Different from `values` and from `planned`, and the difference is what the
+   * reader is told. `values` holds an argument to a set the language fixes, and
+   * it can only judge a value written out as a literal. `planned` is about the
+   * whole name. This is about an argument whose accepted values are whatever
+   * the file declared, in a release where nothing can declare one: the value
+   * does not come into it, so a computed name is refused exactly as a written
+   * one is, and the message says the file declares none rather than listing an
+   * empty set.
+   */
+  readonly undeclared: readonly string[];
   /** Arguments that must be a whole number, with the range for OS3004. */
   readonly whole: Readonly<Record<string, WholeRange>>;
   /** Arguments read once before bar 0, so a bar-dependent one is OS3003. */
@@ -154,6 +168,7 @@ export interface EntryOptions {
   readonly strategyOnly?: true;
   readonly planned?: true;
   readonly values?: Readonly<Record<string, readonly string[]>>;
+  readonly undeclared?: readonly string[];
   readonly whole?: Readonly<Record<string, WholeRange>>;
   readonly constant?: readonly string[];
   readonly conflicts?: readonly (readonly [string, string])[];
@@ -309,6 +324,7 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
     strategyOnly: options.strategyOnly === true,
     planned: options.planned === true,
     values: options.values ?? {},
+    undeclared: options.undeclared ?? [],
     whole: options.whole ?? {},
     constant: options.constant ?? [],
     conflicts: options.conflicts ?? [],

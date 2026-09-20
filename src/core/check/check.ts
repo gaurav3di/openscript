@@ -140,7 +140,8 @@ function reportRepeatedTitles(checker: Checker): void {
 }
 
 /**
- * OS3021 and OS3022: an input whose settings key is missing, or is another's.
+ * OS3021, OS3024 and OS3022: an input whose settings key is missing, or is
+ * another's.
  *
  * `host-interface.md` 8.1 keys a stored value by the name the input was
  * assigned to, and an input written where a value belongs is assigned to none.
@@ -150,6 +151,13 @@ function reportRepeatedTitles(checker: Checker): void {
  * two ways it does not. A title spelling another input's name puts two rows on
  * one key, and one user value would serve both. A title that is not there at
  * all is no key and no label either.
+ *
+ * **No title and an empty title are two programs and take two codes.** Both end
+ * with nothing to be keyed by, and a reader who wrote `input(14, "")` did write
+ * a title as a string literal, so OS3021's message and its fix are both untrue
+ * of their file: they tell them to do the thing they have just done. OS3024 is
+ * the same refusal with a sentence that is true of it, and it refines OS3021
+ * rather than widening it, because the two fixes are different edits.
  *
  * Two inputs carrying one title is the third way and is OS3017 above, which is
  * why this runs after it: the case is already reported and reporting it twice
@@ -164,7 +172,8 @@ function reportInputKeys(checker: Checker): void {
   for (const input of checker.inputs) {
     if (input.name !== '') continue;
     if (input.title === '') {
-      checker.report('OS3021', input.span, {});
+      if (input.titleWritten) checker.report('OS3024', input.span, {});
+      else checker.report('OS3021', input.span, {});
       continue;
     }
     const taken = names.get(input.title);

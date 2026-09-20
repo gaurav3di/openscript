@@ -210,6 +210,18 @@ export function validateArguments(
       });
     }
 
+    // OS3023. An argument that names something the file declares, in a release
+    // where nothing can declare one. The value is not read and no suggestion is
+    // offered, because there is no name that would have been right: what the
+    // reader has to do is take the argument out. Refused whether the name was
+    // written or computed, which is the whole difference from the set check
+    // below: a computed leg was ignored exactly as quietly as a misspelt one,
+    // and a script that named one leg and closed another traded the leg it did
+    // not name.
+    if (entry.undeclared.includes(parameter.name)) {
+      checker.report('OS3023', span, { name: entry.name, argument: parameter.name });
+    }
+
     const allowed = entry.values[parameter.name];
     const written = literalString(argument.value);
     if (allowed !== undefined && written !== undefined && !allowed.includes(written)) {

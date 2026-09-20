@@ -107,11 +107,29 @@ export class Positions {
    *
    * Absent rather than zero, because zero is a price and a script comparing
    * against it would take a branch that looks correct (`stdlib.md` 17.4).
+   *
+   * **Averaged over the positions that make up what the leg holds**, which is
+   * the ones on the side of its net, and not over every position open at once.
+   * A leg holds more than one whenever an order that opposes it is outstanding:
+   * during a flip it holds the outgoing position and its replacement, and where
+   * the engine could not size the opposing order against the leg it holds the
+   * position that order opened beside the one it was meant to replace. Summed
+   * across both, the cost of a position on the way out is subtracted from the
+   * cost of the one on the way in, and the quotient is a price nothing was
+   * entered at: three hundred bought at one hundred with two hundred and
+   * twenty five sold at one hundred and ten reported an entry at seventy, and
+   * every level a script measures from the entry would have been measured from
+   * it. Reducing a position does not move its average, and that is the same
+   * sentence read across a leg rather than inside one position.
    */
   avgPrice(): number | null {
+    const net = this.size();
+    if (net === 0) return null;
+    const side = Math.sign(net);
     let size = 0;
     let cost = 0;
     for (const position of this.held.values()) {
+      if (Math.sign(position.size) !== side) continue;
       size += position.size;
       cost += position.cost;
     }

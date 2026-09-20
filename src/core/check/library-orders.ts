@@ -35,6 +35,23 @@ const RIGHTS = ['call', 'put'];
 
 const strategyOnly = { strategyOnly: true } as const;
 
+/**
+ * Every order function names the leg it acts on, and no file can declare one.
+ *
+ * A leg is declared before the run with `leg.fixed` or `leg.relative`
+ * (`stdlib.md` 17.6), and both of those are planned below. So the set of names
+ * a `leg` argument may take is empty in this release, and a file that declares
+ * no leg has exactly one, which every order acts on with no leg named.
+ *
+ * Which makes the argument a refusal rather than a set check. The value never
+ * comes into it: `close(leg = "b")` after `buy(leg = "a")` flattened the
+ * position on the only leg there is, and a name the script computed was
+ * ignored just as quietly. OS3023 says so at the call, whichever of the two it
+ * is, and the day a leg can be declared this becomes the set check OS3008
+ * already is for every other argument with a fixed set of values.
+ */
+const onOneLeg = { strategyOnly: true, undeclared: ['leg'] } as const;
+
 /** The bare order functions of stdlib.md 17.2, which `close` is one of. */
 export const ORDER_NAMES: readonly string[] = [
   'buy',
@@ -48,17 +65,17 @@ export const ORDER_NAMES: readonly string[] = [
 const placing: readonly LibraryEntry[] = [
   entry(
     'buy(qty?: number, limit?: number = none, stop?: number = none, tag?: string = "", leg?: string) -> nothing',
-    strategyOnly,
+    onOneLeg,
   ),
   entry(
     'sell(qty?: number, limit?: number = none, stop?: number = none, tag?: string = "", leg?: string) -> nothing',
-    strategyOnly,
+    onOneLeg,
   ),
-  entry('close(tag?: string = none, qty?: number = none, leg?: string) -> nothing', strategyOnly),
+  entry('close(tag?: string = none, qty?: number = none, leg?: string) -> nothing', onOneLeg),
   entry(
     'exit(tag?: string = "", qty?: number = none, limit?: number = none, stop?: number = none, profit?: number = none, loss?: number = none, leg?: string) -> nothing',
     {
-      ...strategyOnly,
+      ...onOneLeg,
       // An absolute price and a distance from the entry state the same level,
       // and reconciling them would need a rule (stdlib.md 17.2).
       conflicts: [
@@ -74,12 +91,12 @@ const placing: readonly LibraryEntry[] = [
 const orders: readonly LibraryEntry[] = [
   entry(
     'order.place(side: string, qty: number, type?: string = "market", price?: number = none, trigger?: number = none, tag?: string = "", leg?: string) -> nothing',
-    { ...strategyOnly, values: { side: SIDES, type: ORDER_TYPES } },
+    { ...onOneLeg, values: { side: SIDES, type: ORDER_TYPES } },
   ),
-  entry('order.reverse(qty?: number = none, tag?: string = "", leg?: string) -> nothing', strategyOnly),
+  entry('order.reverse(qty?: number = none, tag?: string = "", leg?: string) -> nothing', onOneLeg),
   entry(
     'order.bracket(tag?: string = "", profit?: number = none, loss?: number = none, leg?: string) -> nothing',
-    strategyOnly,
+    onOneLeg,
   ),
   entry('order.working(tag: string) -> series bool', { ...strategyOnly, planned: true }),
   entry('order.pending -> series number', { ...strategyOnly, planned: true }),

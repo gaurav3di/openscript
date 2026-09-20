@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { codes, rawCodes, spanFor, strategyCodes, valuesFor } from './check-support.js';
+import {
+  checkStrategy,
+  codes,
+  rawCodes,
+  spanFor,
+  strategyCodes,
+  valuesFor,
+} from './check-support.js';
 
 /**
  * Call sites: arity, argument names, argument types, placement, and the options
@@ -268,6 +275,47 @@ test('an input with neither a name nor a title has nothing to key it by', () => 
 });
 
 /**
+ * OS3024. Catches a checker that answers `input(2, "")` with OS3021, whose
+ * message says the input "has no title written as a string literal" and whose
+ * fix says to give it one. The reader did. It is empty. A message and a fix
+ * that are both already true of the program in front of somebody tell them to
+ * change nothing, which CLAUDE.md refuses more firmly than it refuses a missing
+ * check, so the empty title is its own code with its own sentence.
+ */
+test('an input written in place with an empty title is refused in its own words', () => {
+  const body = 'plot(close + input(2, ""), "C")';
+  assert.deepEqual(codes(body), ['OS3024']);
+  assert.equal(spanFor(body, 'OS3024'), '3:14+12');
+
+  // The declaration line, where a name cannot be put in front of the call.
+  assert.deepEqual(
+    rawCodes(['version 1', 'study("R", precision = input(2, ""))', 'plot(close, "C")', ''].join('\n')),
+    ['OS3024'],
+  );
+
+  // And the two programs that are still OS3021: no title argument at all, and
+  // a title that is not a string literal. Catches a checker that widened the
+  // empty case over both instead of separating them.
+  assert.deepEqual(codes('plot(close + input(2), "C")'), ['OS3021']);
+  assert.deepEqual(codes('plot(close + input(2, "Off" + "set"), "C")'), ['OS3021']);
+});
+
+/**
+ * The other half of the same decision, `spec/decisions.md` 45.
+ *
+ * An input assigned to a name already has a key, so an empty title there is no
+ * key that is missing: it is a label, and the name is the label a row with no
+ * title takes anyway (`language.md` 13.4). It is read as no title rather than
+ * refused, and this pins it, because "silently takes its name" is a sentence
+ * that is either a decision or an accident and nothing in the tree said which.
+ */
+test('a named input with an empty title is labelled by its name and refused nothing', () => {
+  const drawn = 'plot(sma(close, len), "C")';
+  assert.deepEqual(codes(['len = input(14, "")', drawn].join('\n')), []);
+  assert.deepEqual(codes(['len = input(14)', drawn].join('\n')), []);
+});
+
+/**
  * OS3022. Catches a checker that lets two inputs land on one settings key: the
  * host stores one value per key, so one of the two rows would silently take the
  * other's value. Two equal titles are already OS3017; this is the case that is
@@ -408,4 +456,32 @@ test('a declaration handle given to a setter keeps its own code', () => {
 // script to produce.
 test('a setter given an absent handle is not a type error', () => {
   assert.deepEqual(codes('var seg = none\ndraw.setColor(seg, red)'), []);
+});
+
+// Catches a checker that reads a leg argument against a set of declared names,
+// which is empty in this release: with nothing to compare against, every
+// spelling passed and the order was placed on the only leg there is.
+// `buy(leg = "a")` then `close(leg = "b")` flattened the position and said
+// nothing, and a name the script computed was dropped just as quietly.
+test('an order that names a leg is refused while no file declares one', () => {
+  const body = 'if close > open\n    buy(qty = 1, leg = "hedge")';
+  assert.deepEqual(strategyCodes(body), ['OS3023']);
+  assert.deepEqual(checkStrategy(body).diagnostics[0]?.values, {
+    name: 'buy',
+    argument: 'leg',
+  });
+});
+
+// Catches a checker that only reads a literal, which is what the set check
+// beside this one does: a computed name reached the engine and was ignored.
+test('a computed leg is refused as a written one is', () => {
+  const body = 'name = "he" + "dge"\nif close > open\n    close(leg = name)';
+  assert.deepEqual(strategyCodes(body), ['OS3023']);
+});
+
+// Catches a rule keyed on the name `leg` anywhere rather than on the argument
+// of an order function, and a rule that refuses the order functions outright.
+test('an order that names no leg is not refused, and neither is its tag', () => {
+  assert.deepEqual(strategyCodes('if close > open\n    buy(qty = 1, tag = "leg")'), []);
+  assert.deepEqual(strategyCodes('if close > open\n    order.reverse()'), []);
 });

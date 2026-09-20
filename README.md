@@ -196,7 +196,7 @@ fails the build.
 | Zero runtime dependencies | `dependencies` is empty and stays empty | Enforced |
 | The pieces are separable: take the language without the chart, or the chart without the language | `scripts/check-layering.mjs`. The core may not import a package or touch a browser global | Enforced |
 | Small modules with a stated surface | `scripts/check-modularity.mjs`. A module's index is its only door | Enforced |
-| Every error is documented, with a code, a cause and a fix | `scripts/check-error-codes.mjs`, and the code type is generated from the catalogue so an invented code will not compile | Enforced |
+| Every error is documented, with a code, a cause and a fix | `scripts/check-error-codes.mjs` reads every file in the tree, and the code type is generated from the catalogue so an invented code will not compile. `scripts/check-catalogue-tests.mjs` compares the catalogue a reader opens with the file the compiler is generated from, string for string, so the two cannot say different things | Enforced |
 | No fact is stated in two places | `scripts/check-duplication.mjs` | Enforced, with recorded debt |
 | The compiled program is implementable without reading our code | `spec/compiled-program.md` and `spec/host-interface.md` | Written |
 | Two engines agree to the last decimal | The conformance suite, run against both. A disagreement blocks a release | Phase 6 gate |

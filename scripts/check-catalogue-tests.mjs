@@ -46,11 +46,27 @@
  * proof would be about a block no reader ever sees. So the page's blocks and its
  * pointer sentence are compared with the file, character for character.
  *
+ * And then every other string on the page, which for a long while was compared
+ * by nothing at all. Changing one word of OS7017's message in `errors.md`, from
+ * "was given" to "was handed", passed the whole of `npm test`: `errors.md` is
+ * the authority a reader is sent to and `errors.json` is what the compiler
+ * emits, and the two were free to say different things. `lib/catalogue-page.mjs`
+ * holds that comparison, along with the two tables outside part 8 that are also
+ * copies of the file, and says in its own first paragraph which parts of the
+ * page it does not reach.
+ *
  * Run: node scripts/check-catalogue-tests.mjs [--list]
  * Exit code 1 on any hit.
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { filesMatching, nothingFound } from './lib/files.mjs';
+import {
+  entryProblems,
+  pageSelfTest,
+  rangeProblems,
+  refinementProblems,
+  sectionsOf,
+} from './lib/catalogue-page.mjs';
 
 const CATALOGUE = 'spec/errors.json';
 const PROSE = 'spec/errors.md';
@@ -83,20 +99,6 @@ function codesInTests() {
   }
   return { files, named };
 }
-
-/** One section of the prose catalogue, from its heading to the next one. */
-function prosePages(text) {
-  const pages = new Map();
-  const heads = [...text.matchAll(/^### (OS\d{4}) .*$/gm)];
-  for (let i = 0; i < heads.length; i += 1) {
-    const start = heads[i].index;
-    const end = i + 1 < heads.length ? heads[i + 1].index : text.length;
-    pages.set(heads[i][1], { text: text.slice(start, end), line: lineOf(text, start) });
-  }
-  return pages;
-}
-
-const lineOf = (text, offset) => text.slice(0, offset).split('\n').length;
 
 /** The two fenced blocks a section prints, in the order it prints them. */
 function blocksIn(section) {
@@ -232,6 +234,16 @@ function selfTest() {
 
 selfTest();
 
+const pageRules = pageSelfTest();
+if (pageRules.length > 0) {
+  console.error(
+    'The page rules in lib/catalogue-page.mjs no longer do what they say:\n' +
+      pageRules.map((one) => `  ${one}`).join('\n') +
+      '\n\nA rule that cannot match is a clean catalogue and an empty promise.',
+  );
+  process.exit(1);
+}
+
 const catalogue = JSON.parse(readFileSync(CATALOGUE, 'utf8'));
 const entries = catalogue.entries ?? [];
 if (entries.length === 0) {
@@ -240,7 +252,8 @@ if (entries.length === 0) {
 }
 
 const { files, named } = codesInTests();
-const pages = prosePages(readFileSync(PROSE, 'utf8'));
+const proseText = readFileSync(PROSE, 'utf8');
+const pages = sectionsOf(proseText);
 if (pages.size === 0) {
   console.error(`${PROSE} defines no entries. Expected "### OSxxxx <heading>" lines.`);
   process.exit(1);
@@ -260,6 +273,19 @@ for (const entry of entries) {
   if (state === 'named') pointed.push(entry.code);
   if (state === 'none') untested.push(entry);
   checkPage(entry, pages);
+  for (const problem of entryProblems(entry, pages, catalogue.stageLabels ?? {}, {
+    prose: PROSE,
+    catalogue: CATALOGUE,
+  })) {
+    fail(problem);
+  }
+}
+
+for (const problem of [
+  ...rangeProblems(catalogue, proseText, { prose: PROSE, file: CATALOGUE }),
+  ...refinementProblems(catalogue, proseText, { prose: PROSE, file: CATALOGUE }),
+]) {
+  fail(problem);
 }
 
 if (process.argv.includes('--list')) {
@@ -270,7 +296,8 @@ if (problems.length > 0) {
   for (const problem of problems) console.error(problem);
   console.error(
     `\n${problems.length} problem${problems.length === 1 ? '' : 's'}. A pointer that resolves to ` +
-      'nothing is read as proof that something was checked.',
+      'nothing is read as proof that something was checked, and a page that disagrees with the ' +
+      'file the compiler is generated from shows one sentence to a reader and another to a user.',
   );
   process.exit(1);
 }

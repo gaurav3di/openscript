@@ -7,6 +7,8 @@ import { test } from 'node:test';
 
 import * as lib from '../../src/core/stdlib/index.js';
 
+import { differing, figuresIn } from './section-20.js';
+
 // Catches: rounding halves to even, which is what most platform libraries do by
 // default and what a trader reading a price does not expect. It also catches
 // the usual shortcut of adding a half and taking the floor, which rounds the
@@ -118,4 +120,105 @@ test('a result of negative zero is normalised, everywhere it can arise', () => {
   assert.ok(Object.is(lib.abs(-0), 0));
   assert.ok(Object.is(lib.roundToStep(-0.01, 1), 0));
   assert.ok(Object.is(lib.round(-0.4), 0));
+});
+
+/**
+ * The three arrangement figures `stdlib.md` section 20 prints beside a refusal.
+ *
+ * Section 20 is the manifest a second engine implements from, and a refusal in
+ * it is worth what the number beside it is worth. Two of those numbers were
+ * "most arguments" and "most percentages" when they were measured for the first
+ * time, and neither was: one is about a quarter and one is two in five. A third
+ * sentence fixed a grouping that cannot differ at all.
+ *
+ * These are facts about `compiled-program.md` 8.1's arithmetic rather than about
+ * this library, which is why they are asserted as counts rather than compared
+ * against a column. What they catch is the page drifting away from them: a
+ * figure quoted there and nowhere measured is the shape this round found three
+ * of.
+ */
+test('20.9: the alpha arrangement fade refuses differs at the count 20.9 prints', () => {
+  const [differed, total] = figuresIn(/(\d+) of the (\d+) whole percentages, 33 among them/, 2);
+  assert.equal(total, 101, 'the population the page names');
+  assert.equal(
+    differing(total, (p) => (100 - p) / 100, (p) => 1 - p / 100, (i) => i),
+    differed,
+  );
+  assert.notEqual((100 - 33) / 100, 1 - 33 / 100, 'the percentage 20.9 names by number');
+});
+
+test('20.7: folding the constant into one factor differs at the rate 20.7 prints', () => {
+  const [degrees, radians] = figuresIn(
+    /measured over forty thousand values spread across nine decades, (\d+) in every hundred for the first and (\d+) for the second/,
+    2,
+  );
+  const across = (i: number): number => (i % 2 === 0 ? 1 : -1) * (i / 1013) * 10 ** ((i % 9) - 4);
+  const rate = (found: number): number => Math.round((100 * found) / 40_000);
+  assert.equal(
+    rate(differing(40_000, (x) => (x * 180) / Math.PI, (x) => x * (180 / Math.PI), across)),
+    degrees,
+    'toDegrees',
+  );
+  assert.equal(
+    rate(differing(40_000, (x) => (x * Math.PI) / 180, (x) => x * (Math.PI / 180), across)),
+    radians,
+    'toRadians',
+  );
+});
+
+test("20.3: alma's exponent is one division, and the grouping of its product fixes nothing", () => {
+  let chained = 0;
+  let regrouped = 0;
+  let weights = 0;
+  for (const len of [5, 9, 14, 20, 21, 50, 100, 200]) {
+    for (const sigma of [2, 3, 4, 5, 6, 8, 10]) {
+      for (const offset of [0, 0.25, 0.5, 0.75, 0.85, 1]) {
+        const peak = offset * (len - 1);
+        const spread = len / sigma;
+        for (let position = 0; position < len; position += 1) {
+          const gap = position - peak;
+          const written = -(gap * gap) / (2 * spread * spread);
+          weights += 1;
+          if (!Object.is(written, -(gap * gap) / 2 / spread / spread)) chained += 1;
+          if (!Object.is(written, -(gap * gap) / (2 * (spread * spread)))) regrouped += 1;
+        }
+      }
+    }
+  }
+  const [differed, total] = figuresIn(/it differs on (\d+) of the (\d+) exponents/, 2);
+  assert.equal(weights, total, 'the kernels the page counts over');
+  assert.equal(chained, differed, 'the chain of divisions 20.3 refuses');
+  assert.equal(regrouped, 0, 'the grouping 20.3 no longer fixes');
+});
+
+/**
+ * 20.1's one edge, pinned where it actually is.
+ *
+ * The rule is that regrouping across a factor of two changes nothing, and the
+ * first draft of the sentence said that held "wherever the result is a normal
+ * number". It does not. What decides it is whether the other product underflows,
+ * because that rounding loses bits the scaling cannot put back, and the doubled
+ * answer can be an ordinary normal number while the two groupings still differ.
+ * The alma entry names the edge in terms of the square for that reason.
+ */
+test('20.1: the power of two rule parts company when the other product underflows', () => {
+  const smallestNormal = 2.2250738585072014e-308;
+  const root = Math.sqrt(smallestNormal);
+  let differed = 0;
+  let bothNormal = 0;
+  for (let i = 0; i < 20_000; i += 1) {
+    const s = root * (0.72 + (0.28 * i) / 20_000);
+    const grouped = (2 * s) * s;
+    const other = 2 * (s * s);
+    if (Object.is(grouped, other)) continue;
+    differed += 1;
+    if (grouped >= smallestNormal && other >= smallestNormal) bothNormal += 1;
+  }
+  assert.ok(differed > 0, 'the edge exists');
+  assert.equal(bothNormal, differed, 'and every one of them has a normal answer');
+  // And above the edge it holds, which is the half the rule is about.
+  for (let i = 0; i < 20_000; i += 1) {
+    const s = root * (1 + i / 100);
+    assert.ok(Object.is((2 * s) * s, 2 * (s * s)));
+  }
 });

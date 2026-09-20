@@ -136,16 +136,21 @@ placed somewhere and holds nothing right now is not that: the call sends nothing
 says nothing, and closing the same tag twice is safe to write.
 
 `qty` may not be larger than what this close is closing, which is the whole leg
-where no tag is named and the part one tag entered where one is, less whatever
-this bar's earlier orders have already committed to closing. Larger is OS7017,
-naming what was asked for and what is left, and the call sends nothing: no order
-crosses zero, and a close bigger than the position would flatten it and open the
-opposite one in a single order. A quantity smaller than what is left is an
-ordinary partial close.
+where no tag is named and the part one tag entered where one is, less whatever is
+already working against it. Larger is OS7017, naming what was asked for and what
+is left, and the call sends nothing: no order crosses zero, and a close bigger
+than the position would flatten it and open the opposite one in a single order. A
+quantity smaller than what is left is an ordinary partial close.
 
 Because the count is of what is left, two closes on one bar send one position
 between them: the second bare close sends nothing, and a second stated quantity
-is held against what the first one left. The comparison with a stated quantity is
+is held against what the first one left. The same is true of a close on the bar
+after one whose close is still at the destination, which is the case that
+repeats: a position moves only when a fill settles, so `pos.size` still reads
+what it held, and a close on every bar would send the position once per bar.
+What is still working is an order that has not ended and has not fully filled,
+counted by the part of it that has not filled, so a partial fill, a rejection, a
+cancellation and an expiry each release their share and let you close again. The comparison with a stated quantity is
 made in full only where the declaration counts in units, because a position is
 folded from filled quantities and a quantity you state is in the declaration's
 own unit. The part of it that needs no conversion is made in every unit: a

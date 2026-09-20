@@ -17,14 +17,14 @@
  * arriving late can still say which of the two it settled. That is the split
  * `entering` makes, and `order.reverse` is the same pair written as one call.
  *
- * **The orders one bar sends can never sum past the position they are
- * reducing.** A position is folded from settled fills and from nothing else
- * (`stdlib.md` 17.8), so an order this bar has already sent has filled nothing
- * and has moved no position figure: measured against the leg alone, two closes
- * on one bar each send the whole of it and the leg ends the bar short with no
- * quantity written anywhere. So every order that reduces a position is
- * measured against what is left to reduce after the orders this bar has already
- * sent, which is what `closableUnits` answers and what `SentOnBar` records.
+ * **A reducing order is sized against what is available to reduce**, which is
+ * the settled position less everything already working against it. A position
+ * is folded from settled fills and from nothing else (`stdlib.md` 17.8), so an
+ * order the destination has not answered has filled nothing and has moved no
+ * position figure: measured against the leg alone, a second close sends the
+ * whole of it again, on the same bar and on every bar after it, and the leg
+ * ends short with no quantity written anywhere. `closableUnits` answers it and
+ * the ledger's own rows are where it is read from.
  *
  * **A bracket is an instruction, not an order.** `exit` and `order.bracket` set
  * the leg's own protective level, which is what `stdlib.md` 17.2 means when it
@@ -50,10 +50,11 @@
  * been told nothing.
  */
 import type { OrderCall } from './call.js';
-import { closableUnits } from './closable.js';
-import type { Closing, Reduction } from './closable.js';
+import { closableUnits, closingSide } from './closable.js';
+import type { Closing } from './closable.js';
 import type { Identity, IntentBar, OrderIntent, OrderSide, OrderType } from './intent.js';
 import { isTerminal } from './row.js';
+import type { Reduction } from './row.js';
 
 /**
  * An order this run is about to send, before it is given an id.
@@ -127,13 +128,6 @@ function typeOf(limit: number | null, trigger: number | null): OrderType {
   return 'market';
 }
 
-/** The side that reduces a position, or nothing when there is none to reduce. */
-function closingSide(size: number): OrderSide | undefined {
-  if (size > 0) return 'sell';
-  if (size < 0) return 'buy';
-  return undefined;
-}
-
 /** What an entering order states, at one quantity and one position. */
 interface Entry {
   readonly side: OrderSide;
@@ -172,17 +166,23 @@ function placing(entry: Entry, qty: number, qtyType: string, positionRef: number
  * arithmetic written out.
  *
  * **The closing half is what is left to close, not what the leg holds.** An
- * order this bar has already sent has filled nothing, so a leg closed once
- * already on this bar has nothing left for the outgoing half to take.
+ * order the destination has not answered has filled nothing, so a leg with a
+ * close already going has nothing left for the outgoing half to take, whether
+ * that close was sent on this bar or on one before it.
  *
- * **Where the two quantities count different things, nothing is split.** The
+ * **The reference is minted in every unit; only the arithmetic waits.** The
  * split subtracts a position folded from filled quantities from a quantity the
  * script stated, and those are the same kind of number only in a declaration
- * counting in units. In lots, cash or an equity percent the order is sent as
- * written, which is the same limit that narrows OS7017 and waits on the same
- * fact. What does not need the arithmetic is held there too: an order opposing
- * a position this bar has already committed to closing in full is opening a
- * replacement, whatever the unit, so it is minted a position of its own.
+ * counting in units: in lots, cash or an equity percent the engine cannot say
+ * how much of the instruction closes and how much opens, and the lot size that
+ * would tell it is the fact OS7005 is deferred on. Minting a reference needs
+ * none of that arithmetic. So an order the engine cannot size against the leg
+ * is still sent on a position of its own rather than on the outgoing one:
+ * `buy(qty = 3)` then `sell(qty = 9)` under a declaration counting in lots took
+ * reference 1 from seventy five units to minus one hundred and fifty, which is
+ * the crossing 17.1 is unconditional about and the late fill with no owner the
+ * split exists to prevent. What does not hold, and what has to exist before it
+ * can, is written where a reader meets it: `stdlib.md` 17.1 and OS7005.
  */
 function entering(
   ctx: PlacingContext,
@@ -202,7 +202,12 @@ function entering(
   if (ctx.qtyType !== 'units') {
     return [
       {
-        placement: placing(entry, wanted, ctx.qtyType, ctx.reference()),
+        // A position of its own, in every unit, because minting one needs no
+        // lot size. On the outgoing reference this order was the crossing
+        // 17.1 refuses outright: one order taking one position from one sign
+        // to the other, with a late fill on the entry it replaced settling
+        // against a book that had already gone the other way.
+        placement: placing(entry, wanted, ctx.qtyType, ctx.mint()),
         // Unreadable in units, so it is taken to have reduced the whole of what
         // was left: see `closable.ts` on why that is the only safe reading.
         reduces: { part: null, units: left, counted: false },
@@ -361,9 +366,9 @@ export function ordersFor(call: OrderCall, ctx: PlacingContext): readonly Mapped
       const closing = closingSide(ctx.size());
       if (closing === undefined) return [];
       // A tag names the part of the position that tag entered, which is the
-      // settled quantity of its own rows, less what this bar has already sent
-      // against it. A quantity the script stated has already been held against
-      // this same number by `refuse.ts`, so nothing reaching here crosses zero.
+      // settled quantity of its own rows, less what is already working against
+      // it. A quantity the script stated has already been held against this
+      // same number by `refuse.ts`, so nothing reaching here crosses zero.
       return flattening(
         ctx,
         closableUnits(ctx, call.tag),

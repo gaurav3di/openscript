@@ -2647,7 +2647,9 @@ what is left to close after the orders the bar has already committed to.
 reduce on this bar.** What is left is what the part holds, less what this bar's
 own orders have already committed to closing, and the invariant it keeps is
 written into 17.1: **the orders one bar sends can never sum past the position
-they are reducing.**
+they are reducing.** (Decision 44 replaced the scope of this with the run and
+the position, which subsumes the bar. The reasoning below stands; only the word
+"bar" moved.)
 
 **The tension, which is the real content of this decision.** Issue 0016 named
 two acceptable answers and declined to pick: size the second close against what
@@ -2950,6 +2952,416 @@ sentence is written down.
   delete, a reorder and a rename.
 - `tests/engine/request-settings.test.ts`: a setting inside a read's expression.
 - `tests/emit/depths.test.ts`: the three sentences of check 5.
+
+---
+
+## 44. What is available to reduce, and three sentences that were not true
+
+**Question.** Decision 42 scoped a rule to the bar, and one bar later the same
+defect was still there. Measured against the built engine, with the entry
+acknowledged and the closes not acknowledged, on the plainest exit a strategy
+can write:
+
+```
+strategy("P", qty = 3)
+if bar.index == 0
+    buy(qty = 3)
+if bar.index > 0 and pos.size > 0
+    close()
+```
+
+six bars sent `buy 3` and then `sell 3` five times, all under position reference
+1, and netted twelve short. Ten bars netted twenty four short. It grows with the
+run. No diagnostic anywhere, on a leg that opened long three, and a destination
+slower than the chart is all it takes. With the closes filling one of three at a
+time it sent `sell 3`, `sell 2`, `sell 1` and ended three short.
+
+The script is not wrong. `pos.size` is folded from settled fills and correctly
+still read three, so the guard was true and the script re-issued. This is the
+shape every trading script has in it.
+
+**The lesson is not that the last fix was too small.** It is that the invariant
+was scoped to whatever the fix happened to cover. Round two tested one close per
+bar and two crossed; round three tested one bar and two bars crossed. A rule
+whose scope is "the thing I just fixed" gets broken by the next case out, every
+time, and three rounds of that is enough to stop guessing at the scope.
+
+**Decision, part one. What is available to reduce is the settled position less
+everything already working against it. The scope is the run and the position,
+not the bar.**
+
+A bar-scoped rule is the special case of this one in which nothing has been
+answered yet, so this subsumes what `closable.ts` did rather than sitting beside
+it, and the bar keeps no record of its own any more. What is working is read
+from the ledger, which already knew: a row carries a status and a filled
+quantity, and an order the destination still has is exactly a row that is
+neither terminal nor fully filled. The reduction a row's order was measured for
+now rides on the row, because the row is the thing that outlives the bar.
+
+Four cases decide the shape, and each was settled before the code was written:
+
+- **A partial fill.** Three sold with one filled leaves two working, not three
+  and not none. The one that filled has already moved the leg.
+- **A rejection.** The row ends, the working quantity is released, and the
+  script may close again. That is correct and it is why frames matter.
+- **A destination that never answers.** The strategy cannot close again, which
+  is right: it already has a close working, and a second one would sell a
+  position it is already selling. `cancel()` is the way out, and it works
+  because the cancellation comes back as a frame that ends the row. That is
+  asserted end to end rather than assumed, because a rule that held the units
+  for ever would make the documented escape no escape at all.
+- **An entry working against the same leg.** An unsettled `buy` adds nothing to
+  what a close may reduce. Nothing has settled, so there is nothing extra to
+  close, and counting it would send a close for a position that may never exist.
+
+One thing the run scope needs that the bar scope did not: **only an order on the
+side that reduces what the leg holds now.** A row's reduction was measured when
+it was sent, and a leg that has changed sign since is reduced from the other
+side. Subtracting a sell that is now adding to a short leg would leave the
+strategy unable to close a position it is carrying, which is the opposite
+failure and just as expensive.
+
+**Decision, part two. A crossing entry is minted a position of its own in every
+unit.** `entering` sent the whole instruction on `ctx.reference()`, the outgoing
+position's reference, whenever the declaration counted in anything but units. At
+a lot size of twenty five, `buy(qty = 3)` then `sell(qty = 9)` had the
+destination take reference 1 from seventy five units to minus one hundred and
+fifty: exactly the harm 17.1 says the split exists to prevent, with a late fill
+on the entry settling against a book that had already gone the other way, and a
+reference that could never return to zero.
+
+The two halves of the split need different things and they are now kept apart.
+Dividing the instruction into a closing half and an opening half subtracts a
+position folded from filled quantities from a quantity the script stated, and
+those are the same kind of number only in units. **Minting a reference needs no
+arithmetic at all**, so it is done in every unit. What does not hold, and is
+written where a reader meets it in `stdlib.md` 17.1 and in the deferral on
+OS7005, which nothing raises yet: the outgoing position is not closed by an order
+of its own, so its reference does not return to zero, and the fact that would
+settle it is the instrument's lot size.
+
+That left a number wrong, and the cost of the change was paying for it. A leg
+then holds two positions at once for good rather than for the length of a flip,
+and `pos.avgPrice` summed cost and size across both: three hundred bought at one
+hundred beside two hundred and twenty five sold at one hundred and ten reported
+an entry at seventy, and every level a script measures from the entry would have
+been measured from that. **The average is now taken over the positions on the
+side of the leg's net**, which is the same sentence `positions.ts` already
+keeps inside one position, read across a leg: reducing does not move an average.
+It corrects a second wrong number nobody had noticed, during a flip in units,
+where the two open halves blended the same way.
+
+**Decision, part three. Two sentences in 17.1 that were false or unscoped.**
+
+The first said an engine holds every order to "no order crosses zero" that it
+can read as a number of units, "which is all of them but one, and that one is
+named two paragraphs below". The across-bars case above is entirely in units and
+was not the named exception, so the sentence was false. It is made true by the
+engine rather than by editing the claim down, and then says what is now true: the
+rule is kept on the bar an order was sent and on every bar after it, a crossing
+entry the engine cannot size carries a reference of its own, and the one shape
+left is a quantity stated on a close in a declaration counting in lots, cash or
+an equity percent.
+
+The second said "a bar declared `onUnconfirmed` is one bar however many times it
+is executed". True of the reducing count the paragraph is about, and it reads as
+a general rule about the bar. Measured: on such a bar executed four times a close
+sends one order as promised, and `buy(qty = 3)` sends **four**, leaving the leg
+holding twelve where the script wrote one entry. The engine is right, because
+`language.md` 7.5 says a script may not assume it runs once and must guard with
+`bar.isConfirmed`. The sentence now carries its scope, and the entry case is
+asserted in a test beside the close case, so a second engine implementing 17.1
+alone cannot read it as holding entries too.
+
+**Decision, part four. A documented refusal nothing raised: OS3023.**
+
+`stdlib.md` said "a `leg` that is not one of the declared names is OS3008, whose
+message lists the names that are", and nothing raised it: `buy(qty = 3,
+leg = "nosuchleg")` placed the order on the only leg with no diagnostic, and a
+computed name was ignored too. The sharp case is that `buy(leg = "a")` then
+`close(leg = "b")` flattens the position, so a script that names one leg and
+closes another trades the leg it did not name and is told nothing.
+`check-raises.mjs` cannot see this, because OS3008 is raised elsewhere for values
+outside a set.
+
+**It is raised now rather than deferred, and under a code of its own.** The two
+were weighed. Deferring is defensible: 17.6's declarations are planned, so a
+multi-leg file cannot be written today and the damage is a typo rather than a
+wrong leg. But the deferral could not be recorded the way the others are, because
+a `deferred` field belongs to a code nothing raises and OS3008 is raised; it
+would have had to live somewhere a reader of the catalogue does not look, which
+is the exemption-list shape `check-raises.mjs` exists to refuse.
+
+Raising it as OS3008 was the other thing considered and it does not work, for a
+reason worth writing down: **OS3008's fix sentence is "Use one of {values}", and
+here the set of values is empty.** A fix a reader cannot act on is worse than no
+fix, and this repository already says so. So the refusal is its own code, it
+refines OS3008, and its message and its fix are both true of the program in front
+of the reader: this file declares no leg, and the fix is to take the argument
+out. It is also refused whether the name was written or computed, because the
+value is not what is wrong, which is the whole difference from a set check and is
+why a computed leg no longer slips through. The day a file can declare a leg,
+OS3008 takes over for a name outside the declared set and OS3023 stays for a file
+that declares none.
+
+**What was tried against all of this, because the last three rounds were broken
+by the case the fix had not tried.** Across bars rather than within one: a close
+working for ten bars; partial fills in sequence and a partial fill that leaves
+part of the leg unspoken for; a rejection, a cancellation, an expiry; a close
+working while an entry is working, and a position that grows while a close is
+working; two tags closed on every bar; a bare close working and then a tagged
+one, and the reverse; a leg that flips sign while the old reducing order is still
+working; a destination that fills more than it was asked for; a destination that
+fills an order it had already reported cancelled; repeated and overtaken frames;
+a frame for an order nobody placed; an `onUnconfirmed` bar re-executed four times
+with a close working, and the entry beside it; a crossing entry and an
+`order.reverse` while a close is working; `cancelAll`; a refused bar's rows
+being taken back; each of the four `qtyType` values, with a host filling in units
+at a lot size of twenty five; and four thousand bars of alternating entry and
+close, which the ledger scan costs sixty seven milliseconds. Ten mutations were
+made to the code and every one of them failed a test.
+
+**What is still not held**, and it is the same fact in two places: a quantity
+stated on a close in lots, cash or an equity percent may take the position it is
+closing past zero, and a crossing entry in those declarations leaves the outgoing
+position open because the engine cannot divide the quantity. Both wait on the
+instrument's lot size reaching the ledger, which is what the deferral on OS7005
+now says, that code being one nothing raises yet, and the money figures of 17.4
+for `"cash"` and `"equityPercent"`.
+
+**Files.**
+
+- `src/core/engine/ledger/row.ts`: `Reduction` and `reduces` on the row,
+  `workingUnits`.
+- `src/core/engine/ledger/closable.ts`: the run-scoped reading, and `closingSide`
+  moved here as the one fact two files read.
+- `src/core/engine/ledger/ledger.ts`: the reduction rides on the row; the bar's
+  own record keeps only the question that is a bar's, OS7013.
+- `src/core/engine/ledger/refuse.ts`: `SentOnBar`, which is now OS7013's alone.
+- `src/core/engine/ledger/place.ts`: the crossing entry mints in every unit.
+- `src/core/engine/ledger/positions.ts`: the average over the side of the net.
+- `src/core/check/library.ts`, `library-orders.ts`, `calls.ts`: OS3023.
+- `tests/engine/orders-support.ts`: the destination recording both order suites
+  assert against.
+- `tests/engine/working.test.ts`: the run-scoped invariant, across bars.
+- `tests/engine/crossing.test.ts`: the split, in each of the four units.
+- `tests/unit/check-calls.test.ts`: OS3023, written and computed.
+
+---
+
+## 45. An input whose title says nothing
+
+**Question.** `input(14, "")` raises OS3021, whose message ends "this one has no
+title written as a string literal" and whose fix says "Give it a title written
+as a string literal". The reader did. It is empty. CLAUDE.md requires the
+message and the fix to be true of the actual program, and both of these tell
+somebody to do the thing they have just done. Beside it, a named input with the
+same empty title is silently labelled by its name, which may or may not be right
+and was decided by nobody.
+
+**Decision, part one. The empty title is its own code, OS3024, refining
+OS3021.** Three programs reached OS3021: an `input()` with no title argument, one
+whose title is not a string literal, and one whose title is `""`. The first two
+are what the sentence describes. The third is not, and widening OS3021's wording
+to cover all three would have produced a sentence vague enough to be true of each
+and specific enough to help none: the fix for the first two is to write a title,
+and the fix for the third is to put something in the one that is already there.
+Two fixes are two codes, which is what `refines` is for, and it is how OS3022
+sits beside OS3017 and OS3023 beside OS3008.
+
+Both halves of the separation are held: OS3021's two programs still raise
+OS3021, asserted in the same test as OS3024's, because a refinement that quietly
+swallowed the broader case would be a rename rather than a split.
+
+**Decision, part two. A named input's empty title is no title, and the row takes
+the name.** This is the behaviour that was already there, and it is now written
+down rather than left to be discovered. The reason it is right, and not merely
+convenient, is that the two cases fail for different reasons. An input written
+in place has no key but its title, so an empty one leaves a stored value with
+nowhere to live and a second such input would collide with it. An input assigned
+to a name has its key already; what an empty title costs there is a label, and
+`language.md` 13.4 already says a named input with no title takes the name as
+its title. The empty string is giving none, so `len = input(14, "")` and
+`len = input(14)` are one row, labelled `len`.
+
+**What was considered and refused: trimming.** A title of two spaces is drawn as
+a blank row. Reading it as empty would be the specification deciding what
+somebody meant rather than reading what they wrote, and the language trims no
+other string. It is the label the reader wrote, and 13.4 says so in the open.
+
+**Changes required.**
+
+- `spec/errors.json` and `spec/errors.md`: the OS3024 entry, the part 4 count
+  and total, and the part 6 refinements row.
+- `spec/language.md` 13.4: the two codes, and the named case stated.
+- `src/core/check/checked.ts`, `call-sites.ts`, `check.ts`: `titleWritten` on
+  the checked input, and the two reports.
+- `spec/feature-matrix.md`: `unit:input/empty-title`.
+- `docs/inputs.md`: the three lines side by side, the named case, and the
+  troubleshooting row.
+- `tests/unit/check-calls.test.ts`: OS3024 written in place and on the
+  declaration line, the two programs that are still OS3021, and the named case
+  raising nothing.
+
+---
+
+## 46. When a chart descriptor resolves a declaration option
+
+**Question.** `docs/inputs.md` teaches
+`study("Oscillator", precision = input(2, "Decimals"))` as "how a reader gets to
+change something the declaration decides". Measured through this repository's own
+chart adapter, it was not: `descriptorFor(program, options)` took no settings at
+all, built every declaration field against an empty map, and gave
+`plots[0].priceFormat.precision` the declared default for every settings map in
+the world. The engine beside it, handed the same stored value, resolved it. The
+last round made the two agree on the settings **key**. They disagreed on the
+value.
+
+**Decision. The host states the settings the declared shape is built from, and
+the record says which parts follow a later change.** `ChartAdapterOptions` gains
+`settings`, and `descriptorFor` resolves every `{ "input": key }` field against
+it. A host that keeps one descriptor per study instance passes that instance's
+stored settings and builds again when a user changes one.
+
+The honest half is that this cannot be the whole answer. The chart reads `name`,
+`placement`, `plots`, `fills` and `alerts` once, off the descriptor, as values
+rather than as calls, so those answer the settings the descriptor was built with
+and nothing later. `levels`, `range`, the painting hooks and the calculation are
+calls, and each resolves against the settings the chart hands it at the moment it
+asks. A colour is a third case again: the plot carries the settings key and the
+chart reads the colour itself.
+
+**Why the record gains a section rather than a narrowing.**
+`spec/chart-narrowings.json` records fields the descriptor **drops**, and nothing
+is dropped here: every declared field reaches the chart. What is worth recording
+is when each one resolves, which is a different kind of fact, so it is a section
+of its own. It is enforced rather than stated:
+`scripts/check-chart-surface.mjs` builds two descriptors, moves a plot width
+through `options.settings` and a level colour through a call, refuses a
+descriptor member that neither list classifies, and names the recorded members
+the fixture does not reach instead of passing over them.
+
+**Changes required.**
+
+- `src/adapters/charts/run.ts` and `descriptor.ts`: the option, and the lookup
+  built from it.
+- `spec/chart-narrowings.json`: the `resolution` record.
+- `scripts/check-chart-surface.mjs`: the third question, and the fixture fields
+  it moves.
+- `tests/adapters/charts/settings.test.ts`: the documented example end to end,
+  the engine and the descriptor agreeing on the value, and the half that does
+  not follow a later map.
+
+---
+
+## 47. What section 20 fixes, and three sentences that fixed nothing
+
+**Question.** Decision 41 found one sentence in `stdlib.md` section 20 that
+constrained nothing, because commutativity made it vacuous. Section 20 is the
+manifest a second engine implements from. Is it the only one?
+
+**Decision, part one. No, and the general rule goes in 20.1 so that the next one
+is caught by reading.** An arrangement is the order the operations run in, and
+nothing else. Three things therefore fix nothing and are never constrained:
+naming a subexpression and reading it back, forming the same subexpression
+twice, and reordering or regrouping across a commutative operation or across a
+power of two. All three were measured rather than argued, and the third carries
+its one edge, the subnormal range, in the same bullet.
+
+**Decision, part two. The three sentences.**
+
+- **20.4, `rsi`.** "Rounding the ratio into a named intermediate first and then
+  writing `100 - (100 / (1 + ratio))` is the same expression with an extra
+  rounding in it" is false. There is no extra rounding: every operation already
+  rounds its result and `compiled-program.md` 8.1 leaves no wider register for an
+  unnamed intermediate to be kept in. The two spellings are bit identical on
+  every value at all three gate lengths. The arrangement that does vary,
+  `100 * up / (up + down)`, differs on 31 of 73 values at length 7, 31 of 66 at
+  length 14 and 29 of 59 at length 21.
+- **20.3, `alma`.** "The denominator of the exponent is formed as
+  `2 * spread * spread`, left to right" fixed a grouping that cannot differ: one
+  factor is 2, and scaling by a power of two is exact wherever the result is
+  normal. Over the kernels built at eight lengths, seven sigmas and six offsets,
+  0 of 17598 exponents differ between the two groupings. What does vary is the
+  chain of divisions, on 4529 of them, and that is what the entry names now.
+- **20.5, `bollinger`.** "The span in `bbPercent` is formed once" is the naming
+  case again, standing alone with no second clause doing any work.
+
+**Decision, part three. Two figures that were overstated rather than vacuous.**
+20.9's `fade` said its refused arrangement was "a different number at most
+percentages": it is 40 of the 101 whole percentages, two in five, which is well
+worth refusing and is not "most". 20.7's `toDegrees` and `toRadians` said "a
+different number at most arguments": 26 and 29 in every hundred. Both now print
+the measured figure, and both figures are asserted by a test.
+
+**What was checked, and how.** Every sentence in section 20 that names a second
+arrangement and refuses it was implemented both ways and run over price shaped
+data: the window sum against a carried total, `ema`'s three steps, `rma`'s
+three, `wma`'s per-term division, `swma`'s grouping, `vwma`'s two extra
+divisions, `tema`'s factoring, `psar`'s step, the directional index against the
+stochastic association, `cci`'s two divisions, `ultimateOsc`'s addition order,
+`variance`'s one pass, `ad` and `eom`'s term order, `round` against
+`floor(x + 0.5)`, `correlation`'s two square roots, `mix`, `fade`, `toDegrees`
+and `toRadians`. Everything not named above differs on between a quarter and
+four fifths of its arguments and is left exactly as it was.
+
+Two sentences are the naming case and are deliberately left: "the span is formed
+once" in `stoch` and "the denominator is formed once" in `cmo`. In both the
+clause is naming which quantity the absence test is about rather than fixing an
+arrangement, and the sentence it sits in says so.
+
+**Changes required.**
+
+- `spec/stdlib.md`: the 20.1 bullet, and the `rsi`, `alma`, `bollinger`, `fade`,
+  `toDegrees` and `toRadians` sentences.
+- `tests/gate/rsi.test.ts`: both halves of the corrected `rsi` paragraph,
+  measured against the gate fixture and against the engine's own column.
+- `tests/stdlib/maths.test.ts`: the three figures section 20 now prints.
+- `tests/stdlib/section-20.ts`: the figures are **read out of the page** rather
+  than typed into the test beside it, on the shape `tests/gate/gaps.test.ts`
+  already uses for 20.11's table. Rewording a claim, moving its figure or
+  changing its population fails a test instead of going on being quoted, and a
+  pattern loose enough to match two sentences is refused by name, because the
+  first draft of that helper read the `ema` figures into the `rsi` test.
+
+---
+
+## 48. What a number outside every declared block is, and what a check may claim
+
+**Question.** `scripts/check-error-codes.mjs` walked `.md` files under a
+docstring saying "nothing else in the repository gets to invent one". Source
+comments cite codes heavily, and changing one in a comment to a code the
+catalogue does not define passed the whole of `npm test`. Widening the walk to
+the tree runs into the four checks that name a fabricated code on purpose, so
+that their own self tests cannot be disarmed by a correction to the catalogue.
+
+**Decision, part one. The walk is the whole tree, and a citation outside every
+declared block is not a code.** `errors.json` declares which thousand blocks
+exist and no entry is ever numbered outside them, so a fabricated number in an
+unused block is not a code that has gone missing. Those citations are counted,
+and the files holding them are named in the passing line, because the
+alternative is a list of exemptions inside the checker, which this repository
+refuses for the reason `check-raises.mjs` gives at length: a list there is read
+by nobody and grows by a line whenever somebody is in a hurry. The rule stays
+derived from the catalogue rather than written beside it, and the check attacks
+its own two rules on every run.
+
+**Decision, part two. A check says what it covers, in its output as well as in
+its docstring.** `scripts/check-names.mjs` enforces CLAUDE.md rule 5 with a
+fixed list of eighteen products and thirteen indices and instruments. Proved
+both ways: a name on the list is caught in any file, a name that is not on it
+passes. That is the only mechanizable form of "name nobody", so the defect is
+not the check: it is the rule being written as though a check covered it.
+CLAUDE.md now says what is mechanical and what is attention, and the check's
+passing line says the same, because the failure mode here is not a missed name
+but a green build read as proof of something wider.
+
+**Changes required.**
+
+- `scripts/check-error-codes.mjs`: the widened walk, the declared blocks read
+  from `errors.json`, the self test, and the counted citations outside them.
+- `scripts/check-names.mjs`: the reach in the docstring and in the passing line.
+- `CLAUDE.md` rule 5: what the check covers and what remains attention.
 
 ---
 

@@ -1804,10 +1804,21 @@ for an input written where a value belongs, its settings key
 (`host-interface.md` section 8.1). It is written as a string literal on the line
 that declares the input, and is not folded from an expression, because a label
 and a key are both fixed before anything is computed. An input with no name and
-no such title is OS3021; a title spelling another input's name is OS3022, because
-two rows on one key means one of them silently takes the other's stored value;
-and two inputs carrying one title are OS3017, for the same reason. An input
-assigned to a name and given no title takes the name as its title.
+no such title is OS3021, and one whose title is the empty string literal is
+OS3024: both leave the row with nothing to be keyed by, and they carry two codes
+because the second reader has written a title as a string literal and OS3021
+would tell them to write one. A title spelling another input's name is OS3022,
+because two rows on one key means one of them silently takes the other's stored
+value; and two inputs carrying one title are OS3017, for the same reason.
+
+**An input assigned to a name takes the name as its title where it gives none,
+and an empty title is giving none.** The name is already the key, so a title
+there is the label and nothing else, and the empty string is not a label: it
+would draw a row with nothing written on it. `len = input(14, "")` and
+`len = input(14)` are therefore the same row, labelled `len`, and neither is
+refused. A title that has something in it is the label the reader wrote, a
+single space included, because trimming one would be this document deciding what
+somebody meant rather than reading it.
 
 ---
 

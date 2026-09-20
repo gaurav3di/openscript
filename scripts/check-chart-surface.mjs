@@ -11,7 +11,7 @@
  *
  * So the mapping is checked rather than promised. This compiles one study that
  * declares two of everything the language can declare, builds a descriptor from
- * it, runs it over a short fixture, and then asks two questions.
+ * it, runs it over a short fixture, and then asks three questions.
  *
  * 1. **Is every declared field accounted for?** Each field of each declaration
  *    in `outputs` must be listed in `spec/chart-narrowings.json`, either as one
@@ -25,6 +25,15 @@
  *    smaller number is allowed only where the record states the limit and says
  *    why. One grid out of two is the real case, and it is the chart's own
  *    contract that has one hook rather than a decision made here.
+ *
+ * 3. **Does a setting the host stored reach the declaration it was written
+ *    into?** An `input()` may be a declaration option, and until this check was
+ *    widened the answer was no: `descriptorFor` took no settings at all, so a
+ *    plot's width, a study's own precision and every other declared field read
+ *    the default whatever a user had typed, while the engine beside it resolved
+ *    the stored value. The record names which members resolve at build and
+ *    which are asked for again per call, and one field of each kind is moved
+ *    here to prove it.
  *
  * The end of it is a handful of direct readings: the plot columns, the grid's
  * cells, the markers, the levels and the alert message a run computed. Those
@@ -49,15 +58,16 @@ const SOURCE = `version 1
 study("Surface", overlay = true, precision = 2)
 
 len = input(5, "Length")
+levelColor = input(gray, "Level colour")
 fast = ema(close, len)
 slow = ema(close, len * 2)
 
-a = plot(fast, "Fast", aqua)
+a = plot(fast, "Fast", aqua, width = input(2, "Line width"))
 b = plot(slow, "Slow", orange)
 plotCandles(open, high, low, close, "Bars", colorUp = lime, colorDown = red)
 fill(a, b, colorUp = aqua, colorDown = orange, opacity = 0.5)
 
-level(100, "Hundred", gray)
+level(100, "Hundred", levelColor)
 level(50, "Fifty", silver)
 
 if close > open
@@ -323,6 +333,76 @@ for (const spec of descriptor.alerts ?? []) {
   }
 }
 
+/**
+ * 4. A stored setting reaches the declared shape, and the record says when.
+ *
+ * A declaration option may be written as an `input()`, which is the reader's
+ * way of changing something the declaration decides. The engine resolves such a
+ * field against the settings it was loaded with; the descriptor's declared
+ * shape is a set of values rather than a set of calls, so it can only resolve
+ * one against settings a host states when it is built. It did not take any, and
+ * every one of those fields read the declared default for the life of this
+ * module: the number a user typed reached the plotted column and reached
+ * nothing the chart drew it with.
+ *
+ * So the record names which members are resolved at build and which are asked
+ * for again per call, and this proves both halves by moving one field of each
+ * kind. A sentence saying when something resolves is exactly the sentence that
+ * stays true in a file while stopping being true in the code.
+ */
+const STORED = { 'Line width': 4, levelColor: 'rgba(1, 2, 3, 1)' };
+const DECLARED_WIDTH = 2;
+const resolution = record.resolution ?? {};
+const atBuild = new Set(resolution.atBuild?.members ?? []);
+const perCall = new Set(resolution.perCall?.members ?? []);
+
+if (atBuild.size === 0 || perCall.size === 0) {
+  problems.push(
+    `${RECORD_PATH} records no "resolution" members. Both halves are named there, because a ` +
+      'descriptor with no half named is one whose settings behaviour nobody has decided.',
+  );
+}
+for (const member of atBuild) {
+  if (perCall.has(member)) {
+    problems.push(`${RECORD_PATH} lists resolution member ${member} as both at build and per call.`);
+  }
+}
+for (const member of Object.keys(descriptor)) {
+  if (atBuild.has(member) || perCall.has(member)) continue;
+  problems.push(
+    `the descriptor carries ${member} and ${RECORD_PATH} does not say when it resolves a ` +
+      'declaration field. Name it under resolution.atBuild or resolution.perCall. A member ' +
+      'nobody has decided about is one whose answer to a settings change is whatever it happens ' +
+      'to be.',
+  );
+}
+
+const tuned = adapter.descriptorFor(program, { settings: STORED });
+reading(
+  'a plot width the script wrote as an input(), with nothing stored',
+  descriptor.plots[0]?.style?.lineWidth,
+  DECLARED_WIDTH,
+);
+reading(
+  'the same width with the host\'s stored setting handed to descriptorFor',
+  tuned.plots[0]?.style?.lineWidth,
+  STORED['Line width'],
+);
+
+const levelsWith = (held) => descriptor.levels?.({ ...held, bars: data, values }) ?? [];
+reading(
+  'a level colour the script wrote as an input(), read against the call\'s own settings',
+  levelsWith(STORED)[0]?.color,
+  STORED.levelColor,
+);
+if (levelsWith({})[0]?.color === STORED.levelColor) {
+  problems.push(
+    'the level colour read the stored setting when the call was handed none, so the per-call ' +
+      'half of the record proves nothing: the two settings maps have to give two answers.',
+  );
+}
+
+const unexercised = [...atBuild, ...perCall].filter((member) => !(member in descriptor));
 if (process.argv.includes('--list')) {
   for (const [output, entry] of Object.entries(record.outputs ?? {})) {
     for (const one of entry.narrowed ?? []) console.log(`${output}.${one.field}: ${one.why}`);
@@ -346,5 +426,16 @@ const narrowings = Object.values(record.outputs ?? {}).reduce(
 console.log(
   `Chart surface: every field of ${Object.keys(program.outputs).length} outputs is accounted for, ` +
     `${narrowings} of them recorded as narrowings, ${(record.counts ?? []).length} count limit ` +
-    'recorded, and the descriptor read back what it was asked for.',
+    'recorded, and the descriptor read back what it was asked for. A stored setting reached a ' +
+    `declaration option at build and another at the call, over ${atBuild.size + perCall.size} ` +
+    'members recorded as one or the other.',
 );
+
+if (unexercised.length > 0) {
+  console.log(
+    `\n${unexercised.length} recorded member${unexercised.length === 1 ? '' : 's'} the fixture ` +
+      `does not declare, so nothing here classified ${unexercised.length === 1 ? 'it' : 'them'}: ` +
+      `${unexercised.join(', ')}. They are named rather than passed over: a member this study ` +
+      'never reaches is one whose row could be stale without anything saying so.',
+  );
+}

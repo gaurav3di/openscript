@@ -21,7 +21,6 @@
 import type { Diagnostic } from '../../diagnostics/index.js';
 import type { Span } from '../../span/index.js';
 import { callOf } from './call.js';
-import type { SentOnBar } from './closable.js';
 import type {
   Identity,
   IntentBar,
@@ -34,8 +33,9 @@ import { intentFor, ordersFor } from './place.js';
 import type { PlacingContext } from './place.js';
 import { Positions } from './positions.js';
 import { refusalInCall, refusalInOrder } from './refuse.js';
+import type { SentOnBar } from './refuse.js';
 import { foldFrame } from './row.js';
-import type { FrameOutcome, LedgerRow } from './row.js';
+import type { FrameOutcome, LedgerRow, Reduction } from './row.js';
 
 /** What the declaration and the chart fix before bar 0. */
 export interface LedgerOptions {
@@ -72,10 +72,15 @@ export class Ledger {
   /** The bar `sent` describes, so the list empties when a new one begins. */
   private at = -1;
   /**
-   * The orders this bar has sent, which is what OS7013 is asked about and what
-   * a close is measured against: an order sent earlier on this bar has filled
-   * nothing, so the position it is reducing has not moved and the quantity it
-   * already sent is the only record that it is going.
+   * The orders this bar has sent, which is what OS7013 is asked about.
+   *
+   * The bar is the right scope for that one rule and for nothing else. What a
+   * reducing order is measured against used to be read from here too, and the
+   * defect that made obvious was the plainest one there is: a close still
+   * working when the next bar closed again was invisible, because this list is
+   * emptied the moment the bar index changes. The rows below outlive the bar
+   * and say which orders the destination still has, so that reading moved to
+   * `closable.ts` and this list kept the question that really is a bar's.
    */
   private sent: SentOnBar[] = [];
 
@@ -138,10 +143,13 @@ export class Ledger {
       // level does when it is reached, both arrive as frames about orders.
       const { side, qty, type } = intent;
       if (intent.kind === 'place' && side !== null && qty !== null && type !== null) {
-        this.append(intent, { side, qty, type }, bar);
+        // What the order takes out of the position rides on the row, because
+        // the row is what outlives the bar: an order the destination has not
+        // answered is still going, and the row is the only record of it.
+        this.append(intent, { side, qty, type }, bar, order.reduces);
         // One entry per appended row, in the same order, which is what lets a
         // refused bar take back exactly the orders it appended.
-        this.sent.push({ name: call.name, line: at.line, side, reduces: order.reduces });
+        this.sent.push({ name: call.name, line: at.line, side });
       }
     }
     return { intents, refusal: undefined };
@@ -253,6 +261,7 @@ export class Ledger {
     intent: OrderIntent,
     order: { readonly side: OrderSide; readonly qty: number; readonly type: OrderType },
     bar: IntentBar,
+    reduces: Reduction | null,
   ): void {
     const row: LedgerRow = {
       intentId: intent.intentId,
@@ -275,6 +284,7 @@ export class Ledger {
       rejection: '',
       placedAt: bar.time,
       updatedAt: bar.time,
+      reduces,
     };
     this.placed.push(row);
     this.byIntent.set(row.intentId, row);
@@ -295,7 +305,6 @@ export class Ledger {
       current: () => this.positions.current(),
       mint: () => this.positions.mint(),
       rows: () => this.placed,
-      sent: () => this.sent,
     };
   }
 }
