@@ -23,3 +23,9 @@ dist-test/
 # catalogue exists to prevent.
 src/core/catalogue/*.generated.ts
 src/core/version/*.generated.ts
+
+# The one line the specification gives each library name, written by
+# scripts/generate-library-prose.mjs from spec/stdlib.md and spec/language.md on
+# every build. Checked in, it would be a second place a function's description
+# lives, and the one an editor shows.
+src/core/check/*.generated.ts

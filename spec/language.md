@@ -416,6 +416,56 @@ bitwise operators, no increment or decrement operators and no exponent operator;
 people who will read this language and as power to the other half, and
 `-2 ^ 2` has two defensible answers.
 
+### 3.13 Canonical layout
+
+A file has one canonical layout, and a formatter produces it. The rules are here
+rather than in a tool's documentation for two reasons. Two implementations that
+disagreed about them would produce diffs against each other for ever, which is
+the argument 3.10 says one layout rule exists to end. And what a formatter may do
+is a statement about the language rather than about a tool: **laying a file out
+again never changes what it means.** Every rule below moves whitespace and
+nothing else, and a formatter that cannot lay a file out without moving something
+that is not whitespace returns the file untouched.
+
+**Indentation** is four spaces per block, the amount 3.10 names as the
+convention. A line that continues a statement under 3.11 is indented eight spaces
+past the line that began the statement, so that a continuation is indented more
+deeply than a body and can never be read as one. A continuation backslash is kept
+where it was written.
+
+**Line breaks inside a statement are kept where they were written.** Where to
+break a long argument list is a judgement about what reads well, and the
+canonical layout does not make it.
+
+**Inside a line**, one space between two tokens, with these exceptions:
+
+| Written | Not written |
+|---|---|
+| `f(a, b)` | a space inside a bracket, or before a comma |
+| `chart.symbol` | a space around a dot |
+| `x = -1` | a space between a sign and what it signs |
+| `close[1]` | a space before the bracket of a call, a parameter list or an index |
+| `var stop: series number` | a space before the colon of a type annotation |
+| `fn f(a) => a + 1` | a space inside the arrow |
+
+A ternary's `?` and `:` are spaced on both sides, like any other operator. The
+row above is about the bracket of a call, a parameter list or an index; a bracket
+that groups an expression is an ordinary token and takes the ordinary one space,
+so `if (a)` and `x = (a + b) * c` keep theirs.
+
+**A comment** written after code is two spaces clear of it. A comment on a line
+of its own takes the indentation of the next line that carries a token. Such a
+line carries no indentation of its own (3.10), so moving it can neither open nor
+close a block.
+
+**Blank lines**: at most one in a row, none before the first line that carries
+anything, and the file ends with exactly one line ending. Line endings are LF,
+since a file is normalised before anything reads it (3.1).
+
+A file that does not lex and parse has no canonical layout. A formatter returns
+it unchanged rather than laying out what it can: a character the lexer refused
+produces no token, and a reprint from the tokens would delete it.
+
 ---
 
 ## 4. The version declaration

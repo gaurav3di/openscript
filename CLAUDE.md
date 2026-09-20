@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Fourteen checks enforce these, and each one of them is a rule somebody broke once.
+Fifteen checks enforce these, and each one of them is a rule somebody broke once.
 `npm test` runs all of them, and so does every pull request. The count is here to
 be corrected when it changes, not to be trusted: `package.json`'s `test` script
 is the list.

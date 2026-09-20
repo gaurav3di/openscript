@@ -100,6 +100,30 @@ would rather keep their scripts in version control and write them there.
 **Gate:** someone with no setup writes and plots a working script in under two
 minutes, and the same script opens in a desktop editor with identical errors.
 
+**Where this phase stands.** All six functions are built and
+`openalgo-script/editor` is an entry point, with a drop-in adapter beside it at
+`openalgo-script/adapters/codemirror` that wires them into a text component and
+draws nothing itself. None of the six is hand written, and each one says which
+part of the compiler answers it:
+
+    highlight    the real lexer, and the language's own tables of words and marks
+    complete     the standard library manifest, the checker's bindings, and the
+                 error catalogue for what a planned call would be refused with
+    diagnose     the whole front end, with every message and fix from the
+                 catalogue the documentation is generated from
+    hover        the manifest again, and the specification's own table cells,
+                 read at build time rather than retyped
+    signature    the manifest and the emitter, which between them hold every
+                 default the compiler applies
+    format       the lexer for the tokens and the parser for the three questions
+                 spacing cannot answer without a tree
+
+**The gate is not met, and both halves of it are outstanding.** A host has to put
+these in front of a trader before anyone can write and plot a script in two
+minutes, and the language server that would open the same script in a desktop
+editor with identical errors is not written. The functions are the part of this
+phase that belongs in this repository; the gate is measured on a product.
+
 ## Phase 5. Strategy and backtest
 
 Six to eight weeks.

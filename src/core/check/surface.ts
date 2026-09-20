@@ -16,6 +16,8 @@ import { BAR_ENTRIES, COLOUR_NAMES } from './library-bars.js';
 import { ORDER_ENTRIES, ORDER_NAMES } from './library-orders.js';
 import { OUTPUT_ENTRIES, REQUEST_NAMES, TOP_LEVEL_NAMES } from './library-output.js';
 import { SERIES_ENTRIES } from './library-series.js';
+import { LIBRARY_PROSE } from './library-prose.generated.js';
+import type { LibraryProse } from './library-prose.generated.js';
 import { indexOf } from './library.js';
 import type { LibraryEntry, LibraryIndex } from './library.js';
 
@@ -112,4 +114,36 @@ export function isRequestName(name: string): boolean {
  */
 export function isTopLevelOnly(name: string): boolean {
   return TOP_LEVEL_NAMES.includes(name);
+}
+
+export type { LibraryProse } from './library-prose.generated.js';
+
+/**
+ * What the specification says about a name, or nothing where it says nothing.
+ *
+ * Two cells of the name's own row in the specification: the line on what it is
+ * for, and the first bar it can produce a value for. Read from `stdlib.md`'s own
+ * tables at build time, by `scripts/generate-library-prose.mjs`, and never
+ * written down here. A description typed into this repository twice is a
+ * description that disagrees with itself the first time either copy is edited,
+ * and the copy an editor shows a writer is the one nobody proofreads.
+ *
+ * **What comes back is one line per name, not one per signature.** A name with
+ * several signatures is described by the first row the specification states for
+ * it, because the map is keyed by name; `close` is the case to have in mind,
+ * where the row is the bar series rather than the order function.
+ *
+ * Nothing comes back for the nineteen named colours. `stdlib.md` 11.1 lists
+ * them in a block rather than in a table and says their channel values are the
+ * description, which `namedColour` answers.
+ */
+export function proseFor(name: string): LibraryProse | undefined {
+  return Object.prototype.hasOwnProperty.call(LIBRARY_PROSE, name)
+    ? LIBRARY_PROSE[name]
+    : undefined;
+}
+
+/** Every name the specification describes, for the check that the two agree. */
+export function describedNames(): readonly string[] {
+  return Object.keys(LIBRARY_PROSE);
 }

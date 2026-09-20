@@ -1,6 +1,6 @@
 {
   "name": "openalgo-script",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "An open trading language. Write a study or a strategy once, plot it, backtest it, trade it.",
   "keywords": [
     "trading",
@@ -26,9 +26,17 @@
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
     },
+    "./editor": {
+      "types": "./dist/editor/index.d.ts",
+      "import": "./dist/editor/index.js"
+    },
     "./adapters/charts": {
       "types": "./dist/adapters/charts/index.d.ts",
       "import": "./dist/adapters/charts/index.js"
+    },
+    "./adapters/codemirror": {
+      "types": "./dist/adapters/codemirror/index.d.ts",
+      "import": "./dist/adapters/codemirror/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -52,7 +60,8 @@
     "check:defaults": "npm run build && node --disallow-code-generation-from-strings scripts/check-defaults.mjs",
     "check:chart": "npm run build && node --disallow-code-generation-from-strings scripts/check-chart-surface.mjs",
     "check:section-20": "node --disallow-code-generation-from-strings scripts/check-section-20.mjs",
-    "test": "node --disallow-code-generation-from-strings scripts/check-duplication.mjs && node --disallow-code-generation-from-strings scripts/check-error-codes.mjs && node --disallow-code-generation-from-strings scripts/check-examples.mjs && node --disallow-code-generation-from-strings scripts/check-catalogue-tests.mjs && node --disallow-code-generation-from-strings scripts/check-layering.mjs && node --disallow-code-generation-from-strings scripts/check-limits.mjs && node --disallow-code-generation-from-strings scripts/check-modularity.mjs && node --disallow-code-generation-from-strings scripts/check-names.mjs && node --disallow-code-generation-from-strings scripts/check-raises.mjs && node --disallow-code-generation-from-strings scripts/check-section-20.mjs && npm run build && node --disallow-code-generation-from-strings scripts/check-defaults.mjs && node --disallow-code-generation-from-strings scripts/check-chart-surface.mjs && npm run test:unit && node --disallow-code-generation-from-strings scripts/check-examples-compile.mjs && node --disallow-code-generation-from-strings scripts/check-no-eval.mjs && npm run bench",
+    "check:entry-points": "npm run build && node --disallow-code-generation-from-strings scripts/check-entry-points.mjs",
+    "test": "node --disallow-code-generation-from-strings scripts/check-duplication.mjs && node --disallow-code-generation-from-strings scripts/check-error-codes.mjs && node --disallow-code-generation-from-strings scripts/check-examples.mjs && node --disallow-code-generation-from-strings scripts/check-catalogue-tests.mjs && node --disallow-code-generation-from-strings scripts/check-layering.mjs && node --disallow-code-generation-from-strings scripts/check-limits.mjs && node --disallow-code-generation-from-strings scripts/check-modularity.mjs && node --disallow-code-generation-from-strings scripts/check-names.mjs && node --disallow-code-generation-from-strings scripts/check-raises.mjs && node --disallow-code-generation-from-strings scripts/check-section-20.mjs && npm run build && node --disallow-code-generation-from-strings scripts/check-defaults.mjs && node --disallow-code-generation-from-strings scripts/check-entry-points.mjs && node --disallow-code-generation-from-strings scripts/check-chart-surface.mjs && npm run test:unit && node --disallow-code-generation-from-strings scripts/check-examples-compile.mjs && node --disallow-code-generation-from-strings scripts/check-no-eval.mjs && npm run bench",
     "test:unit": "npm run build:test && node --disallow-code-generation-from-strings scripts/run-tests.mjs",
     "check:layering": "node --disallow-code-generation-from-strings scripts/check-layering.mjs",
     "check:duplication": "node --disallow-code-generation-from-strings scripts/check-duplication.mjs",
@@ -64,7 +73,8 @@
     "build:test": "npm run generate && node --disallow-code-generation-from-strings scripts/clean-output.mjs tsconfig.test.json && tsc -p tsconfig.test.json",
     "prepack": "npm run build",
     "generate:version": "node --disallow-code-generation-from-strings scripts/generate-version.mjs",
-    "generate": "npm run generate:errors && npm run generate:version",
+    "generate:library": "node --disallow-code-generation-from-strings scripts/generate-library-prose.mjs",
+    "generate": "npm run generate:errors && npm run generate:version && npm run generate:library",
     "check:changelog": "node --disallow-code-generation-from-strings scripts/check-changelog.mjs",
     "bench": "node --disallow-code-generation-from-strings scripts/bench.mjs",
     "bench:record": "node --disallow-code-generation-from-strings scripts/bench.mjs --record"
@@ -74,9 +84,25 @@
   },
   "dependencies": {},
   "peerDependencies": {
+    "@codemirror/autocomplete": ">=6.0.0",
+    "@codemirror/language": ">=6.0.0",
+    "@codemirror/lint": ">=6.0.0",
+    "@codemirror/view": ">=6.0.0",
     "openalgo-charts": ">=2.4.0"
   },
   "peerDependenciesMeta": {
+    "@codemirror/autocomplete": {
+      "optional": true
+    },
+    "@codemirror/language": {
+      "optional": true
+    },
+    "@codemirror/lint": {
+      "optional": true
+    },
+    "@codemirror/view": {
+      "optional": true
+    },
     "openalgo-charts": {
       "optional": true
     }

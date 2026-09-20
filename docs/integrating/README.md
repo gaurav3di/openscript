@@ -79,6 +79,8 @@ do.
 - [your-own-engine.md](./your-own-engine.md), for route three
 - [backtesting.md](./backtesting.md), for what a backtest engine gives you and
   what you fill in
+- [the-editor-half.md](./the-editor-half.md), for putting a script editor in
+  front of traders: what the language gives it and what stays yours
 - [`spec/host-interface.md`](../../spec/host-interface.md), the contract
 - [`spec/conformance.md`](../../spec/conformance.md), how you prove an
   implementation is correct

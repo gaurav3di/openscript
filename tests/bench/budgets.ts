@@ -136,6 +136,32 @@ export const BUDGETS: readonly Budget[] = [
       'else: under three times the cost for twice the source is growth in the ' +
       'source, and a jump in this one alone is not.',
   },
+  {
+    name: 'diagnose-heavy',
+    recorded: 0.34,
+    budget: 1.5,
+    unit: 'ms',
+    why:
+      'what a keystroke costs a host that runs the editor tier on a debounce. ' +
+      'It is the whole front end, which is the answer to whether an editor ' +
+      'needs a compiler of its own: at this price it does not, and a change ' +
+      'that makes one worth building fails here first. Held against ' +
+      'compile-heavy it should be the same number, because it is the same work.',
+  },
+  {
+    name: 'diagnose-typing',
+    recorded: 1.08,
+    budget: 4,
+    unit: 'ms',
+    why:
+      'the same keystroke on a file with a bracket open half way down it, ' +
+      'which is the state a file is in the moment somebody types one and ' +
+      'every line below it becomes part of one unfinished statement. It is ' +
+      'the expensive state and the common one, so it is the number that ' +
+      'decides whether errors as you type feel immediate. Three times the ' +
+      'finished file and still far inside the ten milliseconds at which a ' +
+      'person begins to feel an edit.',
+  },
 ];
 
 export function budgetFor(name: string): Budget | undefined {

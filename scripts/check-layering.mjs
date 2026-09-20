@@ -112,8 +112,8 @@ const LAYERS = [
     name: 'adapter:codemirror',
     mayImportLayers: ['editor', 'core'],
     outside: ['@codemirror/', '@lezer/'],
-    dom: true,
-    why: 'the only place that knows both the language intelligence and an editor component',
+    dom: false,
+    why: 'it knows both the language intelligence and an editor component and still draws nothing: a tooltip takes its markup from the host, so the whole package loads in a worker and on a server',
   },
 ];
 

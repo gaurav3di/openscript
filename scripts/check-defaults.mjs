@@ -240,47 +240,24 @@ const colours = await import(COLOURS_MODULE);
 const DECLARATIONS = emitter.DECLARATION_CALLS;
 
 /**
- * Which map holds each of them, which is the one association written here.
+ * Which map holds each of them, which is no longer written here.
  *
- * The emitter makes it in code, at the call sites in `outputs.ts`, `events.ts`
- * and `inputs.ts`, and there is nothing to read it off. So it is written down,
- * and then held to the file: a declaration call with optional parameters and no
- * map is a failure, and a key in a map that is not an optional parameter of its
- * call is a failure. Neither side can drift without saying so.
+ * It used to be: this file carried the association from a declaration call to
+ * the map of its defaults, and the emitter carried it again at the call sites
+ * that read them. Anything else that wanted to know what a `plot` written
+ * without a `width` is given, an editor tooltip among them, would have made a
+ * third. `src/core/emit/defaults.ts` holds the one copy now and answers the
+ * question with `declarationDefaultText`, and this check holds that answer to
+ * the specification: a declaration call with optional parameters and no map
+ * fails below, and a key in a map that is not an optional parameter of its call
+ * fails below.
  */
-const DECLARATION_DEFAULTS = new Map([
-  ['plot', written.PLOT_DEFAULTS],
-  ['plotCandles', written.CANDLE_DEFAULTS],
-  ['fill', written.FILL_DEFAULTS],
-  ['level', written.LEVEL_DEFAULTS],
-  ['table', written.TABLE_DEFAULTS],
-  ['signal', written.MARKER_DEFAULTS],
-  ['alert', written.ALERT_DEFAULTS],
-  ['input', written.INPUT_DEFAULTS],
-]);
+const DECLARATION_DEFAULTS = new Map(Object.entries(written.DECLARATION_DEFAULTS));
 
 /** A colour as a comparable string, so a name and a value meet in one spelling. */
 function hexOf(colour) {
   const byte = (channel) => Math.round(channel).toString(16).padStart(2, '0');
   return `#${byte(colour[0])}${byte(colour[1])}${byte(colour[2])}${byte(colour[3] * 255)}`;
-}
-
-/** What the specification would print for a value the emitter writes. */
-function spelling(value) {
-  if (value === undefined) return undefined;
-  switch (value.kind) {
-    case 'absent':
-      return 'none';
-    case 'bool':
-    case 'number':
-      return String(value.value);
-    case 'string':
-      return JSON.stringify(value.value);
-    case 'colour':
-      return hexOf(value.value);
-    default:
-      return `a ${value.kind}`;
-  }
 }
 
 /** The one spelling a colour has, so `lime` and its channels compare equal. */
@@ -358,7 +335,7 @@ for (const name of core.libraryNames()) {
 
       const spec = stated.get(key);
       const recorded = declared
-        ? spelling(DECLARATION_DEFAULTS.get(name)?.[parameter.name])
+        ? emitter.declarationDefaultText(name, parameter.name)
         : parameter.defaultText;
       const excepted = exceptions.has(key);
       if (excepted) usedExceptions.add(key);

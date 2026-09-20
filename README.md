@@ -17,7 +17,8 @@ can write their own engine for it.
 
 ## Status
 
-**`0.2.0` runs studies. It does not yet backtest, and it ships no editor.**
+**`0.2.0` runs studies and ships the language intelligence an editor needs. It
+does not yet backtest.**
 
 What an install gets you today: the compiler, the engine, and the chart adapter.
 A script compiles in milliseconds in a browser tab and computes, bar by bar, the
@@ -32,9 +33,16 @@ first thing a stranger reads:
   the order ledger refuses what the specification says to refuse, but the
   equity curve, the drawdown, the trade list and the run you can reproduce
   months later are Phase 5 and are not here.
-- **No editor.** The six headless language functions, highlight, complete,
-  diagnose, hover, signature and format, are Phase 4 and are not built. You get
-  a compiler, not an authoring experience.
+- **No editor on screen, and that is the design.** The six headless functions are
+  here and resolve as `openalgo-script/editor`: highlight, complete, diagnose,
+  hover, signature and format, text in and data out, with no DOM at any tier. The
+  text component, the panel, the apply button, saving and the theme are yours,
+  and the drop-in adapter for one editor component wires the six into it without
+  drawing anything itself. What each function gives you, and what stays yours, is
+  in
+  [`docs/integrating/the-editor-half.md`](./docs/integrating/the-editor-half.md).
+  The language server that would put the same errors in a desktop editor is the
+  rest of Phase 4 and is not written.
 - **No second engine.** The Python engine and the conformance suite that would
   prove two engines agree are Phase 6. Until an engine somebody else wrote
   passes that suite, the portability claim is a design, not a result.
@@ -143,10 +151,11 @@ and the dependencies only ever point one way.
         |       \            /
         |   .../adapters/charts       <- knows both. The only place that does
         |
-   .../editor                         <- designed, not built
+   .../editor                         <- the six headless functions. No DOM, no
+        |                                 package, nothing on screen
         |
-   .../adapters/codemirror            <- designed, not built. Would know the
-                                         editor component, and nothing else would
+   .../adapters/codemirror            <- knows both. Takes its markup from the
+                                         host, so it draws nothing either
 ```
 
 The language ships as one package with an entry point per tier, so a consumer who
@@ -154,17 +163,20 @@ wants only the compiler never pays for an adapter. A tier is declared only once 
 exists: an entry point that resolves to nothing fails at a consumer's run time
 rather than honestly at install.
 
-These two resolve today, from an install holding nothing but the manifest and the
-built output:
+These four resolve today, from an install holding nothing but the manifest and the
+built output. That is a check rather than a sentence: `scripts/check-entry-points.mjs`
+builds exactly that install in a temporary directory, with no package of any kind
+beside it, and imports every one of them.
 
 | Entry point | Is | Depends on |
 |---|---|---|
 | `openalgo-script` | Compiler and engine | Nothing |
+| `openalgo-script/editor` | The six headless language functions an editor needs | The compiler |
 | `openalgo-script/adapters/charts` | Turns a compiled study into a chart's indicator descriptor | The compiler and a chart |
+| `openalgo-script/adapters/codemirror` | Wires the six into a text component | The editor half and a text component |
 
-The editor half and its drop-in adapter are in the roadmap rather than in the
-export map, and so is the server-side engine, which is a separate package in
-another language. The roadmap says which phase owes each of them.
+The server-side engine is not among them: it is a separate package in another
+language, and the roadmap says which phase owes it.
 
 An adapter is the only thing allowed to know two worlds at once, which is what
 makes it the piece a platform replaces rather than the piece they patch. A
@@ -173,8 +185,10 @@ else. A platform with its own editor does the same on that side.
 
 This is enforced rather than promised. `scripts/check-layering.mjs` runs in
 continuous integration and fails the build if the compiler imports a chart, if
-anything outside an adapter imports a package, or if the compiler or the editor
-half so much as mentions a browser global.
+anything outside an adapter imports a package, or if anything under `src` so much
+as mentions a browser global. That last one holds of the adapters too: the editor
+adapter takes a tooltip's markup from the host rather than building an element,
+so every file in the package loads in a worker and on a server.
 
 ## Taking it, one step at a time
 
@@ -184,7 +198,7 @@ Each row is usable on its own. Nobody has to take the next one.
 |---|---|---|
 | Scripts that produce numbers | `openalgo-script`, and the six-item host interface | An afternoon |
 | Those studies on your chart | the charts adapter, plus a chart | Days. Free if the chart is the one this adapter already targets |
-| Traders authoring in your app | The editor half, once it is built, and your own text component or the drop-in one | Days |
+| Traders authoring in your app | The editor half, and your own text component or the drop-in adapter | Days |
 | Traders trading from it | Wire the order half of the host interface to your order API | About a week |
 | To run it on your own stack | Implement the compiled program format in your language, then pass the conformance suite | Weeks |
 
@@ -215,8 +229,11 @@ fails the build.
 | Two engines agree to the last decimal | The conformance suite, run against both. A disagreement blocks a release | Phase 6 gate |
 | A runaway script stops | Instruction, memory and wall clock budgets, counters in the loop the engine owns. `tests/engine/budget.test.ts` | Enforced |
 | A failing script does not take anything else down | One script's failure is a diagnostic on that script and reaches nothing else | Enforced |
+| Every entry point in the export map resolves from a real install | `scripts/check-entry-points.mjs`. Each one is imported from a temporary install built from the `files` list alone, with no package beside it, which is also what says both adapters' peer dependencies are optional in fact and not only in the manifest | Enforced |
+| A completion, a tooltip and a default come from the compiler, not from a list | The names are the standard library manifest the checker resolves against; what a call is for is the cell `spec/stdlib.md` prints, read at build time by `scripts/generate-library-prose.mjs`; a default is the one `scripts/check-defaults.mjs` holds the compiler to. `tests/editor/hover.test.ts` fails if the manifest and the specification describe different sets of names | Enforced |
+| Laying a script out again cannot change what it computes | `tests/editor/format.test.ts`. Every example and every gate script is formatted, both texts are compiled, and the compiled programs are compared. Each call also checks itself against the lexer, so a rule that is wrong returns your source untouched rather than a changed program | Enforced |
 | A saved script never stops working | The language version is declared per file and old front ends are retained | Phase 7, with a test per retained version |
-| Performance | Six benchmarks with recorded budgets, run by `npm test` and in continuous integration. A regression past a budget fails the build | Enforced |
+| Performance | Eight benchmarks with recorded budgets, run by `npm test` and in continuous integration. A regression past a budget fails the build | Enforced |
 
 The rows marked as gates are not promises we intend to keep. They are conditions a
 phase does not finish without, and each one is written into the roadmap beside the

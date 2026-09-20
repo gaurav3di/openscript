@@ -7,6 +7,147 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## 0.3.0
+
+**The editor half is here: six functions, text in and data out, and a drop-in
+adapter for a text component.** `src/editor` is a new tier whose index is its
+only door. It imports the compiler and nothing else: no package, no browser
+global, no DOM type, which the layering check has enforced for it since before
+the directory existed. Nothing in it is on screen, and nothing in it is hand
+written: a hand written highlighter, completion list or tooltip drifts from the
+language and nobody notices for a release.
+
+**Two new entry points resolve: `openalgo-script/editor` and
+`openalgo-script/adapters/codemirror`.** They are declared now that the tier they
+name exists, because an entry point that resolves to half a tier fails at your
+run time rather than honestly at install. A fifteenth check,
+`scripts/check-entry-points.mjs`, builds a temporary install holding exactly what
+the `files` list ships, with no package of any kind beside it, and imports every
+door the export map declares. That is also what says both adapters' peer
+dependencies are optional in fact: neither could have loaded if it imported one.
+
+**`highlight(source)` gives every piece of a file, in order, covering every
+character exactly once.** The kind of each piece comes from the language's own
+tables, so a word added to the reserved list, a mark added to an operator table
+and a function added to the standard library manifest are each painted the day
+they are added. The covering property is the one a host cannot do without: a
+highlighter that drops one character leaves everything after it on that line
+drawn one column to the left, and that arrives as a bug report about the caret.
+`highlightLines(source)` is the same pieces per line, which is where a host
+otherwise makes the off-by-one itself.
+
+Comments come out of `highlight` and are recovered in one place rather than by
+each host. The lexer emits none, because the parser has no use for one; the two
+ways a consumer ends up doing it, reading the gaps between token spans and
+scanning the text for `//`, are folklore and a second lexer respectively, and the
+second is wrong inside a string literal.
+
+**`diagnose(source)` is the whole front end**, lexer through emitter, and returns
+the compiler's own diagnostics with the message and the fix the error catalogue
+gives them. Not a subset: there are codes the emitter raises and nothing before
+it does, so an editor that stopped after the checker would show a clean file and
+then have the apply refused. A source that does not parse answers usefully rather
+than throwing, which is the state a file being typed into is in most of the time.
+
+**What that costs is now a number rather than an impression.** Two measurements
+join the benchmark suite, `diagnose-heavy` and `diagnose-typing`, the second on a
+file with a call bracket left open half way down it, which is what a file looks
+like the moment somebody types one. A third of a millisecond and about a
+millisecond, against budgets of 1.5 and 4. That is the answer to whether an
+editor needs a compiler of its own: at this price it does not, and the number to
+beat is in the table rather than in somebody's judgement.
+
+**`format(source)` lays a file out in the canonical layout, now stated in
+`language.md` 3.13**, and formatting never changes what a script means. That is
+proved twice rather than asserted: every example and every gate script in the
+repository, a hundred and nineteen of them today, is laid out again, both texts are
+compiled, and the compiled programs are compared field for field; and every call
+lexes its own output and compares it with the tokens that went in, so a rule that
+is wrong returns your source untouched rather than a changed program. A source
+that does not parse comes back byte for byte, because a character the lexer
+refused produces no token and a reprint from the tokens would delete it.
+
+The three questions a reprinter usually guesses at are put to the parser instead:
+which `-` is a sign, which bracket groups an expression rather than opening an
+argument list, and which `:` belongs to a ternary rather than to a type. All
+three are in the tree already, and the guess is where every formatter that has
+turned `a - -b` into something else began.
+
+**`complete(source, offset)` offers what may be written there**: the library's
+names, the names the file has declared and still has in scope, the named
+arguments of the call being written, and the members of a namespace after a dot.
+The names are the standard library manifest, the same index the checker resolves
+against and the same one the example check reads its globals from, so a function
+added to the library is offered the day it is added. A name is offered from the
+end of the statement that declares it and inside the block that declared it,
+which are the compiler's own two rules rather than a second reading of them.
+
+A call the library names and has not implemented is offered, sorted after
+everything a script may write today, and carries the error catalogue's own OS2020
+sentence with its name filled in. Leaving those out would send a writer to the
+documentation to find out why a name is missing; offering them unmarked walks
+them into a script that will not compile.
+
+**`hover(source, offset)` says what the word under the pointer is**, and the
+sentence it shows is the cell `spec/stdlib.md` prints for that call. It is read
+out of the specification at build time by a new generator rather than retyped
+into the source, so a description improved in the specification is improved in
+the tooltip, and a test fails if the manifest and the specification ever describe
+different sets of names. A name the file declared carries the type the checker
+worked out and the span it was declared at; a named colour carries its channels.
+
+Three things a hover wants and has no machine readable source for are stated
+rather than invented: a reserved word has no per-word explanation anywhere, a
+name with several signatures is described by the first row the specification
+states for it, and a parameter has no description of its own. Those, and what the
+adapter narrows, are recorded in `spec/editor-narrowings.json`.
+
+**`signature(source, offset)` gives the call being written, which parameter the
+cursor is in, and each parameter's name, type, default and whether it is
+required.** The default is the one the compiler applies, which is the trap in
+this function: most defaults live in the library manifest, and the eight
+declaration calls keep theirs in the emitter, so a tooltip reading the manifest
+alone shows nothing beside `width?` while every plot is drawn 1.5 wide. Both are
+read through one answer that `scripts/check-defaults.mjs` holds to the
+specification, so a number in a tooltip and a number in a compiled program cannot
+differ without the build failing.
+
+**The adapter, `src/adapters/codemirror`, is a drop-in that draws nothing.** The
+text component is a peer dependency and nothing in the adapter imports it, the
+same way the chart adapter treats a chart. Both tooltips take their markup as a
+required parameter with no default, so no tier of this package names a browser
+global at all and every file in it loads in a worker and on a server. Offsets are
+translated between the document a component holds and the normalised text every
+span in this package indexes, so a file with two character line endings is
+underlined in the right place. Highlighting is computed a line at a time, which
+is how the component asks for it, and a test compares that against the whole-file
+`highlight` over every script in the repository: 4279 lines, not one piece
+different.
+
+**Two facts the core now exposes**, because a tier above it needs them and
+reading them out of a module's internals would be a second copy: what a
+declaration call's omitted argument resolves to, and the channels a colour name
+denotes.
+
+Eighty-eight further tests, each naming in a comment the wrong implementation it
+catches, on top of the fifty-eight the first three functions came with.
+Forty-five of those implementations were then written into the source one at a
+time, with every file copied first and restored from the copy by hash afterwards:
+forty-three were caught by a test and two by the compiler. One more was tried and
+changed nothing a caller can observe, a guard in a private function, and is left
+in place and untested for rather than counted as a catch.
+
+**The first run of that harness proved nothing and said it had.** It named the
+test directory, and `node --test <directory>` fails on this runtime whatever the
+directory holds, so every mutation came back caught. The harness now names the
+test files and runs each of its verify commands on the clean tree before it
+starts, and refuses to run at all if one of them does not pass. Five mutations
+then survived, every one of them a test that could not fail: a completion list
+filtered by a word the assertion was about, a signature rendering compared with
+the mapping it came from, a stale cache handed an empty cache to be stale with.
+All five are caught now, and a control change that nothing should catch is
+checked to be caught by nothing.
+
 ## 0.2.0
 
 **This release is the studies surface, finished.** A script compiles in a browser

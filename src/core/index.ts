@@ -170,6 +170,7 @@ export type {
   InputKind,
   LibraryEntry,
   LibraryParameter,
+  LibraryProse,
   ObjectKind,
   RequestMode,
   Storage,
@@ -192,6 +193,7 @@ export {
   atLeastBar,
   check,
   delayed,
+  describedNames,
   earlier,
   elementOf,
   isLibraryName,
@@ -205,6 +207,7 @@ export {
   membersOf,
   sameType,
   seriesOf,
+  proseFor,
   typeText,
 } from './check/index.js';
 export { REQUEST_NAMES } from './check/index.js';
@@ -223,8 +226,20 @@ export { COMPILED_FORMAT_VERSION, VERSION } from './version/index.js';
  */
 export { emit } from './emit/index.js';
 export type { EmitOptions, EmitResult } from './emit/index.js';
-export type { CompiledProgram } from './emit/index.js';
+export type { Colour, CompiledProgram } from './emit/index.js';
 export { canonicalise, programHash, sourceHash } from './emit/index.js';
+
+/**
+ * Two answers the emitter holds that a tool built on the language needs.
+ *
+ * A declaration call's defaults and the channels a colour name denotes are both
+ * facts the compiler applies and neither is in the library manifest, so a tier
+ * above this one that read the manifest alone would show a writer nothing where
+ * the compiler has a value. They are here rather than reached for behind the
+ * emitter's door, and `scripts/check-defaults.mjs` holds the first of them to
+ * what `stdlib.md` prints.
+ */
+export { DECLARATION_CALLS, declarationDefaultText, namedColour } from './emit/index.js';
 
 /**
  * The engine: a program in, one bar at a time, values out.

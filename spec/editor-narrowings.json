@@ -1,0 +1,90 @@
+{
+  "note": "What a host gives up by taking the editor adapter instead of calling the six headless functions itself, and the three places a hover has nothing to say because the sentence it would want does not exist in a machine readable form. Recorded for the reason spec/chart-narrowings.json is: a narrowing nobody wrote down is a narrowing a host discovers in production. A narrowing here is a fact about this adapter or about what the specification holds in a table, and never about the language: the functions in src/editor answer in full, and a host drawing its own editor gets all of it. Every entry names the test that holds it, and tests/adapters/codemirror/surface.test.ts fails if one of those files does not exist.",
+  "adapter": {
+    "why": "The adapter is the only module allowed to know both the language and a text component, which is what makes it the piece a platform replaces rather than patches. Each row below is something the component's own shape decides, not something the language cannot express.",
+    "narrowings": [
+      {
+        "what": "A style name is not checked by anything in this repository.",
+        "detail": "The component looks a style name up in its own table of highlighting tags at run time and warns on a console about one it does not know. No type can hold that, and neither can the one line assignment that checks every other shape this adapter produces. So the whole mapping is one exported record, HIGHLIGHT_TOKENS, and a host whose theme is written against other names replaces a row in a line.",
+        "instead": "Spread HIGHLIGHT_TOKENS with your own names, or call highlight and draw your own decorations.",
+        "test": "tests/adapters/codemirror/stream.test.ts"
+      },
+      {
+        "what": "Highlighting is computed a line at a time, and nothing is lost by it.",
+        "detail": "The component tokenises one line at a time and remembers only the state the parser hands back, while highlight takes a whole file. The line is therefore lexed on its own, by the real lexer. That is an equivalence rather than an approximation here, because nothing in this language crosses a line ending: it is measured over every script in the repository and the malformed corpus, 4279 lines, and not one piece differs. If the language ever grows something that does cross a line ending, that test fails on the day it is added and this row becomes a real narrowing.",
+        "instead": "Nothing to do. The measurement is the point of the row.",
+        "test": "tests/adapters/codemirror/stream.test.ts"
+      },
+      {
+        "what": "The completion list is filtered here, exactly, and the component is told not to filter it again.",
+        "detail": "complete compares the word already typed with the start of each name, exactly, because language.md makes names case sensitive. The component's own matcher is fuzzy and case insensitive, so running it over the list as well would put a name that does not compile in front of a writer. The result therefore carries filter: false.",
+        "instead": "Call complete and filter the rows however you like before handing them to the component.",
+        "test": "tests/adapters/codemirror/surface.test.ts"
+      },
+      {
+        "what": "A tooltip has no markup until the host writes one.",
+        "detail": "A tooltip has to produce an element, and this package produces none: both tooltip sources take the markup as a required parameter and there is no default. That is what lets the layering check hold every tier, adapters included, to naming no browser global at all, so the same files load in a worker and on a server. It costs a host four lines, and it is the alternative to shipping a styled panel that every design system would have to fight.",
+        "instead": "Pass a renderer and build the element your design system wants. hoverLines and signatureLines give you what the tooltip says, in order, so the content is still the compiler's answer and only the markup is yours.",
+        "test": "tests/adapters/codemirror/surface.test.ts"
+      },
+      {
+        "what": "The signature tooltip follows the cursor rather than being opened deliberately.",
+        "detail": "The component has a facility for a hover tooltip and a linter and none for signature help, so the signature is a tooltip computed from the document and the selection. It appears whenever the cursor is inside a call's brackets. There is no key that opens it and none that dismisses it.",
+        "instead": "Call signature yourself and show it on whatever gesture your product uses.",
+        "test": "tests/adapters/codemirror/surface.test.ts"
+      },
+      {
+        "what": "Formatting replaces the whole document, and a document with two character line endings comes back with one character ones.",
+        "detail": "A minimal edit would have to be trusted to be equivalent to the replacement, and a formatter that moved a line somewhere unintended would do it silently, so the whole text is replaced in one change. The text it is replaced with is the normalised text of language.md 3.1, which is what every offset in this tier indexes, so CRLF becomes LF. The caret is kept where it was, clamped to the new length.",
+        "instead": "Call format yourself and apply the result however your product wants it applied.",
+        "test": "tests/adapters/codemirror/surface.test.ts"
+      }
+    ]
+  },
+  "hover": {
+    "why": "None of the text a hover shows is written in this repository: a signature comes from the library manifest, a sentence and a warmup from the specification's own tables, a type from the checker, and a refusal from the error catalogue. Where the specification holds something as prose rather than as a table cell there is nothing to read, and the honest answer is to say so rather than to retype the sentence into a source file, because the copy is what drifts.",
+    "gaps": [
+      {
+        "what": "A reserved word has no explanation.",
+        "detail": "language.md 3.4 reserves the words in one block and explains each of them in the prose of the section that uses it, which is a page rather than a field. So a hover over a keyword says it is a reserved word and stops. Typing thirty-five sentences into the adapter or the tier would be right today and stale the month the specification improved, and the stale copy would be the only one a writer ever reads.",
+        "instead": "Link the word to spec/language.md, which is one page and stays current.",
+        "test": "tests/editor/hover.test.ts"
+      },
+      {
+        "what": "A name with several signatures has one description.",
+        "detail": "stdlib.md 2.2 lets a bare name carry more than one signature and gives each its own row, and the map read here is keyed by name, so the first row's sentence is the one shown. close is the case to have in mind: the sentence is the bar series row's rather than the order function's. Every signature is still listed, so what is narrowed is the sentence beside them and not the surface.",
+        "instead": "Read the name's entries from the core with libraryEntries and show the row you want.",
+        "test": "tests/editor/hover.test.ts"
+      },
+      {
+        "what": "A parameter has no description of its own anywhere.",
+        "detail": "stdlib.md describes a call in one line and names its parameters inside the signature. Only section 13's arguments, which every input kind shares, have a table with a meaning per argument. So signature shows a parameter's name, type, default and accepted values, which are facts the manifest holds, and no sentence, which would have to be invented.",
+        "instead": "Nothing, until the specification states one per parameter. Then it is read the way the rest of this is.",
+        "test": "tests/editor/signature.test.ts"
+      },
+      {
+        "what": "The nineteen named colours have no sentence, and have their channels instead.",
+        "detail": "stdlib.md 11.1 lists them in a block rather than in a table and says their exact channel values are the part that matters and are fixed in the library manifest. So a hover over one carries the channels the compiler writes into a program, which is what a swatch needs, and no prose.",
+        "instead": "Nothing. The channels are the description.",
+        "test": "tests/editor/hover.test.ts"
+      }
+    ]
+  },
+  "completions": {
+    "why": "complete answers the four questions the roadmap states: function names, names in scope, the named arguments of the call being written, and the members of a namespace after a dot. Two things it deliberately does not answer are recorded here so that a host does not read the absence as an oversight.",
+    "gaps": [
+      {
+        "what": "Reserved words are not offered.",
+        "detail": "The words are a closed table the core exports as RESERVED_WORDS, so offering them would cost nothing and be free of drift. Deciding where one may be written is the part that needs the grammar, and a list that offered every keyword at every position would be noise a writer learns to dismiss, which is worse than an absence they can fill themselves.",
+        "instead": "Read RESERVED_WORDS from the core and add the words your own editor decides are useful at the position.",
+        "test": "tests/editor/complete.test.ts"
+      },
+      {
+        "what": "While a call is being typed, an overload is chosen by arity alone.",
+        "detail": "stdlib.md 2.2 resolves an overload by arity and then by argument type, and the checker does both. The second rule needs a type for every argument, which needs a tree, which a call that is halfway through being typed has not got: clear( is two signatures until its argument arrives. So the tooltip may show the array signature where the writer meant the grid one, until the argument is written and the checker settles it.",
+        "instead": "Nothing while the call is unfinished. diagnose is what reports a call that resolves to something other than what was meant, and it reports it on the finished text.",
+        "test": "tests/editor/signature.test.ts"
+      }
+    ]
+  }
+}

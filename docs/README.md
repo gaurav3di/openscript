@@ -1,6 +1,6 @@
 # OpenScript documentation
 
-By the end of this page you will know which of the seventy-two pages in this set
+By the end of this page you will know which of the seventy-six pages in this set
 answers the question in front of you, what order to read them in if you do not
 yet have a question, and what every convention in them means, so that no page
 has to explain itself twice.
@@ -119,7 +119,7 @@ Go straight to the shelf that holds your kind of question.
 
 ## How to read anything in this set
 
-Three conventions run through all seventy-two pages. Learning them here saves
+Three conventions run through all seventy-six pages. Learning them here saves
 every page from restating them.
 
 ### Examples are complete scripts
@@ -431,3 +431,4 @@ What you get, what you supply, and the three routes to adopting it.
 - [integrating/running-the-engine.md](./integrating/running-the-engine.md) - install it and implement the host interface
 - [integrating/your-own-engine.md](./integrating/your-own-engine.md) - implement the format in your own language
 - [integrating/backtesting.md](./integrating/backtesting.md) - what a backtest gives you and what you fill in
+- [integrating/the-editor-half.md](./integrating/the-editor-half.md) - the language intelligence an editor needs, and what stays yours

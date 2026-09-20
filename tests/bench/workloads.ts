@@ -1,10 +1,9 @@
 /**
- * What is timed, and why these six things and not others.
+ * What is timed, and why these eight things and not others.
  *
- * A benchmark is a claim about what somebody will feel. These measure the three
- * moments a trader actually waits on, each in a light and a heavy form so a
- * regression shows up whether it is in the arithmetic or in the machinery around
- * it:
+ * A benchmark is a claim about what somebody will feel. These measure the four
+ * moments a trader actually waits on, each in two forms so a regression shows up
+ * whether it is in the arithmetic or in the machinery around it:
  *
  * - **A full compute over a long history.** Opening a study on years of data.
  *   Fifty thousand bars is several years of intraday history, and it is the
@@ -16,6 +15,9 @@
  *   because the bar rolls back and executes again from the start of itself.
  * - **A compile.** The editor compiles on every apply, so this is the delay
  *   between a trader changing a line and seeing it.
+ * - **A diagnose.** The editor tier runs the whole front end on a debounce while
+ *   somebody types, so this is what a keystroke costs, in the two states a file
+ *   is actually in: finished, and half way through a call.
  *
  * The scripts are the project's own target scripts rather than something written
  * for the benchmark, so the numbers are about work somebody asked for. The light
@@ -36,6 +38,7 @@ import { emit } from '../../src/core/emit/index.js';
 import type { CompiledProgram } from '../../src/core/emit/index.js';
 import { load } from '../../src/core/engine/index.js';
 import type { BarState, Engine, EngineHost, HostBar } from '../../src/core/engine/index.js';
+import { diagnose } from '../../src/editor/index.js';
 import { engineHostFor, pageHost } from '../hosts/index.js';
 import { bars, moved, states } from './data.js';
 import type { Measurement, Run } from './timing.js';
@@ -209,7 +212,45 @@ function compilation(script: string, batch: number): Run {
 }
 
 /**
- * The six measurements, in the order the report prints them.
+ * The heavy script with a call bracket opened part way down it and never closed.
+ *
+ * This is not a corrupted file, it is the ordinary one: the moment somebody
+ * types an opening bracket in the middle of a script, every line below it
+ * belongs to one unfinished statement (`language.md` 3.11), and that is the
+ * shape the parser has to recover from on the keystroke after it. It is the
+ * expensive state rather than the truncated file a benchmark would reach for
+ * first, and a debounce catches it as often as any other.
+ */
+function halfTyped(text: string): string {
+  const lines = text.split('\n');
+  const at = lines.length >> 1;
+  return [...lines.slice(0, at), 'typing = max(high,', ...lines.slice(at)].join('\n');
+}
+
+/**
+ * Source text to the diagnostics a panel lists, which is what a keystroke costs.
+ *
+ * `clean` says which answer proves the work happened: a finished script has
+ * nothing to report and an unfinished one has something, so a `diagnose` that
+ * returned an empty list whatever it was handed fails the second measurement
+ * rather than setting a record on it.
+ */
+function diagnosing(text: string, batch: number, clean: boolean): Run {
+  return {
+    proof: clean ? 'sources diagnosed with nothing to report' : 'unfinished sources reported on',
+    atLeast: batch,
+    once: () => {
+      let answered = 0;
+      for (let i = 0; i < batch; i += 1) {
+        if (diagnose(text).length === 0 === clean) answered += 1;
+      }
+      return answered;
+    },
+  };
+}
+
+/**
+ * The eight measurements, in the order the report prints them.
  *
  * Repetition counts are odd, so the median is a repetition that happened rather
  * than a midpoint between two. The full computes get fewer because each one is
@@ -271,6 +312,24 @@ export const MEASUREMENTS: readonly Measurement[] = [
     reps: 9,
     batch: COMPILE_BATCH,
     prepare: () => compilation(HEAVY, COMPILE_BATCH),
+  },
+  {
+    name: 'diagnose-heavy',
+    what: 'one keystroke of errors as you type, ninety lines, finished',
+    unit: 'ms',
+    warmups: 5,
+    reps: 9,
+    batch: COMPILE_BATCH,
+    prepare: () => diagnosing(sourceOf(HEAVY), COMPILE_BATCH, true),
+  },
+  {
+    name: 'diagnose-typing',
+    what: 'the same keystroke with a call bracket open half way down the file',
+    unit: 'ms',
+    warmups: 5,
+    reps: 9,
+    batch: COMPILE_BATCH,
+    prepare: () => diagnosing(halfTyped(sourceOf(HEAVY)), COMPILE_BATCH, false),
   },
 ];
 

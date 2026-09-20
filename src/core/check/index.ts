@@ -55,13 +55,16 @@ export type { Warmup } from './warmup.js';
 export { BAR_ZERO, allOf, atBar, atLeastBar, delayed, earlier, isNever, later } from './warmup.js';
 
 export type { LibraryEntry, LibraryParameter, WarmupRule } from './library.js';
+export type { LibraryProse } from './surface.js';
 export {
   NAMESPACES,
   REQUEST_NAMES,
   STRATEGY_NAMESPACES,
+  describedNames,
   isLibraryName,
   isNamespace,
   libraryEntries,
   libraryNames,
   membersOf,
+  proseFor,
 } from './surface.js';

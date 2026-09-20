@@ -204,6 +204,9 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Bracket never closed | OS1012 at the opening bracket, and a mismatched closer is OS1013 | `specified` | `language.md` 3.11, `errors.md` OS1012, `errors.md` OS1013 | `unit:lex/bracket-unclosed` |
 | Operator token set | The exact punctuation list of section 3.12 | `specified` | `language.md` 3.12 | `unit:lex/operator-tokens` |
 | Rejected operator spellings | The C-style spellings of not, and, or and power do not exist, nor do `;` and the increment operators, and each has a named fix | `specified` | `language.md` 3.12 | `unit:lex/rejected-operators` |
+| Canonical layout | The one layout a formatter produces: four spaces a block, eight for a continuation line, one space inside a line, and a comment on its own line taking the indentation of the line below it | `specified` | `language.md` 3.13 | `unit:lex/canonical-layout` |
+| Laying a file out again preserves its meaning | A formatter moves whitespace and nothing else, so the program a file compiles to is the same before and after | `specified` | `language.md` 3.13 | `unit:lex/format-preserves-meaning` |
+| A file that does not parse has no canonical layout | It comes back unchanged rather than laid out as far as it could be, because a character the lexer refused produces no token and a reprint from the tokens would delete it | `specified` | `language.md` 3.13 | `unit:lex/format-refuses-unread` |
 
 ## 2. Version declaration and compatibility
 
