@@ -19,7 +19,7 @@
  */
 import { closableUnits } from './closable.js';
 import type { Closing } from './closable.js';
-import { divide, holdings, joining, opposing } from './holdings.js';
+import { divide, holdings, joining, opposing, outgoingFor } from './holdings.js';
 import type { Book, Holding } from './holdings.js';
 import type { Identity, IntentBar, OrderIntent, OrderSide, OrderType } from './intent.js';
 import type { Reduction } from './row.js';
@@ -73,8 +73,8 @@ export interface PlacingContext extends Closing, Book {
   readonly bar: IntentBar;
   /** The average price of the open position, absent while flat. */
   avgPrice(): number | null;
-  /** The reference an instruction that orders nothing is labelled with. */
-  reference(): number;
+  /** The position an instruction that orders nothing is labelled with. */
+  attached(): number | null;
   /** A fresh position, for the replacement half of a flip. */
   mint(): number;
 }
@@ -175,7 +175,7 @@ export function entering(
         placement: placing(entry, wanted, ctx.qtyType, ctx.mint()),
         // Unreadable in units, so it is taken to have reduced the whole of what
         // was left: see `closable.ts` on why that is the only safe reading.
-        reduces: { part: null, units: closableUnits(ctx, null), counted: false },
+        reduces: { part: null, claimed: closableUnits(ctx, null), counted: false },
       },
     ];
   }
@@ -186,7 +186,7 @@ export function entering(
   const split = divide(book, entry.side, wanted, (one) => one.units);
   const out: MappedOrder[] = split.shares.map((share) => ({
     placement: placing(entry, share.units, 'units', share.ref),
-    reduces: { part: null, units: share.units, counted: true },
+    reduces: { part: null, claimed: share.units, counted: true },
   }));
   if (split.left === 0) return out;
   // The replacement is a position of its own where the leg holds none on this
@@ -237,7 +237,10 @@ function reducing(
  * **A quantity the engine cannot read is one order.** It cannot be divided at
  * all, so it goes on the position it is closing, oldest first, and that
  * position is what it may take past zero: the one shape of 17.1 an engine does
- * not keep, named there and in OS7005 and waiting on the same lot size.
+ * not keep, named there and in OS7005 and waiting on the same lot size. Which
+ * position that is, is not the question the two numbers above answer, and
+ * `outgoingFor` is where it is asked: an order that is not choosing a quantity
+ * is not held back by a position having no quantity left to give.
  *
  * `part` is what the order is counted against afterwards: the tag a close
  * named, or the leg as a whole. A stated quantity is counted only where the
@@ -261,17 +264,20 @@ export function flattening(
   const counted = qty === null || ctx.qtyType === 'units';
   const book = holdings(ctx);
   if (!counted) {
-    const outgoing = opposing(book, side)[0];
+    // The position it is closing, which is the oldest one holding the side this
+    // order reduces (`holdings.ts`). **Where the leg holds no such position the
+    // call sends nothing**, which is the same answer the division below gives
+    // for the same reason: a close is never minted a position of its own
+    // (`stdlib.md` 17.1), and an order sent against a position on its own side
+    // would be a close adding to one. A part can read as holding something
+    // while no reference does, because a part is netted over the rows carrying
+    // one tag and a reference is not.
+    const outgoing = outgoingFor(ctx, book, side);
+    if (outgoing === null) return [];
     return [
       {
-        placement: reducing(
-          side,
-          sending,
-          ctx.qtyType,
-          tag,
-          outgoing === undefined ? ctx.reference() : outgoing.ref,
-        ),
-        reduces: { part, units, counted: false },
+        placement: reducing(side, sending, ctx.qtyType, tag, outgoing),
+        reduces: { part, claimed: units, counted: false },
       },
     ];
   }
@@ -283,6 +289,6 @@ export function flattening(
   // against it, and that is never more than the positions on that side hold.
   return divide(book, side, sending, (one) => one.settled).shares.map((share) => ({
     placement: reducing(side, share.units, 'units', tag, share.ref),
-    reduces: { part, units: share.units, counted: true },
+    reduces: { part, claimed: share.units, counted: true },
   }));
 }

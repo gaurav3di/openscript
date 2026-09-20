@@ -307,7 +307,7 @@ export class Ledger {
       size: () => this.positions.size(),
       sizeOf: (ref) => this.positions.sizeOf(ref),
       avgPrice: () => this.positions.avgPrice(),
-      reference: () => this.positions.reference(),
+      attached: () => this.positions.attached(),
       mint: () => this.positions.mint(),
       rows: () => this.placed,
     };

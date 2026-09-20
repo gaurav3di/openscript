@@ -457,6 +457,17 @@ a call could only send nothing on every bar and say nothing while the position
 stayed open. Closing a tag that has already flattened is not that: it sends
 nothing, says nothing, and is how a strategy is ordinarily written.
 
+**A tagged close is sent on the side that flattens that part, not the side that
+flattens the leg.** The two are usually the same and the case where they are not
+is one you can write on purpose: scale into a long under one tag and hedge it
+short under another, and the leg is long while the part is short.
+`close(tag = "hedge")` there is a buy of what the hedge holds, on the position
+that hedge opened, and it leaves the long alone. Read from the leg's net it
+would be a sell, which adds to the hedge and eats into the long, and a call
+named `close` would have opened position. What it may send is what that part
+holds less whatever is already on its way off, so closing the same tag twice
+sends the part once.
+
 **A quantity written on a `close` is the one size the engine holds to a
 ceiling.** No order crosses zero, so a close larger than what it is closing
 would flatten the position and open the opposite one in a single order, and a

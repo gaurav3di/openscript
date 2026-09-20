@@ -25,21 +25,30 @@
 import type { Identity, OrderFrame, OrderSide, OrderType } from './intent.js';
 
 /**
- * What one order takes out of a position, in units.
+ * What one order claimed of the part it reduces, in units, when it was sent.
  *
  * Absent on an order that adds to a position, and absent on one whose quantity
  * the engine cannot count in units, which are two different facts with the same
  * consequence: neither subtracts anything from what is left to close.
+ *
+ * **`claimed` is a claim and not a size**, and the name says so because reading
+ * it as a size was a defect twice over. On an order the engine sized itself the
+ * two are the same number; on one it could not read they are not, and there it
+ * is the whole of what was left to close at the moment the order left, which is
+ * the reading `stdlib.md` 17.1 makes for an order it cannot count. That number
+ * belongs to one question, how much of a part is already spoken for, and it
+ * answers it whatever unit the order itself was written in. The order's own
+ * size, where the engine can read it, is `units` on the row beside this.
  */
 export interface Reduction {
   /** The tag the close named, or absent where it reduces the leg as a whole. */
   readonly part: string | null;
-  /** The units it takes out of that part. */
-  readonly units: number;
+  /** The units of that part this order claimed when it was sent. */
+  readonly claimed: number;
   /**
-   * Whether `units` is the order's own quantity or the most it could have been.
-   * False on an order whose quantity the engine cannot read in units, where
-   * `units` is the whole of what was left to close at the moment it was sent.
+   * Whether `claimed` is the order's own quantity or the most it could have
+   * been. False on an order whose quantity the engine cannot read in units,
+   * where `claimed` is the whole of what was left to close when it was sent.
    */
   readonly counted: boolean;
 }
@@ -128,12 +137,12 @@ export interface LedgerRow {
   readonly placedAt: number | null;
   updatedAt: number | null;
   /**
-   * What this order takes out of the position, absent where it takes nothing.
+   * What this order claimed of the position, absent where it claimed nothing.
    *
    * Fixed when the order was sent and never rewritten, because it is a record
    * of what the engine measured at that moment and not a running total. What
    * moves is `filledQty` beside it, and the two together say how much of the
-   * reduction the destination still has.
+   * claim the destination still has.
    */
   readonly reduces: Reduction | null;
   /**
@@ -153,7 +162,7 @@ export interface LedgerRow {
 }
 
 /**
- * The units this row still has working against the position it reduces.
+ * How much of this row's claim on the part it reduces is still outstanding.
  *
  * **An order that has been sent and not answered is the whole of what this
  * file exists to make visible.** A position is folded from settled fills and
@@ -161,23 +170,35 @@ export interface LedgerRow {
  * leg still reads what it held before it was sent, and a second reducing order
  * measured against the leg alone sends the position a second time.
  *
- * Three facts decide the number, and each of them is a case a strategy meets:
+ * Four facts decide the number, and each of them is a case a strategy meets:
  *
- * - **A partial fill.** Three sold with one filled leaves two working, because
- *   the one that filled has already moved the leg and only the other two are
- *   still to come.
+ * - **A partial fill of an order the engine counted.** Three sold with one
+ *   filled leaves two working, because the one that filled has already moved
+ *   the leg and only the other two are still to come.
+ * - **A partial fill of one it could not count**, where the claim stands whole
+ *   until the order ends. The claim is in units and the fill is in whatever
+ *   the destination answered a quantity in lots, cash or an equity percent
+ *   with, and subtracting one from the other is the drift this file is written
+ *   to make impossible: a destination answering more than the claim released
+ *   room that was never there and the next close sent the position again.
  * - **An order that has ended.** A rejection, a cancellation and an expiry all
  *   put the row at a terminal status, and nothing more is coming from any of
- *   them, so the remainder is released and the strategy may close again. That
- *   is the script's way out of a destination that refused its close.
- * - **An order that adds**, which reduces nothing and holds nothing: an entry
+ *   them, so the claim is released and the strategy may close again. That is
+ *   the script's way out of a destination that refused its close.
+ * - **An order that adds**, which claims nothing and holds nothing: an entry
  *   that has not settled is not a position, and counting it would let a close
  *   be sent for units that may never exist.
+ *
+ * **This answers one question and one reader.** What is left to close is a
+ * question about a part of the leg, and `closable.ts` is where it is asked.
+ * Which side a position reference is on is a different question, asked of one
+ * reference against what has settled on it, and `holdings.ts` reads the order's
+ * own size for it rather than this.
  */
 export function workingUnits(row: LedgerRow): number {
   const reduces = row.reduces;
   if (reduces === null || isTerminal(row.status)) return 0;
-  return Math.max(0, reduces.units - row.filledQty);
+  return reduces.counted ? Math.max(0, reduces.claimed - row.filledQty) : reduces.claimed;
 }
 
 /** Why a frame was refused, `stdlib.md` 17.14. */

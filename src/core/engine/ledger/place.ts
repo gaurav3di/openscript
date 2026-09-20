@@ -58,7 +58,7 @@
  * been told nothing.
  */
 import type { OrderCall } from './call.js';
-import { closableUnits, closingSide } from './closable.js';
+import { closableUnits, closingFor, closingSide } from './closable.js';
 import type { OrderIntent, OrderType } from './intent.js';
 import { isTerminal } from './row.js';
 import { NOTHING, adding, entering, flattening } from './sizing.js';
@@ -117,7 +117,14 @@ function bracketing(
       profit,
       loss,
       tag,
-      positionRef: ctx.reference(),
+      // The position the level protects, and zero where the leg holds none,
+      // which is the value a cancellation already carries for the same reason:
+      // neither is an order and neither has a position of its own. Minting one
+      // here burned a reference on an instruction that moves nothing, so a
+      // script whose first call is `exit()` opened on reference 2 and the
+      // bracket named a reference no order ever carried
+      // (`host-interface.md` 7.1).
+      positionRef: ctx.attached() ?? 0,
     }),
   ];
 }
@@ -172,7 +179,12 @@ export function ordersFor(call: OrderCall, ctx: PlacingContext): readonly Mapped
     }
 
     case 'close': {
-      const closing = closingSide(ctx.size());
+      // **The side comes from the part the call names**, which is the leg only
+      // where it names no tag. Taken from the leg's net, a close of a part
+      // holding four short on a leg netting six long was a sell of four: the
+      // part went to eight short, the other tag's long was cut to six, and a
+      // call named close had opened position (`closable.ts`, `stdlib.md` 17.2).
+      const closing = closingFor(ctx, call.tag);
       if (closing === undefined) return [];
       // A tag names the part of the position that tag entered, which is the
       // settled quantity of its own rows, less what is already working against

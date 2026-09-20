@@ -3645,6 +3645,155 @@ not how any of these four arrived, and would state a reach it does not have.
 
 ---
 
+## 52. The side of a close, and the two numbers a reference is read from
+
+**Question.** Issue 0018 corrected which position an order is sent against. Two
+shapes were scoped out of that correction, one by unit and one by direction, and
+each is reachable from an ordinary script. `place.ts` took the direction of a
+tagged close from the leg's net rather than from the part the tag names, so a
+leg holding ten long under tag A and four short under tag B answered
+`close(tag = "B")` with a sell of four: tag B went to eight short, tag A's long
+was cut to six, and a call named close had opened position. And `holdings.ts`
+read a reference's side from what had settled plus what a reduction claimed of
+the leg when it was sent, two numbers that drift: a second stated close claims
+nothing, because the first already spoke for the whole leg, and it still fills
+and still reduces what has settled, so the sum went negative, the reference read
+as the side it is not on, and an opposing entry was handed it as an order that
+adds. Under a declaration counting in lots, `buy(qty = 10)`, two closes of one
+and a `sell(qty = 9)`, every order answered in full, left reference 1 having
+opened ten long and settled one short. Neither behaviour was pinned by any of
+the 1414 tests: a mutation fixing each one left the whole suite green.
+
+**Decision, part one. The side of a close comes from the part it is
+flattening.** A tag names a part of the position and a part has a sign of its
+own, so the side that reduces it is a question about the part and not about the
+leg. The two agree on every leg holding one sign and disagree on the one shape a
+hedge is written in. 17.2 already said of the reading that takes the leg's net,
+for a stated quantity, that it would let `close` open a position; this is the
+same sentence for the side, and `closable.ts` had the signed holding in hand
+already.
+
+**Decision, part two. A part is measured on its own side, and the leg bounds it
+only where they are on one side.** Both halves are the first decision read once
+more. What is already working against a short part is a buy, which the leg's net
+calls an addition, so a count taken from the leg does not see it and the second
+`close(tag)` sends the part again: four short became eight short one bar later
+than the headline and by the same reading. And bounding a part by the leg is
+right only where closing it takes the leg towards zero: on the other side it
+moves away from zero, so a part ten short under a leg two long is closed by ten,
+and under a leg netting nothing it is still closed by ten rather than by nothing
+at all. What bounds that order is each position's own settled quantity, so a
+part whose position has returned to zero sends nothing rather than opening it.
+
+**Decision, part three. A claim is not a size, and the reader that needs a size
+gets one.** A reduction carries what it claimed of the part when it was sent,
+which on an order the engine cannot count in units is the whole of what was left
+to close, and that is the only reading 17.1 allows there. That number answers
+one question, how much of a part is already spoken for, and `closable.ts` is its
+one reader. `holdings.ts` asks a different question, which side a reference is
+on, and it compares against what has settled there, so it reads the order's own
+quantity in units, which the row already carries and which falls as a fill
+arrives. The two halves of that sum now cannot drift, because they are the same
+kind of number about the same order. The field is called `claimed` rather than
+`units` so that the next reader cannot make the same mistake by autocompletion.
+
+**Decision, part four. The position a close the engine cannot size is sent
+against.** The book of what a leg holds leaves out a reference whose whole
+settled quantity is already inside an order the destination still has, which is
+right for a close that works its own quantity out: there is nothing left there
+for it to send. A close whose quantity the engine cannot read is not choosing a
+number, so that exclusion is not about it, and taking the book's answer alone
+handed it the reference an entry was opening on the other side: with the leg's
+long entirely inside a working close, `close(qty = 1)` in cash was a sell on the
+reference a short entry had just opened. It goes on the oldest position holding
+the side it reduces, and where the leg holds none it sends nothing, because a
+close is never minted a position of its own. This one was found by the property
+fuzz rather than by reading.
+
+**Decision, part five. A bracket names the position it protects, and no position
+where there is none.** `bracketing` labelled its intent with a reference that
+was minted when the leg was flat, so a script whose first order call is `exit()`
+or `order.bracket()` burned reference 1 on an instruction that appends no row
+and moves nothing: the buy after it opened on reference 2, and the bracket
+carried a reference no order ever shared, which a host reconciling the two
+cannot find on the other side. A bracket carries the position the leg is holding
+or opening, and `0` otherwise, which is what a cancellation already carried for
+the same reason: neither is an order and neither has a position of its own.
+`host-interface.md` 7.1 says it, because a host is the party that has to read it.
+
+**Decision, part six. `order.reverse`'s opening half mints unconditionally, and
+that is correct by construction.** It is the one entry that never passes the
+division issue 0018 installed, which is worth an answer rather than a shrug. A
+reference minted there has nothing on it, so that order cannot cross it and
+cannot settle it on a side it did not open on. Routing it through `entering`
+instead is not merely unnecessary, it is a defect, and a run says so rather than
+an argument: the orders of a call are all mapped before any of them appends a
+row, so the closing half is not in the ledger yet and the opening half is
+divided against the very position the closing half is flattening. `buy(qty =
+10)` and then `order.reverse()` became two sells of ten on reference 1 with
+nothing at all opening the replacement, and reference 1 opened ten long and
+settled ten short. Three existing tests fail on it, and `parts.test.ts` now pins
+the reference as well as the quantities. What the opening half does depart from
+is 17.7's "joins the position on its own side": it mints even where the leg
+holds a position on that side already. That costs an extra reference and no
+correctness, every reference it makes can still be closed, and it is recorded
+here as decided rather than left to be discovered.
+
+**What is not pinned, stated rather than left to be found.** `workingUnits` no
+longer subtracts a fill from a claim the engine could not count in units, which
+is the same unit mixing one scope out: the claim stands whole until the order
+ends, which is what 17.1's sentence says in the first place. No test fails when
+that is put back, and the reason is worth writing down rather than leaving for
+somebody to find. `holdings.ts` blocks a reference carrying an unreadable
+reduction, so the difference between the two readings is invisible at the
+destination in every shape that could be built for it, and a test asserting it
+would be asserting a number rather than a behaviour.
+
+**How it was tested.** Eight examples on the destination's own inbox, one of
+them measuring what the destination's answers come to rather than what the
+engine kept, and a property fuzz over two thousand generated scripts of ten bars
+each, against a destination that answers late, partially, out of order, with
+rejections, with more than was asked, with a frame repeated, with a stale
+cumulative quantity restated after a later one, and not at all. The oracle is
+folded from what the host sent and what it answered and reads nothing the engine
+kept, on purpose: an oracle folded from the ledger agrees with the engine by
+construction, which is how both of these defects passed 1414 tests. It holds
+three sentences: no order takes a reference from one sign to the other, a
+reference that opened on one sign never ends on the other, and an order sent to
+flatten a part is on the side that reduces that part. What 17.1 does not answer
+for is written into the walk rather than into each property, and it is narrow on
+purpose: excluding every reference a close in lots was ever sent against also
+excludes this issue's own measured script, where not one order was larger than
+what the reference held.
+
+Every fix was then mutated back, one at a time, and the suite run against each:
+the examples and the fuzz between them catch all of them, and the fuzz alone
+catches the two the issue was opened for. Twenty thousand runs of fourteen bars
+on seeds no committed test uses found nothing further.
+
+**Changes required.**
+
+- `src/core/engine/ledger/closable.ts`: `closingFor`, the part's own holding as
+  one function, `committed` on the part's own side, and the leg bounding a part
+  only where the two are on one side.
+- `src/core/engine/ledger/place.ts`: the close's side from the part, and the
+  bracket's reference.
+- `src/core/engine/ledger/row.ts`: `Reduction.claimed`, and `workingUnits`
+  holding a claim it could not count whole until the order ends.
+- `src/core/engine/ledger/holdings.ts`: every row read by its own quantity in
+  units, and `outgoingFor`.
+- `src/core/engine/ledger/sizing.ts`: the unsizable close's attachment, and the
+  call sending nothing where the leg holds no position on that side.
+- `src/core/engine/ledger/positions.ts`: `attached`, which mints nothing.
+- `spec/stdlib.md` 17.1, 17.2 and 17.7; `spec/host-interface.md` 7.1;
+  `spec/feature-matrix.md`, six rows.
+- `tests/engine/parts.test.ts`, `tests/engine/fuzz.test.ts` and
+  `tests/engine/fuzz-support.ts`, all new.
+- `docs/strategies/orders.md`, `docs/strategies/reading-the-books.md` and
+  `docs/reference/functions/strategy.md`.
+
+---
+
 ## Applier index
 
 Seven appliers, each owning its own files and nobody else's. A decision touching

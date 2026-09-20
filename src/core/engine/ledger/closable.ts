@@ -1,5 +1,12 @@
 /**
- * What is left to reduce, `stdlib.md` 17.1 and 17.2.
+ * What is left to reduce and which side reduces it, `stdlib.md` 17.1 and 17.2.
+ *
+ * **Both questions are about a part rather than about the leg**, and the leg is
+ * the case of a part that no tag names. A leg can be long under one tag and
+ * short under another, and then its net answers neither question for either of
+ * them: `close(tag)` taking its side from the net sent an order that added to
+ * the part it was told to flatten, and a count taken from the net did not see
+ * the close already on its way to that part.
  *
  * **What is available to reduce is the settled position less everything already
  * working against it.** A position is folded from settled fills and from
@@ -109,6 +116,38 @@ function heldUnder(ctx: Closing, tag: string): number {
   return held;
 }
 
+/**
+ * What the part a call names holds, signed the way a position is.
+ *
+ * The leg where the call names no tag, and the settled quantity of that tag's
+ * own rows where it names one. **One function because it is one question**, and
+ * every number this file produces about a part is taken from it: how much is
+ * there to close, which side reduces it, and how much of it an order the engine
+ * cannot read is assumed to have taken.
+ */
+function holdingOf(ctx: Closing, tag: string | null): number {
+  return tag === null ? ctx.size() : heldUnder(ctx, tag);
+}
+
+/**
+ * The side that reduces the part a call names, or nothing where it holds none.
+ *
+ * **The direction of a close comes from the part it was told to flatten**, and
+ * taking it from the leg is how a call named `close` opened a position: a leg
+ * holding ten long under one tag and four short under another is a net six
+ * long, so `close(tag)` on the short part was answered with a sell, which took
+ * that part to eight short and cut the other one to six. `stdlib.md` 17.2 says
+ * the call flattens the part of the position carrying one tag, and says of the
+ * reading that takes the leg's net that it would let close open a position.
+ *
+ * A part whose own rows have netted to nothing has no side and the call sends
+ * nothing, which is 17.2's idempotence and the same answer a flat leg gives a
+ * bare close.
+ */
+export function closingFor(ctx: Closing, tag: string | null): OrderSide | undefined {
+  return closingSide(holdingOf(ctx, tag));
+}
+
 /** What one part of the leg can still close, and whether that was measured. */
 export interface Closable {
   /** The units a close may still send against it. */
@@ -137,13 +176,19 @@ export interface Closable {
  * after it took short offered a close the whole twelve, five of which were
  * already on their way.
  *
+ * **The side is the part's own**, which is the leg's where no tag names one. A
+ * part can sit on the side its leg is not on, and then the orders that reduce
+ * it are the ones the leg's net calls additions: measured from the leg, the
+ * count for a short part under a long leg counted the sells that were adding to
+ * it and missed the buys that were taking it off.
+ *
  * `holdings.ts` makes the same reading per position reference, and the two
  * agree by construction: what a close may send across the leg is never more
  * than the positions on that side can give it.
  */
 function committed(ctx: Closing, tag: string | null): Closable {
-  const size = ctx.size();
-  const side = closingSide(size);
+  const held = holdingOf(ctx, tag);
+  const side = closingSide(held);
   if (side === undefined) return { units: 0, counted: true };
   let units = 0;
   let counted = true;
@@ -163,12 +208,12 @@ function committed(ctx: Closing, tag: string | null): Closable {
     // no part of anything.
     if (tag !== null && row.tag !== tag) continue;
     if (row.units === null) {
-      // A quantity in the declaration's own unit, working against the leg and
+      // A quantity in the declaration's own unit, working against this part and
       // unreadable as a number of units. Taken to cover the whole of what is
       // there, which is the reading `stdlib.md` 17.1 already makes for the
       // other order it cannot read: a close that sends nothing over an order
       // that crosses zero.
-      units += Math.abs(size);
+      units += Math.abs(held);
       counted = false;
       continue;
     }
@@ -181,10 +226,23 @@ function committed(ctx: Closing, tag: string | null): Closable {
  * What a `close` can still close, in units, whether or not it names a quantity.
  *
  * The whole leg where the call names no tag, and the part that tag entered
- * where it names one, bounded by what the leg holds so that closing a part can
- * never cross zero, and less what is already working against it. Zero while the
+ * where it names one, less what is already working against it. Zero while the
  * leg is flat, zero for a tag whose rows have netted to nothing, and zero once
  * the orders already sent have the whole of it going.
+ *
+ * **A part on the leg's own side is bounded by the leg**, so that closing a
+ * part can never take the leg through zero: the part is what the call names,
+ * and the leg is what the order comes out of.
+ *
+ * **A part on the other side is not**, and bounding it there was the second
+ * half of taking a direction from the net. Closing a short part under a long
+ * leg is a buy, which moves the leg away from zero rather than towards it, so
+ * there is nothing for the leg's own number to bound: measured against it, a
+ * part holding ten short on a leg netting two long was offered two, and on a
+ * leg netting nothing at all it was offered nothing. What that order may
+ * actually send is still bounded per position by what has settled there
+ * (`holdings.ts`), so a part whose reference has already returned to zero sends
+ * nothing rather than opening it again.
  *
  * Both readers ask this one question. The quantity a script states is refused
  * against this number (OS7017) and the quantity the engine works out for itself
@@ -196,8 +254,10 @@ export function closable(ctx: Closing, tag: string | null): Closable {
   const spent = committed(ctx, null);
   const leg = Math.max(0, Math.abs(ctx.size()) - spent.units);
   if (tag === null) return { units: leg, counted: spent.counted };
+  const held = heldUnder(ctx, tag);
   const own = committed(ctx, tag);
-  const part = Math.max(0, Math.abs(heldUnder(ctx, tag)) - own.units);
+  const part = Math.max(0, Math.abs(held) - own.units);
+  if (Math.sign(held) !== Math.sign(ctx.size())) return { units: part, counted: own.counted };
   return part <= leg
     ? { units: part, counted: own.counted }
     : { units: leg, counted: spent.counted };

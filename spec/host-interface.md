@@ -732,7 +732,7 @@ the host states what happened.
 | `loss` | number? | The same for its stop |
 | `tag` | string | The script's own label, `""` when it named none. A `"cancel"` intent names the tag it cancels |
 | `product` | string | The strategy's `product` option (`language.md` section 13.3), passed through untranslated |
-| `positionRef` | number or string | The position reference of `stdlib.md` section 17.7 |
+| `positionRef` | number or string | The position reference of `stdlib.md` section 17.7. `0` on an intent that is about no position of its own: every `"cancel"`, which names an order rather than a position, and a `"bracket"` set while the leg holds none. No reference an engine mints is `0` |
 | `bar` | object | The index and the open time of the bar whose close decided it |
 
 Three notes, each of which is a mistake somebody has already made:
@@ -763,6 +763,16 @@ back. A trailing stop is never part of a bracket intent, because it is a rule th
 engine evaluates every bar rather than a price an order can rest at (`stdlib.md`
 section 17.9); what reaches the host when a trail is hit is an ordinary exit
 order.
+
+**A bracket's `positionRef` is the position it protects, and `0` where there is
+none.** A bracket appends no row and moves no position, so it never mints a
+reference of its own (`stdlib.md` section 17.7): it carries the position the leg
+is holding or opening at the moment it is set, and `0` when the leg holds none,
+which is the ordinary case for a script whose first order call is `exit()` and
+for one that brackets before it enters. A host reconciling intents against
+positions therefore looks a bracket's reference up only when it is not `0`, and
+the same is true of a cancellation, which names an order and no position at all.
+An engine that minted one here would hand over a reference no order ever carries.
 
 **A distance is carried as a distance.** `profit` and `loss` are measured from
 the entry of the order the intent's tag names, and that entry is a fill: it

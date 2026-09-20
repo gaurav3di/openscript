@@ -9,6 +9,67 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A close now flattens the part it was told to flatten, on the side that reduces
+it.** `close(tag)` took its direction from the leg's net rather than from the
+part the tag names, so it could send an order that **added** to that part. A leg
+holding ten long under one tag and four short under another is a net six long,
+and closing the short part was answered with a sell of four: that part went to
+eight short, the other tag's long was cut to six, and a call named `close` had
+opened position. This is the shape a hedge is written in, and `stdlib.md` 17.2
+says of the reading that takes the leg's net that it would let `close` open a
+position. Three things follow it and are now held: what is already working
+against a part is counted on the part's own side, so a second `close(tag)` holds
+back the close already on its way instead of sending the part again; a part on
+the side its leg is not on is closed by the whole of itself rather than by
+whatever the leg has left, because closing it moves the leg away from zero; and
+a part whose position has already returned to zero sends nothing rather than
+opening it again.
+
+**A position reference no longer reads as the side it is not on.** A reference's
+side was read from what had settled on it plus what a reduction claimed of the
+**leg** at the moment it was sent, and those two numbers can drift apart. A
+second stated close claims nothing, because the first already spoke for the
+whole leg, and it still fills and still reduces what has settled: the sum went
+negative, the reference read short while it was long, and an entry opposing it
+was handed it as an order that **adds**. Under a declaration counting in lots,
+cash or an equity percent, `buy(qty = 10)` and then two closes of one and a
+`sell(qty = 9)`, with every order answered in full and nothing rejected, left
+reference 1 having opened ten long and settled one short. A reference is now
+measured against the orders' own sizes, which fall as a fill arrives, so the two
+halves of that sum cannot drift.
+
+**Two more, both found by the properties rather than by reading, and both the
+same sentence: a close is sent against the position it is closing.** A close
+whose quantity the engine cannot count in units was handed the reference an
+entry was opening on the other side, where the leg's own long was entirely
+inside an order the destination still had. And a bracket minted a position
+reference when the leg was flat, so a script whose first order call is `exit()`
+or `order.bracket()` burned reference 1 on an instruction that appends no row
+and moves nothing: the entry after it opened on reference 2, and the bracket
+carried a reference no order ever shared, which a host reconciling intents
+against positions cannot find on the other side. **A bracket now carries the
+position it protects, and `0` where the leg holds none**, which is what a
+cancellation has always carried; `host-interface.md` 7.1 says so for the party
+that has to read it.
+
+**`order.reverse` is unchanged, and now says why.** Its opening half mints a
+position of its own without going through the division every other entry takes.
+That is correct by construction rather than an omission: a reference minted
+there has nothing on it, so the order cannot cross it. Dividing it instead is a
+defect, because the orders of a call are all mapped before any of them appends a
+row, so the opening half would be divided against the very position the closing
+half is flattening. `tests/engine/parts.test.ts` pins the reference now as well
+as the quantities.
+
+**How much of this is checked rather than promised.** Two thousand generated
+scripts, ten bars each, against a destination that answers late, partially, out
+of order, with rejections, with more than was asked, with a frame repeated, with
+a stale quantity restated after a later one, and not at all. The oracle is
+folded from what the host sent and what it answered and reads nothing the engine
+kept, because an oracle folded from the ledger agrees with the engine by
+construction, which is how both of these defects passed 1414 tests. Every fix
+was then mutated back one at a time and the suite run against each.
+
 **An order now knows which position it belongs to.** An order picked its position
 reference by comparing its own side against the leg's net, which is folded from
 settled fills, so while an entry was unanswered the leg read flat and an order

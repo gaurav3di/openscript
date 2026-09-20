@@ -53,6 +53,14 @@ placed while the whole of a position is already in an order the destination stil
 has opens a position of its own, because the one it would join is about to reach
 zero and end. So group by `positionRef` rather than assuming there is one.
 
+**An instruction that orders nothing carries no position of its own.** A bracket
+and a cancellation both reach a destination as intents, and neither appends a
+row or moves a position: a bracket names the position the leg is holding or
+opening when you set it, and `0` where the leg holds none, which is what your
+first `exit()` of a run carries. A cancellation names an order and carries `0`
+always. Look a reference up only when it is not `0`, and `host-interface.md`
+section 7.1 is where that is written for whoever builds the other side.
+
 ## Statuses, and what terminal means
 
 The status words, and which of them are terminal, are the vocabulary of

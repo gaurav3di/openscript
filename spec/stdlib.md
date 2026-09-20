@@ -1471,6 +1471,20 @@ it is closing. So where the engine cannot read the quantity a close states, that
 position is what the order may take past zero, and that is the one shape of this
 section an engine does not keep outright, named again at the end of it.
 
+**The position it is closing is the oldest one holding the side the close
+reduces**, and that is true whether or not what has settled there is already
+spoken for. A position whose whole settled quantity is inside an order the
+destination still has has nothing left for a close that works its own quantity
+out, so it is not offered one; but a close whose quantity the engine cannot read
+is not choosing a number, and the position it is closing is still that one.
+Reading the two as one question sent a close in lots against the position an
+entry was opening on the other side, which is a call named close adding to a
+position. **Where the leg holds no position on the side the close reduces, the
+call sends nothing**, whatever it stated: a close is never minted a position, so
+there is nothing for it to be sent against. A part netted over one tag's rows
+can read as holding something when no position does, because a position is not
+netted per tag.
+
 **What is available to reduce is the settled position less everything already
 working against it.** A position is folded from settled fills and from nothing
 else (section 17.8), so an order the destination has not answered has filled
@@ -1620,6 +1634,34 @@ cannot tell it from an ordinary bar: a tag that has never named a ledger row is
 also what a working script looks like before its entry has fired. A tag the
 script computes is not read at all. Closing a tag that named rows which now hold
 nothing is not this: it is idempotence, it sends nothing, and it says nothing.
+
+**The side of a close is the side that reduces what it is flattening**, which is
+the part where a tag names one and the leg where none does. The two are not the
+same question, and a leg is where they give different answers: it can be long
+under one tag and short under another, and its net says nothing about either.
+Taken from the net, `close(tag)` on a part holding four short under a leg six
+long is a sell of four, which takes that part to eight short and cuts the other
+tag's long to six, and that is the reading this section has already refused for
+a stated quantity, because it lets `close` open a position. A part whose own
+rows have netted to nothing has no side and the call sends nothing, which is the
+idempotence above and the same answer a flat leg gives a bare close.
+
+**A part is closed against what it holds, and what is already working against it
+is counted on the part's own side too.** The close on its way to flatten a short
+part is a buy, which the leg's net calls an addition, so a count taken from the
+leg does not see it and the next `close(tag)` sends the part a second time. What
+a part can still close is the same subtraction one scope in: what that tag's
+rows hold, less what is already coming off them.
+
+**A part on the side its leg is not on is not bounded by the leg.** Where the
+two are on one side the leg is the ceiling, so that closing a part can never
+take the leg through zero. Where they are not, closing the part moves the leg
+away from zero rather than towards it, and there is nothing for the leg to
+bound: a part holding ten short under a leg netting two long is closed by ten,
+not by two, and under a leg netting nothing at all it is still closed by ten.
+What bounds that order is the positions themselves, each of which takes only
+what has settled on it, so a part whose position has already returned to zero
+sends nothing rather than opening it again.
 
 **A `qty` written on a close may not be larger than what that close is
 closing**, which is the whole leg where no tag is named and the part one tag
@@ -1907,6 +1949,16 @@ that side, and there is none when the whole of what it holds is already in an
 order the destination still has: that position will reach zero and end, and an
 order joining it would have to settle into a position that has already ended. So
 a leg may hold more than one position on one side as well as one on each.
+
+**An instruction that places no order carries the position it is about, and
+never one of its own.** A bracket sets a level on the leg and a cancellation
+names an order; neither appends a row and neither moves a position, so neither
+mints a reference. A bracket carries the position the leg is holding or opening,
+and where the leg holds none there is no position to name: minting one there
+took a reference for an instruction that ordered nothing, so the entry after it
+opened on the next one and the bracket named a reference no order ever carried,
+which is a number a host reconciling the two cannot find on the other side.
+`host-interface.md` section 7.1 says what reaches the host when there is none.
 
 **Every position a leg holds can be brought back to zero**, which is what makes
 the sentence above a rule rather than a hope. An order on the side that reduces

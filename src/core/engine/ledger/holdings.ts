@@ -51,7 +51,7 @@
  * position, so every fill, however late, says which position it settled.
  */
 import type { OrderSide } from './intent.js';
-import { isTerminal, workingUnits } from './row.js';
+import { isTerminal } from './row.js';
 import type { LedgerRow } from './row.js';
 
 /** One position reference a leg holds, and what may still be done to it. */
@@ -143,15 +143,19 @@ export function holdings(ctx: Book): readonly Holding[] {
     // back.
     if (isTerminal(row.status)) continue;
     const sign = row.side === 'buy' ? 1 : -1;
-    // A reduction carries its own count in units, measured when it was sent,
-    // including the one the engine had to assume (`row.ts`, `Reduction`). An
-    // order that adds carries its own quantity, where the engine can read it.
-    const remaining =
-      row.reduces !== null
-        ? workingUnits(row)
-        : row.units === null
-          ? null
-          : Math.max(0, row.units - row.filledQty);
+    // **Every row is read the same way, by the order's own quantity in units**,
+    // because this sum is compared against what has settled on this reference
+    // and both halves have to fall together when a fill arrives.
+    //
+    // A reduction used to be read by what it claimed of the leg when it was
+    // sent (`row.ts`, `Reduction`), which is a number about the leg rather than
+    // about the order: a second stated close claims nothing, because the first
+    // already spoke for the whole leg, and it still fills and still takes what
+    // it filled off what has settled here. The settled half fell, the claimed
+    // half did not, the sum went negative, the reference read as the side it is
+    // not on, and an entry opposing it was handed it as an order that adds. It
+    // then opened long and settled short with every order answered in full.
+    const remaining = row.units === null ? null : Math.max(0, row.units - row.filledQty);
     const reduces = Math.sign(tally.settled) === -sign;
     if (remaining === null) {
       tally.unreadable = row.side;
@@ -200,6 +204,46 @@ export function holdings(ctx: Book): readonly Holding[] {
  */
 export function opposing(book: readonly Holding[], side: OrderSide): readonly Holding[] {
   return book.filter((one) => one.side !== side);
+}
+
+/**
+ * The position an order the engine cannot size is sent against, `stdlib.md`
+ * 17.1, or none where the leg names no position at all.
+ *
+ * **A close is never minted a position of its own.** It is named for reducing,
+ * so it goes on the position it is closing, and where the engine cannot read
+ * the quantity it states, that position is the one the order may take past
+ * zero: the one shape of 17.1 an engine does not keep, waiting on the lot size
+ * OS7005 is deferred on.
+ *
+ * **What has settled comes first, and the book's own list second.** A reference
+ * whose settled quantity is entirely spoken for by orders that are still going
+ * is not in the book above, because it has nothing left for an engine-sized
+ * close to send. An order the engine cannot size is not choosing a quantity, so
+ * that exclusion does not apply to it: the position it is closing is still that
+ * one. Taking the book's answer alone sent a close on a reference an entry was
+ * opening on the other side, which is an order named close adding to a
+ * position: with the leg's whole long inside a close the destination still had,
+ * `close(qty = 1)` in cash was handed the reference a short entry had just
+ * opened, and was a sell on it.
+ *
+ * A reference with nothing settled either way is the second answer rather than
+ * the first, because a position being opened is a position under 17.1 and an
+ * order that reduces the leg has to name one of them.
+ */
+export function outgoingFor(
+  ctx: Book,
+  book: readonly Holding[],
+  side: OrderSide,
+): number | null {
+  const facing = side === 'buy' ? -1 : 1;
+  const seen = new Set<number>();
+  for (const row of ctx.rows()) {
+    if (seen.has(row.positionRef)) continue;
+    seen.add(row.positionRef);
+    if (Math.sign(ctx.sizeOf(row.positionRef)) === facing) return row.positionRef;
+  }
+  return opposing(book, side)[0]?.ref ?? null;
 }
 
 /**

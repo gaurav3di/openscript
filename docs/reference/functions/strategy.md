@@ -135,6 +135,18 @@ only send nothing on every bar while the position stayed open. A tag that is
 placed somewhere and holds nothing right now is not that: the call sends nothing,
 says nothing, and closing the same tag twice is safe to write.
 
+**The side is the side that reduces what you are flattening.** With no tag that
+is the leg, and with one it is the part that tag holds, which can be the other
+way round: scale into a long under one tag and hedge it short under another, and
+the leg is long while the part is short. `close(tag = "hedge")` there is a buy,
+because that is what flattens the hedge, and the leg's net says nothing about it.
+A part holding nothing has no side, so the call sends nothing.
+
+What that close may send is what the part holds, less whatever is already coming
+off it, and the leg is a ceiling on it only where the two are on one side: a
+part on the other side is closed by the whole of itself, because closing it
+moves the leg away from zero rather than through it.
+
 `qty` may not be larger than what this close is closing, which is the whole leg
 where no tag is named and the part one tag entered where one is, less whatever is
 already working against it. Larger is OS7017, naming what was asked for and what

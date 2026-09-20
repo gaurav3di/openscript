@@ -35,18 +35,25 @@ export class Positions {
   private attaching: number | null = null;
 
   /**
-   * The reference an instruction that orders nothing is labelled with.
+   * The position an instruction that orders nothing is labelled with, or none.
    *
-   * Minted when the leg is flat and nothing has been sent against a position
-   * yet, and kept while one is being opened. **It is not how an order picks its
-   * position**, and it was: an order attached to whatever was current went on a
-   * reference whose sign was not its own, which is issue 0018. Which position
-   * an order is sent against is decided from what the leg holds including what
-   * is working (`holdings.ts`), and this is left for the one caller that sends
-   * no order at all, a bracket, which sets a level on the leg and moves nothing.
+   * The position being opened or held now, and **nothing is minted for it**.
+   * This is not how an order picks its position and it was: an order attached
+   * to whatever was current went on a reference whose sign was not its own,
+   * which is issue 0018. Which position an order is sent against is decided
+   * from what the leg holds including what is working (`holdings.ts`), and this
+   * is left for the one caller that sends no order at all, a bracket, which
+   * sets a level on the leg and moves nothing.
+   *
+   * **Absent while the leg holds nothing**, which is a bracket set before the
+   * position it protects exists: the commonest shape there is, an `exit()` on
+   * the same bar as the entry, and a script whose first call is `exit()` or
+   * `order.bracket()`. Minting there took a reference for an instruction that
+   * appends no row and moves nothing, so the entry after it opened on the next
+   * one and the bracket named a position no order ever carried, which is a
+   * number a host reconciling the two cannot find on the other side.
    */
-  reference(): number {
-    if (this.attaching === null) this.attaching = this.mint();
+  attached(): number | null {
     return this.attaching;
   }
 
