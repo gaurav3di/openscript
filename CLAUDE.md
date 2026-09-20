@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Thirteen checks enforce these, and each one of them is a rule somebody broke once.
+Fourteen checks enforce these, and each one of them is a rule somebody broke once.
 `npm test` runs all of them, and so does every pull request. The count is here to
 be corrected when it changes, not to be trusted: `package.json`'s `test` script
 is the list.
@@ -119,6 +119,16 @@ improve; a code is a promise.
 A test that cannot fail is documentation with a green tick on it. Before adding
 one, write down the wrong implementation it is supposed to catch and check that it
 would actually fail.
+
+**A figure the specification prints is measured by a test, not quoted by one.**
+`stdlib.md` section 20 prints a count beside every arrangement it refuses, and
+five sentences there have had to be withdrawn or corrected because their figures
+were measured once and by nobody since. `tests/stdlib/section-20.ts` reads a
+figure out of the page by pattern so the document is the input, and
+`scripts/check-section-20.mjs` fails the build on a count in that section which
+no test reads back. What the check cannot do, and says so, is decide whether the
+sentence beside the figure constrains anything: that stays attention, and 20.1
+says why.
 
 ## Every release
 

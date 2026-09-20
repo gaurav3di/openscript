@@ -192,7 +192,9 @@ test("20.3: alma's exponent is one division, and the grouping of its product fix
     }
   }
   const [differed, total] = figuresIn(/it differs on (\d+) of the (\d+) exponents/, 2);
+  const [again] = figuresIn(/over those same (\d+) exponents the two groupings never differ/, 1);
   assert.equal(weights, total, 'the kernels the page counts over');
+  assert.equal(again, total, 'and the zero beside it is counted over the same kernels');
   assert.equal(chained, differed, 'the chain of divisions 20.3 refuses');
   assert.equal(regrouped, 0, 'the grouping 20.3 no longer fixes');
 });

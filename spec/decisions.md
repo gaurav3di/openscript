@@ -3792,6 +3792,136 @@ on seeds no committed test uses found nothing further.
 - `docs/strategies/orders.md`, `docs/strategies/reading-the-books.md` and
   `docs/reference/functions/strategy.md`.
 
+## 53. What a zero in section 20 means, and the half of 20.1 a check can carry
+
+**Question.** Decision 51 wrote the test a sentence in `stdlib.md` section 20
+has to pass: name the second arrangement it refuses, and count where the two
+differ. It also left `linreg`'s "the sums over `x` are constants of `len` and
+are formed as written" in place, judged borderline, on the grounds that editing
+it would need a measured refusal nobody had. There is one, and a sweep of the
+section for the same shape found a second sentence of it and a third sentence
+that was simply false.
+
+**Decision, part one. `linreg`, with the figures.** The blanket covered two
+halves and only one of them can be failed. The half that can: the sum of squares
+is one product divided once by 6, and splitting the divisor into the 2 and the 3
+it is made of, `(((len - 1) * len) / 2) * ((2 * len - 1) / 3)`, is a different
+number on 3716 of the whole lengths from 1 to 100000, the first at a length of
+15, where it gives 1014.9999999999999 against 1015. The half that cannot: the
+grouping of the products. Every pairwise product there is a whole number below 2
+to the 53rd at any length a window can have, so whichever pair is multiplied
+first is exact and the second multiplication rounds the same true product once.
+Both halves are now written out with what they were measured over.
+
+**Decision, part two. A zero is not always one of the four.** 20.1 said a clause
+whose count is zero is one of its four items in a new spelling. `linreg`'s
+product regrouping is not: both spellings are roundings, and what makes them
+agree is the size of the operands rather than the shape of the step. So the
+sentence in 20.1 now says a zero fixes nothing whatever the reason, that most
+zeros are one of the four, and that a zero is written down with the population
+it was measured over and with the edge where it stops being one: for the sum of
+squares that edge is a length of 67108869, where a pairwise product stops being
+exact.
+
+**Decision, part three. `wma`'s divisor, which is the fifth vacuous sentence.**
+"The divisor is computed as written" reads as a constraint and is not one.
+`(len * (len + 1)) / 2`, `len * ((len + 1) / 2)` and `(len / 2) * (len + 1)`
+differ only in where a halving falls, which is exact, and adding the weights 1
+to `len` up reaches the same whole number. Over the lengths 1 to 100000 none of
+them differ. The entry now says so, and keeps the sentence beside it that does
+bite: the divisor meets the finished total rather than each term as it is added.
+
+**Decision, part four. 20.2.1 said something false, not merely empty.** "It is
+not bit-identical to a fresh sum on any bar" is wrong: a carried total agrees
+with a fresh sum wherever the roundings happen to cancel, which over a walk of
+twenty thousand bars is 236 of the 19981 windows at length 20. A reader who
+checked the claim on one of those windows would have concluded the two
+arrangements were the same one. What is true is measured and now printed: it
+differs on 19745 of those 19981 windows, and the gap grows with the history, 4.5
+ulps at worst over the first thousand windows and 40.3 over the last thousand.
+`compiled-program.md` 8.3 is untouched, because what it says is that the
+algorithm is not bit-identical to a fresh sum, which is a statement about the
+two algorithms rather than about every bar.
+
+**Decision, part five. The mechanical half of 20.1, as a check.** Deciding
+whether a sentence is vacuous cannot be mechanised, for the reason decision 51
+gives. Keeping its figure honest can be: `scripts/check-section-20.mjs` reads
+every count section 20 prints and requires each one to sit inside the span of
+the page that some test's own `figuresIn` pattern matches. A figure quoted in
+the section and measured nowhere is now a red build. The check states what it
+does not reach, as `check-names.mjs` does: a count is recognised by a list of
+written shapes, coverage is positional rather than by value so that a new
+"differs on 31" cannot ride on an unrelated sentence's 31, and whether the
+sentence beside the figure is worth making stays attention. It found the three
+figures `ema` prints, which were quoted in a test comment and asserted by
+nothing: that test now reads them out of the page and asserts the counts
+exactly, where it used to ask only that some bar differed.
+
+**What the sweep measured.** Forty-one arrangements across 20.2 to 20.9, each
+implemented both ways and run. Thirty-four constrain on the values the function
+carries. Two constrain only outside it: `2 * a - b` against `a + (a - b)`, in
+`hma`'s `raw` and in `dema`, never differs while the two averages are within a
+factor of two of each other, which is where two averages of one series always
+are, and differs on 5773 of 20000 pairs spread across nine decades. Neither
+entry names that second arrangement, so neither sentence changes. Five fix
+nothing at any length a chart can have, and all five are the two sentences above.
+
+**The sweep, entry by entry, so the next reader starts from the map rather than
+from the section.** Each was implemented both ways and run; the figures are this
+round's measurement rather than normative text, which is why they are here and
+not in the page: a count printed in section 20 has to be measured by a test, and
+writing twenty of those was not this round's job. The sentences all constrain,
+which is what the page claims of them.
+
+- 20.2.1 a carried total, 20.3 `wma`'s per term division, `rma` against the
+  exponential shape and against `running + (value - running) / len`, `vwma`'s
+  two means, `tema` regrouped, `psar`'s step as
+  `(1 - a) * stop + a * extreme`, `ichimoku`'s third element recomputed, and
+  `adx`'s association of the hundred: every one differs on between a quarter and
+  all of its population.
+- 20.2.2's seeding from bar 0 is the one whose count looks small and is not: at
+  length 20 over a four thousand bar walk it differs on about three hundred
+  bars, and every one of them is early, from bar 19 to bar 321 and none after,
+  because the seed decays and the two lines converge. The entry claims it is
+  materially wrong until it does, which is what the shape of the difference says
+  rather than what its count says.
+- 20.4 `stoch`, `roc`, `trix` and `tsi`'s association the other way, `cci`'s
+  numerator as two divisions, `ultimateOsc`'s three terms regrouped and divided
+  term by term: 4301 to 9883 of 20000 each.
+- 20.5 `variance` in one pass differs on all 3981 windows measured, the two band
+  readings recomputed from the basis and the width on about 19450 of 20000 each,
+  `chop`'s association on 7286, `hv` annualised inside the root on 7031.
+- 20.6 the `ad` term with the volume divided into the span first, `pvt` with the
+  volume met before the division, `eom` with the division taken first: about
+  1380 of 4000 bars each.
+- 20.7 `round` against `floor(x + 0.5)` differs on every exact half below zero
+  and on 2456 of 5000 values just below a half, and `round(x, decimals)` scaled
+  by the reciprocal on 4337 of 20000.
+- 20.8 `percentile` interpolated as a weighted pair on 5200 of 20000,
+  `percentRank` with the division first on 31405 of 125250 rank and length
+  pairs, `correlation` by the root of a product on 7468 of 20000, `avgSkip`
+  divided by `len` on all of them.
+- 20.9 `mix` as a weighted pair on 5290 of 20000 channels and 5987 of 20000
+  alphas. The alpha is not rounded, so that difference reaches the chart
+  outright, and the rounded channels are reachable too: from 4 toward 214 at a
+  weight of 0.35 is 77.5 written as the page writes it and 77.49999999999999
+  written the other way, which is 78 against 77 after 11.2's rounding.
+
+**Changes required.**
+
+- `spec/stdlib.md` 20.1: what a zero means, and what the check does and does not
+  reach.
+- `spec/stdlib.md` 20.2.1: the carried total's real counts and its drift.
+- `spec/stdlib.md` 20.3: `linreg`'s two halves, and `wma`'s divisor.
+- `scripts/check-section-20.mjs`, new, and `package.json`'s `test` script.
+- `tests/stdlib/arrangements.test.ts`, new, and `walk` in
+  `tests/stdlib/section-20.ts`.
+- `tests/gate/ema.test.ts`: the three figures read out of the page.
+- `tests/stdlib/maths.test.ts`: `alma`'s second population read as well.
+- `CLAUDE.md`: fourteen checks.
+
+---
+
 ---
 
 ## Applier index

@@ -2419,15 +2419,33 @@ blocker. This section is what it refers to.
      pass over the mean is.
 
   **The test a sentence has to pass to go in here: name the second arrangement
-  it refuses, and count where the two differ.** A clause with no second
-  arrangement to name is not a constraint, and one whose count is zero is one of
-  the four above in a new spelling. Every sentence this section has had to
-  withdraw failed that test the same way: it fixed something about one operation
+  it refuses, and print the count of where the two differ.** A clause with no
+  second arrangement to name is not a constraint, and one whose count is zero
+  fixes nothing, whatever the reason. Most zeros are one of the four above in a
+  new spelling. Not all of them are: an arrangement of two roundings can still
+  come out at zero because of what the operands are, as the grouping of
+  `linreg`'s sum of squares does, where the first multiplication of either
+  grouping is exact and the second therefore rounds one true product once. That
+  is why the test is a count rather than a list to check the sentence against,
+  and why a zero is written down with the population it was measured over and
+  the edge where it stops being zero. Every sentence this section has had to
+  withdraw failed the test the same way: it fixed something about one operation
   on its own, which way round its operands sat, whether its result was named,
   which of two exact spellings produced it. Only a relation between two
   roundings can be fixed, and not one of those is one. A sentence that cannot
   bite sends an implementer to check a half that cannot differ, which is the
   cost 20.10 exists to avoid on whole functions.
+
+  **What a check can do about this, and what it cannot.** It cannot decide
+  whether a new sentence is vacuous: deciding that means implementing both
+  readings and running them, and a vacuous sentence is precisely one that names
+  no second reading to implement, so there is nothing for a checker to read. One
+  half of the test is mechanical, though, and `scripts/check-section-20.mjs`
+  enforces it: every count this section prints is read back out of this page by
+  a test that measures it again. A figure typed here and measured nowhere is how
+  each of the withdrawn sentences survived as long as it did, and that failure
+  is now a red build rather than a reader's attention. Whether the sentence
+  beside the figure is worth making is attention, and it stays attention.
 - **A function this section does not name does not depend on the order of its
   operations.** Section 20.10 says which those are and why, so an implementer can
   tell a silence that means "no constraint" from a silence that means "nobody
@@ -2473,12 +2491,17 @@ never a running mean.
 **The sum is taken fresh over the window on every bar.** The incremental
 alternative, carrying a total forward and subtracting the value that leaves the
 window, is the same quantity in exact arithmetic and a different number in
-binary64: its error accumulates without bound over a long history and it is not
-bit-identical to a fresh sum on any bar. `compiled-program.md` section 8.3
-refuses it outright, and no function in this library defines the incremental form
-as its reference. The anchored running totals of section 20.6 are not an
-exception: they have no window to sum, so they are a different quantity rather
-than a cheaper way to compute the same one.
+binary64, and its error grows with the history rather than with the window.
+Over a walk of twenty thousand bars it differs from the fresh sum on 19745 of
+the 19981 windows at length 20, on 19980 of the 19992 at length 9 and on 19301
+of the 19951 at length 50. The windows it agrees on are the ones whose roundings
+happen to cancel, 236 of the 19981 at length 20, and they are not the early
+ones: there the two are at most 4.5 ulps apart over the first thousand windows
+and 40.3 ulps apart over the last thousand, which is a drift rather than a fixed
+error. `compiled-program.md` section 8.3 refuses it outright, and no function in
+this library defines the incremental form as its reference. The anchored running
+totals of section 20.6 are not an exception: they have no window to sum, so they
+are a different quantity rather than a cheaper way to compute the same one.
 
 The cost is `len` additions per bar, bounded by the length the script asked for
 rather than by how much history is loaded.
@@ -2557,7 +2580,7 @@ is a conforming implementation of a different function. Neither is
 algebra and a third set of last bits.
 
 **`wma(src, len)`** accumulates oldest first, so weight 1 is added first and
-weight `len` last, and the divisor is computed as written:
+weight `len` last, and divides once at the end:
 
 ```text
 divisor = (len * (len + 1)) / 2
@@ -2572,6 +2595,16 @@ result  = total / divisor
 The weight on `w[k]` is `len - k`, formed as a multiplication of the value by the
 whole number weight, not by a precomputed fraction. Dividing each term by
 `divisor` as it is added is a different number.
+
+**Nothing is fixed about how the divisor itself is formed**, and the line above
+is one spelling of it rather than a constraint. `(len * (len + 1)) / 2`,
+`len * ((len + 1) / 2)` and `(len / 2) * (len + 1)` are the same product scaled
+by a power of two, which is exact, so they are one value: over every whole
+length from 1 to 100000 they differ on 0. Adding the weights 1 to `len` up
+instead reaches the same value again, because every partial sum is a whole
+number below 2 to the 53rd and whole number addition below that is exact: over
+the first 2000 lengths it differs on 0 as well. What is fixed is what the
+divisor is applied to, and that is the sentence above this one.
 
 **`swma(src)`** takes its four weights in the same oldest first order and divides
 once at the end:
@@ -2663,8 +2696,7 @@ the values it builds are the ones these lines produce. This is the one average
 whose value depends on `exp`: see 20.11.
 
 **`linreg(src, len, offset)`** fits over `x` running 0 at the oldest bar of the
-window to `len - 1` at this one. The sums over `x` are constants of `len` and are
-formed as written:
+window to `len - 1` at this one. The sums over `x` are constants of `len`:
 
 ```text
 sumX        = ((len - 1) * len) / 2
@@ -2680,6 +2712,26 @@ slope     = (len * sumXY - sumX * sumY) / divisor
 intercept = (sumY - slope * sumX) / len
 result    = intercept + slope * (len - 1 - offset)
 ```
+
+**The sum of squares is one product divided once, and it is not
+`(((len - 1) * len) / 2) * ((2 * len - 1) / 3)`.** Splitting the 6 into the two
+factors it is made of, so that each half of the product meets its own divisor
+before the two are multiplied, holds every intermediate below the whole product
+and is a different number: over every whole length from 1 to 100000 the two part
+company on 3716, the first at a length of 15, where the split gives
+1014.9999999999999 against 1015.
+
+**Nothing is fixed about how either product is grouped.** `(len - 1) * len`,
+`len * (2 * len - 1)` and `(len - 1) * (2 * len - 1)` are whole numbers below 2
+to the 53rd at every length a window can have, so whichever pair is multiplied
+first is exact and the second multiplication rounds the same true product once:
+over those same 100000 lengths the regrouped sum of squares differs on 0, and so
+does `sumX` with its halving moved to either factor, which is 20.1's third rule.
+That zero has an edge of its own and it is not 20.1's: it is the length at which
+a pairwise product stops being exact, which for the sum of squares is first at a
+length of 67108869, further out than any chart has bars. A zero count can be
+reached this way as well as through one of 20.1's four, which is why the rule
+there is stated as a count rather than as a list.
 
 Each accumulation adds its own terms oldest first. Neither reads the other, so
 whether an engine runs them in one pass or in two is not fixed: 20.1's fourth

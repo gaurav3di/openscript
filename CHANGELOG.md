@@ -9,6 +9,27 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The arithmetic manifest now measures what it prints, and a check keeps it
+that way.** `stdlib.md` section 20 is the page a second engine implements its
+arithmetic from, and the way it goes wrong is always the same: a figure is
+measured once, printed beside a refusal, and believed forever. Three sentences
+there are corrected. `linreg` said its sums over `x` were "formed as written",
+which covered a real refusal and a spelling that cannot be failed: splitting the
+divisor of the sum of squares into the 2 and the 3 it is made of differs on 3716
+of the whole lengths from 1 to 100000, first at 15, where it gives
+1014.9999999999999 against 1015, while the grouping of the products cannot
+differ at any length a window can have. `wma` said its divisor was "computed as
+written" and nothing about how it is written changes its value. And 20.2.1 said
+a carried total is not bit-identical to a fresh sum on any bar, which is false:
+it agrees on 236 of the 19981 windows at length 20 over a walk of twenty
+thousand bars, and what is true, that it differs on the other 19745 and drifts
+further as the history grows, is now the sentence. **A new check,
+`scripts/check-section-20.mjs`, requires every count the section prints to be
+read back out of the page by a test that measures it again**, so a figure
+quoted there and measured nowhere fails the build. It found the three counts the
+exponential mean prints, which a test quoted in a comment and asserted nothing
+about.
+
 **A close now flattens the part it was told to flatten, on the side that reduces
 it.** `close(tag)` took its direction from the leg's net rather than from the
 part the tag names, so it could send an order that **added** to that part. A leg

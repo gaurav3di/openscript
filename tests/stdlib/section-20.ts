@@ -145,6 +145,40 @@ export function everyBinade(): readonly number[] {
  * looks like. The generator is a plain xorshift so that every machine and every
  * run counts the same windows.
  */
+/**
+ * A price walk of `count` bars, for the claims that are about a history rather
+ * than about a window.
+ *
+ * 20.2.1 refuses a carried total, and what is wrong with one only appears over
+ * a long run of bars: the drift grows with the history, so a fixture of eighty
+ * bars would report a difference too small to distinguish from the ordinary
+ * one. Each bar moves by up to a percent from the one before it, which is what
+ * a minute of an instrument looks like, and the generator is a plain xorshift
+ * so that every machine and every run walks the same prices.
+ */
+export function walk(count: number): readonly number[] {
+  let state = 1_103_515_245 >>> 0;
+  const draw = (): number => {
+    state ^= state << 13;
+    state >>>= 0;
+    state ^= state >>> 17;
+    state ^= state << 5;
+    state >>>= 0;
+    return state;
+  };
+  // Two draws again, for the reason `everyBinade` gives: a price whose low
+  // twenty bits are zero adds exactly to its neighbours, and a population of
+  // those cannot show an accumulation difference at all.
+  const next = (): number => draw() / 2 ** 32 + draw() / 2 ** 64;
+  const out: number[] = [];
+  let price = 100 * (1 + next());
+  for (let index = 0; index < count; index += 1) {
+    price = price * (1 + (next() - 0.5) / 50);
+    out.push(price);
+  }
+  return out;
+}
+
 export function priceWindows(count: number): readonly (readonly number[])[] {
   let state = 2_166_136_261 >>> 0;
   const next = (): number => {

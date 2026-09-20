@@ -13,6 +13,8 @@ import { test } from 'node:test';
 import type { Series } from '../../src/core/stdlib/index.js';
 import { assertWarmup } from '../stdlib/support.js';
 
+import { figuresIn } from '../stdlib/section-20.js';
+
 import { asSeries, seededMean } from './reference.js';
 import { CLOSE, plot, plotsOf } from './support.js';
 
@@ -123,17 +125,33 @@ function differences(one: Series, other: Series): number {
 
 /**
  * Catches an engine that steps with `running + (value - running) * weight`,
- * which is the same algebra and a different set of last bits. Against the
- * library's own line it disagrees on 70 of the 72 values at length 9, 42 of 61
- * at length 20 and 30 of 31 at length 50, so this assertion fails the moment
- * the arrangement is the one 20.3 refuses.
+ * which is the same algebra and a different set of last bits.
+ *
+ * The counts are the ones 20.3 prints, read out of the page rather than typed
+ * here, which is the shape the strength reading beside this already uses: a
+ * figure the page quotes and nothing measures is how three sentences in that
+ * section went wrong. An assertion that only asked for one differing bar would
+ * pass on a page that had drifted to any other number.
  */
 test('the arrangement 20.3 refuses gives different numbers on this fixture', () => {
-  for (const len of LENGTHS) {
+  const printed = figuresIn(
+    /one multiplication rather than two\.[\s\S]*?it differs from these lines on\s+(\d+) of the (\d+) values at length (\d+), (\d+) of the (\d+) at length (\d+) and (\d+) of the (\d+) at\s+length (\d+)/,
+    9,
+  );
+  for (let which = 0; which < 3; which += 1) {
+    const [differed, total, len] = printed.slice(which * 3, which * 3 + 3) as [
+      number,
+      number,
+      number,
+    ];
     const drawn = plot(plotsOf('ema', { len }), 'Mean');
     const refused = steppedMean(CLOSE, len, STEPS.incremental(len));
-    assert.notDeepEqual(drawn, refused, `the refused arrangement matched at length ${len}`);
-    assert.ok(differences(drawn, refused) > 0, `no bar differs at length ${len}`);
+    assert.equal(
+      drawn.filter((one) => one !== null).length,
+      total,
+      `the values the page counts at length ${len}`,
+    );
+    assert.equal(differences(drawn, refused), differed, `at length ${len}`);
   }
 });
 
