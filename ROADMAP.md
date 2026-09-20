@@ -144,6 +144,32 @@ A server-side engine running the same compiled program. Process isolation per
 strategy, scheduling against exchange calendars, per-script logs, paper trading
 by default and live only when deliberately armed.
 
+**Strategy execution is server side, and never the browser's.** Decided rather
+than deferred, so nothing earlier is built as though a tab might run a strategy
+one day. Three things force it and none is a preference. A production container
+ships no runtime for the language the front end is written in, so the only place
+a browser engine could run is the browser. A tab that closes stops every strategy
+in it, and closing a tab is not a decision anybody makes about their positions.
+And one page is one heap and one main thread, so the number of strategies a
+trader can run would be set by their browser rather than by their machine, and
+they would all fail together.
+
+What makes the alternative possible is a decision already made for another
+reason: the compiled program is plain data rather than generated code. It was
+made so the language could run under a strict content security policy, and it is
+what lets an engine in another language run the same program at all. This phase
+is where that pays.
+
+**Phase 5 owes this phase its run record.** Phase 5's gate is that a backtest is
+reproducible from its stored script revision months later; this phase's gate is
+that two engines agree on every conformance case. Those are one artefact seen
+twice: a compiled program, the bars it ran over, the settings it ran with, and
+the deterministic result. A run recorded so that another implementation can
+replay and compare it IS a conformance case, so the suite this phase is measured
+against is a by-product of the phase before it rather than something invented
+here. Invented here, it would test what somebody imagined a run does instead of
+what runs actually did.
+
 **Gate:** the two engines agree on every conformance case. A disagreement is a
 release blocker, because a backtest that disagrees with the chart is worthless.
 
