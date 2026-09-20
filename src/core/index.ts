@@ -247,7 +247,19 @@ export type {
   HostBar,
   Instrument,
   PendingEffect,
-  Position,
+  RoutedEffect,
+} from './engine/index.js';
+/**
+ * The order boundary: what a strategy sends, what a host reports back, and the
+ * ledger the two fold into (`host-interface.md` 7, `stdlib.md` 17.7).
+ */
+export type {
+  FrameOutcome,
+  Identity,
+  LedgerRow,
+  OrderFrame,
+  OrderIntent,
+  OrderStatus,
 } from './engine/index.js';
 export { DEFAULT_LIMITS } from './engine/index.js';
 export type { EngineLimits } from './engine/index.js';

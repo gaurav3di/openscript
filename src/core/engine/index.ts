@@ -22,7 +22,7 @@
  *   data produce the same numbers.
  */
 export { Engine } from './engine.js';
-export type { BarResult, RunResult } from './engine.js';
+export type { BarResult, RunResult } from './results.js';
 
 export { load } from './load.js';
 export type { LoadOptions, LoadResult } from './load.js';
@@ -45,12 +45,26 @@ export type {
   EffectRoute,
   EngineHost,
   Instrument,
-  Position,
   RequestAnswer,
   RequestProvider,
   RequestQuery,
   RequestRefusal,
+  RoutedEffect,
 } from './host.js';
+
+export type {
+  FrameOutcome,
+  FrameRefusal,
+  Identity,
+  IntentBar,
+  IntentKind,
+  LedgerRow,
+  OrderFrame,
+  OrderIntent,
+  OrderSide,
+  OrderStatus,
+  OrderType,
+} from './ledger/index.js';
 
 export type { SessionFacts, SessionHours } from './session/index.js';
 

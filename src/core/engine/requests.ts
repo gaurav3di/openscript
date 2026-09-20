@@ -51,7 +51,7 @@ import type { HostBar } from './bars.js';
 import type { Clock, EngineLimits } from './budget.js';
 import type { EngineHost } from './host.js';
 import type { ResolvedInput } from './inputs.js';
-import type { HostFacts, ManifestEntry } from './library/index.js';
+import type { HostFacts, ManifestEntry, PositionFacts } from './library/index.js';
 import type { Registers } from './registers.js';
 import { RequestBody, bodyProgram } from './request-body.js';
 import { askHost, reasonFor, undatable, undatableReason } from './request-plan.js';
@@ -72,6 +72,8 @@ export interface RequestParts {
   readonly inputs: readonly ResolvedInput[];
   /** The facts a body inherits, with its own identity written over three of them. */
   readonly facts: HostFacts;
+  /** The strategy's own position, which a body reads as the chart's bars do. */
+  readonly position: PositionFacts;
   /**
    * The heap of the machine these reads land in, read when a bar asks for it.
    *
@@ -199,6 +201,7 @@ function build(parts: RequestParts, request: Request, plan: RequestPlan): Read {
     limits: parts.limits,
     clock: parts.clock,
     host: facts,
+    position: parts.position,
     library: parts.library,
     inputs: request.body.inputs.map((one) => ({
       series: one.series,

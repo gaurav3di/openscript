@@ -37,6 +37,7 @@ import type {
 } from '../../src/core/engine/index.js';
 import type { Series, Value } from '../../src/core/stdlib/index.js';
 
+import { engineHostFor, pageHost } from '../hosts/index.js';
 import { BARS } from '../stdlib/vectors.js';
 import type { RefBar } from './reference.js';
 
@@ -78,12 +79,28 @@ export const REF_BARS: readonly RefBar[] = BARS.map((bar) => ({
 /** The source the studies are computed from. */
 export const CLOSE: readonly number[] = BARS.map((bar) => bar.close as number);
 
-export const HOST: EngineHost = {
-  instrument: { symbol: 'AAA', exchange: 'XX', interval: '1', tickSize: 0.05, lotSize: 50 },
-  now: BASE_TIME,
-  position: { size: 0, avgPrice: 0 },
-  route: () => {},
-};
+/**
+ * The host, built by `tests/hosts/`: the page typed out, and nothing else.
+ *
+ * Six facts stated and six left out, which is what 4.1 asks of a host that has
+ * six: `hasVolume` is the one fact every host states, and a fact nobody knows is
+ * absent rather than guessed. A destination is wired because duty 5 is optional
+ * and a host without one refuses every strategy at load.
+ */
+export const HOST: EngineHost = engineHostFor(
+  pageHost({
+    instrument: {
+      symbol: 'AAA',
+      exchange: 'XX',
+      interval: '1',
+      tickSize: 0.05,
+      lotSize: 50,
+      hasVolume: true,
+    },
+    now: BASE_TIME,
+    destination: {},
+  }),
+);
 
 export interface Compiled {
   readonly file: SourceFile;

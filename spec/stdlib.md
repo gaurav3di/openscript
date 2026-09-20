@@ -1322,13 +1322,17 @@ case supplies frames from its case directory (`conformance.md` section 3).
 
 **Most of this section is marked planned, and the fourteen entries that are not
 are the ones an engine can answer today.** Six order functions place an order,
-three more spell the same act differently, and five position facts are read from
-the host's own position row. Every other entry here is folded from the strategy
-ledger of section 17.7, or is a rule evaluated against it by the legs and the
-book of sections 17.6 and 17.9 to 17.11, and no engine holds a ledger in this
-release. The names stay in this table because the shape of the surface is part
-of what the language promises and hiding it would make the promise harder rather
-than smaller. What the marker changes is when a script is told: a marked name is
+three more spell the same act differently, and five position facts are folded
+from what those nine sent and what the destination reported back. All fourteen
+rest on one thing, which is why they are the fourteen: the ledger of section
+17.7, which the run keeps. **No position fact is read from a host's position
+row**, and section 17.1 is the rule rather than the preference.
+
+Every other entry here is a rule evaluated against that ledger by the legs and
+the book of sections 17.6 and 17.9 to 17.11, or a figure that needs a cost model
+to compute, and neither exists in an engine in this release. The names stay in
+this table because the shape of the surface is part of what the language promises
+and hiding it would make the promise harder rather than smaller. What the marker changes is when a script is told: a marked name is
 refused at the call, where a reader can see what they wrote, with a message that
 says it is planned, instead of compiling and then being refused at load with a
 message that names a function and gives no reason.
@@ -1383,6 +1387,10 @@ number that is not a quantity of anything and cannot be sent anywhere.
 
 An order is filled according to the declaration's `fillOn` option
 (`language.md` section 13.3), with the declared slippage and commission applied.
+**The party that applies them is the destination**, whether that destination is a
+paper one, a backtest's own or a venue: the engine folds the price it is told
+(section 17.8) and never adjusts one. Two parties applying a slippage apply it
+twice, and neither applying it is a backtest that lies in the other direction.
 
 An order function given an absent price or quantity is OS7002 and places nothing,
 per `language.md` section 6.8.

@@ -26,8 +26,8 @@ import { test } from 'node:test';
 import { load } from '../../src/core/engine/index.js';
 import type { Engine, HostBar } from '../../src/core/engine/index.js';
 
-import { PAGE_INSTRUMENT } from './page-host.js';
-import type { PageBar } from './page-host.js';
+import { PAGE_INSTRUMENT } from '../hosts/index.js';
+import type { PageBar } from '../hosts/index.js';
 import { asWire, compile } from './support.js';
 
 const HOUR = 3_600_000;

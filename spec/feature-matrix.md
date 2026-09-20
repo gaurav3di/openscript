@@ -835,6 +835,9 @@ from a `study()` file is OS7001.
 | `order.bracket` | Attach or replace a bracket on the open position | `specified` | `stdlib.md` 17.3 | `order/bracket-namespace` |
 | `order.working`, `order.pending` | Whether a tag is live and unfilled, and how many orders are | `specified` | `stdlib.md` 17.3 | `order/working` |
 | The order and fill ledger | The strategy's own record of what it sent and what filled, which every position figure is folded from | `specified` | `stdlib.md` 17.7 | `order/ledger` |
+| The frame intake | An engine that takes orders exposes a way for its host to deliver one frame, at any moment between bars; without it a host holding cumulative frames has nowhere to put them and the ledger never leaves `placed` | `specified` | `host-interface.md` 7.4 | `order/frame-intake` |
+| The quantity's unit | An intent states the unit its quantity is counted in and the engine translates none of it, on the same ground a product is passed untranslated: a lot is the venue's fact and the host owns symbology | `specified` | `host-interface.md` 7.1, `language.md` 13.3 | `order/qty-unit` |
+| A bracket's distance | A target or a stop stated as a distance travels as a distance, because the entry it is measured from is a fill the destination knows before the engine does | `specified` | `host-interface.md` 7.1, `stdlib.md` 17.2 | `order/bracket-distance` |
 | The status vocabulary | The words an order's status may take, which of them are terminal, and which of them a host may send | `specified` | `stdlib.md` 17.7 | `order/status-vocabulary` |
 | The position reference | Every order settles against the position its own order names, which is why a flip is two orders and a late fill finds the position it belonged to | `specified` | `stdlib.md` 17.7 | `order/position-reference` |
 | Folding an order frame | Cumulative frames folded once, whatever order they arrive in and however many times | `specified` | `stdlib.md` 17.8 | `order/fold-frame` |

@@ -9,6 +9,32 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A strategy's position is folded from what it traded, and a host is no longer
+asked for one.** The five position facts answered from a position row on the
+engine's host type, which no specification document describes and which a host
+built from the page does not supply. On such a host every one of them read
+absent, so a guard written `flat = pos.size == 0` was absent rather than true,
+the branch was not taken, and a strategy shipped in `examples/` placed no orders,
+raised no diagnostic and drew its plots as though it were working. The run now
+keeps the ledger those facts were always documented to come from: an order call
+becomes the order intents the host interface specifies, each intent appends a
+row, and the cumulative frames a host reports fold into those rows exactly as the
+library page's fold says, including the repeated frame that must cost nothing and
+the fill that arrives after a cancellation and must not be thrown away. What a
+script reads is what that strategy traded, which is the point: an account
+position row is shared with every other strategy and every manual trade in the
+same contract, so a size computed against one is computed against somebody
+else's. The position option on the chart adapter is gone with it.
+
+**A host can now deliver an order frame.** Sending cumulative frames has been a
+conformance duty since the host interface page was written, the frame was
+specified in ten fields, and no engine exposed anywhere to put one: an
+implementer working through the list searched for an interface that was not
+there. An engine that takes orders now takes a frame at any moment between bars,
+folds what arrived at the bar boundary so that every position fact is constant
+for the length of one execution, and reports on that bar what each frame did,
+a refused one included.
+
 **A series the engine cannot run on is now refused instead of computed on.** Two
 codes the host interface page requires, OS6010 for no bars at all and OS6011 for
 a bar whose time does not follow the one before it, were in the catalogue and in

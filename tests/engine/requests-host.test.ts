@@ -4,7 +4,7 @@
  *
  * `requests.test.ts` is the fold: which requested bar a chart bar is allowed to
  * see, over bars the engine already holds. This file is the hand-over itself.
- * Every host here is `page-host.ts`, which is `spec/host-interface.md` typed out
+ * Every host here is `tests/hosts/`, which is `spec/host-interface.md` typed out
  * and nothing else, because a suite that drives the engine with a host written
  * against the engine tests one side of an interface twice and the other side not
  * at all. That is how a request came to carry three fields section 5.2 does not
@@ -19,8 +19,8 @@ import test from 'node:test';
 import { load } from '../../src/core/engine/index.js';
 import type { HostBar, Value } from '../../src/core/engine/index.js';
 import { asWire, compile } from './support.js';
-import { PageHost, engineHostFor, lengthOf, pageInstrument, rangeFor } from './page-host.js';
-import type { PageBar, PageRequest, PageSeries } from './page-host.js';
+import { PageHost, engineHostFor, lengthOf, pageInstrument, rangeFor } from '../hosts/index.js';
+import type { PageBar, PageRequest, PageSeries } from '../hosts/index.js';
 
 const OPEN = Date.UTC(2025, 0, 6, 10, 0, 0);
 const FIVE_MINUTES = 300_000;
@@ -122,7 +122,7 @@ function ran(
 /** A chart of five minute bars on the page's own record. */
 function chartHost(options: Partial<ConstructorParameters<typeof PageHost>[0]> = {}): PageHost {
   return new PageHost({
-    instrument: { interval: '5', symbol: 'AAA' },
+    instrument: pageInstrument({ interval: '5', symbol: 'AAA' }),
     bars: fiveMinutes(24),
     ...options,
   });
@@ -165,7 +165,7 @@ test('a request carries the fields section 5.2 prints, with the values it says',
  */
 test('the exchange a script did not name arrives as the chart exchange', () => {
   const host = chartHost({
-    instrument: { interval: '5', symbol: 'AAA', exchange: 'ONE_VENUE' },
+    instrument: pageInstrument({ interval: '5', symbol: 'AAA', exchange: 'ONE_VENUE' }),
     serves: [shelf(hourly(4, OPEN - HOUR), { exchange: 'ONE_VENUE' })],
   });
   const { columns } = ran(OTHER, host, 4);
@@ -180,7 +180,7 @@ o = req.symbol("BBB", "1h", close, exchange = "OTHER_VENUE")
 plot(o, "O")
 `;
   const host = chartHost({
-    instrument: { interval: '5', symbol: 'AAA', exchange: 'ONE_VENUE' },
+    instrument: pageInstrument({ interval: '5', symbol: 'AAA', exchange: 'ONE_VENUE' }),
     serves: [shelf(hourly(4, OPEN - HOUR), { exchange: 'OTHER_VENUE' })],
   });
   ran(source, host, 4);
@@ -367,7 +367,7 @@ plot(str.contains(req.error(o), "BBB") ? 1 : 0, "Named")
 plot(str.contains(req.error(o), "ONE_VENUE") ? 1 : 0, "Venue")
 `;
   const host = chartHost({
-    instrument: { interval: '5', symbol: 'AAA', exchange: 'ONE_VENUE' },
+    instrument: pageInstrument({ interval: '5', symbol: 'AAA', exchange: 'ONE_VENUE' }),
     serves: [],
   });
   const { columns } = ran(source, host, 4);
@@ -403,7 +403,10 @@ test('a host that serves the duty and knows the instrument not refuses rather th
  */
 test('a host that does not serve requests refuses the program at load, naming the tag', () => {
   const compiled = clean(OTHER);
-  const host = new PageHost({ instrument: { interval: '5', symbol: 'AAA' }, bars: fiveMinutes(4) });
+  const host = new PageHost({
+    instrument: pageInstrument({ interval: '5', symbol: 'AAA' }),
+    bars: fiveMinutes(4),
+  });
   const loaded = load(asWire(compiled.program), {
     source: compiled.file,
     host: engineHostFor(host),

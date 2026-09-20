@@ -46,6 +46,7 @@ import type {
   Guard,
   HostFacts,
   ManifestEntry,
+  PositionFacts,
   StateRecord,
 } from './library/index.js';
 import type { Memory } from './memory.js';
@@ -73,6 +74,8 @@ export interface MachineParts {
   readonly budget: Budget;
   readonly guard: Guard;
   readonly host: HostFacts;
+  /** The strategy's own position, read from the run's ledger. */
+  readonly position: PositionFacts;
   /** The library entry behind each `lib.functions` index, resolved at load. */
   readonly library: readonly ManifestEntry[];
   /** The position table of each function body, by function index. */
@@ -137,6 +140,7 @@ export class Machine {
     this.ctx = {
       heap: parts.heap,
       host: parts.host,
+      position: parts.position,
       guard: parts.guard,
       state: NO_STATE,
       get span(): Span {

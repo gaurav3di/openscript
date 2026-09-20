@@ -36,7 +36,7 @@ import { Machine } from './machine.js';
 import { NO_SESSION } from './session/index.js';
 import { Memory } from './memory.js';
 import { Registers } from './registers.js';
-import type { BarView, HostFacts, ManifestEntry } from './library/index.js';
+import type { BarView, HostFacts, ManifestEntry, PositionFacts } from './library/index.js';
 import type { CompiledProgram, Position, Request } from './types.js';
 import { ABSENT, Heap, isRef, reference } from './values/index.js';
 import type { Value } from './values/index.js';
@@ -73,6 +73,7 @@ export interface BodyParts {
   readonly limits: EngineLimits;
   readonly clock: Clock | undefined;
   readonly host: HostFacts;
+  readonly position: PositionFacts;
   readonly library: readonly ManifestEntry[];
   readonly inputs: readonly BodyInput[];
   readonly nested: NestedRequests | undefined;
@@ -158,6 +159,7 @@ export class RequestBody {
         budget: this.budget,
         guard: guardFor(this.budget),
         host: parts.host,
+        position: parts.position,
         library: parts.library,
         fnPositions,
         spanAt: parts.spanAt,

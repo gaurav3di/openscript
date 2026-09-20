@@ -1961,10 +1961,21 @@ An engine reads all of this from the host and none of it from anywhere else:
 | More bars, on request | Step 4, through `requests` (section 2.16) |
 | A drawing surface | Steps 8 and 9 |
 | An order route | Step 9 |
+| Order frames about the intents this run sent (`host-interface.md` section 7.2) | The bar boundary, before step 4 of the next execution |
 
 `chart.intervalMinutes` and `chart.isIntraday` are not on that list because the
 engine derives them from the interval string rather than reading them, which keeps
-them from disagreeing with the interval they describe. Which facts the record
+them from disagreeing with the interval they describe.
+
+**The strategy's position is not on it either, and it is not read from anywhere
+else.** It is folded from the orders the run sent and the frames the last row
+reports back, under `stdlib.md` section 17.1, which is why the frames are a row
+here and the position is not. A host is never asked for one: its own position row
+is per contract and is shared with every other strategy trading that contract, so
+a position read from it would be somebody else's as much as this run's. An engine
+that took one from a host would answer every `pos` call with a number no rule in
+this format can account for, and would answer absence on a host that conforms to
+`host-interface.md` and states none. Which facts the record
 holds, which of them a host must state and what a script sees when one is absent
 are `host-interface.md` section 4.1's.
 
@@ -1982,8 +1993,8 @@ frame 0 slot, every channel, every table cell buffer, the pending effect list, t
 loop counter, every register's current bar cell.
 
 **Kept from bar to bar:** every cell, every library state region, every series
-register's history, the object heap, and the strategy's position, orders, equity
-and trade list.
+register's history, the object heap, and the strategy's ledger (`stdlib.md`
+section 17.7) with everything folded from it.
 
 A name that is not a `var` is therefore computed fresh every bar even though its
 slot is the same slot, which is exactly `language.md` section 8.1: the previous

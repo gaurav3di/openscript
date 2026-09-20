@@ -1,12 +1,18 @@
 /**
- * The calls that read the host rather than the bars: the instrument, the
+ * The calls that read something other than the bars: the instrument, the
  * session, the position, and the order functions.
  *
  * `compiled-program.md` 5.2 lists what an engine reads from the host and from
- * nowhere else, and everything here is one row of that list. Two of them are
- * deliberately not: `chart.intervalMinutes` and `chart.isIntraday` are derived
- * from the interval string rather than read, which keeps them from disagreeing
- * with the interval they describe.
+ * nowhere else, and every `chart` entry here is one row of that list. Two of
+ * them are deliberately not: `chart.intervalMinutes` and `chart.isIntraday` are
+ * derived from the interval string rather than read, which keeps them from
+ * disagreeing with the interval they describe.
+ *
+ * **The five `pos` entries are not host facts at all.** They read the run's own
+ * ledger (`stdlib.md` 17.7), folded from the orders this strategy sent and the
+ * fills the destination reported for them. An account position is held per
+ * contract and shared with every other strategy trading it, so a script that
+ * read one would be deciding against somebody else's trade (`stdlib.md` 17.1).
  *
  * **An order call performs nothing.** It appends a record to the pending effect
  * list and pushes absent, and the list is applied at step 9 only when the bar is
@@ -83,11 +89,11 @@ export const CHART_ENTRIES: readonly ManifestEntry[] = [
   entry('session.isFirstBar', '', (ctx) => ctx.bar.isSessionFirst),
   entry('session.isLastBar', '', (ctx) => ctx.bar.isSessionLast),
 
-  entry('pos.size', '', (ctx) => ctx.host.positionSize()),
-  entry('pos.avgPrice', '', (ctx) => ctx.host.positionPrice()),
-  entry('pos.isLong', '', (ctx) => sideOf(ctx.host.positionSize(), 1)),
-  entry('pos.isShort', '', (ctx) => sideOf(ctx.host.positionSize(), -1)),
-  entry('pos.isFlat', '', (ctx) => sideOf(ctx.host.positionSize(), 0)),
+  entry('pos.size', '', (ctx) => ctx.position.size()),
+  entry('pos.avgPrice', '', (ctx) => ctx.position.avgPrice()),
+  entry('pos.isLong', '', (ctx) => sideOf(ctx.position.size(), 1)),
+  entry('pos.isShort', '', (ctx) => sideOf(ctx.position.size(), -1)),
+  entry('pos.isFlat', '', (ctx) => sideOf(ctx.position.size(), 0)),
 
   deferred('print', 'value', 'log'),
   deferred('buy', 'qty limit stop tag leg', 'order'),
@@ -101,7 +107,7 @@ export const CHART_ENTRIES: readonly ManifestEntry[] = [
   deferred('order.bracket', 'tag profit loss leg', 'order'),
 ];
 
-/** Which side a position size is on, absent when the host states no position. */
+/** Which side a position is on, absent where the size is not a number. */
 function sideOf(size: Value, want: number): boolean | null {
   if (typeof size !== 'number') return null;
   const side = size > 0 ? 1 : size < 0 ? -1 : 0;

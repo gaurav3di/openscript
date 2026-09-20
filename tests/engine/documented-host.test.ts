@@ -37,13 +37,13 @@ import { test } from 'node:test';
 import { load } from '../../src/core/engine/index.js';
 import type { Engine, Value } from '../../src/core/engine/index.js';
 
-import { PAGE_INSTRUMENT } from './page-host.js';
-import type { PageBar, PageState } from './page-host.js';
+import { PAGE_INSTRUMENT, deliverTo } from '../hosts/index.js';
+import type { PageBar, PageState } from '../hosts/index.js';
 import { asWire, compile } from './support.js';
 
 /**
  * The instrument record, section 4.1, and the bar and state shapes of 3.1 and
- * 6.4, are `page-host.ts`: the page typed out, shared with the suite that tests
+ * 6.4, are `tests/hosts/`: the page typed out, shared with every suite that
  * the hand-over of duty 3, so the two cannot come to disagree about what the
  * document prints.
  */
@@ -133,9 +133,11 @@ function runThroughHost(): { engine: Engine; columns: Map<string, readonly Value
 
   for (let bar = 0; bar < BARS.length; bar += 1) {
     const state = STATES[bar] as PageState;
-    const result = engine.append(BARS[bar] as PageBar, {
-      isConfirmed: state.isConfirmed,
-      isRealtime: state.isRealtime,
+    const result = deliverTo(engine, {
+      bar: BARS[bar] as PageBar,
+      state,
+      // A history load, so the host holds the whole dataset and says so.
+      supplied: BARS.length,
     });
     assert.equal(result.diagnostic, undefined, `bar ${bar} reported ${result.diagnostic?.code}`);
   }
@@ -190,8 +192,11 @@ function tradedAverage(): readonly (number | null)[] {
     // The order of operations is the contract's: high plus low, close added to
     // that, then divided.
     const price = (one.high + one.low + one.close) / 3;
-    flow = flow + price * one.volume;
-    traded = traded + one.volume;
+    // Every bar of this fixture states a volume, because the record states that
+    // the instrument has one. A bar that did not would be absent here, not zero.
+    const volume = one.volume ?? 0;
+    flow = flow + price * volume;
+    traded = traded + volume;
     out.push(flow / traded);
   }
   return out;
@@ -266,9 +271,10 @@ test('the four facts the page gives the host are the four the engine reports', (
   // which is the same bar with a higher count and no longer newly appended.
   const last = BARS.length - 1;
   const moving: PageState = { isNew: false, isConfirmed: false, isRealtime: true, updates: 2 };
-  const result = engine.update(BARS[last] as PageBar, {
-    isConfirmed: moving.isConfirmed,
-    isRealtime: moving.isRealtime,
+  const result = deliverTo(engine, {
+    bar: BARS[last] as PageBar,
+    state: moving,
+    supplied: BARS.length,
   });
   assert.equal(result.diagnostic, undefined, 'the moving bar reported nothing');
 

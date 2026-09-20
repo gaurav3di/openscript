@@ -2243,6 +2243,90 @@ be written that assumes either answer.
 
 ---
 
+## 38. Where a position comes from, and how a frame gets in
+
+**Question.** `stdlib.md` 17's preamble said five position facts are read from
+the host's own position row; `stdlib.md` 17.1 says a strategy folds its position
+from its own settled fills and from nothing else; `host-interface.md` 7.5 says
+the engine is neither handed an account position nor asks for one; and
+`compiled-program.md` 5.2 lists what an engine reads from a host, does not list a
+position, and says it reads none of it from anywhere else. One engine resolved
+the disagreement by reading a position row off its host type, so on a host built
+from the specification every position fact read absent, a guard written
+`flat = pos.size == 0` was absent rather than true, and a strategy shipped in
+`examples/` placed nothing and said nothing.
+
+**Decision. The preamble was the defect, and the ledger is the answer.** A run
+folds a minimal ledger from the intents it routes and the frames a host reports
+for them, and the five position facts read it. No position is read from a host,
+and there is nowhere on the host interface to hand one over.
+
+**Why this way round rather than marking the five planned.** The specification's
+precedence gives the boundary to `host-interface.md`, and that document already
+says the run keeps the ledger of `stdlib.md` 17.7 (H6); the fold is already a
+conformance area with vectors of its own (H2, decision 31); and a case directory
+already supplies frames and maps its ordinals onto the engine's own `intentId`,
+which presumes an engine that mints one. Marking the five planned would refuse
+three of the twelve target scripts, and it would leave the nine order functions
+unmarked with no way for a script to know it is already in the market, which is a
+worse shape than the one being fixed: the order functions would still run.
+
+**What this is not.** The ledger is the rows, the fold and the position folded
+from it. The legs and the book of 17.6 and 17.9 to 17.11, and every figure that
+needs a cost model, stay planned and stay marked.
+
+**Two things the boundary had to settle to make it work.**
+
+**A quantity travels with its unit.** An intent carries the strategy's own
+`qtyType` beside `qty`, untranslated, on the same ground `product` is: a lot is
+the venue's own fact, the host owns symbology, and an engine that multiplied by a
+lot size the host never stated would send a quantity nobody asked for. The one
+quantity stated in units is the one the engine worked out itself from filled
+quantities.
+
+**A bracket's distance travels as a distance.** The entry a distance is measured
+from is the fill of the order the bracket's tag names, and that fill reaches the
+destination before it reaches the engine: on the bar a script writes `buy()` and
+its bracket together, nothing has filled. An engine resolving a distance at the
+call site would measure from a position it does not hold.
+
+**The second defect, in the same area.** `host-interface.md` 10.1 makes sending
+cumulative frames a conformance duty and 7.2 specifies the frame in ten fields,
+and no engine exposed anywhere to deliver one. A duty that cannot be discharged
+is not a duty. The intake is now an obligation on the engine, stated in 7.4 where
+the timing already is.
+
+**Changes required.**
+
+- `host-interface.md` 7.1: `side` and `qty` become absent on the kinds that state
+  neither; a `qtyType` row is added, and `profit` and `loss` rows for a bracket's
+  distances; a note is added beside the `product` note for the quantity's unit,
+  and one under the bracket note for the distance.
+- `host-interface.md` 7.4: the paragraph headed **How a frame reaches the
+  engine**, with the three things the intake fixes.
+- `host-interface.md` 7.5: "The run keeps the ledger of `stdlib.md` section
+  17.7, and every position a script reads is folded from it."
+- `host-interface.md` 10.1, duty 7: the frames are sent through the intake of
+  7.4.
+- `compiled-program.md` 5.2: one row for the frames, and a paragraph saying the
+  position is not on the list and is not read from anywhere else. 5.3's kept list
+  names the ledger and what is folded from it.
+- `stdlib.md` 17, the preamble: the five position facts are folded from the
+  ledger, not read from a host's position row, and what stays planned is the
+  rules and the money figures rather than the ledger itself.
+- `stdlib.md` 17.1: the party that applies `fillOn`, the slippage and the
+  commission is the destination, and the engine folds the price it is told.
+- `feature-matrix.md` 29: three rows, `order/frame-intake`, `order/qty-unit` and
+  `order/bracket-distance`.
+
+**Still open, and deliberately not settled here.** A bracket carries a level and
+the rule that tests it is planned, so a host decides today what a bracket does
+between the moment it is sent and the moment 17.9's standing levels exist. That
+is a question about the levels rather than about where a position comes from, and
+it needs its own decision.
+
+---
+
 ## Applier index
 
 Seven appliers, each owning its own files and nobody else's. A decision touching

@@ -22,14 +22,13 @@
  */
 import type { Diagnostic } from '../diagnostics/index.js';
 import type { Span } from '../span/index.js';
-import { barField, factsFor } from './bars.js';
+import { barField, barViewOf, factsFor } from './bars.js';
 import type { BarFacts, BarState, HostBar } from './bars.js';
 import { alertsFor } from './alerts.js';
-import type { AlertFiring, Alerts } from './alerts.js';
+import type { Alerts } from './alerts.js';
 import { Budget, stepBound } from './budget.js';
 import type { EngineLimits } from './budget.js';
 import { Channels } from './channels.js';
-import type { PendingEffect } from './channels.js';
 import { ScriptError, spanAt, unexpected } from './errors.js';
 import { guardFor } from './guard.js';
 import { hostFactsFor } from './host.js';
@@ -43,6 +42,9 @@ import { Memory } from './memory.js';
 import { Registers } from './registers.js';
 import { Grids } from './grids.js';
 import type { Grid } from './grids.js';
+import type { Ledger } from './ledger/index.js';
+import type { LedgerRow, OrderFrame } from './ledger/index.js';
+import { ledgerFor, routedEffects } from './orders.js';
 import type { CompiledProgram, Position } from './types.js';
 import type { RequestPlan } from './request-plan.js';
 import { NO_SESSION, sessionReader } from './session/index.js';
@@ -54,25 +56,7 @@ import type { Value } from './values/index.js';
 import { Heap } from './values/index.js';
 import { drawingsIn } from './drawings.js';
 import type { Drawing } from './drawings.js';
-
-/** What one execution of one bar produced. */
-export interface BarResult {
-  readonly index: number;
-  /** One value per channel, absent where nothing wrote, in channel order. */
-  readonly columns: readonly Value[];
-  /** Whether step 9 applied the deferred channels and the pending effects. */
-  readonly applied: boolean;
-  readonly effects: readonly PendingEffect[];
-  /** The watched conditions this bar raised, empty on a bar that raised none. */
-  readonly alerts: readonly AlertFiring[];
-  /** The failure that stopped the bar, when one did. */
-  readonly diagnostic: Diagnostic | undefined;
-}
-
-export interface RunResult {
-  readonly bars: readonly BarResult[];
-  readonly diagnostic: Diagnostic | undefined;
-}
+import type { BarResult, RunResult } from './results.js';
 
 export class Engine {
   private readonly registers: Registers;
@@ -86,6 +70,12 @@ export class Engine {
   private readonly onUnconfirmed: boolean;
   private readonly alerting: Alerts;
   private readonly requests: RequestSet;
+  /**
+   * What this strategy sent and what became of it, `stdlib.md` 17.7. Held by
+   * the run rather than asked of the host, because a host's position row is per
+   * contract and shared: reading it is reading somebody else's trade.
+   */
+  private readonly ledger: Ledger;
   /**
    * The instrument's session, read once from the record it belongs to.
    *
@@ -166,8 +156,14 @@ export class Engine {
       failure: (id: Value) => this.requests.failure(id),
     });
 
+    this.ledger = ledgerFor(program, inputs, instrument);
+    const position = {
+      size: (): Value => this.ledger.size(),
+      avgPrice: (): Value => this.ledger.avgPrice(),
+    };
+
     this.facts = factsFor(0, 1, {}, true, 1, NO_SESSION);
-    this.view = this.viewOf({ open: null, high: null, low: null, close: null, time: null });
+    this.view = barViewOf({ open: null, high: null, low: null, close: null, time: null }, this.facts, null);
 
     const fnPositions: (readonly Position[])[] = program.functions.map(() => []);
     for (const [fn, positions] of program.debug.fnPos) fnPositions[fn] = positions;
@@ -182,6 +178,7 @@ export class Engine {
         budget: this.budget,
         guard: guardFor(this.budget),
         host: facts,
+        position,
         library: this.library,
         fnPositions,
         spanAt: (line: number, column: number): Span => spanAt(options.source, line, column),
@@ -199,6 +196,7 @@ export class Engine {
         library: this.library,
         inputs,
         facts,
+        position,
         heapOf: () => this.heap,
         spanAt: (line: number, column: number): Span => spanAt(options.source, line, column),
       },
@@ -206,26 +204,6 @@ export class Engine {
     );
 
     this.grids = new Grids(program, inputs, this.heap);
-  }
-
-  private viewOf(bar: HostBar): BarView {
-    return {
-      index: this.facts.index,
-      open: bar.open ?? null,
-      high: bar.high ?? null,
-      low: bar.low ?? null,
-      close: bar.close ?? null,
-      volume: bar.volume ?? null,
-      time: bar.time ?? null,
-      previousClose: typeof this.previousClose === 'number' ? this.previousClose : null,
-      isConfirmed: this.facts.isConfirmed,
-      isRealtime: this.facts.isRealtime,
-      isNew: this.facts.isNew,
-      isLast: this.facts.isLast,
-      updates: this.facts.updates,
-      isSessionFirst: this.facts.isSessionFirst,
-      isSessionLast: this.facts.isSessionLast,
-    };
   }
 
   /** Whether a failure has stopped this script. A stopped script stays stopped. */
@@ -325,6 +303,21 @@ export class Engine {
     return { bars: out, diagnostic: undefined };
   }
 
+  /**
+   * A frame from the destination, `host-interface.md` 7.2. Held until the next
+   * bar begins rather than folded where it lands: nothing reaches a running
+   * execution, so every position fact is constant for the length of one and a
+   * moving bar sees what its first execution saw.
+   */
+  deliver(frame: OrderFrame): void {
+    this.ledger.deliver(frame);
+  }
+
+  /** The strategy's own ledger, `stdlib.md` 17.7, oldest row first. */
+  orders(): readonly LedgerRow[] {
+    return this.ledger.rows();
+  }
+
   private execute(bar: HostBar, state: BarState, isNew: boolean): BarResult {
     if (this.failure !== undefined) {
       return {
@@ -332,11 +325,16 @@ export class Engine {
         columns: [],
         applied: false,
         effects: [],
+        frames: [],
         alerts: [],
         diagnostic: this.failure,
       };
     }
     const index = this.index;
+    // The fold, at the boundary between two bars and before step 4. A
+    // re-execution folds nothing: the same frames reaching one bar twice would
+    // settle the same fill twice.
+    const frames = isNew ? this.ledger.settle() : [];
     // The bar before this one, which is what says whether this bar opened a
     // session or is inside the one that bar was already in. Read from the bars
     // themselves rather than carried, so a re-executed bar compares against the
@@ -350,7 +348,7 @@ export class Engine {
       this.updates,
       this.sessions.factsAt(bar.time ?? null, previous),
     );
-    this.view = this.viewOf(bar);
+    this.view = barViewOf(bar, this.facts, this.previousClose);
 
     try {
       // Step 2. Any entry a previous execution of this bar wrote is discarded.
@@ -394,7 +392,8 @@ export class Engine {
     // Step 9. The deferred channels and the pending effects, together: a
     // marker, an alert and an order are one decision about one bar.
     const applied = this.facts.isConfirmed || this.onUnconfirmed;
-    const effects = this.channels.decide(index, applied);
+    const pending = this.channels.decide(index, applied);
+    const effects = routedEffects(this.ledger, pending, { index, time: bar.time ?? null });
     const route = this.options.host?.route;
     if (route !== undefined) for (const effect of effects) route(effect, index);
     const alerts = applied
@@ -412,6 +411,7 @@ export class Engine {
       columns: this.channels.row(index),
       applied,
       effects,
+      frames,
       alerts,
       diagnostic: undefined,
     };
@@ -437,7 +437,15 @@ export class Engine {
    */
   private refuse(diagnostic: Diagnostic): BarResult {
     this.failure = diagnostic;
-    return { index: this.index, columns: [], applied: false, effects: [], alerts: [], diagnostic };
+    return {
+      index: this.index,
+      columns: [],
+      applied: false,
+      effects: [],
+      frames: [],
+      alerts: [],
+      diagnostic,
+    };
   }
 
   private stopped(thrown: unknown): BarResult {
@@ -445,7 +453,15 @@ export class Engine {
       thrown instanceof ScriptError ? thrown.diagnostic : unexpected('the bar', thrown);
     this.rollback();
     this.failure = diagnostic;
-    return { index: this.index, columns: [], applied: false, effects: [], alerts: [], diagnostic };
+    return {
+      index: this.index,
+      columns: [],
+      applied: false,
+      effects: [],
+      frames: [],
+      alerts: [],
+      diagnostic,
+    };
   }
 
   /** Step 11, and the sweep that pays for the objects the bar left behind. */

@@ -10,16 +10,18 @@
  * carries a type the rest of the language does not already have.
  *
  * **What is marked `planned` here is what no engine can run yet**, and it is
- * marked rather than left to be discovered. The ledger of section 17.7 is what
- * every reading below is folded from, and the legs and the book of sections
- * 17.6 and 17.9 to 17.11 are rules evaluated against it; none of the three
- * exists in an engine in this release. A name left unmarked would compile and
- * then be refused at load with OS6004, which names a function and not a reason.
- * Marked, it is OS2020 at the call, at the point a reader can see what they
- * wrote, with a message that says it is planned.
+ * marked rather than left to be discovered. The legs and the book of sections
+ * 17.6 and 17.9 to 17.11 are rules evaluated over the ledger, and the money
+ * figures need a cost model; neither exists in an engine in this release. A name
+ * left unmarked would compile and then be refused at load with OS6004, which
+ * names a function and not a reason. Marked, it is OS2020 at the call, at the
+ * point a reader can see what they wrote, with a message that says it is
+ * planned.
  *
- * The six order functions and the five position facts an engine can answer from
- * the host's own position row are not marked, because those do run.
+ * The nine order functions and the five position facts are not marked, because
+ * those do run: the ledger of section 17.7 is folded from the intents those nine
+ * send and the frames a host reports back for them, and the five read it. None
+ * of them reads a host's position row, and section 17.1 is why.
  */
 import { DATA_DRIVEN, entry } from './library.js';
 import type { LibraryEntry } from './library.js';

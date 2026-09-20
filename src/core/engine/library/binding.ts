@@ -98,8 +98,23 @@ export interface HostFacts {
   requestReady(id: Value): Value;
   /** Why a request failed, or the empty string when none has, 15.1. */
   requestError(id: Value): Value;
-  positionSize(): Value;
-  positionPrice(): Value;
+}
+
+/**
+ * What the strategy holds, folded from its own settled fills, `stdlib.md` 17.1.
+ *
+ * Not a host fact, which is why it is not on `HostFacts` beside the instrument
+ * record. An account position is held per contract and is shared with every
+ * other strategy and every manual trade in it, so a strategy that read one
+ * would be sizing against somebody else's trade. What these two report is the
+ * run's own ledger (`stdlib.md` 17.7), and an engine with no ledger has no
+ * business answering them at all.
+ */
+export interface PositionFacts {
+  /** Net position in units, `0` while flat rather than absent. */
+  size(): Value;
+  /** Average price of the open position, absent while flat. */
+  avgPrice(): Value;
 }
 
 /** Everything one call can reach. */
@@ -108,6 +123,8 @@ export interface CallContext {
   readonly span: Span;
   readonly bar: BarView;
   readonly host: HostFacts;
+  /** The strategy's own position, which is the ledger's and not the host's. */
+  readonly position: PositionFacts;
   /** This call site's region, empty on the first bar that reaches the call. */
   readonly state: StateRecord;
   /** The ceilings, so a library call that grows something can be stopped. */

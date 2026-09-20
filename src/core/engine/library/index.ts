@@ -93,6 +93,7 @@ export type {
   HostFacts,
   LibraryCall,
   ManifestEntry,
+  PositionFacts,
 } from './binding.js';
 
 export type { StateRecord, StateSlot } from './state.js';

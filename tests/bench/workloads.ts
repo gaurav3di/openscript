@@ -36,6 +36,7 @@ import { emit } from '../../src/core/emit/index.js';
 import type { CompiledProgram } from '../../src/core/emit/index.js';
 import { load } from '../../src/core/engine/index.js';
 import type { BarState, Engine, EngineHost, HostBar } from '../../src/core/engine/index.js';
+import { engineHostFor, pageHost } from '../hosts/index.js';
 import { bars, moved, states } from './data.js';
 import type { Measurement, Run } from './timing.js';
 
@@ -70,12 +71,20 @@ const EXAMPLES = new URL('../../../examples/', import.meta.url);
  * a benchmark should time the path a real chart takes, and a real chart knows
  * its instrument.
  */
-const HOST: EngineHost = {
-  instrument: { symbol: 'AAA', exchange: 'XX', interval: '1', tickSize: 0.05, lotSize: 50 },
-  now: 1_748_736_000_000,
-  position: { size: 0, avgPrice: 0 },
-  route: () => {},
-};
+const HOST: EngineHost = engineHostFor(
+  pageHost({
+    instrument: {
+      symbol: 'AAA',
+      exchange: 'XX',
+      interval: '1',
+      tickSize: 0.05,
+      lotSize: 50,
+      hasVolume: true,
+    },
+    now: 1_748_736_000_000,
+    destination: {},
+  }),
+);
 
 const sources = new Map<string, string>();
 

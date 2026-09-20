@@ -714,13 +714,16 @@ the host states what happened.
 | `intentId` | number or string | Unique within the run. Every frame about this order carries it back |
 | `kind` | string | `"place"`, `"cancel"` or `"bracket"` |
 | `instrument` | identity | The resolved identity of the leg this order names (`stdlib.md` section 17.1), as section 9 defines an identity. Never a symbol the engine assembled |
-| `side` | string | The order's side (`stdlib.md` section 17.2) |
-| `qty` | number | Quantity in units, positive |
-| `type` | string | The order's type (`stdlib.md` section 17.2) |
+| `side` | string? | The order's side (`stdlib.md` section 17.2). Absent on a cancellation, which names a tag rather than a direction, and on a bracket, whose side is the position's own |
+| `qty` | number? | Quantity, in the unit `qtyType` names, positive. Absent on a cancellation, and on a bracket that names no part of the position |
+| `qtyType` | string | The unit `qty` is counted in: the strategy's own option (`language.md` section 13.3), passed through untranslated. A quantity the engine folded from filled quantities, as a flattening order's is, states units |
+| `type` | string | The order's type (`stdlib.md` section 17.2), `"market"` on a kind that is not an order |
 | `limit` | number? | Limit price, absent where there is none |
 | `trigger` | number? | Stop trigger price, absent where there is none |
 | `target` | number? | A `"bracket"` intent's target price, absent where it names none and on every other kind |
 | `stop` | number? | A `"bracket"` intent's stop price, absent where it names none and on every other kind |
+| `profit` | number? | A `"bracket"` intent's target as a distance from the entry, where the script stated one that way, absent otherwise and on every other kind |
+| `loss` | number? | The same for its stop |
 | `tag` | string | The script's own label, `""` when it named none. A `"cancel"` intent names the tag it cancels |
 | `product` | string | The strategy's `product` option (`language.md` section 13.3), passed through untranslated |
 | `positionRef` | number or string | The position reference of `stdlib.md` section 17.7 |
@@ -737,6 +740,14 @@ translating it is the host's job because only the host knows the venue. The engi
 records what the strategy asked for and the host reports what it actually sent
 (section 7.2), so the two are both on the record when they differ.
 
+**A quantity is passed with the unit it was counted in, for the same reason.** A
+lot is the venue's own fact and the host owns symbology, so an engine that
+multiplied a size in lots by a lot size the host had never stated would send a
+quantity nobody asked for, which is the substitution rule of duty 2 read from the
+order side. `qty` and `qtyType` therefore travel together, and the one quantity
+the engine does state in units is the one it worked out itself from filled
+quantities.
+
 **A bracket is an instruction, not an implementation.** `exit()` and
 `order.bracket()` hand over a protective instruction attached to a tag, carrying
 its target and its stop (`stdlib.md` section 17.2). A host may implement it with
@@ -746,6 +757,13 @@ back. A trailing stop is never part of a bracket intent, because it is a rule th
 engine evaluates every bar rather than a price an order can rest at (`stdlib.md`
 section 17.9); what reaches the host when a trail is hit is an ordinary exit
 order.
+
+**A distance is carried as a distance.** `profit` and `loss` are measured from
+the entry of the order the intent's tag names, and that entry is a fill: it
+reaches the destination before it reaches the engine, and on the bar the script
+writes `buy()` and its bracket together nothing has filled at all. An engine that
+resolved a distance into a price at the call would resolve it against a position
+it does not yet hold, and would hand over a level measured from nothing.
 
 **Timing.** An intent leaves at step 9, and only on a confirmed bar or when the
 program sets `onUnconfirmed` (`compiled-program.md` section 5.4). An order
@@ -827,9 +845,30 @@ repeat, a pair that crossed in flight and one that arrives after the order ended
 are ordinary traffic, and `stdlib.md` section 17.8 is what says what each of them
 does.
 
+**How a frame reaches the engine.** An engine that takes orders **exposes a way
+to deliver one**, and a host may call it at any moment between bars. This is an
+obligation on the engine rather than on the host, and it is stated because the
+duty is unservable without it: a host with cumulative frames in hand and nowhere
+to put them cannot report what became of an order, the ledger of `stdlib.md`
+section 17.7 stays at `placed` for ever, and every position the strategy reads is
+zero while the account holds something.
+
+Three things the intake fixes, and nothing else:
+
+- **It takes one frame.** Not a batch, not a subscription, not a stream the
+  engine drives. A destination speaks one order at a time and a host has nothing
+  to gain by holding a frame back until it has another.
+- **It returns nothing.** What a frame did is read from the run, on the bar the
+  fold happened before, because the fold happens at a bar boundary and the
+  delivery does not.
+- **It is the only way in.** An engine that also read frames from somewhere else
+  would have two accounts of what an order did, and `stdlib.md` section 17.8
+  could not say which of them a position was folded from.
+
 ### 7.5 What the engine keeps, and what it will not read
 
-The run keeps the ledger of `stdlib.md` section 17.7.
+The run keeps the ledger of `stdlib.md` section 17.7, and every position a
+script reads is folded from it.
 
 The engine does not read the account's position, under `stdlib.md` section 17.1.
 A host may show the account's own position beside the strategy's; the engine is
@@ -1036,9 +1075,9 @@ Each of these is a statement someone else can check.
    `warmup`; cancels every outstanding request when a run ends, and delivers
    nothing to a run that has ended.
 7. **Orders.** Carries `intentId` back on every frame, sends the cumulative frames
-   of section 7.2, uses the vocabulary of `stdlib.md` section 17.7 or maps its own
-   onto it, never reports a state it does not understand as terminal, and carries a
-   rejection's own text.
+   of section 7.2 through the intake of section 7.4, uses the vocabulary of
+   `stdlib.md` section 17.7 or maps its own onto it, never reports a state it does
+   not understand as terminal, and carries a rejection's own text.
 8. **Settings.** Stores a value per input key with the spellings of section 8.1, or
    states plainly that it does not store them.
 9. **Identity.** Treats an identity as opaque (section 9.1) and resolves a relative

@@ -2,8 +2,8 @@
 // newest bar rather than left behind on the bar it was drawn on.
 //
 // Exercises: a drawing whose shape is two arrays rather than two anchors, a
-// loop that fills those arrays oldest bar first, and the fact that one object
-// redrawn every bar is one object and not eighty.
+// loop that fills those arrays oldest bar first, and what it actually takes for
+// one object redrawn every bar to be one object rather than eighty.
 
 version 1
 
@@ -11,15 +11,27 @@ study("Price path", overlay = true, precision = 2)
 
 span = input(20, "Bars in the outline", min = 2, max = 200)
 
+var outline = none
+
 // Only on the newest bar. The outline shows one thing, the recent path, so
 // building it on every bar of the history would cost a drawing per bar to show
 // the last of them.
+//
+// The one it replaces is deleted before the new one is made, and that is the
+// whole of the difference between one object and one per bar. On a dataset the
+// newest bar is the last bar and this runs once; on a live feed every bar is
+// the newest bar in its turn and this runs on all of them. A study that relied
+// on the first case would hold one outline in a backtest and one per bar on a
+// chart that is running, which is a leak nobody sees until an hour of ticks has
+// gone by.
 if bar.isLast and not isNone(close[span - 1])
     times  = [time[span - 1]]
     prices = [close[span - 1]]
     for k = span - 2 to 0 step -1
         push(times, time[k])
         push(prices, close[k])
-    draw.polyline(times, prices, color = aqua, width = 2)
+    if not isNone(outline)
+        draw.delete(outline)
+    outline = draw.polyline(times, prices, color = aqua, width = 2)
 
 plot(close, "Close", fade(silver, 70))

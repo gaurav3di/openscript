@@ -30,7 +30,6 @@ import type {
   RequestProvider,
   Instrument,
   Drawing,
-  Position,
   TimeResolver,
   Value,
 } from '../../core/engine/index.js';
@@ -78,15 +77,17 @@ export interface ChartAdapterOptions {
    * guessed one.
    */
   readonly instrument?: Instrument;
-  /** The position a strategy reads, until a backtester owns one. */
-  readonly position?: Position;
   /**
-   * Where an applied order goes.
+   * Where an applied order goes, and where its frames come back from.
    *
    * Without one the engine declares no `orders` capability and refuses a
    * strategy at load with OS6006, naming it. That is deliberate: a chart that
    * quietly swallowed a strategy's orders while drawing its plots would be a
    * strategy the user believes is running.
+   *
+   * There is no position option beside it. A strategy's position is folded from
+   * the orders it sent and the frames this route's owner reports back
+   * (`stdlib.md` 17.1), never handed over by the chart.
    */
   readonly orders?: EffectRoute;
   readonly limits?: Partial<EngineLimits>;
@@ -279,7 +280,6 @@ function hostFor(
     instrument,
     requestBars: requests,
     ...(ctx === undefined ? {} : { now: hostNow(ctx.now()) }),
-    ...(options.position === undefined ? {} : { position: options.position }),
     ...(options.orders === undefined ? {} : { route: options.orders }),
   };
 }

@@ -6,6 +6,13 @@
  * has, and nothing on it is something an engine could work out and then
  * disagree with the host about.
  *
+ * **The strategy's position is not here, and that is the point of the duty.**
+ * An account position is held per contract and is shared with every other
+ * strategy and every manual trade in it, so a strategy that read one would be
+ * deciding against somebody else's trade (`stdlib.md` 17.1). What the position
+ * calls read is the run's own ledger, folded from the orders this strategy sent
+ * and the fills reported for them, and that ledger lives in `ledger/`.
+ *
  * Every fact is optional and an absent one reads as absence in a script rather
  * than as a zero or an error. A study that sizes something by the lot size has
  * to be able to tell "one" from "nobody told me", which is the same argument
@@ -19,6 +26,7 @@
  */
 import type { HostBar } from './bars.js';
 import type { PendingEffect } from './channels.js';
+import type { OrderIntent } from './ledger/index.js';
 import type { HostFacts } from './library/index.js';
 import type { SessionHours } from './session/index.js';
 import type { Value } from './values/index.js';
@@ -50,14 +58,20 @@ export interface Instrument {
   readonly session?: SessionHours;
 }
 
-/** The strategy's position, until a backtester owns one. */
-export interface Position {
-  readonly size?: number;
-  readonly avgPrice?: number;
-}
+/**
+ * Where an applied effect goes: an order route, a log, or nothing at all.
+ *
+ * An order call arrives with the intents it became (`host-interface.md` 7.1),
+ * which is what a host sends and what every frame about it carries back. A
+ * call that sent nothing, and a call with no order in it at all, arrives with
+ * none.
+ */
+export type EffectRoute = (effect: RoutedEffect, bar: number) => void;
 
-/** Where an applied effect goes: an order route, a log, or nothing at all. */
-export type EffectRoute = (effect: PendingEffect, bar: number) => void;
+/** An applied effect, with what the engine minted for it at step 9. */
+export interface RoutedEffect extends PendingEffect {
+  readonly intents: readonly OrderIntent[];
+}
 
 /**
  * One read, as the host is asked about it, `host-interface.md` 5.2.
@@ -161,7 +175,6 @@ export interface EngineHost {
   readonly instrument?: Instrument;
   /** The chart clock, for `chart.now()`. Fixed by the host, never read here. */
   readonly now?: number;
-  readonly position?: Position;
   /**
    * Where step 9 sends an applied effect.
    *
@@ -234,7 +247,5 @@ export function hostFactsFor(of: () => EngineHost, reads: RequestReplies): HostF
     now: () => hostNumber(of().now),
     requestReady: (id: Value) => reads.answered(id),
     requestError: (id: Value) => reads.failure(id),
-    positionSize: () => hostNumber(of().position?.size),
-    positionPrice: () => hostNumber(of().position?.avgPrice),
   };
 }

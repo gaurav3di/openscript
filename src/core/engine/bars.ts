@@ -18,6 +18,7 @@
  * The session facts are on the derived side of that line: they follow from the
  * hours in the instrument record, and nothing here asks a host about them.
  */
+import type { BarView } from './library/index.js';
 import type { SessionFacts } from './session/index.js';
 import type { Value } from './values/index.js';
 import { ABSENT, numberValue } from './values/index.js';
@@ -187,5 +188,37 @@ export function factsFor(
     updates,
     isSessionFirst: session.isFirstBar,
     isSessionLast: session.isLastBar,
+  };
+}
+
+/**
+ * The bar as a library call sees it, `compiled-program.md` 2.10.
+ *
+ * The same numbers the registers above are filled from, in the shape a call
+ * reads them in, so that a call and a register can never disagree about what
+ * the bar was. `previousClose` is a fact about the dataset rather than about
+ * any one call, which is why it travels here rather than in a state region.
+ */
+export function barViewOf(
+  bar: HostBar,
+  facts: BarFacts,
+  previousClose: Value,
+): BarView {
+  return {
+    index: facts.index,
+    open: bar.open ?? null,
+    high: bar.high ?? null,
+    low: bar.low ?? null,
+    close: bar.close ?? null,
+    volume: bar.volume ?? null,
+    time: bar.time ?? null,
+    previousClose: typeof previousClose === 'number' ? previousClose : null,
+    isConfirmed: facts.isConfirmed,
+    isRealtime: facts.isRealtime,
+    isNew: facts.isNew,
+    isLast: facts.isLast,
+    updates: facts.updates,
+    isSessionFirst: facts.isSessionFirst,
+    isSessionLast: facts.isSessionLast,
   };
 }

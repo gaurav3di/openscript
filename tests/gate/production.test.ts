@@ -22,6 +22,7 @@ import { test } from 'node:test';
 import { load } from '../../src/core/engine/index.js';
 import type { EngineHost, HostBar, Value as MachineValue } from '../../src/core/engine/index.js';
 import type { Series } from '../../src/core/stdlib/index.js';
+import { engineHostFor, pageHost } from '../hosts/index.js';
 
 import {
   GATE_BARS,
@@ -129,22 +130,21 @@ test('one script failing leaves the others computing exactly what they computed 
     alone.set(study.name, plot(plotsOf(study.name, { ...study.settings }), study.title));
   }
 
-  const routed: unknown[] = [];
-  const host: EngineHost = {
+  const page = pageHost({
     instrument: Object.freeze({
       symbol: 'AAA',
       exchange: 'XX',
       interval: '1',
       tickSize: 0.05,
       lotSize: 50,
+      hasVolume: true,
     }),
     now: 1_748_736_000_000,
-    position: Object.freeze({ size: 0, avgPrice: 0 }),
-    route: (effect) => {
-      routed.push(effect);
-    },
-  };
-  const before = JSON.stringify({ instrument: host.instrument, position: host.position });
+    destination: {},
+  });
+  const host: EngineHost = engineHostFor(page);
+  const routed = page.destination?.intents ?? [];
+  const before = JSON.stringify({ instrument: host.instrument });
 
   const together = STUDIES.map((study) => ({
     study,
@@ -178,7 +178,7 @@ test('one script failing leaves the others computing exactly what they computed 
 
   assert.deepEqual(routed, [], 'a run of studies sends the host nothing');
   assert.equal(
-    JSON.stringify({ instrument: host.instrument, position: host.position }),
+    JSON.stringify({ instrument: host.instrument }),
     before,
     'the host is handed back as it was given',
   );

@@ -46,6 +46,7 @@ import type {
 } from '../../../src/core/engine/index.js';
 import type { Series, Value } from '../../../src/core/stdlib/index.js';
 
+import { engineHostFor, pageHost } from '../../hosts/index.js';
 import { BARS } from '../../stdlib/vectors.js';
 
 const ROOT = new URL('../../../../', import.meta.url);
@@ -149,20 +150,22 @@ export const SESSION_OF: readonly number[] = STUDY_BARS.map((_bar, index) =>
  * `session.isLastBar` from them, the bar's time and the interval, so a boundary
  * lands on every tenth bar of the fixture without anything stating one.
  */
-export const HOST: EngineHost = {
-  instrument: {
-    symbol: 'AAA',
-    exchange: 'XX',
-    interval: '1',
-    timezone: 'UTC',
-    tickSize: 0.05,
-    lotSize: 50,
-    session: { start: '00:00', end: '00:10' },
-  },
-  now: BASE_TIME,
-  position: { size: 0, avgPrice: 0 },
-  route: () => {},
-};
+export const HOST: EngineHost = engineHostFor(
+  pageHost({
+    instrument: {
+      symbol: 'AAA',
+      exchange: 'XX',
+      interval: '1',
+      timezone: 'UTC',
+      tickSize: 0.05,
+      lotSize: 50,
+      hasVolume: true,
+      session: { start: '00:00', end: '00:10' },
+    },
+    now: BASE_TIME,
+    destination: {},
+  }),
+);
 
 /**
  * The same host, declaring that it answers reads.
@@ -175,10 +178,23 @@ export const HOST: EngineHost = {
  * one at all, and a host without it is refused at load with a code naming the
  * capability rather than failing halfway through a bar.
  */
-export const HOST_WITH_READS: EngineHost = {
-  ...HOST,
-  requestBars: () => undefined,
-};
+export const HOST_WITH_READS: EngineHost = engineHostFor(
+  pageHost({
+    instrument: {
+      symbol: 'AAA',
+      exchange: 'XX',
+      interval: '1',
+      timezone: 'UTC',
+      tickSize: 0.05,
+      lotSize: 50,
+      hasVolume: true,
+      session: { start: '00:00', end: '00:10' },
+    },
+    now: BASE_TIME,
+    destination: {},
+    serves: [],
+  }),
+);
 
 /** A study's source, read from disk rather than written into a test. */
 export function studySource(name: string): string {

@@ -128,9 +128,8 @@ function contextFor(heap: Heap): CallContext & { state: Record<string, unknown>;
       tickSize: () => null,
       lotSize: () => null,
       now: () => null,
-      positionSize: () => null,
-      positionPrice: () => null,
     },
+    position: { size: () => null, avgPrice: () => null },
     state: {},
     guard: {
       array: () => undefined,

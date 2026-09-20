@@ -21,6 +21,8 @@ import { emit } from '../../src/core/emit/index.js';
 import type { CompiledProgram } from '../../src/core/emit/index.js';
 import { load } from '../../src/core/engine/index.js';
 import type { BarState, Engine, EngineHost, HostBar, LoadOptions } from '../../src/core/engine/index.js';
+import { engineHostFor, pageHost } from '../hosts/index.js';
+import type { PageHost } from '../hosts/index.js';
 
 const ROOT = new URL('../../../', import.meta.url);
 export const TARGETS = new URL('examples/', ROOT);
@@ -65,10 +67,21 @@ export function asWire(program: CompiledProgram): unknown {
   return JSON.parse(JSON.stringify(program)) as unknown;
 }
 
-export const HOST: EngineHost = {
-  // A zone, because a host states one: a day, a week and a month are dated
-  // rather than counted, so a read at one of them is absent without it, and a
-  // suite whose host stated none would never exercise the calendar fold.
+/**
+ * The host, built by `tests/hosts/`, which is the page and nothing else.
+ *
+ * Written through that one builder rather than as a literal here, because a
+ * literal is where a field the page does not print gets typed in and stays: a
+ * position row lived on this host for a whole phase, every suite supplied one,
+ * and the strategy that shipped placed no orders on any host that did not.
+ *
+ * A zone, because a host states one: a day, a week and a month are dated rather
+ * than counted, so a read at one of them is absent without it, and a suite
+ * whose host stated none would never exercise the calendar fold. A destination,
+ * because duty 5 is what a strategy needs and a host without one refuses every
+ * strategy at load.
+ */
+export const PAGE: PageHost = pageHost({
   instrument: {
     symbol: 'AAA',
     exchange: 'XX',
@@ -76,11 +89,13 @@ export const HOST: EngineHost = {
     timezone: 'UTC',
     tickSize: 0.05,
     lotSize: 50,
+    hasVolume: true,
   },
   now: 1_748_736_000_000,
-  position: { size: 0, avgPrice: 0 },
-  route: () => {},
-};
+  destination: {},
+});
+
+export const HOST: EngineHost = engineHostFor(PAGE);
 
 /** Loads a compiled program, failing the test rather than the engine. */
 export function engineFor(compiled: Compiled, options: LoadOptions = {}): Engine {
