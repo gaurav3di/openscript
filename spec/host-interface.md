@@ -227,6 +227,22 @@ moving bar ten times give the same answer as executing it once.
 | Fewer bars than the study's warmup needs | Not an error. Warmup is absence (`compiled-program.md` section 7): the study is absent until it has enough bars, and it draws from the first bar it can |
 | A feed that is behind | Not an error. The engine runs over what it has, and later bars arrive as updates |
 
+**The first two are checked as the bars are handed over, and nowhere else.** The
+engine compares a bar's `time` against the one before it once, at the moment the
+host states that bar, and never again: a bar handed back a hundred times as it
+forms is compared a hundred times, and a bar of settled history exactly once. So
+the whole of the cost is one comparison per hand-over. It is paid where the bars
+arrive rather than on every execution of them, and it is the same comparison
+whether a host hands over a whole dataset or one bar at a time, which is what
+makes the two paths agree: a series that is refused one way is refused the other
+way, at the same bar.
+
+A refused series stops the run and does not resume. The bars that ran before the
+refused one were computed on a history that was still strictly increasing, so
+what they produced stands; the refused bar and everything after it is not
+computed at all. This is the refusal at load of section 1 arriving one step
+later, for the one fact a host cannot state before it has stated a bar.
+
 ---
 
 ## 4. Instrument facts
@@ -499,6 +515,15 @@ So a host is handed the list once and never discovers a new request during a bar
 That is what lets a host fetch in parallel, cache by instrument and timeframe, and
 have the answers in hand before the first bar runs.
 
+**One request per read the file writes, and not one per instrument.** Two reads
+of the same instrument at the same timeframe are two entries on the list, whether
+they are two lines of a study or one read written out a second time inside the
+call that asks after it. A host answers both, and a host that caches by
+instrument and timeframe answers both from one fetch, which is what caching by
+those two fields is for. What it must not do is answer one and leave the other
+outstanding, because each of them is a read some part of the study is waiting on
+and neither can be recognised as a copy of the other from the outside.
+
 **A host states its ceiling on outstanding requests at load.** A program that
 needs more is refused at load with OS5006, naming the count the file asks for and
 the ceiling the host allows. Dropping the requests past the ceiling is not an
@@ -540,11 +565,14 @@ catalogue gives under OS6007 and the single most important rule in this section.
 | OS6015 | The requested intraday timeframe is not a whole multiple of the chart's, so it cannot be folded |
 | OS5006 | The file asks for more outstanding requests than it allows, refused at load |
 
-The reason text reaches the script through `req.error(read)`, and the study keeps
-drawing everything that does not depend on the failed read (`stdlib.md` section
-15.5). The host's words are carried, not paraphrased: "the account's data
-subscription does not cover this instrument" is actionable, and "the request
-failed" is not.
+The reason text reaches the script through `req.error(read)`, for every read that
+asked and however that read was written, and the study keeps drawing everything
+that does not depend on the failed read (`stdlib.md` section 15.5). The host's
+words are carried, not paraphrased: "the account's data subscription does not
+cover this instrument" is actionable, and "the request failed" is not. The empty
+string is what that call answers for a read nothing refused, so a refusal that
+did not reach it is the empty answer this section began by refusing, arriving by
+another door.
 
 A host may offer a retry. Until it succeeds the read stays absent, and the rest of
 the study stays drawable.

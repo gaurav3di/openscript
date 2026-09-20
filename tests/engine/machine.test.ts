@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { Value } from '../../src/core/engine/index.js';
-import { flat, running } from './support.js';
+import { flat, running, timeOf } from './support.js';
 
 /** Runs one expression over one bar and returns what the plot column holds. */
 function value(expression: string, close = 10): Value {
@@ -139,7 +139,9 @@ test('a history read past the start of the dataset is absent, not clamped', () =
   );
   const prices = [10, 11, 12, 13, 14];
   const seen: Value[] = [];
-  for (const price of prices) seen.push(engine.append(flat(price), { isConfirmed: true }).columns[0] ?? null);
+  for (const [bar, price] of prices.entries()) {
+    seen.push(engine.append(flat(price, timeOf(bar)), { isConfirmed: true }).columns[0] ?? null);
+  }
   assert.deepEqual(seen, [null, null, null, 10, 11]);
 });
 
@@ -174,9 +176,9 @@ test('a history index past the retained depth is OS4002 rather than a gap', () =
       'plot(close[back], "back", aqua)',
     ].join('\n'),
   );
-  let last = engine.append(flat(10), { isConfirmed: true });
+  let last = engine.append(flat(10, timeOf(0)), { isConfirmed: true });
   for (let bar = 1; bar < 12; bar += 1) {
-    last = engine.append(flat(10 + bar), { isConfirmed: true });
+    last = engine.append(flat(10 + bar, timeOf(bar)), { isConfirmed: true });
     if (last.diagnostic !== undefined) break;
   }
   assert.equal(last.diagnostic?.code, 'OS4002');

@@ -21,7 +21,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import type { Value } from '../../src/core/engine/index.js';
-import { SPEC, compile, engineFor, flat } from './support.js';
+import { SPEC, compile, engineFor, flat, timeOf } from './support.js';
 
 const TAKEN = 'avg';
 const FREE = 'mean';
@@ -87,7 +87,7 @@ test('the worked example computes the columns 12.6 prints, bar by bar', () => {
 
   for (let bar = 0; bar < confirmed; bar += 1) {
     const row = rows[bar] as Row;
-    const result = engine.append(flat(row.close), { isConfirmed: true }, 5);
+    const result = engine.append(flat(row.close, timeOf(bar)), { isConfirmed: true }, 5);
     assert.equal(result.diagnostic, undefined);
     assert.equal(result.columns[0], row.plot, `the plot column on bar ${bar}`);
     assert.equal(result.columns[1], row.marker, `the marker channel on bar ${bar}`);
@@ -99,7 +99,11 @@ test('the worked example computes the columns 12.6 prints, bar by bar', () => {
   const first = rows[confirmed] as Row;
   const second = rows[confirmed + 1] as Row;
 
-  const moving = engine.append(flat(first.close), { isConfirmed: false, isRealtime: true }, 5);
+  const moving = engine.append(
+    flat(first.close, timeOf(confirmed)),
+    { isConfirmed: false, isRealtime: true },
+    5,
+  );
   assert.equal(moving.columns[0], first.plot, '12.6 publishes the column on a moving bar');
   assert.equal(moving.applied, false, 'the marker is held: the bar is not confirmed');
   // 12.6 writes "held" in that row's marker cell and 12.7 says step 9 discards
@@ -108,7 +112,10 @@ test('the worked example computes the columns 12.6 prints, bar by bar', () => {
   // on the next tick.
   assert.equal(moving.columns[1], first.marker, 'a held marker reads back as no marker');
 
-  const again = engine.update(flat(second.close), { isConfirmed: false, isRealtime: true });
+  const again = engine.update(flat(second.close, timeOf(confirmed)), {
+    isConfirmed: false,
+    isRealtime: true,
+  });
   assert.equal(again.columns[0], second.plot, 'the column is rewritten after the rollback');
   assert.equal(again.columns[1], second.marker, 'the branch is not taken the second time');
 });
@@ -123,10 +130,10 @@ test('without the restore the moving bar would average two bars that never met',
   const rows = workedRows();
   const engine = engineFor(compile('two-bar-mean.osc', workedSource()));
   for (let bar = 0; bar < rows.length - 2; bar += 1) {
-    engine.append(flat((rows[bar] as Row).close), { isConfirmed: true }, 5);
+    engine.append(flat((rows[bar] as Row).close, timeOf(bar)), { isConfirmed: true }, 5);
   }
-  engine.append(flat(106), { isConfirmed: false, isRealtime: true }, 5);
-  const again = engine.update(flat(104), { isConfirmed: false, isRealtime: true });
+  engine.append(flat(106, timeOf(4)), { isConfirmed: false, isRealtime: true }, 5);
+  const again = engine.update(flat(104, timeOf(4)), { isConfirmed: false, isRealtime: true });
   assert.equal(again.columns[0], 104.5);
   assert.notEqual(again.columns[0], 105, 'an engine that skipped the restore reads 105 here');
 });
@@ -142,11 +149,11 @@ test('a re-executed bar replaces its column rather than adding one', () => {
   const rows = workedRows();
   const engine = engineFor(compile('two-bar-mean.osc', workedSource()));
   for (let bar = 0; bar < rows.length - 2; bar += 1) {
-    engine.append(flat((rows[bar] as Row).close), { isConfirmed: true }, 5);
+    engine.append(flat((rows[bar] as Row).close, timeOf(bar)), { isConfirmed: true }, 5);
   }
-  engine.append(flat(106), { isConfirmed: false }, 5);
-  engine.update(flat(104), { isConfirmed: false });
-  engine.update(flat(103), { isConfirmed: false });
+  engine.append(flat(106, timeOf(4)), { isConfirmed: false }, 5);
+  engine.update(flat(104, timeOf(4)), { isConfirmed: false });
+  engine.update(flat(103, timeOf(4)), { isConfirmed: false });
 
   const column = engine.column(0);
   assert.equal(column.length, 5, 'five bars were supplied, so the column holds five values');

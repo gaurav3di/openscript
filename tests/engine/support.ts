@@ -146,6 +146,19 @@ export function flat(close: number, time = BASE_TIME): HostBar {
   return { open: close, high: close, low: close, close, volume: 1, time };
 }
 
+/**
+ * The instant bar `index` opens at, one minute after the one before it.
+ *
+ * A test that hands over more than one bar is handing over a series, and a
+ * series is strictly increasing in `time` (`host-interface.md` 3.2). Dating
+ * every bar of a fixture the same instant is the duplicate the engine now
+ * refuses, so a fixture that appends several bars dates them with this rather
+ * than leaving them all on the default.
+ */
+export function timeOf(index: number): number {
+  return BASE_TIME + index * 60_000;
+}
+
 /** The names of the target scripts that reach the engine at all. */
 export function emittableTargets(): readonly string[] {
   return ['01-ema-cross', '02-supertrend', '03-anchored-vwap', '04-rsi-divergence',

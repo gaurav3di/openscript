@@ -47,6 +47,7 @@ import type { CompiledProgram, Position } from './types.js';
 import type { RequestPlan } from './request-plan.js';
 import { NO_SESSION, sessionReader } from './session/index.js';
 import type { SessionReader } from './session/index.js';
+import { noBars, outOfOrder } from './series.js';
 import { barMinutesOf } from './timeframe.js';
 import { RequestSet } from './requests.js';
 import type { Value } from './values/index.js';
@@ -245,6 +246,15 @@ export class Engine {
    * bar, and until one arrives the previous bar may still be re-executed.
    */
   append(bar: HostBar, state: BarState = {}, supplied = this.supplied + 1): BarResult {
+    // Before anything moves: a bar that does not follow the one before it is
+    // refused rather than executed, because every value the bar produces would
+    // be derived from a history that never happened (`series.ts`). A script
+    // that has already failed keeps the failure it has, which is the one that
+    // explains what went wrong first.
+    if (this.failure === undefined) {
+      const problem = outOfOrder(bar, this.known[this.index], this.index + 1);
+      if (problem !== undefined) return this.refuse(problem);
+    }
     if (this.started) this.checkpoint();
     this.index += 1;
     this.supplied = Math.max(supplied, this.index + 1);
@@ -265,6 +275,13 @@ export class Engine {
    */
   update(bar: HostBar, state: BarState = {}): BarResult {
     if (!this.started) return this.append(bar, state);
+    // A revision is the same bar again, so it is held to the same order: an
+    // update whose time has moved back onto the bar before it is a series the
+    // engine cannot run on, whatever it is called.
+    if (this.failure === undefined) {
+      const problem = outOfOrder(bar, this.known[this.index - 1], this.index);
+      if (problem !== undefined) return this.refuse(problem);
+    }
     this.rollback();
     this.updates += 1;
     // A revision replaces the bar the fold already read, so the bucket it is
@@ -282,9 +299,21 @@ export class Engine {
    * bar give the same numbers. A `"lookahead"` read is the one that differs, and
    * that difference is the mode: it reads to the end of the bucket the chart bar
    * is inside, which exists in a dataset and does not exist on a live feed.
+   *
+   * A dataset with nothing in it is OS6010 and not an empty result, because a
+   * pane with nothing drawn on it is what a study that computed nothing also
+   * produces and only the engine can tell the two apart.
    */
   run(bars: readonly HostBar[], states: readonly BarState[] = []): RunResult {
     const out: BarResult[] = [];
+    // A dataset with nothing in it is the one hand-over that has no bar to
+    // report against, so it is answered here rather than by the loop below,
+    // which would run no iterations and return a clean, empty, wordless result.
+    if (bars.length === 0 && !this.started) {
+      const diagnostic = this.failure ?? noBars(this.options.host?.instrument);
+      this.failure = diagnostic;
+      return { bars: [], diagnostic };
+    }
     this.known = [...bars];
     for (let i = 0; i < bars.length; i += 1) {
       const bar = bars[i];
@@ -397,6 +426,20 @@ export class Engine {
    * bar with a half executed state, so the journal is rolled back and the
    * script is marked stopped.
    */
+  /**
+   * A hand-over the engine refuses, before any of it has been executed.
+   *
+   * Nothing is rolled back because nothing has run: the bar was never begun,
+   * the previous bar's checkpoint still stands, and the columns already
+   * published stay as they are. The script is stopped for the same reason a
+   * failed bar stops it, which is that the next bar would be computed on a
+   * state nobody can account for.
+   */
+  private refuse(diagnostic: Diagnostic): BarResult {
+    this.failure = diagnostic;
+    return { index: this.index, columns: [], applied: false, effects: [], alerts: [], diagnostic };
+  }
+
   private stopped(thrown: unknown): BarResult {
     const diagnostic =
       thrown instanceof ScriptError ? thrown.diagnostic : unexpected('the bar', thrown);

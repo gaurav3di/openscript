@@ -89,6 +89,17 @@ and `update` hands the newest bar back with new values, which the engine
 re-executes from the checkpoint at the start of that bar, so a moving bar updated
 ten times gives the same answer as one that arrived once.
 
+**Two things about a series the engine refuses rather than runs on.** A run over
+no bars is OS6010, because a blank pane says nothing and a sentence does. A bar
+whose `time` is not strictly after the one before it is OS6011, naming that bar,
+whether it arrives in a dataset or one at a time: a repeated timestamp and a
+swapped pair both make the history operator, warmup and every session test mean
+something other than what they say, and the study would go on computing and
+drawing. The engine does not sort, deduplicate or repair what it is given, so
+whichever of the two it reports is a fix on your side of the boundary. The cost
+of the check is one comparison per bar handed over, paid where the bars arrive
+and not on every execution.
+
 **This representation costs memory at long ranges, and the cost is known.** One
 object per bar is around three times the memory of columnar typed arrays over a
 decade of one minute data, and it allocates one object per bar for the collector

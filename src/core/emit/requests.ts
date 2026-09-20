@@ -66,13 +66,23 @@ export function emitRequestRead(e: Emitter, f: Frame, call: Call, checked: Check
 }
 
 /**
- * The request a name holds, for `req.isReady` and `req.error`.
+ * The request a status call names, for `req.isReady` and `req.error`.
  *
  * Both name a read rather than taking its value, and a value on a bar cannot
- * say which request produced it, so the compiler resolves the name to the
+ * say which request produced it, so the compiler resolves the argument to the
  * request's id and passes that. It is the same resolution `fill` does on a plot
  * handle (2.8), and the reason is the same: the argument is a compile-time
  * identity wearing the clothes of a value.
+ *
+ * **A read written inline is registered here and not only resolved**, which is
+ * the whole of the second half of this function. The checker gives every read
+ * in the file an id whether or not anything else in the file uses its value, and
+ * an id on its own names nothing an engine was handed: the compiled program
+ * would carry no request under it, the host would never be asked, and
+ * `req.error` would answer the empty string for a read the host refused. That is
+ * the one answer this pair of calls exists to make impossible, and it held only
+ * for the form written as a name. So the inline form emits its request the same
+ * way the value form does, and asks the host the same question.
  */
 export function requestIdFor(e: Emitter, expression: Expression): number | undefined {
   const inner = withoutGrouping(expression);
@@ -83,7 +93,10 @@ export function requestIdFor(e: Emitter, expression: Expression): number | undef
   if (inner.kind !== 'call') return undefined;
   const checked = e.callAt(inner);
   if (checked === undefined || !REQUEST_CALLS.has(checked.name)) return undefined;
-  return checkedRequestFor(e, inner)?.id;
+  const found = checkedRequestFor(e, inner);
+  if (found === undefined) return undefined;
+  registerFor(e, inner, checked);
+  return found.id;
 }
 
 /**

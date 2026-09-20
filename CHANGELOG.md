@@ -9,6 +9,33 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A series the engine cannot run on is now refused instead of computed on.** Two
+codes the host interface page requires, OS6010 for no bars at all and OS6011 for
+a bar whose time does not follow the one before it, were in the catalogue and in
+the conformance list and were raised by nothing. A host handing over an empty
+dataset, a swapped pair or the same timestamp twice was accepted in silence and
+the study computed on it, which is the worst failure this project has: not a
+crash, a wrong number nobody is told about, entering at the boundary so that
+every value downstream is confidently derived from bars that were never valid.
+Both are now raised, at the hand-over, on the whole-dataset path and the bar at a
+time path alike, and a refused series stops the run. The cost is one comparison
+per bar handed over: about half a millisecond over fifty thousand bars, against a
+full compute of the same history that the benchmark records at a hundred and
+eighty five milliseconds, and it is paid where the bars arrive rather than on
+every execution of them.
+
+**A read the host refused now reports its reason when it is written inline.**
+`req.error(read)` and `req.isReady(read)` answered about a read assigned to a
+name and answered nothing at all about the same read written out inside the call:
+the compiler resolved it to a handle and emitted no request under it, so the host
+was never asked and the script was told nothing was wrong. A study that draws
+nothing while its own diagnostics say nothing is wrong is the worst version of a
+silent failure, because the user has already looked and been sent to look
+elsewhere. A read written inline is now a read like any other: it is emitted, the
+host is asked about it, and its refusal reaches the script. Two reads written in
+one file are two requests and count as two against a host's ceiling, which
+`spec/host-interface.md` section 5.2 now states.
+
 **A request now carries what the host interface page says it carries.** A host
 built from `spec/host-interface.md` section 5.2 alone could not implement duty 3:
 the table printed six fields, three of which never arrived, and the request

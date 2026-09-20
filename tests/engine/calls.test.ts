@@ -15,13 +15,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { Value } from '../../src/core/engine/index.js';
-import { flat, running } from './support.js';
+import { flat, running, timeOf } from './support.js';
 
 /** Runs a script over a run of closes and returns the first plot's column. */
 function column(source: string, closes: readonly number[]): readonly Value[] {
   const engine = running(source);
-  for (const close of closes) {
-    const result = engine.append(flat(close), { isConfirmed: true }, closes.length);
+  for (const [bar, close] of closes.entries()) {
+    const result = engine.append(flat(close, timeOf(bar)), { isConfirmed: true }, closes.length);
     assert.equal(
       result.diagnostic,
       undefined,
@@ -140,9 +140,9 @@ test('changing an object a script deleted is OS4005 naming the bar it went on', 
       'plot(close, "c", aqua)',
     ].join('\n'),
   );
-  engine.append(flat(10), { isConfirmed: true });
-  engine.append(flat(11), { isConfirmed: true });
-  const result = engine.append(flat(12), { isConfirmed: true });
+  engine.append(flat(10, timeOf(0)), { isConfirmed: true });
+  engine.append(flat(11, timeOf(1)), { isConfirmed: true });
+  const result = engine.append(flat(12, timeOf(2)), { isConfirmed: true });
   assert.equal(result.diagnostic?.code, 'OS4005');
   assert.equal(result.diagnostic?.span.line, 11);
   assert.equal(result.diagnostic?.values['bar'], 1);
@@ -163,7 +163,9 @@ test('a drawing object a script never named is still drawn', () => {
       'plot(close, "c", aqua)',
     ].join('\n'),
   );
-  for (const close of [10, 11, 12]) engine.append(flat(close), { isConfirmed: true });
+  for (const [bar, close] of [10, 11, 12].entries()) {
+    engine.append(flat(close, timeOf(bar)), { isConfirmed: true });
+  }
   assert.equal(engine.drawings().length, 1);
   assert.equal(engine.drawings()[0]?.kind, 'label');
 });

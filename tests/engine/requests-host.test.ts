@@ -298,6 +298,60 @@ plot(str.contains(req.error(o), "not connected") ? 1 : 0, "Carried")
 });
 
 /**
+ * The same refusal, asked about a read written inline rather than named.
+ *
+ * Section 5.4's first rule is that a refusal is reported and is never an empty
+ * answer, and the empty string is what the pair of status calls answers for a
+ * read that does not exist. That is what an inline read used to be: the
+ * compiler resolved it to an id and emitted no request under it, so the host
+ * was never asked about it and the script was told nothing was wrong. A study
+ * that draws nothing while its own diagnostics say nothing is wrong is the
+ * worst version of a silent failure, because the user has already looked.
+ *
+ * Catches the resolution going back to an id with no request behind it, which
+ * reads as a passing study because the study still compiles, still loads and
+ * still draws the rest of itself.
+ */
+test('a refused read reports the same reason written inline as written as a name', () => {
+  const inline = `version 1
+study("Inline", overlay = true)
+plot(req.symbol("BBB", "1h", close), "O")
+plot(str.contains(req.error(req.symbol("BBB", "1h", close)), "not connected") ? 1 : 0, "Carried")
+plot(req.isReady(req.symbol("BBB", "1h", close)) ? 1 : 0, "Ready")
+plot(close, "Close")
+`;
+  const host = chartHost({
+    refuses: { code: 'OS6009', reason: 'the feed is not connected' },
+  });
+  const { columns } = ran(inline, host, 6);
+  assert.equal(columns[0]?.[5], null, 'a refused read has no value, named or not');
+  assert.equal(columns[1]?.[5], 1, 'the host own words must reach a read written inline');
+  assert.equal(columns[2]?.[5], 0, 'a read with a reason is never ready');
+  assert.equal(columns[3]?.[5], 105, 'the rest of the study kept drawing');
+});
+
+/**
+ * A read written inline is a read, so the host is asked about it.
+ *
+ * One request per read written in the source is what 5.2 counts against a
+ * host's ceiling, and it is the only answer that can be right here: the two
+ * calls are two reads the file wrote, and an engine that answered one of them
+ * from the other would be reporting about a request nobody made.
+ */
+test('a read written inside a status call is asked of the host like any other', () => {
+  const source = `version 1
+study("Asked", overlay = true)
+plot(str.length(req.error(req.symbol("BBB", "1h", close))), "Len")
+plot(close, "Close")
+`;
+  const host = chartHost({ refuses: { code: 'OS6007' } });
+  const { columns } = ran(source, host, 4);
+  assert.equal(host.requests.length, 1, 'the inline read is the one request in the file');
+  assert.equal(host.requests[0]?.instrument, 'BBB');
+  assert.ok((columns[0]?.[3] as number) > 0, 'and its refusal has something to say');
+});
+
+/**
  * A refusal names the instrument and the venue the host was asked about.
  *
  * Both come from the request, so the sentence a user reads is only as good as

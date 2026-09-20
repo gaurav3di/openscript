@@ -15,8 +15,9 @@
  *
  * **What this does not include**, said plainly rather than left to be
  * discovered: the clamp some published versions apply, which forbids the stop
- * from entering the previous two bars' range. `stdlib.md` does not mention it
- * and the algorithm below is the one the plain description gives.
+ * from entering the previous two bars' range. `stdlib.md` section 20.3 fixes
+ * its absence, so a stop drawn with the clamp is a different function rather
+ * than a different arrangement of this one.
  *
  * Everything the algorithm carries between bars is a number or a flag in a
  * state region, which is what lets an engine advance one bar at a time over the

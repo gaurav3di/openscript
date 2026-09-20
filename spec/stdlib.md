@@ -2250,6 +2250,8 @@ window, with position 0 the oldest, and runs two passes over that same order:
 ```text
 peak   = offset * (len - 1)
 spread = len / sigma
+norm   = 0
+total  = 0
 for position = 0 to len - 1:
     gap              = position - peak
     weight[position] = exp(-(gap * gap) / (2 * spread * spread))
@@ -2272,6 +2274,8 @@ formed as written:
 sumX        = ((len - 1) * len) / 2
 sumXSquared = ((len - 1) * len * (2 * len - 1)) / 6
 divisor     = len * sumXSquared - sumX * sumX
+sumY        = 0
+sumXY       = 0
 for position = 0 to len - 1:
     y     = w[len - 1 - position]
     sumY  = sumY + y
@@ -2302,18 +2306,38 @@ lower = rawLower when rawLower > previousLower or previousClose < previousLower,
         otherwise previousLower
 ```
 
-On the first bar both bands are the raw bands. The line then follows one band
-until price closes through it: while it is following the upper band it stays
-there when the close is at or below `upper` and moves to `lower` otherwise, and
-while it is following the lower band it stays there when the close is at or above
-`lower` and moves to `upper` otherwise. The comparison is inclusive on the side
-the band is held, which decides the flip bar on an exact touch.
+On the first bar both bands are the raw bands, **and the line starts on the upper
+band**. The line then follows one band until price closes through it: while it is
+following the upper band it stays there when the close is at or below `upper` and
+moves to `lower` otherwise, and while it is following the lower band it stays
+there when the close is at or above `lower` and moves to `upper` otherwise. The
+comparison is inclusive on the side the band is held, which decides the flip bar
+on an exact touch. The first bar runs that same test from the upper band, so it
+holds the upper band unless its close is above the raw upper band, and the band
+it leaves the state on is the one the bar after it inherits.
 
-The bar the width is first available on seeds the state and reports absence,
-because the carry forward and the flip test both read the previous bar's close
-and the previous bar's bands and there is no previous bar of either. Reporting
-that bar would be reporting a direction chosen by a seeding rule rather than by
-the data.
+**Starting on the lower band is a different study, not a different last bit.**
+The seed decides which side of the first test the line is on, and the two
+readings then flip on different bars and stay apart until a later flip happens to
+put them back together. Measured over four hundred bars at three parameter sets,
+a line seeded on the lower band differed from this one on between fifteen and
+forty of the bars it reported, by as much as sixteen price units, with the
+direction inverted on exactly those bars. An engine that guesses here draws a
+visibly different chart.
+
+The bar the width is first available on seeds the state and reports absence: the
+carry forward and the flip test both read the previous bar's close and the
+previous bar's bands, and on that bar there is neither, so the bands there are
+the raw bands arrived at by no test rather than bands that have trailed anything.
+Section 4 puts the first value one bar later for that reason.
+
+**It is not withheld on the grounds that the direction there would be chosen by a
+seeding rule rather than by the data.** That reason does not survive reading. The
+seed bar leaves the state on a band, the next bar inherits it, and on a bar with
+no flip the direction the next bar reports is the seeding rule's choice exactly
+as the seed bar's would have been. Withholding the seed bar delays the rule by
+one bar and does not keep it off the chart. What the seed bar lacks is a trailing
+band, not an honest direction.
 
 **`psar(start, step, max)`** seeds from the first pair of complete bars: the
 direction is up when this bar's close is above the previous bar's, the stop
@@ -2338,6 +2362,24 @@ then the flip test, then the extreme test:
 The multiply and add on the first line is one rounding of the product and one of
 the sum, in that order, and is not
 `(1 - acceleration) * stop + acceleration * extreme`.
+
+**The two tests run in the order written, and the second is reached on a flip bar
+as well**, where it cannot fire: the extreme has just been set to this bar's own
+low or high and both comparisons are strict. So an engine that writes them as one
+chain and an engine that writes them as two agree on every bar, and an
+acceleration a flip has just returned to `start` is not raised again on the bar
+that reset it.
+
+**The stop is reported as the recurrence produced it, and there is no clamp.**
+Some published versions hold it out of the previous two bars' range, pulling it
+down to the lower of the two previous lows while the direction is long and up to
+the higher of the two previous highs while it is short. That is not applied here,
+and it is not a difference in the last bit. It moves the line on most bars of a
+fast trend, and because the next bar's flip test reads the stop this bar left
+behind, a stop pulled back inside the previous two bars can no longer be breached
+and the clamp swallows flips this recurrence fires. The two are different
+functions rather than two arrangements of one, and a study that wants the clamped
+stop writes the clamp itself.
 
 **`adx(diLen, adxLen)`** measures directional movement against the gap aware true
 range of 20.5, so all three smoothed quantities cover the same bars:
@@ -2586,6 +2628,16 @@ from the basis and the width again, so a study that plots all three and a study
 that plots one reading agree to the last bit. The span in `bbPercent` is formed
 once.
 
+**The basis of `keltner` is the close**, averaged at `len` by the type `maType`
+names, and not the typical price. Section 6 writes the call without a source
+argument, and the close is the source it means. The two agree only on a bar whose
+close is its own typical price, so this decides which function the call is rather
+than the order its arithmetic runs in, and it is written here because the entry
+alone does not settle it. Where `maType` names the volume weighted average, each
+close is weighted by its own bar's volume. The width is `atr(atrLen)` exactly as
+this section defines it, the oldest bar's exception included, and not the gap
+aware form the directional index takes.
+
 **`donchian(len)`** takes the outright extremes of the window, and its middle
 element is `(upper + lower) / 2`.
 
@@ -2623,6 +2675,11 @@ windows, so each carries its total forward and adds one term per bar. That is
 what the quantity is, not a cheaper way to compute a window sum, and the refusal
 of a carried total in 20.2.1 does not reach them.
 
+**Every total here starts at zero**, before any bar has contributed to it, and an
+absent bar produces an absent bar out and leaves the total where it was. It is
+neither reset nor fed a zero in place of the missing term, so a gap costs the
+reading the bars it covers and nothing after them.
+
 **`vwap(src)`** and **`vwapAnchor(src, resetWhen)`** are one calculation. Both
 totals are reset to zero on an anchor bar, before that bar's own term is added,
 so the anchor bar is the first bar of the new average rather than the last bar of
@@ -2635,8 +2692,9 @@ result = flow / traded
 ```
 
 **`obv()`** adds the whole of the bar's volume on a higher close and subtracts
-the whole of it on a lower one, and contributes nothing on an unchanged close. It
-is seeded at zero on the first bar, which therefore reads 0.
+the whole of it on a lower one, and contributes nothing on an unchanged close.
+The first bar has no close before it to compare against, so it contributes
+nothing either and the reading there is the 0 the total started at.
 
 **`ad()`** and **`cmf(len)`** share one per-bar term:
 
@@ -2661,9 +2719,9 @@ the per-bar term.
 total = total + ((close - previousClose) / previousClose) * volume
 ```
 
-The proportion is formed and rounded before it meets the volume. The total starts
-at zero before the first change, so the first bar is absent and the second
-already carries its own term.
+The proportion is formed and rounded before it meets the volume. The first bar
+has no change behind it and is absent, and the second already carries its own
+term on top of the zero the total started at.
 
 **`mfi(len)`** is the strength reading of 20.4 computed on money flow, with
 window sums in place of the smoothing:
@@ -2737,13 +2795,15 @@ subtraction.
 that sum over a window of ones and zeros, so a count is an addition of whole
 numbers and is exact.
 
-**`cum(src)`** is a running total from the first bar. An absent bar produces an
-absent bar out and leaves the total where it was.
+**`cum(src)`** is a running total from the first bar, on the terms 20.6 states
+for one: the same zero it starts at, and the same treatment of an absent bar.
 
 **`sumSkip(src, len)`** is the same oldest first sum with the absent bars passed
 over, and **`avgSkip(src, len)`** is that sum divided by the number of bars that
 had a value, counted over the same window. Dividing by `len` would be a different
-quantity.
+quantity. A window with nothing present in it is the empty accumulation: the sum
+is the 0 it started at and is reported as 0, and the mean is absent there because
+its divisor is zero.
 
 **`percentile(src, len, p)`** and **`median(src, len)`** interpolate linearly
 between the two ranks either side:
@@ -2776,6 +2836,9 @@ formed first:
 ```text
 meanA    = sumA / len
 meanB    = sumB / len
+cross    = 0
+squaresA = 0
+squaresB = 0
 cross    = cross    + (a[k] - meanA) * (b[k] - meanB)
 squaresA = squaresA + (a[k] - meanA) * (a[k] - meanA)
 squaresB = squaresB + (b[k] - meanB) * (b[k] - meanB)
@@ -2784,9 +2847,11 @@ covariance  = cross / len
 correlation = covariance / (sqrt(squaresA / len) * sqrt(squaresB / len))
 ```
 
-The three accumulations run in one pass over the window, in that order. **The
-correlation divides by a product of two square roots, and not by the square root
-of a product**: those are mathematically equal and differ in the last bit, and
+`sumA` and `sumB` are the window sums of 20.2.1 over each series, which is the
+first of the two passes, and the three accumulations run in one pass over the
+window, in that order. **The correlation divides by a product of two square
+roots, and not by the square root of a product**: those are mathematically equal
+and differ in the last bit, and
 this is the one stated. The single pass arrangement, summing squares and cross
 products and subtracting at the end, is refused for the reason 20.5 gives for the
 variance.
@@ -2851,42 +2916,76 @@ can write it the obvious way and be bit-identical.
 ### 20.11 What this section cannot pin down yet
 
 Each of these is a gap in the specification rather than a choice made here, and
-each is a place two conforming engines may still differ. None of them is reached
-by the studies the release gate compares bit for bit.
+each is a place two conforming engines may still differ.
+
+**One of them is reached by a study the release gate compares bit for bit**, and
+that is a different debt from a gap nothing exercises. A gap no study reaches is
+owed to this document and costs nobody anything today. A gap the gate walks
+through is a hole in the gate itself: a second engine can reproduce every study
+in it and still disagree on that one, because the number being compared is
+arrived at by arithmetic this document does not fix. The comparison then proves
+this engine against itself rather than against this page, which is the one thing
+the gate exists not to do.
+
+The table below says which calls reach each gap and which gate studies make one.
+**Its last column is derived, not asserted.** `tests/gate/gaps.test.ts` reads
+the table and both of the gate's script directories, works out for itself which
+study reaches which gap, and fails naming both when the table and the tree
+disagree. That check is here because the sentence this paragraph replaced said
+none of these gaps was reached by the studies the gate compares. Nothing
+measured it, studies were added, and by the time it was read again three studies
+reached three of the gaps and the sentence still read as a fact.
+
+| Gap | Reached through | Gate studies that reach it |
+|---|---|---|
+| 1 | `exp`, `log`, `log10`, `pow`, `math.log2`, `math.hypot`, `math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan`, `math.atan2`, and `alma`, `hv` and `chop`, which are built on the first three in that order | `triple-smoothed-rate` |
+| 2 | `hma` | none |
+| 3 | `eom` | none |
+| 4 | nothing a script can call | none |
 
 1. **The transcendental functions have no portable reference algorithm.**
-   `compiled-program.md` section 8.3 requires that `exp`, `log`, `pow`, the
-   trigonometric namespace and anything built on them not use the platform's own
-   maths library, because a platform implementation is correct to within about an
-   ulp and differs between platforms in the last bit. No such algorithm is
-   written down anywhere in this specification, so there is nothing to implement
-   against and the requirement cannot be met today. The functions of this library
-   that reach one are `alma` through `exp`, `hv` through `log` and `chop` through
-   `log10`. `sqrt` is exempt, for the reason 20.10 gives. The only use of `pow`
-   in the library's own arithmetic is `pow(10, decimals)` in 20.7, whose true
-   value is exactly representable for every decimal count from 0 to 22, so an
-   implementation that returns the representable value agrees; a script's own
-   `pow` call carries the full risk.
+   `compiled-program.md` section 8.3 requires that the exponential, the
+   logarithms, the powers, the trigonometric namespace and anything built on
+   them not use the platform's own maths library, because a platform
+   implementation is correct to within about an ulp and differs between
+   platforms in the last bit. No such algorithm is written down anywhere in this
+   specification, so there is nothing to implement against and the requirement
+   cannot be met today. `sqrt` is exempt, for the reason 20.10 gives. The only
+   use of `pow` in the library's own arithmetic is `pow(10, decimals)` in 20.7,
+   whose true value is exactly representable for every decimal count from 0 to
+   22, so an implementation that returns the representable value agrees; a
+   script's own `pow` call carries the full risk. The hyperbolic functions
+   section 8.2 lists as planned join the row above on the day they arrive.
+
+   **This is the gap the gate reaches.** One study takes the logarithm of the
+   close and smooths it three times, so every number in its plotted column
+   depends on the last bit of `log`, and the reference that column is compared
+   against cannot be built from this page: it is built from the platform's
+   logarithm, which is the thing section 8.3 refuses. The column does match, and
+   what that proves is that the pipeline carried the value, not that a second
+   engine would arrive at it. Until there is an algorithm to write down, that one
+   column is not a conformance requirement, and an engine whose `log` differs in
+   the last bit is conforming and will fail it.
 2. **The inner length of `hma` is not stated.** Section 4 fixes the outer length
    as `round(sqrt(len))`, which the declared warmup confirms, and says nothing
    about the inner one. The declared warmup holds for any inner length at or
    below `len`, so nothing in this document settles it. The arrangement in 20.3
    is the one this implementation uses, recorded as an implementation choice
-   rather than presented as a reading of section 4.
+   rather than presented as a reading of section 4. Selecting it by name, as a
+   `ma` or channel call does through its type argument, reaches the gap as surely
+   as calling it, which is why the check reads a script's strings as well as its
+   calls.
 3. **`eom` has no scaling constant.** Implementations of this reading usually
    multiply by a large divisor whose only job is to bring the number into a
    readable range, and they do not agree on it. Section 7 declares no such
    argument, so there is none here and the reading is the quantity itself. That
    leaves it very small on a liquid instrument.
-4. **`psar` has no clamp.** Some published versions forbid the stop from entering
-   the previous two bars' range. Section 4 does not mention it, and 20.3 is the
-   algorithm the plain description gives.
-5. **The basis source of `keltner` is not stated.** Section 6 writes the call
-   without a source argument and describes it as the same picture built from the
-   average true range, which fixes the width and not what the basis averages.
-   This implementation averages the close. That is an implementation choice, and
-   an engine that averaged the typical price instead would satisfy every word of
-   the entry and draw a different line.
-6. **The exact channel values of the named colours** are fixed by section 11.1
+4. **The exact channel values of the named colours** are fixed by section 11.1
    and are part of the conformance suite, and are not written out in this
-   document. Until they are, an implementer takes them from the suite.
+   document. Until they are, an implementer takes them from the suite. Every
+   study in the gate names a colour and no comparison in the gate depends on one
+   of these values: both sides of a colour assertion resolve the name through the
+   engine's own table, so the channels cancel and what is proved is that the name
+   reached the surface. That is checked as well, by refusing a transcribed
+   channel value anywhere in the gate's own tests, because a test that wrote the
+   numbers out would turn a gap nothing exercises into a third hole.

@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { flat, running } from './support.js';
+import { flat, running, timeOf } from './support.js';
 
 const ENDLESS = [
   'version 1',
@@ -84,7 +84,7 @@ test('the budget resets every bar, so a long dataset is never itself a failure',
     ].join('\n'),
   );
   for (let bar = 0; bar < 50; bar += 1) {
-    const result = engine.append(flat(10 + bar), { isConfirmed: true });
+    const result = engine.append(flat(10 + bar, timeOf(bar)), { isConfirmed: true });
     assert.equal(result.diagnostic, undefined, `bar ${bar}`);
     assert.equal(result.columns[0], 10);
   }
@@ -129,9 +129,9 @@ test('an array past the element ceiling is OS5002 and names the array', () => {
     ].join('\n'),
     { limits: { arrayElements: 4 } },
   );
-  let last = engine.append(flat(10), { isConfirmed: true });
+  let last = engine.append(flat(10, timeOf(0)), { isConfirmed: true });
   for (let bar = 1; bar < 10 && last.diagnostic === undefined; bar += 1) {
-    last = engine.append(flat(10 + bar), { isConfirmed: true });
+    last = engine.append(flat(10 + bar, timeOf(bar)), { isConfirmed: true });
   }
   assert.equal(last.diagnostic?.code, 'OS5002');
   assert.equal(last.diagnostic?.values['name'], 'kept');
@@ -152,9 +152,9 @@ test('a string past the character ceiling is OS5008', () => {
     ].join('\n'),
     { limits: { stringLength: 25 } },
   );
-  let last = engine.append(flat(10), { isConfirmed: true });
+  let last = engine.append(flat(10, timeOf(0)), { isConfirmed: true });
   for (let bar = 1; bar < 10 && last.diagnostic === undefined; bar += 1) {
-    last = engine.append(flat(10 + bar), { isConfirmed: true });
+    last = engine.append(flat(10 + bar, timeOf(bar)), { isConfirmed: true });
   }
   assert.equal(last.diagnostic?.code, 'OS5008');
   assert.equal(last.diagnostic?.values['max'], 25);

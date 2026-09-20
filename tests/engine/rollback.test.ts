@@ -13,7 +13,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { Value } from '../../src/core/engine/index.js';
-import { bars, compileTarget, emittableTargets, engineFor, flat, running, states } from './support.js';
+import {
+  bars,
+  compileTarget,
+  emittableTargets,
+  engineFor,
+  flat,
+  running,
+  states,
+  timeOf,
+} from './support.js';
 
 const COUNTER = [
   'version 1',
@@ -37,22 +46,24 @@ test('a var rolls back and a live var does not, which is the whole of 6.3', () =
   // And an engine that rolls back nothing: `hits` would count one crossing
   // three times.
   const engine = running(COUNTER);
-  engine.append(flat(101), { isConfirmed: true });
-  assert.deepEqual(engine.append(flat(102), { isConfirmed: false }).columns, [2, 2]);
-  assert.deepEqual(engine.update(flat(103), { isConfirmed: false }).columns, [2, 3]);
-  assert.deepEqual(engine.update(flat(99), { isConfirmed: false }).columns, [1, 4]);
+  engine.append(flat(101, timeOf(0)), { isConfirmed: true });
+  assert.deepEqual(engine.append(flat(102, timeOf(1)), { isConfirmed: false }).columns, [2, 2]);
+  assert.deepEqual(engine.update(flat(103, timeOf(1)), { isConfirmed: false }).columns, [2, 3]);
+  assert.deepEqual(engine.update(flat(99, timeOf(1)), { isConfirmed: false }).columns, [1, 4]);
 });
 
 test('executing a moving bar ten times gives the answer of executing it once', () => {
   const once = running(COUNTER);
-  once.append(flat(101), { isConfirmed: true });
-  const settled = once.append(flat(105), { isConfirmed: false }).columns[0];
+  once.append(flat(101, timeOf(0)), { isConfirmed: true });
+  const settled = once.append(flat(105, timeOf(1)), { isConfirmed: false }).columns[0];
 
   const many = running(COUNTER);
-  many.append(flat(101), { isConfirmed: true });
-  many.append(flat(140), { isConfirmed: false });
-  for (let update = 0; update < 9; update += 1) many.update(flat(99), { isConfirmed: false });
-  assert.equal(many.update(flat(105), { isConfirmed: false }).columns[0], settled);
+  many.append(flat(101, timeOf(0)), { isConfirmed: true });
+  many.append(flat(140, timeOf(1)), { isConfirmed: false });
+  for (let update = 0; update < 9; update += 1) {
+    many.update(flat(99, timeOf(1)), { isConfirmed: false });
+  }
+  assert.equal(many.update(flat(105, timeOf(1)), { isConfirmed: false }).columns[0], settled);
 });
 
 test('library state rolls back, so a re-executed bar averages the bars on the chart', () => {
@@ -62,10 +73,10 @@ test('library state rolls back, so a re-executed bar averages the bars on the ch
   const engine = running(
     ['version 1', '', 'study("Mean")', '', 'plot(sma(close, 2), "m", aqua)'].join('\n'),
   );
-  engine.append(flat(100), { isConfirmed: true });
-  engine.append(flat(102), { isConfirmed: true });
-  engine.append(flat(106), { isConfirmed: false });
-  assert.equal(engine.update(flat(104), { isConfirmed: false }).columns[0], 103);
+  engine.append(flat(100, timeOf(0)), { isConfirmed: true });
+  engine.append(flat(102, timeOf(1)), { isConfirmed: true });
+  engine.append(flat(106, timeOf(2)), { isConfirmed: false });
+  assert.equal(engine.update(flat(104, timeOf(2)), { isConfirmed: false }).columns[0], 103);
 });
 
 test('an object a discarded execution created does not survive the rollback', () => {
@@ -84,9 +95,11 @@ test('an object a discarded execution created does not survive the rollback', ()
       'plot(close, "c", aqua)',
     ].join('\n'),
   );
-  engine.append(flat(100), { isConfirmed: false });
+  engine.append(flat(100, timeOf(0)), { isConfirmed: false });
   assert.equal(engine.drawings().length, 1);
-  for (let update = 0; update < 5; update += 1) engine.update(flat(101), { isConfirmed: false });
+  for (let update = 0; update < 5; update += 1) {
+    engine.update(flat(101, timeOf(0)), { isConfirmed: false });
+  }
   assert.equal(engine.drawings().length, 1, 'five more executions, still one box');
 });
 
@@ -107,9 +120,9 @@ test('an array two names share is still one array after a restore', () => {
       'plot(size(second), "n", aqua)',
     ].join('\n'),
   );
-  assert.equal(engine.append(flat(10), { isConfirmed: true }).columns[0], 2);
-  assert.equal(engine.append(flat(11), { isConfirmed: false }).columns[0], 3);
-  assert.equal(engine.update(flat(12), { isConfirmed: false }).columns[0], 3);
+  assert.equal(engine.append(flat(10, timeOf(0)), { isConfirmed: true }).columns[0], 2);
+  assert.equal(engine.append(flat(11, timeOf(1)), { isConfirmed: false }).columns[0], 3);
+  assert.equal(engine.update(flat(12, timeOf(1)), { isConfirmed: false }).columns[0], 3);
 });
 
 test('the replay invariant holds for every target over a whole dataset', () => {
