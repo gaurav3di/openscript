@@ -16,7 +16,15 @@ import { checkConstant, checkField } from './verify-shape.js';
 const META_KINDS = ['study', 'strategy'] as const;
 const CHANNEL_TYPES = ['number', 'string', 'color', 'bool'] as const;
 const CELL_KINDS = ['var', 'live'] as const;
-const REGISTER_KINDS = ['bar', 'computed', 'argument'] as const;
+// The five the format declares (compiled-program.md section 2, series[].kind),
+// not the three this engine happens to execute today. A verifier that lists only
+// what it implements refuses a well-formed program with a message blaming the
+// compiler that wrote it, and pre-empts the capability refusal that exists to
+// say which feature is missing. Verification answers "is this a valid program",
+// and the capability check answers "can I run it". Conflating them turns an
+// honest "I do not implement higher timeframe reads" into "your compiler is
+// broken, and recompiling will not help".
+const REGISTER_KINDS = ['bar', 'computed', 'argument', 'request', 'input'] as const;
 const LOOP_KINDS = ['for', 'forIn', 'while'] as const;
 const EFFECTS = ['none', 'signal', 'order', 'draw', 'log'] as const;
 

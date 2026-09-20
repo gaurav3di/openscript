@@ -27,13 +27,34 @@ import test from 'node:test';
 
 import * as numeric from '../../src/core/stdlib/index.js';
 import type { Bar, Value as Numeric } from '../../src/core/stdlib/index.js';
-import { REQUEST_NAMES, libraryEntries, libraryNames, typeText } from '../../src/core/index.js';
+import { libraryEntries, libraryNames, typeText } from '../../src/core/index.js';
 import { BAR_FACTS, BAR_FIELDS, DECLARATION_CALLS } from '../../src/core/emit/index.js';
 import { COLOUR_NAMES, manifestEntries, manifestEntry, namedColour } from '../../src/core/engine/library/index.js';
 import type { BarView, CallContext, ManifestEntry } from '../../src/core/engine/library/index.js';
 import { Heap } from '../../src/core/engine/values/index.js';
 import type { Value } from '../../src/core/engine/values/index.js';
 import { compile, compileTarget, emittableTargets } from './support.js';
+import { load } from '../../src/core/index.js';
+
+/**
+ * Names the emitter tags as a capability rather than calling through the
+ * manifest: the engine may not implement them, and the format says so by name.
+ */
+const CAPABILITY_NAMES = new Set(['req.timeframe', 'req.symbol']);
+
+/** The smallest script that reaches one capability name. */
+function capabilitySource(name: string): string {
+  const read =
+    name === 'req.symbol'
+      ? 'req.symbol("SYMBOL", "1D", close)'
+      : 'req.timeframe("1D", close)';
+  return `version 1
+study("Capability")
+
+plot(${read}, "D", aqua)
+`;
+}
+
 
 /** A context a fold can drive, with no budget and no host to speak of. */
 function contextFor(heap: Heap): CallContext & { state: Record<string, unknown>; view: BarView } {
@@ -504,18 +525,20 @@ test('every entry the engine implements agrees with the checker on state and eff
  * a program without being a `CALL_LIB`, and each is taken from the module that
  * owns it rather than listed again here.
  */
-test('every name the checker accepts either runs or is marked planned', () => {
+test('every name the checker accepts runs, says it is planned, or names a capability', () => {
   const registers = new Set([...BAR_FIELDS, ...BAR_FACTS]);
   const unrunnable: string[] = [];
   for (const name of libraryNames()) {
     // A declaration is a fixed entry in `outputs`, not a call an engine makes.
     if (DECLARATION_CALLS.has(name)) continue;
-    // A higher timeframe read compiles its argument over other bars, which the
-    // compiled program has no field for; the emitter records that as a gap.
-    if (REQUEST_NAMES.includes(name)) continue;
     for (const one of libraryEntries(name)) {
       if (one.planned) continue;
       if (!one.callable && registers.has(name)) continue;
+      // A name the emitter tags as a capability is the format's own answer to
+      // "this engine cannot run that": the program carries the tag and load
+      // refuses by name. That is a real state, not an exemption, so the next
+      // test proves the refusal happens rather than assuming it.
+      if (CAPABILITY_NAMES.has(name)) continue;
       const arity = one.callable ? one.parameters.length : 0;
       if (manifestEntry(name, arity) === undefined) unrunnable.push(`${name}/${arity}`);
     }
@@ -523,8 +546,50 @@ test('every name the checker accepts either runs or is marked planned', () => {
   assert.deepEqual(
     unrunnable,
     [],
-    'these compile and no engine will run them: wire them, or mark them planned',
+    'these compile and no engine will run them: wire them, mark them planned, or tag them as a capability',
   );
+});
+
+/**
+ * The half of the rule above that an exemption would have hidden.
+ *
+ * A previous round skipped these two names and wrote a comment saying the format
+ * had no field to carry them. The format had the fields, the emitter filled them,
+ * and the engine refused the result with a message blaming the compiler that
+ * wrote it. The skip is what let that sit.
+ *
+ * So the capability state is not taken on trust. Every name in it must produce a
+ * program that names the capability, and an engine without it must refuse that
+ * program by that name. An engine that quietly ran one, or refused it with
+ * anything other than the capability code, fails here.
+ */
+test('a capability name compiles, tags itself, and is refused by name at load', () => {
+  for (const name of CAPABILITY_NAMES) {
+    const source = capabilitySource(name);
+    const compiled = compile(name, source);
+    assert.deepEqual(
+      compiled.diagnostics.map((one) => one.code),
+      [],
+      `${name}: a capability name must compile cleanly, not be refused at the call`,
+    );
+    assert.ok(compiled.program, `${name}: a capability name must produce a program`);
+    assert.ok(
+      compiled.program.requires.includes(name),
+      `${name}: the program must carry the capability tag, or an engine cannot know what it needs`,
+    );
+    const loaded = load(compiled.program);
+    assert.equal(loaded.ok, false, `${name}: an engine without the capability must refuse`);
+    assert.equal(
+      loaded.diagnostic.code,
+      'OS6006',
+      `${name}: refuse with the capability code, not by failing verification`,
+    );
+    assert.match(
+      loaded.diagnostic.message,
+      new RegExp(name.replace('.', '\.')),
+      `${name}: the refusal must name the capability the reader is missing`,
+    );
+  }
 });
 
 test('the engine implements every call the nine target scripts make', () => {

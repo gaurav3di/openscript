@@ -165,6 +165,15 @@ const drawing: readonly LibraryEntry[] = [
 ];
 
 const requests: readonly LibraryEntry[] = [
+  // Not planned, and deliberately so: a target script uses a higher timeframe
+  // read, so the language has it in version one and the checker accepts it.
+  //
+  // The engine is what does not execute a request body yet, and the format
+  // already has the honest way to say that: the program carries a `req.timeframe`
+  // capability tag, and an engine without it refuses at load with OS6006 naming
+  // the capability. That is a third legitimate state beside "runs" and
+  // "planned", and it is the one the compiled format was designed for, because
+  // it is how an old engine tells a new program what it is missing.
   entry('req.timeframe(timeframe: string, expr: T, mode?: string) -> T', {
     warmup: DATA_DRIVEN,
     values: { mode: REQUEST_MODES },
