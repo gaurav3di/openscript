@@ -68,7 +68,7 @@ export function orElse(x: Value, fallback: Value): Value {
   return isPresent(x) ? x : fallback;
 }
 
-/** `bool(x)`: absence to false, a bool to itself. Numbers are a type error. */
+/** `toBool(x)`: absence to false, a bool to itself. Numbers are a type error. */
 export function boolOf(x: boolean | null): boolean {
   return x === null ? false : x;
 }

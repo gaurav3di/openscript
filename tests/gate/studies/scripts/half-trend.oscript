@@ -1,0 +1,111 @@
+// A trend level that only moves against the trend once the other side of the
+// range has genuinely given way, so it holds flat through noise where a moving
+// average wobbles.
+//
+// Exercises two state machines running at once: one for the trend that is
+// drawn, one for the flip that is armed. On a flip the new level starts from
+// the level the other side ended on, which is why the line steps rather than
+// jumping to price. Both halves of the level are drawn as their own column with
+// a gap where the other is live, because one column cannot change colour
+// partway along.
+
+version 1
+
+study("Half trend", overlay = true, precision = 2)
+
+amp      = input(2,   "Amplitude", min = 1, max = 100)
+chDev    = input(2.0, "Channel deviation", min = 0, max = 20)
+rangeLen = input(20,  "Range length", min = 1, max = 500)
+
+halfRange = atr(rangeLen) / 2
+deviation = chDev * halfRange
+meanHigh  = sma(high, amp)
+meanLow   = sma(low, amp)
+rollHigh  = highest(high, amp)
+rollLow   = lowest(low, amp)
+
+var trendDown = false
+var armedDown = false
+var maxLow    = none
+var minHigh   = none
+var upLevel   = 0
+var downLevel = 0
+var seeded    = false
+
+// Everything the decisions below read is read here, before any of them writes.
+// Absence stands in for "this is the first bar", which is the state the level
+// is seeded from rather than carried into. The two levels start at zero rather
+// than at nothing, because the first bar never reads them: it is the bar the
+// level is seeded on, and every bar after it has written one of the two.
+wasDown     = seeded ? trendDown : none
+heldMaxLow  = orElse(maxLow, low)
+heldMinHigh = orElse(minHigh, high)
+heldUp      = upLevel
+heldDown    = downLevel
+
+// Bar 0 has no bar before it, and comparing it against itself can never satisfy
+// a flip, which is the right answer for a chart holding one bar.
+prevHigh = orElse(high[1], high)
+prevLow  = orElse(low[1], low)
+
+if armedDown
+    if not isNone(rollLow)
+        heldMaxLow = max(rollLow, heldMaxLow)
+    if not isNone(meanHigh) and meanHigh < heldMaxLow and close < prevLow
+        trendDown = true
+        armedDown = false
+        heldMinHigh = rollHigh
+else
+    if not isNone(rollHigh)
+        heldMinHigh = min(rollHigh, heldMinHigh)
+    if not isNone(meanLow) and meanLow > heldMinHigh and close > prevHigh
+        trendDown = false
+        armedDown = true
+        heldMaxLow = rollLow
+
+maxLow  = heldMaxLow
+minHigh = heldMinHigh
+
+liveLevel = none
+buyMark   = none
+sellMark  = none
+
+if not trendDown
+    if orElse(wasDown, false)
+        // Step across from where the other side ended, and mark the flip half a
+        // range inside the channel.
+        upLevel = heldDown
+        buyMark = isNone(halfRange) ? none : upLevel - halfRange
+    else
+        upLevel = isNone(wasDown) ? heldMaxLow : max(heldMaxLow, heldUp)
+    liveLevel = upLevel
+else
+    if not orElse(wasDown, true)
+        downLevel = heldUp
+        sellMark = isNone(halfRange) ? none : downLevel + halfRange
+    else
+        downLevel = isNone(wasDown) ? heldMinHigh : min(heldMinHigh, heldDown)
+    liveLevel = downLevel
+
+seeded = true
+
+// The level needs no range at all, so it starts well before the channel does.
+levelUp   = plot(not trendDown ? liveLevel : none, "Level up", blue, width = 2)
+levelDown = plot(trendDown ? liveLevel : none, "Level down", red, width = 2)
+
+channelHigh = plot(isNone(deviation) ? none : liveLevel + deviation, "Channel high", red,
+                   style = "lineWithMarkers")
+channelLow  = plot(isNone(deviation) ? none : liveLevel - deviation, "Channel low", blue,
+                   style = "lineWithMarkers")
+
+fill(levelUp, channelLow, fade(blue, 85))
+fill(levelDown, channelHigh, fade(red, 85))
+
+plot(buyMark, "Buy", blue, style = "lineWithMarkers")
+plot(sellMark, "Sell", red, style = "lineWithMarkers")
+
+if not isNone(buyMark)
+    signal("Buy", blue, at = "below", shape = "label")
+
+if not isNone(sellMark)
+    signal("Sell", red, at = "above", shape = "label")

@@ -1,0 +1,31 @@
+// The same rise against fall split a strength reading uses, taken as a plain
+// ratio of summed moves, so it swings the whole of its range rather than
+// compressing towards the middle.
+//
+// Exercises a warmup one bar later than the plain reading would give: the first
+// change is absent, so the first complete window of changes ends at bar `len`
+// rather than at bar `len - 1`.
+
+version 1
+
+study("Chande momentum", overlay = false, precision = 4)
+
+len = input(9, "Length", min = 1, max = 500)
+src = input(close, "Source")
+
+move = change(src)
+rise = move >= 0 ? move : 0
+fall = move >= 0 ? 0 : -move
+
+// Both totals are taken once, at the top level. Only the taken arm of a ternary
+// is evaluated, so a windowed total written inside one would advance only on the
+// bars that arm was taken on.
+rose  = sum(rise, len)
+fell  = sum(fall, len)
+total = rose + fell
+
+// A perfectly flat window has nothing to divide by, and every finite answer
+// invented there would be a reading of a market that did not move.
+plot(total == 0 ? none : 100 * (rose - fell) / total, "Chande momentum", blue, width = 2)
+
+level(0, "Zero", gray, style = "dashed")

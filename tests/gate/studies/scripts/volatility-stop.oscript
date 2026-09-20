@@ -1,0 +1,56 @@
+// A trailing stop an average range away from the running extreme of the source,
+// which flips side when price closes through it.
+//
+// Exercises: a recursion written out bar by bar in the language rather than
+// called out to a library function, a level split across two plots so it
+// changes colour at a flip, and a marker on each flip.
+
+version 1
+
+study("Volatility stop", overlay = true, precision = 2)
+
+len    = input(20,  "Length",     min = 2, max = 500)
+factor = input(2.0, "Multiplier", min = 0.25, max = 20)
+
+// While the average range is still warming there is no band to scale, so the
+// bar's own true range stands in for it, unmultiplied. That is what lets the
+// stop exist from bar 0 rather than starting twenty bars in.
+band  = atr(len)
+barRange = trueRange()
+width = isNone(band) ? barRange : band * factor
+
+var runHigh = none
+var runLow  = none
+var upTrend = true
+var stop    = none
+
+runHigh = isNone(runHigh) ? close : max(runHigh, close)
+runLow  = isNone(runLow)  ? close : min(runLow, close)
+
+// The previous bar's stop and the previous bar's side are what decide this
+// bar's level, so both are read before either is written. On bar 0 there is no
+// previous stop, and the recursion is seeded at the source itself.
+raw   = upTrend ? max(stop, runHigh - width) : min(stop, runLow + width)
+stopLevel = isNone(raw) ? close : raw
+nowUp = close - stopLevel >= 0
+
+flipped = not bar.isFirst and nowUp != upTrend
+if flipped
+    runHigh = close
+    runLow  = close
+    stopLevel   = nowUp ? runHigh - width : runLow + width
+
+upTrend = nowUp
+stop    = stopLevel
+
+plot(nowUp ? stopLevel : none, "Stop, long", lime, width = 2)
+plot(nowUp ? none : stopLevel, "Stop, short", red, width = 2)
+
+// Two calls rather than one with a chosen shape: a marker's shape, colour and
+// side are fields of its declaration and are settled before bar 0, so a study
+// that varies them varies two declarations rather than one field.
+if flipped and nowUp
+    signal("FLIP LONG", lime, at = "below", shape = "triangleUp")
+
+if flipped and not nowUp
+    signal("FLIP SHORT", red, at = "above", shape = "triangleDown")

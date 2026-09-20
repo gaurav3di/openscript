@@ -1,0 +1,22 @@
+// Two stacked extremes: a rail set a multiple of the average range in from the
+// window's extreme, and then the running extreme of that rail, which is what
+// keeps each stop moving one way through a pullback.
+//
+// Exercises a window taken over a series that is itself absent while it warms
+// up, which is the case a windowed extreme has to refuse rather than answer
+// from the bars it happens to have.
+
+version 1
+
+study("Kroll stop", overlay = true, precision = 2)
+
+rngLen = input(10, "Range length", min = 1, max = 500)
+factor = input(1,  "Range multiple", min = 1, max = 100)
+stopLen = input(9, "Stop window", min = 1, max = 500)
+
+rangeNow = atr(rngLen)
+highRail = highest(high, rngLen) - factor * rangeNow
+lowRail  = lowest(low, rngLen) + factor * rangeNow
+
+plot(lowest(lowRail, stopLen), "Stop long", aqua, width = 2)
+plot(highest(highRail, stopLen), "Stop short", orange, width = 2)

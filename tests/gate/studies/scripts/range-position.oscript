@@ -1,0 +1,39 @@
+// Where the close sits inside the high and low of its own recent range,
+// smoothed twice, with the crossings of the two lines marked.
+//
+// Exercises: a marker that fires on a crossing rather than on a level, the
+// difference between a marker above the bar and one below it, and a pane shaded
+// while the fast line is at an extreme.
+
+version 1
+
+study("Range position", precision = 2, range = [0, 100])
+
+kLen    = input(14, "K length",    min = 1, max = 500)
+kSmooth = input(3,  "K smoothing", min = 1, max = 100)
+dLen    = input(3,  "D smoothing", min = 1, max = 100)
+
+top    = highest(high, kLen)
+bottom = lowest(low, kLen)
+span   = top - bottom
+
+raw = span > 0 ? (close - bottom) / span * 100 : none
+k   = sma(raw, kSmooth)
+d   = sma(k, dLen)
+
+level(80, "Overbought", fade(red, 50), style = "dashed")
+level(20, "Oversold", fade(lime, 50), style = "dashed")
+
+plot(k, "K", aqua, width = 2)
+plot(d, "D", orange, width = 2)
+
+background(k > 80 ? fade(red, 92) : k < 20 ? fade(lime, 92) : none)
+
+// The crossing is the trigger and the level is the context, so the marker says
+// which one it was rather than leaving a reader to work it out from where the
+// arrow landed.
+if crossUp(k, d)
+    signal(k < 20 ? "TURN UP, LOW" : "TURN UP", lime, at = "below", shape = "arrowUp")
+
+if crossDown(k, d)
+    signal(k > 80 ? "TURN DOWN, HIGH" : "TURN DOWN", red, at = "above", shape = "arrowDown")

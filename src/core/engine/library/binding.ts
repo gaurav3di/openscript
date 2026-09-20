@@ -113,18 +113,26 @@ export interface CallContext {
 /**
  * The memory ceilings a library call has to respect.
  *
- * Two ceilings, because two are what the catalogue can state truthfully: an
- * array holds at most so many elements (OS5002) and a string at most so many
- * code points (OS5008). There is no code for a ceiling on the whole heap, and
+ * Three ceilings, because three are what the catalogue can state truthfully: an
+ * array holds at most so many elements (OS5002), a string at most so many code
+ * points (OS5008), and a script at most so many drawing objects at once
+ * (OS5010). There is still no code for a ceiling on the whole heap, and
  * inventing one would mean a message that named an array for a limit the array
- * did not reach, so the engine enforces the two it can name and reclaims what
+ * did not reach, so the engine enforces the three it can name and reclaims what
  * nothing can reach instead.
+ *
+ * The drawing ceiling is the one of the three that cannot be reclaimed around.
+ * An object lives until the script deletes it and an undeleted one is a root of
+ * its own, so a script that creates one per bar has a heap that grows for as
+ * long as the chart is open and a sweep that can free none of it.
  */
 export interface Guard {
   array(span: Span, name: string, size: number): void;
   string(span: Span, text: string): string;
   /** The same ceiling against a length, for a string not yet built. */
   chars(span: Span, length: number): void;
+  /** The drawing object ceiling, charged with what the script holds now. */
+  drawing(span: Span, held: number): void;
   /** Raise a run-time diagnostic that names an argument of this call. */
   badArgument(span: Span, name: string, argument: string, found: string): never;
   /** Raise a run-time diagnostic against an index outside an array. */

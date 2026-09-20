@@ -1,0 +1,42 @@
+// A band centred on the fitted line's own endpoint rather than on a moving
+// average of price, pushed out by a number of standard errors and only then
+// smoothed.
+//
+// Exercises: a user function that holds no state called once per bar, a
+// regression endpoint from the library beside a residual computed by hand, and
+// three legs each smoothed on their own so the band width is smoothed too
+// rather than recomputed around a smoothed middle.
+
+version 1
+
+study("Standard error bands", overlay = true, precision = 4)
+
+periods = input(21, "Periods", min = 3, max = 1000)
+errors  = input(2.0, "Standard errors", min = 0, max = 100)
+span    = input(3,  "Averaging periods", min = 1, max = 1000)
+
+centre = (periods + 1) / 2
+
+total = 0.0
+for k = 0 to periods - 1
+    total = total + close[k]
+middle = total / periods
+
+spread = 0.0
+tilt  = 0.0
+ladder = 0.0
+for k = 0 to periods - 1
+    fromMean = middle - close[k]
+    pos = centre - k - 1
+    spread = spread + fromMean * fromMean
+    tilt  = tilt + pos * fromMean
+    ladder = ladder + pos * pos
+
+residual = sqrt((spread - (tilt * tilt) / ladder) / (periods - 2))
+fitted   = linreg(close, periods, 0)
+
+upper = plot(sma(fitted + errors * residual, span), "Upper", fade(aqua, 20))
+lower = plot(sma(fitted - errors * residual, span), "Lower", fade(aqua, 20))
+fill(upper, lower, fade(aqua, 90))
+
+plot(sma(fitted, span), "Basis", orange, width = 2)

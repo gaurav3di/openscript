@@ -116,6 +116,12 @@ const HOSTS_OWN = [
     why: 'errors.md OS5008 states the ceiling and carries it in the message; no document fixes it',
   },
   {
+    name: 'the drawing object ceiling, OS5010',
+    file: 'src/core/engine/budget.ts',
+    pattern: /drawingObjects: ([\d_]+)/,
+    why: 'stdlib.md 14.4 fixes that the ceiling is reported and that nothing is dropped to make room, and deliberately fixes no number; errors.md OS5010 carries it in the message',
+  },
+  {
     name: 'the call frame ceiling, OS5005',
     file: 'src/core/engine/budget.ts',
     pattern: /frames: ([\d_]+)/,

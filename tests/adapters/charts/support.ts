@@ -16,7 +16,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { DiagnosticBag, check, lex, parseTokens, sourceFile } from '../../../src/core/index.js';
+import { DiagnosticBag, check, isError, lex, parseTokens, sourceFile } from '../../../src/core/index.js';
 import { emit } from '../../../src/core/emit/index.js';
 import type { CompiledProgram } from '../../../src/core/emit/index.js';
 import { descriptorFor } from '../../../src/adapters/charts/index.js';
@@ -36,9 +36,15 @@ export function compile(name: string, text: string): CompiledProgram {
   const script = parseTokens(file, tokens, bag);
   const checked = check(file, script, bag);
   const result = emit(file, checked, bag, {});
-  if (result.program === undefined) {
+  // A program comes back from a source the compiler refused, because the
+  // emitter keeps going to report as much as it can in one pass. A test written
+  // against one of those is testing the compiler's recovery, not the adapter,
+  // and it passes while asserting nothing: a script with a typo in it draws
+  // whatever the recovery left behind.
+  const refused = bag.ordered().filter(isError);
+  if (result.program === undefined || refused.length > 0) {
     throw new Error(
-      `${name} did not compile: ${bag.ordered().map((one) => one.code).join(', ')}` +
+      `${name} did not compile: ${refused.map((one) => `${one.code} ${one.message}`).join('; ')}` +
         ` ${result.gaps.map((one) => one.what).join('; ')}`,
     );
   }

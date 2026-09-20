@@ -5,33 +5,26 @@
  * `verify-shape.ts` answers "is this field a number"; this walks the whole
  * program asking it, table by table, and checks every index into a table is in
  * range: constant pool, slots, cells, states, registers, channels, library
- * functions, call sites, loops and functions. Separate from `verify.ts` because
+ * functions, call sites, loops and functions. The tables a machine indexes and
+ * the `requests` table are in `verify-requests.ts`, because a read's body holds
+ * the same tables counted from zero and one walk has to serve both. Separate
+ * from `verify.ts` because
  * it is one long traversal with no decisions in it, and because the decisions
  * there, which version, which capability, which budget, are what a reader comes
  * looking for.
  */
 import type { ShapeCheck } from './verify-shape.js';
 import { checkConstant, checkField } from './verify-shape.js';
+import { checkMachineTables, checkRequests } from './verify-requests.js';
 
 const META_KINDS = ['study', 'strategy'] as const;
 const CHANNEL_TYPES = ['number', 'string', 'color', 'bool'] as const;
-const CELL_KINDS = ['var', 'live'] as const;
-// The five the format declares (compiled-program.md section 2, series[].kind),
-// not the three this engine happens to execute today. A verifier that lists only
-// what it implements refuses a well-formed program with a message blaming the
-// compiler that wrote it, and pre-empts the capability refusal that exists to
-// say which feature is missing. Verification answers "is this a valid program",
-// and the capability check answers "can I run it". Conflating them turns an
-// honest "I do not implement higher timeframe reads" into "your compiler is
-// broken, and recompiling will not help".
-const REGISTER_KINDS = ['bar', 'computed', 'argument', 'request', 'input'] as const;
-const LOOP_KINDS = ['for', 'forIn', 'while'] as const;
 const EFFECTS = ['none', 'signal', 'order', 'draw', 'log'] as const;
 
 /** Check 1 over every table the machine indexes, and every declaration field. */
 export function checkTables(shape: ShapeCheck, raw: Readonly<Record<string, unknown>>): boolean {
   for (const name of ['requires', 'inputs', 'channels', 'consts', 'series', 'cells', 'states',
-    'functions', 'callSites', 'loops', 'code']) {
+    'functions', 'callSites', 'loops', 'code', 'requests']) {
     if (!shape.array(raw[name], name)) return false;
   }
   for (const name of ['compiler', 'source', 'meta', 'limits', 'lib', 'outputs', 'frame', 'debug']) {
@@ -90,78 +83,24 @@ export function checkTables(shape: ShapeCheck, raw: Readonly<Record<string, unkn
   }
 
   const series = raw['series'] as readonly unknown[];
-  for (let i = 0; i < series.length; i += 1) {
-    const register = series[i];
-    const path = `series[${i}]`;
-    if (!shape.object(register, path)) return false;
-    if (register['id'] !== i) return shape.fail(`${path}.id`, 'a register id is its position');
-    if (!shape.one(register['kind'], `${path}.kind`, REGISTER_KINDS)) return false;
-    if (register['kind'] === 'bar' && !shape.string(register['field'], `${path}.field`)) {
-      return false;
-    }
+  if (!checkMachineTables(shape, '', {
+    series,
+    cells: raw['cells'] as readonly unknown[],
+    states: raw['states'] as readonly unknown[],
+    functions: raw['functions'] as readonly unknown[],
+    callSites: raw['callSites'] as readonly unknown[],
+    loops: raw['loops'] as readonly unknown[],
+    slots: Number(frame['slots']),
+    libFunctions: lib['functions'].length,
+  })) {
+    return false;
   }
 
-  const cells = raw['cells'] as readonly unknown[];
-  for (let i = 0; i < cells.length; i += 1) {
-    const cell = cells[i];
-    const path = `cells[${i}]`;
-    if (!shape.object(cell, path)) return false;
-    if (!shape.one(cell['kind'], `${path}.kind`, CELL_KINDS)) return false;
-  }
-
-  const states = raw['states'] as readonly unknown[];
-  for (let i = 0; i < states.length; i += 1) {
-    const state = states[i];
-    const path = `states[${i}]`;
-    if (!shape.object(state, path)) return false;
-    if (!shape.index(state['fn'], `${path}.fn`, lib['functions'].length, 'lib.functions')) {
-      return false;
-    }
-  }
-
-  const functions = raw['functions'] as readonly unknown[];
-  for (let i = 0; i < functions.length; i += 1) {
-    const one = functions[i];
-    const path = `functions[${i}]`;
-    if (!shape.object(one, path)) return false;
-    if (!shape.string(one['name'], `${path}.name`)) return false;
-    if (!shape.whole(one['params'], `${path}.params`)) return false;
-    if (!shape.whole(one['slots'], `${path}.slots`)) return false;
-    if (!shape.array(one['code'], `${path}.code`)) return false;
-    if (Number(one['params']) > Number(one['slots'])) {
-      return shape.fail(`${path}.slots`, 'a frame cannot be smaller than its parameter list');
-    }
-  }
-
-  const sites = raw['callSites'] as readonly unknown[];
-  for (let i = 0; i < sites.length; i += 1) {
-    const site = sites[i];
-    const path = `callSites[${i}]`;
-    if (!shape.object(site, path)) return false;
-    if (!shape.index(site['fn'], `${path}.fn`, functions.length, 'functions')) return false;
-    if (!shape.whole(site['argc'], `${path}.argc`)) return false;
-    if (!shape.whole(site['cellBase'], `${path}.cellBase`)) return false;
-    if (!shape.whole(site['stateBase'], `${path}.stateBase`)) return false;
-    if (!shape.array(site['series'], `${path}.series`)) return false;
-    const target = functions[Number(site['fn'])] as Readonly<Record<string, unknown>>;
-    if (site['argc'] !== target['params']) {
-      return shape.fail(`${path}.argc`, 'a site passes exactly the function\'s parameter count');
-    }
-    for (let k = 0; k < site['series'].length; k += 1) {
-      const bound = site['series'][k];
-      if (bound === -1) continue;
-      if (!shape.index(bound, `${path}.series[${k}]`, series.length, 'series')) return false;
-    }
-  }
-
-  const loops = raw['loops'] as readonly unknown[];
-  for (let i = 0; i < loops.length; i += 1) {
-    const loop = loops[i];
-    const path = `loops[${i}]`;
-    if (!shape.object(loop, path)) return false;
-    if (!shape.one(loop['kind'], `${path}.kind`, LOOP_KINDS)) return false;
-    if (!shape.whole(loop['line'], `${path}.line`)) return false;
-    if (!shape.whole(loop['col'], `${path}.col`)) return false;
+  // 2.16: a read's body is walked on the same terms, because the same machine
+  // executes it over another instrument's bars.
+  if (!checkRequests(shape, '', raw['requests'] as readonly unknown[], series.length,
+    lib['functions'].length, keys)) {
+    return false;
   }
 
   const meta = raw['meta'] as Readonly<Record<string, unknown>>;

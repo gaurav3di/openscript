@@ -1,0 +1,27 @@
+// How much the bar range is expanding against its own recent expansion, summed
+// over a window.
+//
+// Exercises three warmups stacked: a smoothing of the range, a smoothing of
+// that, and a window over the ratio of the two. Each one starts counting at its
+// input's first value rather than at bar 0, which is why the reading lands two
+// smoothings and a window deep.
+
+version 1
+
+study("Mass expansion", overlay = false, precision = 4)
+
+len = input(10, "Sum length", min = 1, max = 500)
+
+// The two smoothing lengths are part of the definition of the study rather than
+// settings, so neither is an input.
+smoothLen = 9
+
+reach  = high - low
+single = ema(reach, smoothLen)
+double = ema(single, smoothLen)
+
+// A market flat long enough for the smoothed range to reach zero has no
+// expansion to measure, and nothing is the honest answer there.
+ratio = double == 0 ? none : single / double
+
+plot(sum(ratio, len), "Mass", blue, width = 2)

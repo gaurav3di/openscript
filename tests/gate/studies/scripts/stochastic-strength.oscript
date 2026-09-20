@@ -1,0 +1,36 @@
+// Where the strength reading sits inside its own recent range, which turns a
+// slow oscillator into a fast one.
+//
+// Exercises: four warmups stacked one on the next, an extreme taken over
+// another study's output rather than over price, and a pane shaded between two
+// fixed levels rather than between two series.
+
+version 1
+
+study("Stochastic strength", precision = 2, range = [0, 100])
+
+rsiLen   = input(14, "Strength length",   min = 1, max = 500)
+stochLen = input(14, "Stochastic length", min = 1, max = 500)
+smoothK  = input(3,  "K smoothing",       min = 1, max = 100)
+smoothD  = input(3,  "D smoothing",       min = 1, max = 100)
+
+// The window is the strength reading's own high and low, not price's, which is
+// why the same length appears twice and why every warmup here adds to the one
+// before it rather than running beside it.
+strength = rsi(close, rsiLen)
+top      = highest(strength, stochLen)
+bottom   = lowest(strength, stochLen)
+span     = top - bottom
+
+raw = span == 0 ? none : 100 * (strength - bottom) / span
+k   = sma(raw, smoothK)
+d   = sma(k, smoothD)
+
+level(80, "Upper band", fade(silver, 40))
+level(50, "Middle band", fade(silver, 65))
+level(20, "Lower band", fade(silver, 40))
+
+plot(k, "K", aqua, width = 2)
+plot(d, "D", orange, width = 2)
+
+background(k > 80 ? fade(red, 92) : k < 20 ? fade(lime, 92) : none)

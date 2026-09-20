@@ -1,0 +1,20 @@
+// A mean with rails a multiple of the average range away from it, which widens
+// on how much ground a bar covers rather than on how far the closes spread.
+//
+// Exercises the library's own three output channel call and a band between two
+// of the three columns it returns.
+
+version 1
+
+study("Keltner rails", overlay = true, precision = 2)
+
+len    = input(20, "Length", min = 1, max = 1000)
+mult   = input(2.0, "Multiplier", min = 0.1, max = 50)
+rngLen = input(10, "Range length", min = 1, max = 1000)
+
+channel = keltner(len, mult, rngLen, "ema")
+
+topRail    = plot(element(channel, 1), "Upper", blue)
+plot(element(channel, 0), "Basis", blue, width = 2)
+bottomRail = plot(element(channel, 2), "Lower", blue)
+fill(topRail, bottomRail, fade(blue, 95))

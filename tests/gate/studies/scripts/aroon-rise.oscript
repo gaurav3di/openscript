@@ -1,0 +1,23 @@
+// How recently the window set its high, against how recently it set its low,
+// each rescaled so a fresh extreme reads a hundred.
+//
+// Exercises a reading built entirely out of a bar count, where the sign
+// convention of that count is the whole study: reading it the other way up
+// turns every hundred into a zero.
+
+version 1
+
+study("Aroon rise", overlay = false, precision = 2)
+
+len = input(14, "Length", min = 1, max = 500)
+
+// The window is one bar longer than the length, because the reading counts the
+// gaps between bars rather than the bars.
+sinceHigh = highestBars(high, len + 1)
+sinceLow  = lowestBars(low, len + 1)
+
+upRail   = plot(100 * (len - sinceHigh) / len, "Rising", orange, width = 2)
+downRail = plot(100 * (len - sinceLow) / len, "Falling", blue, width = 2)
+fill(upRail, downRail, colorUp = fade(orange, 85), colorDown = fade(blue, 85))
+
+level(50, "Middle", gray, style = "dashed")

@@ -1,0 +1,36 @@
+// Three lines across the window's range at the usual retracement fractions,
+// moved every bar rather than redrawn.
+//
+// Exercises objects created once on the bar the window fills and then given new
+// bounds on every later bar, and a line that extends to the right edge.
+
+version 1
+
+study("Fibonacci grid", overlay = true, precision = 2)
+
+len = input(20, "Window", min = 2, max = 500)
+
+top    = highest(high, len)
+bottom = lowest(low, len)
+span   = top - bottom
+
+var near = none
+var half = none
+var far  = none
+
+if not isNone(span)
+    nearPrice = bottom + span * 0.382
+    halfPrice = bottom + span * 0.5
+    farPrice  = bottom + span * 0.618
+    startTime = time[len - 1]
+    if isNone(near)
+        near = draw.line(startTime, nearPrice, time, nearPrice,
+                         color = silver, width = 1, style = "dotted", extendRight = true)
+        half = draw.line(startTime, halfPrice, time, halfPrice,
+                         color = orange, width = 1, style = "dashed", extendRight = true)
+        far  = draw.line(startTime, farPrice, time, farPrice,
+                         color = silver, width = 1, style = "dotted", extendRight = true)
+    else
+        draw.setBounds(near, startTime, nearPrice, time, nearPrice)
+        draw.setBounds(half, startTime, halfPrice, time, halfPrice)
+        draw.setBounds(far, startTime, farPrice, time, farPrice)

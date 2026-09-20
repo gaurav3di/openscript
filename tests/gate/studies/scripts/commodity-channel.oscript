@@ -1,0 +1,28 @@
+// How far the typical price has strayed from its own mean, measured in mean
+// absolute deviations.
+//
+// Exercises a band shaded between two constant columns, which is how a study
+// shades a region of its own pane rather than a gap between two readings, and
+// the price candles recoloured from a reading in another pane.
+
+version 1
+
+study("Commodity channel", overlay = false, precision = 2)
+
+len = input(20, "Length", min = 1, max = 500)
+
+index = cci(len)
+
+// Two flat columns exist only to give the shading two edges. They are declared
+// before the reading so the wash sits behind it rather than over it.
+upperEdge = plot(100, "Upper edge", fade(blue, 60))
+lowerEdge = plot(-100, "Lower edge", fade(blue, 60))
+fill(upperEdge, lowerEdge, fade(blue, 90))
+
+plot(index, "Index", teal, width = 2)
+
+barColor(index > 100 ? lime : index < -100 ? red : none)
+
+level(100, "Upper", red, style = "dashed")
+level(0, "Zero", gray, style = "dashed")
+level(-100, "Lower", green, style = "dashed")

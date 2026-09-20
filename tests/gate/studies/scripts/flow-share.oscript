@@ -1,0 +1,26 @@
+// The money flow term summed over a window and divided by the volume traded in
+// that same window, so the reading is a share of participation rather than a
+// quantity.
+//
+// Exercises a window that traded nothing, where there is no share to express and
+// the answer is nothing rather than zero.
+
+version 1
+
+study("Flow share", overlay = false, precision = 4)
+
+len = input(20, "Length", min = 1, max = 500)
+
+flat = (close == high and close == low) or high == low
+term = flat ? 0 : (2 * close - low - high) / (high - low) * volume
+
+// Both totals are taken at the top level rather than inside the arm below. Only
+// the taken arm of a ternary is evaluated, so a windowed total written there
+// would advance only on the bars the guard let through and would answer from a
+// window made of those bars alone.
+flow   = sum(term, len)
+traded = sum(volume, len)
+
+plot(traded > 0 ? flow / traded : none, "Share", green, width = 2)
+
+level(0, "Zero", gray, style = "dashed")

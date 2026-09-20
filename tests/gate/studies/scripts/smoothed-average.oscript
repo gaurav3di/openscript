@@ -1,0 +1,15 @@
+// The smoothing the classic oscillators are built on, drawn on its own: seeded
+// with the simple mean of its first window and then carrying the previous value
+// forward with a weight of one over the length.
+//
+// Exercises: the seeding rule the rest of this half of the gate depends on, at
+// a length short enough that the seed still shows and long enough that the
+// recurrence does.
+
+version 1
+
+study("Smoothed average", overlay = true, precision = 4)
+
+len = input(7, "Length", min = 1, max = 1000)
+
+plot(rma(close, len), "Smoothed", purple, width = 2)

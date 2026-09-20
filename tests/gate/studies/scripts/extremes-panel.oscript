@@ -1,0 +1,36 @@
+// A panel of the window's own extremes: how high, how low, how wide, how long
+// ago each was set, and where the last price sits between them.
+//
+// Exercises a reading that answers with a bar count rather than a price, which
+// is the one place a sign convention decides whether a panel says "twelve bars
+// ago" or "twelve bars from now".
+
+version 1
+
+study("Extremes panel", overlay = true)
+
+len = input(20, "Window", min = 2, max = 500)
+
+panel = table("Extremes", rows = 5, cols = 2, position = "bottomRight",
+              textColor = silver, borderWidth = 1)
+
+top      = highest(high, len)
+bottom   = lowest(low, len)
+topAge   = highestBars(high, len)
+lowAge   = lowestBars(low, len)
+span     = top - bottom
+position = span > 0 ? (close - bottom) / span * 100 : none
+
+fn show(value, decimals) => isNone(value) ? "warming up" : text(value, decimals)
+
+cell(panel, 0, 0, "Window high", align = "left")
+cell(panel, 0, 1, show(top, 2), align = "right")
+cell(panel, 1, 0, "Set this many bars ago", align = "left")
+cell(panel, 1, 1, show(topAge, 0), align = "right")
+cell(panel, 2, 0, "Window low", align = "left")
+cell(panel, 2, 1, show(bottom, 2), align = "right")
+cell(panel, 3, 0, "Set this many bars ago", align = "left")
+cell(panel, 3, 1, show(lowAge, 0), align = "right")
+cell(panel, 4, 0, "Place in the window, percent", align = "left")
+cell(panel, 4, 1, show(position, 1), align = "right",
+     textColor = position > 80 ? lime : position < 20 ? red : silver)

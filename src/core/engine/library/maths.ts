@@ -127,8 +127,8 @@ export const MATHS_ENTRIES: readonly ManifestEntry[] = [
     const value = valueAt(args, 0);
     return value === null ? valueAt(args, 1) : value;
   }),
-  // `bool(x)`: absence to false, a bool to itself. A number is a type error the
-  // checker refuses, so an engine that reaches one is looking at a program its
-  // verifier should not have accepted, and absence is the safe reading.
-  entry('bool', 'x', (_ctx, args) => valueAt(args, 0) === true),
+  // `toBool(x)`: absence to false, a bool to itself. A number is a type error
+  // the checker refuses, so an engine that reaches one is looking at a program
+  // its verifier should not have accepted, and absence is the safe reading.
+  entry('toBool', 'x', (_ctx, args) => valueAt(args, 0) === true),
 ];

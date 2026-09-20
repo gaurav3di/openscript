@@ -1,0 +1,36 @@
+// The convergence of two exponential means written as a percentage of the
+// slower one, so a twenty unit instrument and a two thousand unit one can be
+// read on the same axis.
+//
+// Exercises: a histogram whose colour is decided per bar out of four states, a
+// signal line taken over the study's own output so its warmup stacks on the
+// study's, and a plot colour that is a channel rather than a declaration field.
+
+version 1
+
+study("Percentage price oscillator", precision = 4)
+
+fastLen   = input(12, "Fast length",   min = 1, max = 500)
+slowLen   = input(26, "Slow length",   min = 1, max = 500)
+signalLen = input(9,  "Signal length", min = 1, max = 500)
+
+fast = ema(close, fastLen)
+slow = ema(close, slowLen)
+
+value      = slow == 0 ? none : 100 * (fast - slow) / slow
+signalLine = ema(value, signalLen)
+gap        = value - signalLine
+
+// Four states, not two. The sign says which side of the signal line the study
+// sits on, and the move against the previous bar says whether that gap is
+// opening or closing, so a reader can see momentum fading before it turns. An
+// absent previous bar is not a rise, which is why the first drawn bar takes a
+// fading colour rather than a strong one.
+growing = gap > orElse(gap[1], gap)
+shade   = gap >= 0 ? (growing ? teal : aqua) : (growing ? pink : red)
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(gap, "Histogram", shade, style = "histogram")
+plot(value, "Oscillator", aqua, width = 2)
+plot(signalLine, "Signal", orange, width = 2)

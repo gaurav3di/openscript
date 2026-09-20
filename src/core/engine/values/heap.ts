@@ -100,10 +100,26 @@ export class Heap {
   private liveAtSweep = 0;
   private sinceSweep = 0;
   private elements = 0;
+  /**
+   * Drawing objects created and not yet deleted, kept as a running count.
+   *
+   * Counted rather than measured because two things ask for it on the hot
+   * path: `draw.count()` on every bar and the object ceiling on every
+   * creation. Walking the roster for each would make a study that holds ten
+   * thousand objects quadratic in the number it holds, which is the study the
+   * ceiling exists for. The count is adjusted by the same journal that undoes
+   * everything else, so a rolled back creation is a rolled back count.
+   */
+  private drawingsLive = 0;
 
   /** Objects alive right now, which is what a heap ceiling counts. */
   liveCount(): number {
     return this.objects.length - this.free.length;
+  }
+
+  /** Drawing objects the script has created and not deleted. */
+  drawingCount(): number {
+    return this.drawingsLive;
   }
 
   /** Total array elements held. */
@@ -127,8 +143,32 @@ export class Heap {
     this.created.push(id);
     this.sinceSweep += 1;
     if (object.kind === 'array') this.elements += object.items.length;
-    if (isDrawing(object)) this.drawingIds.push(id);
+    if (isDrawing(object)) {
+      this.drawingIds.push(id);
+      this.drawingsLive += 1;
+    }
     return id;
+  }
+
+  /**
+   * Delete one drawing object, which is the only thing that ends its life.
+   *
+   * Here rather than in the library call so that the roster, the count and the
+   * journal cannot disagree: a caller that set the flag itself would leave the
+   * count saying one thing and the objects another, and the first symptom
+   * would be a ceiling refusing a script that had deleted everything.
+   *
+   * Deleting twice does nothing and is not an error. The script asked for the
+   * object to be gone and it is gone; only a change to a deleted object is
+   * OS4005.
+   */
+  deleteDrawing(id: number, bar: number): void {
+    const object = this.objects[id];
+    if (object === undefined || !isDrawing(object) || object.deleted) return;
+    this.touch(id);
+    object.deleted = true;
+    object.deletedAt = bar;
+    this.drawingsLive -= 1;
   }
 
   /**
@@ -168,6 +208,11 @@ export class Heap {
       if (current !== undefined && current.kind === 'array' && object.kind === 'array') {
         this.elements += object.items.length - current.items.length;
       }
+      // A deletion this bar made is undone with everything else, so the object
+      // comes back and the count comes back with it.
+      if (current !== undefined && isDrawing(current) && isDrawing(object)) {
+        this.drawingsLive += (object.deleted ? 0 : 1) - (current.deleted ? 0 : 1);
+      }
       this.objects[id] = object;
     }
     this.taken.clear();
@@ -176,6 +221,9 @@ export class Heap {
       if (id === undefined) continue;
       const object = this.objects[id];
       if (object !== undefined && object.kind === 'array') this.elements -= object.items.length;
+      // An object created and then deleted on the same bar was counted out of
+      // the roster by the deletion, so only a live one is counted out here.
+      if (object !== undefined && isDrawing(object) && !object.deleted) this.drawingsLive -= 1;
       this.objects[id] = undefined;
       this.free.push(id);
       this.sinceSweep -= 1;
@@ -232,6 +280,10 @@ export class Heap {
       const object = this.objects[id];
       if (object === undefined || live.has(id)) continue;
       if (object.kind === 'array') this.elements -= object.items.length;
+      // A drawing that has not been deleted is a root of its own, so this
+      // subtracts nothing in practice. It is written because the day the roots
+      // change is the day a silently wrong count would start.
+      if (isDrawing(object) && !object.deleted) this.drawingsLive -= 1;
       this.objects[id] = undefined;
       this.free.push(id);
     }

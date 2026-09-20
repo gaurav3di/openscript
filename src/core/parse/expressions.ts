@@ -303,7 +303,7 @@ function parsePrimary(cursor: Cursor): Expression {
       // not read, and the next thing the reader is told is that a bracket they
       // plainly closed was never closed.
       if (isMeantAsAName(token.kind)) {
-        const name = takeName(cursor);
+        const name = takeName(cursor, true);
         return makeNode('nameReference', name.span, { name: name.text });
       }
       return expressionExpected(cursor);

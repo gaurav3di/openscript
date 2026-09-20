@@ -40,8 +40,16 @@ import type { Series, Value } from '../../src/core/stdlib/index.js';
 import { BARS } from '../stdlib/vectors.js';
 import type { RefBar } from './reference.js';
 
-const ROOT = new URL('../../../', import.meta.url);
-const SCRIPTS = new URL('tests/gate/scripts/', ROOT);
+/**
+ * The repository root, as the compiled test sees it.
+ *
+ * A gate script is read from the source tree rather than copied into the build,
+ * so the suite runs the same text a reader opens in the editor. Exported
+ * because the studies suite beside this one keeps its own scripts and resolves
+ * them against the same root rather than counting the `..` segments again.
+ */
+export const GATE_ROOT = new URL('../../../', import.meta.url);
+const SCRIPTS = new URL('tests/gate/scripts/', GATE_ROOT);
 
 /** One bar a minute, from a fixed instant, so a time is the same on every run. */
 const BASE_TIME = 1_748_736_000_000;
@@ -97,7 +105,19 @@ export function gateSource(name: string): string {
  * change a series: a stateful call inside a branch, a name never read.
  */
 export function compileGate(name: string): Compiled {
-  const file = sourceFile(`${name}.oscript`, gateSource(name));
+  return compileText(name, gateSource(name));
+}
+
+/**
+ * The same, for a suite that reads its scripts from somewhere else.
+ *
+ * Split out rather than copied so that the studies suite compiles a script on
+ * exactly the terms the phase gate does, warnings included. A second copy of
+ * these six lines is how one suite quietly starts accepting a warning the other
+ * refuses.
+ */
+export function compileText(name: string, text: string): Compiled {
+  const file = sourceFile(`${name}.oscript`, text);
   const bag = new DiagnosticBag();
   const tokens = lex(file, bag);
   const script = parseTokens(file, tokens, bag);
@@ -119,7 +139,16 @@ export function loadGate(
   settings: Readonly<Record<string, unknown>> = {},
   options: LoadOptions = {},
 ): Engine {
-  const compiled = compileGate(name);
+  return loadCompiled(compileGate(name), name, settings, options);
+}
+
+/** A loaded engine for a program this suite already compiled. */
+export function loadCompiled(
+  compiled: Compiled,
+  name: string,
+  settings: Readonly<Record<string, unknown>> = {},
+  options: LoadOptions = {},
+): Engine {
   const wire = JSON.parse(JSON.stringify(compiled.program)) as unknown;
   const loaded = load(wire, {
     source: compiled.file,

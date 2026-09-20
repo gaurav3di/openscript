@@ -1,0 +1,18 @@
+// The bar's price change weighted by the volume behind it, smoothed: direction
+// and conviction in one number.
+//
+// Exercises a smoothing taken over a series that is itself absent on bar 0, so
+// the seed is the first complete window of real values and the reading starts
+// one bar later than the length alone would say.
+
+version 1
+
+study("Force flow", overlay = false, precision = 2)
+
+len = input(13, "Length", min = 1, max = 500)
+
+force = change(close) * volume
+
+plot(ema(force, len), "Force", red, width = 2)
+
+level(0, "Zero", gray, style = "dashed")

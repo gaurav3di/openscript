@@ -13,6 +13,12 @@
  * is, and that is the point: a second implementation of any of it would be a
  * second thing to keep in step with the specification.
  *
+ * **Three hooks read the calculation and do not repeat it.** Markers, the grid
+ * and the drawing objects are all produced once, while the engine is in hand,
+ * and left in the run record `produced.ts` keeps. The chart calls each hook
+ * after every calculation, so asking twice gives one answer and a study with a
+ * grid costs the same over a hundred thousand bars as over ten.
+ *
  * **The id is the source hash, not the title.** A saved layout stores the
  * descriptor id and the settings, and two scripts can easily share a title while
  * an edited script keeps the one it had. Hashing the source means the same
@@ -21,6 +27,7 @@
  * identities passes its own id instead.
  */
 import type { CompiledProgram } from '../../core/emit/index.js';
+import { buildAlerts } from './alerts.js';
 import { valuesFrom } from './columns.js';
 import type {
   ChartBar,
@@ -30,13 +37,29 @@ import type {
   ChartStore,
   ChartValues,
 } from './contract.js';
+import { buildDrawings } from './drawings.js';
 import { buildFills } from './fills.js';
 import { boolField, stringField } from './fields.js';
 import { buildLevels, buildRange } from './levels.js';
+import { buildMarkers } from './markers.js';
+import { buildPaint } from './paint.js';
 import { buildPlots } from './plots.js';
-import { fullRun, tailRun } from './run.js';
-import type { ChartAdapterOptions } from './run.js';
+import { producedFor, remember } from './produced.js';
+import { stationIn } from './requests.js';
+import { fullRun, release, tailRun } from './run.js';
+import type { ChartAdapterOptions, RunOutput } from './run.js';
 import { inputRows, lookupFor } from './settings.js';
+import type {
+  ChartAttachContext,
+  ChartDrawing,
+  ChartGrid,
+  ChartMarker,
+  ChartSurfaceContext,
+} from './surfaces.js';
+import { buildTable } from './tables.js';
+
+/** The grey an unnamed marker is drawn in, where the host names no default. */
+const MARKER_COLOUR = 'rgba(128, 128, 128, 1)';
 
 export function descriptorFor(
   program: CompiledProgram,
@@ -52,7 +75,35 @@ export function descriptorFor(
   const plots = buildPlots(program, declared, !overlay);
   const levels = buildLevels(program);
   const fills = buildFills(program, declared);
-  const columns = [...plots.columns, ...levels.columns];
+  const paint = buildPaint(program);
+  const alerts = buildAlerts(program, declared);
+  const columns = [
+    ...plots.columns,
+    ...levels.columns,
+    ...paint.columns,
+    ...alerts.columns,
+  ];
+  const markerColour = options.markerColor ?? MARKER_COLOUR;
+
+  /**
+   * What the run produced that is not a column of numbers.
+   *
+   * It is keyed by the settings object the chart handed in, because that object
+   * is the study instance: the same one reaches every hook that follows the
+   * calculation, and `produced.ts` says why that is the only handle there is.
+   */
+  const keep = (
+    bars: readonly ChartBar[],
+    settings: ChartSettings,
+    ran: RunOutput,
+  ): void => {
+    const lookup = lookupFor(program, settings);
+    remember(settings, {
+      markers: buildMarkers(program, lookup, bars, ran.columns, markerColour),
+      table: buildTable(program, lookup, ran.tables),
+      drawings: buildDrawings(ran.drawings),
+    });
+  };
   // A study's own group is its category, and a host may name one for a script
   // whose author left the group blank.
   const group = stringField(program.meta.group, declared, '');
@@ -67,13 +118,17 @@ export function descriptorFor(
     plots: plots.plots,
     ...(fills.length === 0 ? {} : { fills }),
 
+    ...(alerts.alerts.length === 0 ? {} : { alerts: alerts.alerts }),
+
     calc(
       bars: readonly ChartBar[],
       settings: ChartSettings,
       store: ChartStore,
       ctx?: ChartCalcContext,
     ): ChartValues {
-      return valuesFrom(columns, fullRun(program, bars, settings, store, ctx, options), 0, bars.length);
+      const ran = fullRun(program, bars, settings, store, ctx, options);
+      keep(bars, settings, ran);
+      return valuesFrom(columns, ran.columns, 0, bars.length);
     },
 
     calcTail(
@@ -85,10 +140,42 @@ export function descriptorFor(
       ctx?: ChartCalcContext,
     ): ChartValues | null {
       const ran = tailRun(program, bars, fromIndex, settings, store, ctx, options);
-      return ran === null ? null : valuesFrom(columns, ran, fromIndex, bars.length);
+      if (ran === null) return null;
+      keep(bars, settings, ran);
+      return valuesFrom(columns, ran.columns, fromIndex, bars.length);
     },
 
     ...(program.outputs.levels.length === 0 ? {} : { levels: levels.levels }),
     ...(program.meta.range === null ? {} : { range: buildRange(program) }),
+    ...(paint.barColors === undefined ? {} : { barColors: paint.barColors }),
+    ...(paint.background === undefined ? {} : { background: paint.background }),
+    ...(program.outputs.markers.length === 0
+      ? {}
+      : {
+          markers: (ctx: ChartSurfaceContext): readonly ChartMarker[] =>
+            producedFor(ctx.settings).markers,
+        }),
+    ...(program.outputs.tables.length === 0
+      ? {}
+      : { table: (ctx: ChartSurfaceContext): ChartGrid | null => producedFor(ctx.settings).table }),
+    ...(program.requires.includes('objects')
+      ? {
+          draws: (ctx: ChartSurfaceContext): readonly ChartDrawing[] =>
+            producedFor(ctx.settings).drawings,
+        }
+      : {}),
+    // A study that reads only this chart's bars needs no lifecycle: the engine
+    // folds its own, and a descriptor that declared one anyway would cost every
+    // host a subscription for a transport nothing asks to use.
+    ...(program.requires.includes('req.symbol')
+      ? {
+          attach(ctx: ChartAttachContext): () => void {
+            stationIn(ctx.store).open(ctx);
+            return (): void => {
+              release(ctx.store);
+            };
+          },
+        }
+      : {}),
   };
 }

@@ -1,0 +1,62 @@
+// The pivot, its three supports and three resistances, and the central range,
+// all taken from the session before this one and held flat across this one.
+//
+// Exercises: state that rolls over on the session's first bar rather than on a
+// date, seven step plots that change value once per session, a band between two
+// of them, and the fact that the first session of a chart has nothing before it
+// and so draws nothing.
+
+version 1
+
+study("Session pivots", overlay = true, precision = 2)
+
+// The running extremes are seeded from bar 0 rather than from absence. Seeding
+// them absent and letting the first bar fill them says the same thing at run
+// time and a different thing at compile time: the rollover below copies these
+// names into the carried ones before either has been assigned on this bar, and
+// a name copied out of an absent one is absent as far as the checker can see,
+// which draws OS8009 on every plot in this file. issues/0007 has the
+// reproduction and what the checker should do instead.
+var runHigh  = high
+var runLow   = low
+var runClose = close
+
+var lastHigh  = none
+var lastLow   = none
+var lastClose = none
+
+// The rollover reads the running extremes as they stood at the end of the
+// session that just finished, and only then starts new ones. Doing it the other
+// way round would hand each session its own first bar as the whole of the
+// session before it.
+if session.isFirstBar and not bar.isFirst
+    lastHigh  = runHigh
+    lastLow   = runLow
+    lastClose = runClose
+    runHigh   = high
+    runLow    = low
+else
+    runHigh = max(runHigh, high)
+    runLow  = min(runLow, low)
+
+runClose = close
+
+known = not isNone(lastHigh) and not isNone(lastLow) and not isNone(lastClose)
+
+pivot   = known ? (lastHigh + lastLow + lastClose) / 3 : none
+width   = known ? lastHigh - lastLow : none
+support = known ? 2 * pivot - lastHigh : none
+resist  = known ? 2 * pivot - lastLow : none
+bottom  = known ? (lastHigh + lastLow) / 2 : none
+
+bottomPlot = plot(bottom, "Central bottom", fade(aqua, 40), style = "step")
+topPlot    = plot(known ? 2 * pivot - bottom : none, "Central top", fade(aqua, 40), style = "step")
+fill(bottomPlot, topPlot, fade(aqua, 52))
+
+plot(pivot, "Pivot", yellow, width = 2, style = "step")
+plot(support, "Support one", fade(lime, 30), style = "step")
+plot(known ? pivot - width : none, "Support two", fade(lime, 50), style = "step")
+plot(known ? support - width : none, "Support three", fade(lime, 70), style = "step")
+plot(resist, "Resistance one", fade(red, 30), style = "step")
+plot(known ? pivot + width : none, "Resistance two", fade(red, 50), style = "step")
+plot(known ? resist + width : none, "Resistance three", fade(red, 70), style = "step")

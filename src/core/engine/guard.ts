@@ -8,10 +8,10 @@
  *
  * Every refusal here carries a catalogue code, and they are the codes the
  * catalogue has: an array past its element ceiling is OS5002, a string past its
- * character ceiling is OS5008, an argument outside its contract is OS4003, an
- * index outside an array is OS4004, a change to an object a script already
- * deleted is OS4005, and a timezone name the host's table does not hold is
- * OS6005.
+ * character ceiling is OS5008, one more drawing object than the host will hold
+ * is OS5010, an argument outside its contract is OS4003, an index outside an
+ * array is OS4004, a change to an object a script already deleted is OS4005,
+ * and a timezone name the host's table does not hold is OS6005.
  */
 import type { Span } from '../span/index.js';
 import type { Budget } from './budget.js';
@@ -30,6 +30,10 @@ export function guardFor(budget: Budget): Guard {
 
     chars(span: Span, length: number): void {
       budget.checkLength(span, length);
+    },
+
+    drawing(span: Span, held: number): void {
+      budget.checkDrawing(span, held);
     },
 
     /**

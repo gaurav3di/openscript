@@ -1,0 +1,28 @@
+// The bars that opened away from the previous close by more than a fraction of
+// the average range, marked and shaded.
+//
+// Exercises a condition built from two readings with different warmups, a marker
+// on each side, and a pane shading that has to leave the warmup alone.
+
+version 1
+
+study("Gap plates", overlay = true, precision = 2)
+
+rangeLen = input(14,  "Range length", min = 1, max = 500)
+share    = input(0.5, "Fraction of the range", min = 0.05, max = 10)
+
+rangeNow = atr(rangeLen)
+gapSize  = open - close[1]
+
+gapUp   = not isNone(rangeNow) and gapSize > share * rangeNow
+gapDown = not isNone(rangeNow) and gapSize < -share * rangeNow
+
+plot(rangeNow * share, "Gap threshold", silver, overlay = false)
+
+if gapUp
+    signal("GAP UP", lime, at = "below", shape = "arrowUp")
+
+if gapDown
+    signal("GAP DOWN", red, at = "above", shape = "arrowDown")
+
+background(gapUp ? fade(lime, 85) : gapDown ? fade(red, 85) : none)

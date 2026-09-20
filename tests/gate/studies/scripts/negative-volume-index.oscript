@@ -1,0 +1,24 @@
+// The price path compounded across only the bars where volume fell, with an
+// exponential mean of the result drawn over it.
+//
+// Exercises: a var that ratchets rather than resets, a branch that holds the
+// previous value forward on every bar it does not take, and an average taken
+// over a name the script computed rather than over a bar field.
+
+version 1
+
+study("Negative volume index", precision = 2)
+
+maLen = input(20, "Average length", min = 1, max = 500)
+
+// One is the base rather than the first close, so the reading is a ratio to
+// where the study started and not a price. Every bar volume did not fall on
+// carries the previous value forward, which is why this plots as a staircase.
+var index = 1.0
+if volume < volume[1]
+    index = index * (close / close[1])
+
+value = index * 1000
+
+plot(value, "Index", aqua, width = 2)
+plot(ema(value, maLen), "Index average", orange, width = 2)

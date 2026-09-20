@@ -29,6 +29,7 @@ const MARKER_SHAPES = [
   'flag',
 ];
 const CORNERS = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+const CELL_ALIGN = ['left', 'center', 'right'];
 const LINE_STYLES = ['solid', 'dashed', 'dotted'];
 const REQUEST_MODES = ['confirmed', 'developing', 'lookahead'];
 const ALERT_FREQUENCIES = ['oncePerBar', 'once', 'everyUpdate'];
@@ -98,14 +99,23 @@ const declarations: readonly LibraryEntry[] = [
   ),
   entry(
     'level(price: series number, title?: string, color?: color, style?: string, width?: number) -> level',
-    { topLevel: true, constant: ['title', 'style', 'width'] },
+    {
+      topLevel: true,
+      values: { style: LINE_STYLES },
+      // A level's colour is one field of the declaration and the format gives it
+      // no per-bar channel, unlike a plot's, so a bar-dependent one has nowhere
+      // to land (`compiled-program.md` 2.8).
+      constant: ['title', 'color', 'style', 'width'],
+    },
   ),
   entry(
     'table(title: string, rows: number, cols: number, position?: string, textColor?: color, bgColor?: color, borderWidth?: number) -> table',
     {
       topLevel: true,
       values: { position: CORNERS },
-      constant: ['title', 'rows', 'cols', 'position', 'borderWidth'],
+      // The grid's own style is declared once, in `options`. A cell's colours
+      // are the per-bar ones, and `cell` takes them.
+      constant: ['title', 'rows', 'cols', 'position', 'textColor', 'bgColor', 'borderWidth'],
       whole: { rows: wholeRange(1), cols: wholeRange(1) },
     },
   ),
@@ -120,29 +130,45 @@ const perBar: readonly LibraryEntry[] = [
   entry('background(color: color) -> nothing'),
   entry(
     'cell(t: table, row: number, col: number, text: string, textColor?: color, bgColor?: color, align?: string) -> nothing',
-    { whole: { row: wholeRange(0), col: wholeRange(0) } },
+    { values: { align: CELL_ALIGN }, whole: { row: wholeRange(0), col: wholeRange(0) } },
   ),
   entry('clear(t: table) -> nothing'),
   entry('print(value: any) -> nothing'),
+  // Only the message is read per bar. The other three are the entry's own
+  // identity and its firing rule, written into `outputs.alerts` before bar 0,
+  // so a bar-dependent one has nowhere to land (`compiled-program.md` 2.8).
   entry('alert(message: string, id?: string, title?: string, frequency?: string) -> nothing', {
     values: { frequency: ALERT_FREQUENCIES },
+    constant: ['id', 'title', 'frequency'],
   }),
   entry('notify(message: string, channel: string) -> nothing', { planned: true }),
 ];
 
+/**
+ * The four creation calls, with the defaults of `stdlib.md` 14.4 written out.
+ *
+ * These four say what their optional arguments default to, and most of the
+ * library still does not. The difference is what the omitted argument becomes:
+ * a calculation reads an absent length and answers absence, which is a truthful
+ * answer that costs nothing, while an object created with an absent width and
+ * an absent style is a drawing with no thickness and no line style, and absence
+ * on a drawing surface means nothing is drawn (`language.md` 6.7). So a
+ * drawing's defaults have to be in the program, and 4.10 says where they are
+ * decided: here, at compile time, rather than in an engine's table.
+ */
 const drawing: readonly LibraryEntry[] = [
   entry(
-    'draw.line(t1: number, p1: number, t2: number, p2: number, color?: color, width?: number, style?: string, extendLeft?: bool, extendRight?: bool) -> line',
+    'draw.line(t1: number, p1: number, t2: number, p2: number, color?: color = gray, width?: number = 1, style?: string = "solid", extendLeft?: bool = false, extendRight?: bool = false) -> line',
     { values: { style: LINE_STYLES } },
   ),
   entry(
-    'draw.label(t: number, p: number, text: string, color?: color, textColor?: color, align?: string, tooltip?: string) -> label',
+    'draw.label(t: number, p: number, text: string, color?: color = none, textColor?: color = white, align?: string = "center", tooltip?: string = "") -> label',
   ),
   entry(
-    'draw.box(t1: number, p1: number, t2: number, p2: number, color?: color, fillColor?: color, opacity?: number, width?: number, text?: string, textColor?: color, tooltip?: string) -> box',
+    'draw.box(t1: number, p1: number, t2: number, p2: number, color?: color = none, fillColor?: color = none, opacity?: number = 0.12, width?: number = 1, text?: string = "", textColor?: color = white, tooltip?: string = "") -> box',
   ),
   entry(
-    'draw.polyline(times: array<number>, prices: array<number>, color?: color, width?: number, closed?: bool, fillColor?: color, opacity?: number) -> polyline',
+    'draw.polyline(times: array<number>, prices: array<number>, color?: color = gray, width?: number = 1, closed?: bool = false, fillColor?: color = none, opacity?: number = 0.12) -> polyline',
   ),
   entry('draw.setFrom(obj: any, t: number, p: number) -> nothing'),
   entry('draw.setTo(obj: any, t: number, p: number) -> nothing'),

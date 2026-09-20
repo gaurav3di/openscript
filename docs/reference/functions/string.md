@@ -71,22 +71,26 @@ order.
 | `text(none)` | `"none"` |
 | `"a" + none` | `none` |
 
-### `number(s)`
+### `toNumber(s)`
 
 A string to a number.
 Parameters: `s` `string` required.
 Returns `number`, or `none` when the string does not parse.
 
 ```
-threshold = orElse(number(input("2.5", "Threshold")), 2.5)
+threshold = orElse(toNumber(input("2.5", "Threshold")), 2.5)
 ```
 
-`number` returns absence rather than raising because a string that does not
+`toNumber` returns absence rather than raising because a string that does not
 parse is data, not a defect in the script, and the script is in the best
 position to decide what to do about it. Pair it with `orElse` when a default is
 sensible and with `isNone` when the script should say something.
 
-### `bool(x)`
+It is spelled `toNumber` and not `number` because `number` is a reserved word,
+so a call could never begin with it. Writing `number(s)` is OS1019, and the fix
+names this spelling.
+
+### `toBool(x)`
 
 `none` to `false`, a bool to itself. Numbers are rejected. It is documented in
 full in [math.md](./math.md) and is listed here because it is the third member

@@ -1,0 +1,15 @@
+// Where the close finished inside the bar's range, against where it opened.
+//
+// Exercises a reading with no smoothing and no warmup at all, and the bar with
+// no range, where the answer is nothing rather than a spike: a chart that draws
+// a value there is drawing a division by zero.
+
+version 1
+
+study("Balance of power", overlay = false, precision = 4)
+
+reach = high - low
+
+plot(reach == 0 ? none : (close - open) / reach, "Balance", red, width = 2)
+
+level(0, "Zero", gray, style = "solid")

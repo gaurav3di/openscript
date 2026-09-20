@@ -1,0 +1,43 @@
+// A panel of readings pinned to a corner, rewritten on every bar.
+//
+// Exercises a grid declared once and filled per bar, a cell colour decided from
+// the data, an alignment written on every cell that takes one, a user function
+// that decides what an absent reading looks like, and the fixed decimal
+// spelling of a number.
+
+version 1
+
+study("Dashboard panel", overlay = true)
+
+strengthLen = input(14, "Strength length", min = 2, max = 200)
+rangeLen    = input(14, "Range length", min = 1, max = 200)
+spanLen     = input(20, "Span lookback", min = 2, max = 500)
+
+panel = table("Readings", rows = 4, cols = 2, position = "topRight",
+              textColor = silver, bgColor = fade(black, 25))
+
+strengthNow = rsi(close, strengthLen)
+rangeNow    = atr(rangeLen)
+top         = highest(high, spanLen)
+bottom      = lowest(low, spanLen)
+span        = top - bottom
+placeInSpan = span > 0 ? (close - bottom) / span * 100 : none
+
+// One place that decides what an absent reading looks like. A blank cell and a
+// zero are both wrong: the first hides that the study is warming up, the second
+// invents a number.
+fn show(value, decimals) => isNone(value) ? "warming up" : text(value, decimals)
+
+zoneColor = strengthNow > 70 ? red : strengthNow < 30 ? lime : silver
+
+// Written on every bar rather than only on the newest one, because a panel that
+// is right on the last bar and wrong in the middle of the history is a panel
+// that was wrong on a live chart all afternoon, and nothing here would show it.
+cell(panel, 0, 0, "Strength", align = "left")
+cell(panel, 0, 1, show(strengthNow, 2), textColor = zoneColor, align = "right")
+cell(panel, 1, 0, "Range", align = "left")
+cell(panel, 1, 1, show(rangeNow, 3), align = "right")
+cell(panel, 2, 0, "Place in span", align = "left")
+cell(panel, 2, 1, show(placeInSpan, 1) + " percent", align = "right")
+cell(panel, 3, 0, "Bars seen", align = "left")
+cell(panel, 3, 1, text(bar.index + 1, 0), align = "left")

@@ -1,0 +1,50 @@
+// Bands centred on the fitted line's value at the newest bar of its window,
+// pushed out by a number of standard errors and only then smoothed.
+//
+// Exercises two loops over a window written in the language itself, a window
+// statistic the library does not carry, and three legs that are each smoothed
+// on their own so the width is smoothed too rather than recomputed around a
+// smoothed middle.
+//
+// The divisor under the residual is the window less two, not the window: the
+// fitted slope and intercept each consume one, and that is what makes this a
+// standard error rather than a standard deviation.
+
+version 1
+
+study("Fitted error band", overlay = true, precision = 2)
+
+periods = input(21,  "Periods", min = 3, max = 1000)
+errors  = input(2.0, "Standard errors", min = 0, max = 100)
+avgLen  = input(3,   "Averaging periods", min = 1, max = 1000)
+
+// The window's own positions run 1 to periods, newest first, and only their
+// spacing reaches the answer.
+meanX = (periods + 1) / 2
+
+// Absence does the warmup here without a guard: on a bar where the window
+// reaches past the first bar, one of these reads is absent, the running total
+// is absent from there on, and so is everything computed from it.
+total = 0
+for k = 0 to periods - 1
+    total += close[k]
+meanY = total / periods
+
+squaresY = 0
+crossXY = 0
+squaresX = 0
+for k = 0 to periods - 1
+    stepY = meanY - close[k]
+    stepX = meanX - k - 1
+    squaresY += stepY * stepY
+    crossXY += stepX * stepY
+    squaresX += stepX * stepX
+
+spread = sqrt((squaresY - crossXY * crossXY / squaresX) / (periods - 2))
+
+middle = linreg(close, periods, 0)
+
+upperRail = plot(sma(middle + errors * spread, avgLen), "Upper", aqua)
+plot(sma(middle, avgLen), "Basis", orange, width = 2)
+lowerRail = plot(sma(middle - errors * spread, avgLen), "Lower", aqua)
+fill(upperRail, lowerRail, fade(aqua, 90))

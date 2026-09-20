@@ -76,6 +76,26 @@ function unreservedNear(word: string): string {
   return `${word}Value`;
 }
 
+/**
+ * The library spelling of a reserved word somebody wrote as a call.
+ *
+ * `bool` and `number` name types, and the two conversions to those types have to
+ * be called by a name, which a reserved word is not. For one release the library
+ * published them under the type names anyway: the checker called them functions,
+ * the lexer called the same words reserved, and every spelling a reader could
+ * write was refused with advice to rename a variable they had not declared. The
+ * conversions are `toBool` and `toNumber`, and this is the table that says so to
+ * whoever wrote the natural thing.
+ *
+ * It is two entries because two names collided, not because a rule needs a list:
+ * a library name is never a reserved word, and `tests/unit/library-names.test.ts`
+ * fails the build if one ever is again.
+ */
+const CALLED_INSTEAD: ReadonlyMap<string, string> = new Map([
+  ['bool', 'toBool'],
+  ['number', 'toNumber'],
+]);
+
 /** No word where one was required, which leaves the statement without its subject. */
 function missingWord(cursor: Cursor): Name {
   const hole = cursor.holeSpan();
@@ -91,16 +111,23 @@ function missingWord(cursor: Cursor): Name {
  * The word is taken either way. A script that named something `type` still
  * meant to declare it, and every later diagnostic about that name is more use
  * to the reader than a hole where the declaration should have been.
+ *
+ * `asValue` is set by the one reader that takes a word from where a value
+ * belongs, and it is what lets the fix be true of the program in front of it. A
+ * word with an argument list after it is a call, and a reader who wrote one
+ * wants the name the library really publishes; the same word being declared or
+ * assigned to wants a name of their own, and the library's would collide.
  */
-export function takeName(cursor: Cursor): Name {
+export function takeName(cursor: Cursor, asValue = false): Name {
   const token = cursor.token;
   if (!isWordKind(token.kind)) return missingWord(cursor);
 
   cursor.advance();
   if (token.kind !== 'identifier') {
+    const called = asValue && cursor.kind === '(' ? CALLED_INSTEAD.get(token.text) : undefined;
     cursor.report('OS1019', token.span, {
       word: token.text,
-      suggestion: unreservedNear(token.text),
+      suggestion: called ?? unreservedNear(token.text),
     });
   }
   return makeNode('name', token.span, { text: token.text });

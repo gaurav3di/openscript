@@ -153,9 +153,10 @@ The absent value is the natural "no object yet" for a drawing handle, and
 ## Lifetime
 
 **An object persists until the script deletes it.** Not until the next bar, not
-until some count is exceeded, not until the chart is scrolled. There is no cap
-on how many a script may create; the only budget is memory, and a host that
-cannot hold them all has to say so rather than quietly dropping the oldest.
+until the chart is scrolled. The language fixes no number for how many a script
+may hold at once; the budget is the host's memory, and a host that cannot hold
+another one has to say so, with OS5010, rather than quietly dropping the
+oldest.
 
 That is a deliberate choice. A limit that silently discards your oldest drawing
 produces a study that is correct on a short chart and wrong on a long one, in a

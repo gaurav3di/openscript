@@ -1,0 +1,26 @@
+// What share of the last window of bars closed above the bar before them.
+//
+// Exercises: a count over a condition rather than over a value, the rule that
+// an absent condition is a condition that did not hold, and a pane shaded while
+// the share sits at either end of its scale.
+
+version 1
+
+study("Up bar share", precision = 2, range = [0, 100])
+
+len = input(14, "Length", min = 1, max = 500)
+
+// Bar 0 has no bar before it, so its condition is absent, and an absent
+// condition did not hold. The count is therefore over the window's bars rather
+// than over the window's comparisons, which is one bar more forgiving than it
+// looks and is stated here rather than left to be discovered.
+rose  = close > close[1]
+share = count(rose, len) / len * 100
+
+level(80, "Upper band", fade(silver, 40))
+level(50, "Middle",     fade(silver, 60), style = "dashed")
+level(20, "Lower band", fade(silver, 40))
+
+plot(share, "Share", aqua, width = 2, style = "area")
+
+background(share > 80 ? fade(lime, 92) : share < 20 ? fade(red, 92) : none)

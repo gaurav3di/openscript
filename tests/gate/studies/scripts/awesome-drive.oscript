@@ -1,0 +1,28 @@
+// The gap between a fast and a slow mean of the bar's midpoint, drawn as a
+// column that changes colour with its own direction.
+//
+// Exercises a per-bar plot colour, which is the one argument that lands on a
+// channel rather than on the declaration, and the first printed bar, where
+// there is no previous reading to compare against.
+//
+// The two lengths are the definition of the study rather than a preference, so
+// neither is an input.
+
+version 1
+
+study("Awesome drive", overlay = false, precision = 4)
+
+fastLen = 5
+slowLen = 34
+
+midpoint = hl2
+drive = sma(midpoint, fastLen) - sma(midpoint, slowLen)
+
+// On the first printed bar there is no previous reading, and a comparison
+// against absence is false, so the column starts in the rising colour rather
+// than declaring a fall nobody saw.
+growing = isNone(drive[1]) ? true : drive - drive[1] > 0
+
+plot(drive, "Drive", color = growing ? teal : red, style = "column")
+
+level(0, "Zero", gray, style = "solid")

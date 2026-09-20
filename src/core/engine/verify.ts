@@ -10,14 +10,14 @@
  * without charging the budget. Every remaining failure is a script error with a
  * source position, which is the only kind of failure a user should ever see.
  *
- * Four refusals that are not verification sit here too, because they happen at
+ * Three refusals that are not verification sit here too, because they happen at
  * the same moment and for the same reason: a version this engine does not
- * implement (OS6016, OS6017), a capability it does not have (OS6006), a library
- * entry that disagrees with its manifest (OS6004), and a budget the host is not
- * willing to spend (OS5003, OS5004, OS5005, OS5009). Each names what it refused
- * and the value it allows, and none of them silently caps anything: a program
- * that quietly gets a smaller budget than it asked for produces a wrong number
- * instead of a message.
+ * implement (OS6016, OS6017), a capability it does not have (OS6006), and a
+ * library entry that disagrees with its manifest (OS6004). Each names what it
+ * refused, and none of them silently accepts a program it cannot run. The
+ * fourth, the budgets a host is willing to spend, is `verify-budgets.ts`: it is
+ * a question about this host rather than about this program, and two hosts may
+ * honestly answer it differently.
  *
  * **The order of those refusals is the specification's, 9.4, and not an
  * accident of where the code grew.** It is an ordered list that stops at the
@@ -30,9 +30,10 @@ import type { Diagnostic } from '../diagnostics/index.js';
 import type { EngineLimits } from './budget.js';
 import { NO_POSITION, failure } from './errors.js';
 import { manifestEntry, manifestSays } from './library/index.js';
-import type { CompiledProgram, Instruction } from './types.js';
+import type { CompiledProgram, Request } from './types.js';
 import { checkList, checkOnce } from './verify-code.js';
 import type { ListLimits } from './verify-code.js';
+import { allCode, checkBudgets } from './verify-budgets.js';
 import { ShapeCheck } from './verify-shape.js';
 import { checkTables } from './verify-tables.js';
 
@@ -72,11 +73,21 @@ function majorOf(version: string): number | undefined {
 /**
  * What this engine can do, as the tags of 2.2.
  *
- * `orders` is not here. The engine turns an order call into a pending effect
- * and hands it to whatever route the host supplied, so the capability belongs
- * to the configuration rather than to the engine, and `capabilitiesFor` adds it
- * when a route exists. The two request tags are absent because the compiled
- * format carries no form that could hold a request expression.
+ * Two tags are not here, and both for the same reason: they are the host's
+ * rather than the engine's.
+ *
+ * `orders` is one. The engine turns an order call into a pending effect and
+ * hands it to whatever route the host supplied, so the capability belongs to
+ * the configuration, and `capabilitiesFor` adds it when a route exists.
+ *
+ * `req.symbol` is the other. A read of another instrument needs bars the engine
+ * does not hold and cannot derive, so a host with no request provider cannot
+ * serve one, and a program that makes one is refused at load with OS6006 naming
+ * the tag rather than drawing a study with a silently empty line through it.
+ * **`req.timeframe` is here unconditionally**, because a read of the chart's own
+ * instrument at a coarser interval is folded from the bars the engine already
+ * has (`host-interface.md` 5.1), so there is nothing for a host to supply and
+ * nothing for it to decline.
  */
 const ENGINE_CAPABILITIES: readonly string[] = [
   'core.1',
@@ -86,10 +97,17 @@ const ENGINE_CAPABILITIES: readonly string[] = [
   'objects',
   'tables',
   'alerts',
+  'req.timeframe',
 ];
 
-export function capabilitiesFor(hasOrderRoute: boolean): readonly string[] {
-  return hasOrderRoute ? [...ENGINE_CAPABILITIES, 'orders'] : ENGINE_CAPABILITIES;
+export function capabilitiesFor(
+  hasOrderRoute: boolean,
+  hasRequestProvider = false,
+): readonly string[] {
+  const tags = [...ENGINE_CAPABILITIES];
+  if (hasOrderRoute) tags.push('orders');
+  if (hasRequestProvider) tags.push('req.symbol');
+  return tags;
 }
 
 export interface VerifyOptions {
@@ -182,6 +200,10 @@ export function verify(raw: unknown, options: VerifyOptions): VerifyResult {
     }
   }
   if (!checkOnce(shape, program.code, program.channels.map((one) => one.once))) return broken();
+  // 2.16.1: a body is an instruction list the same machine walks, so it gets
+  // the same walk. Its terminator is `RET` rather than `HALT`, because a body
+  // produces a value and `HALT` does not.
+  if (!checkBodies(shape, 'requests', program.requests, sizes)) return broken();
 
   // Check 8, the program's half: an instruction whose tag it never declared.
   const missing = missingTag(program);
@@ -222,155 +244,11 @@ function checkLibrary(program: CompiledProgram): Diagnostic | undefined {
   }
   return undefined;
 }
-
-/**
- * The ceilings a host is willing to spend, none of them silently applied.
- *
- * 2.4: a host refuses at load, naming the limit and the value it allows, and
- * must not silently cap the value, because a program that quietly gets a
- * smaller budget than it asked for produces a wrong number instead of a
- * message.
- */
-function checkBudgets(program: CompiledProgram, limits: EngineLimits): Diagnostic | undefined {
-  if (limits.loops !== null && program.limits.loops > limits.loops) {
-    return failure('OS5003', NO_POSITION, {
-      option: 'loops',
-      max: limits.loops,
-      found: program.limits.loops,
-    });
-  }
-  const history = program.limits.history;
-  if (limits.history !== null && history !== null && history > limits.history) {
-    return failure('OS5003', NO_POSITION, {
-      option: 'history',
-      max: limits.history,
-      found: history,
-    });
-  }
-  if (limits.instructions !== null) {
-    let found = program.code.length;
-    for (const one of program.functions) found += one.code.length;
-    if (found > limits.instructions) {
-      return failure('OS5009', NO_POSITION, { found, max: limits.instructions });
-    }
-  }
-  if (limits.states !== null && program.states.length > limits.states) {
-    const [first, second] = busiestPair(program);
-    return failure('OS5004', NO_POSITION, {
-      found: program.states.length,
-      max: limits.states,
-      first,
-      second,
-    });
-  }
-  const depth = callDepth(program);
-  if (depth > limits.frames) {
-    return failure('OS5005', NO_POSITION, {
-      construct: 'a call',
-      found: depth,
-      max: limits.frames,
-    });
-  }
-  return undefined;
-}
-
-/**
- * The opcode of one element of an instruction list, or nothing when it is not
- * an instruction at all.
- *
- * The budget refusals are step 7 of 9.4 and verification is step 8, so the two
- * walks below read lists that nothing has yet proved are instruction lists.
- * Reading them defensively is what keeps the specification's order from turning
- * a malformed program into a thrown error rather than the OS6018 step 8 is
- * about to report, naming the instruction.
- */
-function opcodeOf(instruction: Instruction): string | undefined {
-  return Array.isArray(instruction) ? instruction[0] : undefined;
-}
-
-/**
- * The two functions whose nesting produced the most call paths.
- *
- * OS5004's message names them because the number of paths grows
- * multiplicatively where several functions each call the next more than once,
- * and a reader who is told only the total has nowhere to start. The pair with
- * the most call sites between them is where the multiplication happened.
- */
-function busiestPair(program: CompiledProgram): readonly [string, string] {
-  const counts = new Map<string, number>();
-  const lists: readonly (readonly [string, readonly Instruction[]])[] = [
-    ['the top level', program.code],
-    ...program.functions.map(
-      (one) => [one.name, one.code] as readonly [string, readonly Instruction[]],
-    ),
-  ];
-  for (const [caller, code] of lists) {
-    for (const instruction of code) {
-      if (opcodeOf(instruction) !== 'CALL_FN') continue;
-      const site = program.callSites[instruction[1] as number];
-      const callee = site === undefined ? undefined : program.functions[site.fn]?.name;
-      if (callee === undefined) continue;
-      const key = `${caller}\u0000${callee}`;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-  }
-  let best: readonly [string, string] = ['the top level', 'the functions it calls'];
-  let most = 0;
-  // Sorted before the walk, so the answer does not depend on a map's order.
-  for (const key of [...counts.keys()].sort()) {
-    const count = counts.get(key) ?? 0;
-    if (count <= most) continue;
-    const [caller, callee] = key.split('\u0000');
-    best = [caller ?? '', callee ?? ''];
-    most = count;
-  }
-  return best;
-}
-
-/**
- * The deepest chain of call sites, which is the deepest the frame stack goes.
- *
- * Recursion is an error in the language, so the call graph is acyclic and the
- * walk terminates; the visited set is a guard against a program that was
- * written by something other than this compiler, and it stops rather than
- * looping forever.
- */
-function callDepth(program: CompiledProgram): number {
-  const bodies = program.functions.map((one) => one.code);
-  const sitesIn = (code: readonly Instruction[]): number[] =>
-    code.flatMap((one) =>
-      opcodeOf(one) === 'CALL_FN' && typeof one[1] === 'number' ? [one[1]] : [],
-    );
-
-  const known = new Map<number, number>();
-  const walking = new Set<number>();
-  const depthOf = (site: number): number => {
-    const cached = known.get(site);
-    if (cached !== undefined) return cached;
-    if (walking.has(site)) return 1;
-    walking.add(site);
-    const fn = program.callSites[site]?.fn;
-    const body = fn === undefined ? undefined : bodies[fn];
-    let deepest = 0;
-    for (const inner of body === undefined ? [] : sitesIn(body)) {
-      deepest = Math.max(deepest, depthOf(inner));
-    }
-    walking.delete(site);
-    known.set(site, deepest + 1);
-    return deepest + 1;
-  };
-
-  let deepest = 0;
-  for (const site of sitesIn(program.code)) deepest = Math.max(deepest, depthOf(site));
-  return deepest + 1;
-}
-
 /** Check 8's other half: an instruction whose tag the program did not declare. */
 function missingTag(
   program: CompiledProgram,
 ): { readonly opcode: string; readonly tag: string } | undefined {
-  const lists = [program.code, ...program.functions.map((one) => one.code)];
-  for (const code of lists) {
+  for (const code of allCode(program)) {
     for (const instruction of code) {
       const tag = INSTRUCTION_TAGS[instruction[0]];
       if (tag !== undefined && !program.requires.includes(tag)) {
@@ -379,6 +257,55 @@ function missingTag(
     }
   }
   return undefined;
+}
+
+/**
+ * Check 8 over every read's body, and every read written inside one.
+ *
+ * The body's tables are its own and counted from zero, so the limits a walk is
+ * given are rebuilt for each of them; `consts` and `lib.functions` stay the
+ * program's, because those are the two the body shares (2.16.1). `channels` is
+ * zero, which is what refuses an `EMIT` inside a body without a rule of its
+ * own: a read carries no channel, no plot and no declaration.
+ */
+function checkBodies(
+  shape: ShapeCheck,
+  prefix: string,
+  requests: readonly Request[],
+  outer: ListLimits,
+): boolean {
+  for (let i = 0; i < requests.length; i += 1) {
+    const body = requests[i]?.body;
+    if (body === undefined) continue;
+    const at = `${prefix}[${i}].body`;
+    const sizes: ListLimits = {
+      ...outer,
+      slots: body.frame.slots,
+      cells: body.cells.length,
+      states: body.states.length,
+      registers: body.series.length,
+      channels: 0,
+      callSites: body.callSites.length,
+      loops: body.loops.length,
+      series: 0,
+      argcOf: (site: number) => body.callSites[site]?.argc ?? 0,
+    };
+    if (!checkList(shape, `${at}.code`, body.code, sizes, 'RET')) return false;
+    for (let f = 0; f < body.functions.length; f += 1) {
+      const fn = body.functions[f];
+      if (fn === undefined) continue;
+      let series = 0;
+      for (const site of body.callSites) {
+        if (site.fn === f) series = series === 0 ? site.series.length : Math.min(series, site.series.length);
+      }
+      if (!checkList(shape, `${at}.functions[${f}]`, fn.code, { ...sizes, slots: fn.slots, series },
+        'RET')) {
+        return false;
+      }
+    }
+    if (!checkBodies(shape, `${at}.requests`, body.requests, sizes)) return false;
+  }
+  return true;
 }
 
 function tableSizes(program: CompiledProgram): ListLimits {

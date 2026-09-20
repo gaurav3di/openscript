@@ -1,0 +1,33 @@
+// The share of the window's money flow that arrived on bars whose typical price
+// rose, which is the strength reading applied to flow rather than to price.
+//
+// Exercises: two totals over two conditions taken from one comparison, a window
+// that is one bar short of a full set of comparisons on its first bar, and the
+// reading that pins at a hundred when a window has no flow the other way.
+
+version 1
+
+study("Typical price flow", precision = 4, range = [0, 100])
+
+len = input(14, "Length", min = 1, max = 500)
+
+price = hlc3
+flow  = price * volume
+
+// Bar 0 has no previous typical price, so neither test can hold and it
+// contributes nothing in either direction. The window ending on bar `len - 1`
+// therefore holds one bar fewer comparisons than it holds bars, and the study
+// waits a bar rather than reporting over an incomplete set.
+up   = price > price[1] ? flow : 0
+down = price < price[1] ? flow : 0
+
+upTotal   = sum(up, len)
+downTotal = sum(down, len)
+
+ready = bar.index >= len
+value = not ready ? none : (downTotal == 0 ? 100 : 100 - 100 / (1 + upTotal / downTotal))
+
+level(80, "Upper band", fade(silver, 40))
+level(20, "Lower band", fade(silver, 40))
+
+plot(value, "Flow", green, width = 2)

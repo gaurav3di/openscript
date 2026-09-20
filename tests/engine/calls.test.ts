@@ -160,5 +160,5 @@ test('a drawing object a script never named is still drawn', () => {
   );
   for (const close of [10, 11, 12]) engine.append(flat(close), { isConfirmed: true });
   assert.equal(engine.drawings().length, 1);
-  assert.equal(engine.drawings()[0]?.object.kind, 'label');
+  assert.equal(engine.drawings()[0]?.kind, 'label');
 });

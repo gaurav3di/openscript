@@ -1,0 +1,35 @@
+// One box per session, drawn on the session's first bar and resized on every
+// bar after it, so the box grows with the session it belongs to.
+//
+// Exercises: a drawing created once per session rather than once per bar, the
+// bounds setter that moves both corners at once, and state that has to roll
+// over at a session boundary alongside an object that has to stop growing at
+// the same instant.
+
+version 1
+
+study("Session outline", overlay = true, precision = 2)
+
+var boxes     = []
+var startTime = time
+var runTop    = high
+var runFloor  = low
+
+if session.isFirstBar
+    startTime = time
+    runTop    = high
+    runFloor  = low
+    push(boxes, draw.box(time, high, time, low,
+                         color = fade(aqua, 40), fillColor = fade(aqua, 88)))
+else
+    runTop   = max(runTop, high)
+    runFloor = min(runFloor, low)
+
+// The right edge is this bar's own time rather than a guess past it: the gap
+// between two bars is not a fact the script has, and guessing it would leave the
+// edge of every box in a different place on every interval.
+if size(boxes) > 0
+    draw.setBounds(element(boxes, size(boxes) - 1), startTime, runTop, time, runFloor)
+
+plot(runTop, "Session high", fade(red, 40), style = "step")
+plot(runFloor, "Session low", fade(lime, 40), style = "step")

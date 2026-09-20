@@ -1,0 +1,30 @@
+// The high and low of the last finished coarse bar, drawn as a channel over the
+// fine bars inside the one now forming.
+//
+// Exercises: three reads of the same coarser interval in one study, a band
+// between two step plots, and a marker on the bar price leaves the channel.
+
+version 1
+
+study("Wider range", overlay = true, precision = 2)
+
+wideTf = input("10", "Range timeframe", kind = "interval")
+
+wideHigh = req.timeframe(wideTf, high, mode = "confirmed")
+wideLow  = req.timeframe(wideTf, low,  mode = "confirmed")
+wideMid  = req.timeframe(wideTf, hl2,  mode = "confirmed")
+
+topPlot    = plot(wideHigh, "Wider high", fade(red, 30), width = 2, style = "step")
+bottomPlot = plot(wideLow,  "Wider low",  fade(lime, 30), width = 2, style = "step")
+fill(topPlot, bottomPlot, fade(silver, 88))
+
+plot(wideMid, "Wider middle", fade(silver, 40), style = "step")
+
+above = not isNone(wideHigh) and close > wideHigh
+below = not isNone(wideLow)  and close < wideLow
+
+if above and not orElse(above[1], false)
+    signal("ABOVE", lime, at = "above", shape = "arrowUp")
+
+if below and not orElse(below[1], false)
+    signal("BELOW", red, at = "below", shape = "arrowDown")

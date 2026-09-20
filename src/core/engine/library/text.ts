@@ -56,7 +56,7 @@ function fixed(x: number, decimals: number): string {
 }
 
 /**
- * `number(s)`: a string to a number, absent for anything it does not parse.
+ * `toNumber(s)`: a string to a number, absent for anything it does not parse.
  *
  * The grammar is written out rather than handed to the host language's parser,
  * which accepts hexadecimal, infinities and a bare leading point in some
@@ -93,7 +93,7 @@ export const TEXT_ENTRIES: readonly ManifestEntry[] = [
     return ctx.guard.string(ctx.span, fixed(x, decimals));
   }),
 
-  entry('number', 's', (_ctx, args) => {
+  entry('toNumber', 's', (_ctx, args) => {
     const text = stringAt(args, 0);
     return text === null ? null : parseNumber(text);
   }),

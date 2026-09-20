@@ -1,0 +1,33 @@
+// Where the close sits relative to the midpoint of its recent range rather than
+// to the low of it, which re-centres the reading on zero.
+//
+// Exercises: a distance and a range each double smoothed before being divided,
+// three reference levels, and a window taken over the bar's own high and low
+// while the numerator reads the close.
+
+version 1
+
+study("Stochastic momentum", precision = 4, range = [-100, 100])
+
+lenK   = input(10, "Range length",  min = 1, max = 500)
+lenD   = input(3,  "Smoothing",     min = 1, max = 500)
+lenEma = input(3,  "Signal length", min = 1, max = 500)
+
+top    = highest(high, lenK)
+bottom = lowest(low, lenK)
+span   = top - bottom
+place  = close - (top + bottom) / 2
+
+numerator   = ema(ema(place, lenD), lenD)
+denominator = ema(ema(span, lenD), lenD)
+
+// A window with no range at all is a division with no answer. Without the guard
+// it would be an infinity and would drag the pane's scale with it.
+value = denominator == 0 ? none : 200 * (numerator / denominator)
+
+level(40,  "Overbought", fade(silver, 40), style = "dashed")
+level(0,   "Middle",     fade(silver, 60), style = "dashed")
+level(-40, "Oversold",   fade(silver, 40), style = "dashed")
+
+plot(value, "Momentum", aqua, width = 2)
+plot(ema(value, lenEma), "Signal", orange, width = 2)

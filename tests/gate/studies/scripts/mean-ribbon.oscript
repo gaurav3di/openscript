@@ -1,0 +1,24 @@
+// Four means of increasing length, with the region between each neighbouring
+// pair shaded.
+//
+// Exercises three bands over four columns, which is the arrangement that shows
+// whether the shading follows the plots it names or the order they were
+// declared in.
+
+version 1
+
+study("Mean ribbon", overlay = true, precision = 2)
+
+firstLen  = input(5,  "First length", min = 1, max = 1000)
+secondLen = input(10, "Second length", min = 1, max = 1000)
+thirdLen  = input(20, "Third length", min = 1, max = 1000)
+fourthLen = input(40, "Fourth length", min = 1, max = 1000)
+
+firstMean  = plot(sma(close, firstLen), "First", lime)
+secondMean = plot(sma(close, secondLen), "Second", aqua)
+thirdMean  = plot(sma(close, thirdLen), "Third", orange)
+fourthMean = plot(sma(close, fourthLen), "Fourth", red)
+
+fill(firstMean, secondMean, fade(lime, 88))
+fill(secondMean, thirdMean, fade(aqua, 88))
+fill(thirdMean, fourthMean, fade(orange, 88))

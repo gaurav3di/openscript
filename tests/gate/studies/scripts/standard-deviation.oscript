@@ -1,0 +1,14 @@
+// The population standard deviation of the close over a window, scaled so it
+// can be read as the same width a band study would draw.
+//
+// Exercises: a two pass deviation, which is the arrangement the language fixes,
+// and a scale factor that multiplies the reading rather than the window.
+
+version 1
+
+study("Standard deviation", precision = 6)
+
+periods    = input(5,   "Periods",    min = 1, max = 2000)
+deviations = input(1.0, "Deviations", min = 0.001, max = 50)
+
+plot(stdev(close, periods) * deviations, "Deviation", green, width = 2)

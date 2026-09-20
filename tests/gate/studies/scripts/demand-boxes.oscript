@@ -1,0 +1,47 @@
+// A zone drawn at every turning low, extended right while it holds, and deleted
+// when price closes through it or it gets too old.
+//
+// Exercises drawing objects a script creates, mutates and deletes over many
+// bars; the parallel arrays a script has to keep because a drawing cannot be
+// read back; and a descending loop with step -1 so removing an element does not
+// renumber one the loop has yet to visit.
+
+version 1
+
+study("Demand boxes", overlay = true, precision = 2)
+
+wings  = input(3,  "Bars on each side", min = 1, max = 20)
+maxAge = input(40, "Delete a zone after this many bars", min = 5, max = 5000)
+
+var zones     = []
+var zoneFloor = []
+var zoneStart = []
+
+// Counted downwards, because removing element i in an ascending loop renumbers
+// the element the loop is about to visit and skips it.
+for i = size(zones) - 1 to 0 step -1
+    base  = element(zoneFloor, i)
+    age   = bar.index - element(zoneStart, i)
+
+    // Closing through, not touching: a wick into a zone is the zone working,
+    // and deleting on a touch would delete every zone that ever did its job.
+    if close < base or age > maxAge
+        draw.delete(element(zones, i))
+        remove(zones, i)
+        remove(zoneFloor, i)
+        remove(zoneStart, i)
+        continue
+
+    // Extended to this bar's own time rather than past it, because the interval
+    // between bars is not a fact the script has.
+    draw.setTo(element(zones, i), time, base)
+
+turn = pivotLow(low, wings, wings)
+
+if not isNone(turn)
+    top = min(open[wings], close[wings])
+    zone = draw.box(time[wings], top, time, turn,
+                    color = lime, fillColor = fade(lime, 85), text = "Demand")
+    push(zones, zone)
+    push(zoneFloor, turn)
+    push(zoneStart, bar.index - wings)

@@ -1,0 +1,29 @@
+// The double smoothed one bar change divided by the double smoothed size of
+// that change, which bounds the reading to a hundred either side.
+//
+// Exercises: two averages applied in an order the argument list does not give,
+// the same pair applied to a magnitude, and a warmup that is the sum of two
+// lengths less one rather than either of them.
+
+version 1
+
+study("True strength", precision = 4, range = [-100, 100])
+
+longLen   = input(25, "Long length",   min = 1, max = 500)
+shortLen  = input(13, "Short length",  min = 1, max = 500)
+signalLen = input(13, "Signal length", min = 1, max = 500)
+
+// Long first, then short, even though the public argument order puts the short
+// one first: the long average is what removes the noise and the short one only
+// tidies the result. Getting that round the wrong way gives a plausible curve
+// and the wrong numbers.
+moved  = change(close)
+top    = ema(ema(moved, longLen), shortLen)
+bottom = ema(ema(abs(moved), longLen), shortLen)
+
+value = 100 * (top / bottom)
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(value, "Strength", aqua, width = 2)
+plot(ema(value, signalLen), "Signal", pink, width = 2)

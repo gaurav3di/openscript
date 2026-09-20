@@ -1,0 +1,19 @@
+// Two rails a multiple of the average range in from the window's extremes: the
+// level a position is given up at, measured from the best price it has seen.
+//
+// Exercises two warmups of different lengths meeting in one expression, which
+// is where a study that starts on the shorter of the two draws a rail from a
+// range that has not warmed up.
+
+version 1
+
+study("Chandelier rails", overlay = true, precision = 2)
+
+len    = input(22,  "Window", min = 1, max = 500)
+rngLen = input(22,  "Range length", min = 1, max = 500)
+mult   = input(3.0, "Range multiple", min = 0, max = 50)
+
+rangeNow = atr(rngLen)
+
+plot(highest(high, len) - mult * rangeNow, "Long exit", aqua, width = 2)
+plot(lowest(low, len) + mult * rangeNow, "Short exit", orange, width = 2)

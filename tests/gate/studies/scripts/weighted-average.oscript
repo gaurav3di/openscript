@@ -1,0 +1,15 @@
+// The linearly weighted mean, where the newest bar of the window carries the
+// weight of the length and the oldest carries one.
+//
+// Exercises: the one average in the library whose accumulation order the
+// specification fixes rather than leaves open, drawn beside the simple mean of
+// the same window so the lag between the two is visible.
+
+version 1
+
+study("Weighted average", overlay = true, precision = 6)
+
+len = input(9, "Length", min = 1, max = 1000)
+
+plot(wma(close, len), "Weighted", purple, width = 2)
+plot(sma(close, len), "Simple", fade(silver, 50))

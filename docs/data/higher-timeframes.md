@@ -113,21 +113,28 @@ sentence: **`[]` inside `expr` counts coarse bars, and `[]` on the result counts
 chart bars.**
 
 ```
-dayHigh  = req.timeframe("1D", high)          // today's high so far
-prevDay  = req.timeframe("1D", high[1])       // yesterday's high: coarse history
-oneBack  = dayHigh[1]                         // the value one CHART bar ago
+lastDay  = req.timeframe("1D", high)          // yesterday's high: the last day that closed
+dayBefore = req.timeframe("1D", high[1])      // the day before that: coarse history
+soFar    = req.timeframe("1D", high, mode = "developing")   // today, as it stands
+oneBack  = lastDay[1]                         // the value one CHART bar ago
 ```
 
-On a five minute chart, `dayHigh[1]` is the value the read had five minutes ago,
-which is today's high again on all but one bar of the day. `prevDay` is
-yesterday's high on every bar of today, which is what a script asking for "the
-previous day's high" actually wants.
+The default mode is `"confirmed"`, so `lastDay` is **the last day that closed**,
+which on any bar of today is yesterday. Read that sentence twice before writing a
+`[1]` inside a read: `dayBefore` is a day further back again, and a script that
+wrote it meaning "yesterday" would draw a level from the wrong session and never
+look wrong.
+
+On a five minute chart `lastDay[1]` is the value the read held five minutes ago,
+which is the same value on every bar of the day except the first, because a
+confirmed read steps only when a coarse bar closes.
 
 | Expression | Counts | On a 5m chart at 11:20 it holds |
 |---|---|---|
-| `req.timeframe("1D", high)` | Coarse bars | Today's high so far |
-| `req.timeframe("1D", high[1])` | Coarse bars | Yesterday's high |
-| `req.timeframe("1D", high)[1]` | Chart bars | Today's high as it stood at 11:15 |
+| `req.timeframe("1D", high)` | Coarse bars | Yesterday's high, the last day that closed |
+| `req.timeframe("1D", high[1])` | Coarse bars | The high of the day before yesterday |
+| `req.timeframe("1D", high, mode = "developing")` | Coarse bars | Today's high so far |
+| `req.timeframe("1D", high)[1]` | Chart bars | Yesterday's high again: what the read held at 11:15 |
 
 ## The mode, which is the point of the whole section
 
@@ -222,7 +229,7 @@ which is why it has a name nobody types by accident.
 | A trend filter a strategy trades from | `"confirmed"` | Only a closed bar is a fact, and the backtest must be the live run |
 | The day's range so far, on a dashboard | `"developing"` | The trader is reading it, not trading it, and "so far" is the question |
 | A finished coarse candle drawn across history, for a picture | `"lookahead"` | The picture is the point and it is disclosed in the legend |
-| Yesterday's high as a level | `"confirmed"` with `high[1]` inside | Yesterday is closed, so nothing about it can change |
+| Yesterday's high as a level | `"confirmed"`, which is the default | It takes the last day that closed, and nothing about a closed day can change |
 
 ## Warmup, and the left edge of the chart
 
@@ -293,8 +300,10 @@ branch, so the very first flip of the dataset would go unmarked.
 ## Previous session levels, which is mostly what people want
 
 Most "higher timeframe" studies are really "yesterday's numbers" studies. Those
-are a confirmed read with the history taken inside the expression, and they are
-completely safe: yesterday closed, so nothing about it can change.
+are a confirmed read, which is the default, and they are completely safe:
+yesterday closed, so nothing about it can change. No `[1]` is needed inside the
+expression, because a confirmed read is already reading the last day that closed;
+adding one would take the day before that.
 
 ```
 version 1
@@ -305,9 +314,9 @@ study("Previous day levels", overlay = true, precision = 2)
 // series the host fetches and keeps in step with the chart, and a host has a
 // ceiling on how many a file may make: exceeding it is OS5006, not a silent
 // drop, because a dropped request is a plot that quietly turns absent.
-prevHigh  = req.timeframe("1D", high[1])
-prevLow   = req.timeframe("1D", low[1])
-prevClose = req.timeframe("1D", close[1])
+prevHigh  = req.timeframe("1D", high)
+prevLow   = req.timeframe("1D", low)
+prevClose = req.timeframe("1D", close)
 
 // The midpoint is computed here, from the three values already fetched, rather
 // than as a fourth request. A request is the expensive part; arithmetic is not.

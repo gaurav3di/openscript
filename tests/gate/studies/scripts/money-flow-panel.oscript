@@ -1,0 +1,32 @@
+// Where the money went, read as a bounded index, with the two band edges shaded
+// and the reading repeated in a panel.
+//
+// Exercises one reading feeding three surfaces at once: a column, a shaded zone
+// between two flat edges, and a cell whose colour says which zone it is in.
+
+version 1
+
+study("Money flow panel", overlay = false, precision = 2)
+
+len = input(14, "Length", min = 1, max = 500)
+
+flow = mfi(len)
+
+upperEdge = plot(80, "Upper edge", fade(purple, 60))
+lowerEdge = plot(20, "Lower edge", fade(purple, 60))
+fill(upperEdge, lowerEdge, fade(purple, 90))
+
+plot(flow, "Money flow", purple, width = 2)
+
+panel = table("Money flow", rows = 2, cols = 2, position = "topRight", textColor = silver)
+
+zone = isNone(flow) ? "warming up" : flow > 80 ? "high" : flow < 20 ? "low" : "middle"
+zoneColor = zone == "high" ? red : zone == "low" ? green : silver
+
+cell(panel, 0, 0, "Money flow", align = "left")
+cell(panel, 0, 1, isNone(flow) ? "warming up" : text(flow, 2), align = "right")
+cell(panel, 1, 0, "Zone", align = "left")
+cell(panel, 1, 1, zone, textColor = zoneColor, align = "right")
+
+level(80, "High", red, style = "dashed")
+level(20, "Low", green, style = "dashed")

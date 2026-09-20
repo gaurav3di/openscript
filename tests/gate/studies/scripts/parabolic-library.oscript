@@ -1,0 +1,20 @@
+// The library's own stop and reverse, drawn on its own so that the study beside
+// it can be measured against it.
+//
+// This is here to record a difference, not to reproduce a study. The library's
+// stop follows the plain description and applies no clamp, so it is not the
+// published study that does; `trends.test.ts` measures how far apart they are
+// and would notice the day they stopped being apart.
+
+version 1
+
+study("Library parabolic stop", overlay = true, precision = 2)
+
+startRate = input(0.02, "Start",     min = 0.001, max = 1)
+stepRate  = input(0.02, "Increment", min = 0.001, max = 1)
+maxRate   = input(0.2,  "Maximum",   min = 0.01,  max = 1)
+
+s = psar(startRate, stepRate, maxRate)
+
+plot(s[0], "Stop", orange, style = "lineWithMarkers")
+plot(s[1], "Side", fade(silver, 60))

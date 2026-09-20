@@ -1,0 +1,19 @@
+// A weighted mean of two rates of change, one long and one short.
+//
+// Exercises two warmups feeding one smoothing: neither rate has a value until
+// its own lookback is behind it, and the weighted mean has nothing to chew on
+// until the longer of the two has produced a full window, so the first reading
+// lands at the long rate plus the mean, less one.
+
+version 1
+
+study("Combined rate", overlay = false, precision = 4)
+
+longLen  = input(14, "Long rate length", min = 1, max = 500)
+shortLen = input(11, "Short rate length", min = 1, max = 500)
+meanLen  = input(10, "Weighted mean length", min = 1, max = 500)
+src      = input(close, "Source")
+
+plot(wma(roc(src, longLen) + roc(src, shortLen), meanLen), "Combined rate", purple, width = 2)
+
+level(0, "Zero", gray, style = "dashed")

@@ -39,5 +39,9 @@ export type {
   Plot,
   Position,
   Register,
+  Request,
+  RequestBody,
+  RequestField,
+  RequestInput,
   StateRegion,
 } from '../emit/index.js';

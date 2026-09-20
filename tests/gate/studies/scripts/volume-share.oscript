@@ -1,0 +1,25 @@
+// This bar's volume against the mean of the window before it, so a reading of
+// two says the bar traded twice its recent normal.
+//
+// Exercises: a ratio whose denominator is a mean of the same series, a marker
+// on the bars that break a threshold, and bar colouring that grades rather than
+// switches.
+
+version 1
+
+study("Volume share", precision = 4)
+
+len   = input(20,  "Length", min = 1, max = 500)
+spike = input(1.7, "Mark a bar at this many times the mean", min = 1, max = 20)
+
+average = sma(volume, len)
+share   = average == 0 ? none : volume / average
+
+level(1, "Normal", fade(silver, 50), style = "dashed")
+
+plot(share, "Share", aqua, width = 2, style = "column")
+
+barColor(share > spike ? orange : share > 1 ? fade(orange, 60) : none)
+
+if share > spike and not orElse(share[1] > spike, false)
+    signal("HEAVY", orange, at = "above", shape = "circle")

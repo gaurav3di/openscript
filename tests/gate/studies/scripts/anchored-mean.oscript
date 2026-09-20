@@ -1,0 +1,27 @@
+// The volume weighted mean of every bar since the run began, with a line drawn
+// from the anchor to the newest bar and a plate carrying the distance from it.
+//
+// Exercises a reading anchored to one bar rather than to a window, an object
+// mutated on every bar to follow it, and a caption rewritten from the data.
+
+version 1
+
+study("Anchored mean", overlay = true, precision = 2)
+
+src = input(hlc3, "Source")
+
+anchored = vwapAnchor(src, bar.isFirst)
+
+var rail  = none
+var plate = none
+
+if not isNone(anchored)
+    if isNone(rail)
+        rail = draw.line(time, anchored, time, anchored, color = aqua, width = 2)
+        plate = draw.label(time, anchored, "", color = aqua, textColor = black)
+    else
+        draw.setTo(rail, time, anchored)
+        draw.setAt(plate, time, anchored)
+    draw.setText(plate, text(close - anchored, 2))
+
+plot(anchored, "Anchored mean", aqua, width = 2)

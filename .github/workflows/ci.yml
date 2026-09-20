@@ -93,12 +93,16 @@ jobs:
         with:
           node-version: '22'
       # The only check here that needs an install and a build: it reads what a
-      # consumer installs as well as what the repository holds, and a check that
-      # only ever saw the source would be checking the one copy nobody runs.
+      # consumer installs and what a runtime really executes, as well as what the
+      # repository holds, and a check that only ever saw the source would be
+      # checking the one copy nobody runs. Both outputs are built, because the
+      # check refuses to report on an artifact that is not there.
       - name: Install
         run: npm ci || npm install
       - name: Build
         run: npm run build
+      - name: Build the tests
+        run: npm run build:test
       - name: Nothing builds code out of text, in the source, the build or the tooling
         run: node scripts/check-no-eval.mjs
 

@@ -42,6 +42,15 @@ export interface EngineLimits {
   readonly arrayElements: number;
   /** Code points one string may hold, OS5008. */
   readonly stringLength: number;
+  /**
+   * Drawing objects one script may hold at once, OS5010.
+   *
+   * The host's, like the string ceiling: the language fixes no number, and a
+   * host that sets one accepts that a script refused here draws on another.
+   * What the language does fix is that reaching it is reported and that the
+   * oldest object is never dropped to make room, which is `stdlib.md` 14.4.
+   */
+  readonly drawingObjects: number;
   /** Call frames, OS5005 at load. */
   readonly frames: number;
   /** The most a program's own `limits(loops = ...)` may ask for, OS5003. */
@@ -52,6 +61,15 @@ export interface EngineLimits {
   readonly instructions: number | null;
   /** State regions, OS5004 at load, or null for no ceiling. */
   readonly states: number | null;
+  /**
+   * Higher timeframe and other instrument reads one file may make, OS5006.
+   *
+   * The host's, because each read is a series it fetches and keeps in step with
+   * the chart. Reported at load rather than silently capped: dropping the reads
+   * past a ceiling is a plot that quietly turns absent, and nothing on the chart
+   * would say which one went.
+   */
+  readonly requests: number | null;
   /** Steps between two readings of the clock. */
   readonly clockEvery: number;
 }
@@ -75,11 +93,13 @@ export const DEFAULT_LIMITS: EngineLimits = {
   ms: null,
   arrayElements: 1_000_000,
   stringLength: 100_000,
+  drawingObjects: 10_000,
   frames: 64,
   loops: null,
   history: null,
   instructions: null,
   states: null,
+  requests: null,
   clockEvery: 4096,
 };
 
@@ -205,6 +225,20 @@ export class Budget {
       line,
       suggested: suggestBudget(this.loopCeiling),
     });
+  }
+
+  /**
+   * The drawing object ceiling, OS5010, charged before the object is built.
+   *
+   * `held` is what the script holds now, so the object about to be created is
+   * number `held + 1` and the refusal names that number. Checked before
+   * building rather than after, because an engine that allocates first and
+   * complains second has already spent the memory it is refusing to spend.
+   */
+  checkDrawing(span: Span, held: number): void {
+    if (held >= this.limits.drawingObjects) {
+      raise('OS5010', span, { max: this.limits.drawingObjects, found: held + 1 });
+    }
   }
 
   /** The array ceiling, OS5002. */

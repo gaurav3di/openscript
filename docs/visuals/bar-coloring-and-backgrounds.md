@@ -92,9 +92,17 @@ split it between two studies that both have an opinion; and a winner that
 changed as the chart redrew would make the candles flicker between two meanings,
 which is worse than either meaning alone.
 
-Which of them wins is the host's to decide and to show. What the rule guarantees
-you as a script author is that it is exactly one, and that it does not change
-underneath the reader. What it asks of you is two lines of courtesy:
+The rule is written down rather than left to the host: **the owner is the study
+latest in the chart's own study order that paints**, which is the order the
+legend lists and the order a user changes deliberately, and every other study's
+bar colouring is not drawn. `compiled-program.md` section 11 states it. Two
+consequences are worth knowing while you write a study: dropping a second
+colouring study on top takes the candles, which is usually what the person
+dropping it meant, and adding a study that does not paint changes nothing.
+
+What the rule guarantees you as a script author is that it is exactly one, and
+that it does not change underneath the reader. What it asks of you is two lines
+of courtesy:
 
 - **Give the user a switch.** An input named "Recolour the candles" lets a
   reader keep your study and hand the candles back to another one without

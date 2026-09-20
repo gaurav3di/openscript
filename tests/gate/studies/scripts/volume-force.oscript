@@ -1,0 +1,19 @@
+// The bar's price change weighted by the volume behind it, smoothed: direction
+// and conviction in one number, so a large move on thin volume scores less than
+// a small move the whole market took part in.
+//
+// Exercises: an average taken over a series that is absent on bar 0, which is
+// what pushes the first reading one bar past the length, and a zero line that
+// the study crosses rather than sits above.
+
+version 1
+
+study("Volume force", precision = 0)
+
+len = input(13, "Length", min = 1, max = 500)
+
+force = change(close) * volume
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(ema(force, len), "Force", red, width = 2)

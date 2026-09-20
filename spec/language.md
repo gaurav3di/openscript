@@ -182,6 +182,15 @@ The built-in global names (`close`, `plot`, `ema` and the rest of the standard
 library) are not reserved words. They are ordinary names in the outermost scope,
 and section 12 explains why assigning to one is still an error.
 
+**No library name is a reserved word, and none ever may be.** A call is written
+as a name followed by an argument list, and a reserved word is not a name, so a
+library that published one would publish a call no script could make. Version 1
+shipped two of those for a release: the conversions to `bool` and to `number`
+were spelled with the type names, and every spelling of them was refused by the
+lexer. They are `toBool` and `toNumber` (section 5.3). A reader who writes the
+old spelling as a call still gets OS1019, and the fix names the spelling that
+works rather than telling them to rename a variable they never declared.
+
 **A named argument label is not a name.** In `f(label = value)` the label is
 matched against the callee's parameter list and is never looked up in any scope,
 so labels live in a namespace of their own and a reserved word is legal as one.
@@ -558,8 +567,13 @@ bug nobody will find until it costs money. Conversion is explicit and short:
 |---|---|
 | `text(x)` | Any value to a string. `text(none)` is `"none"` |
 | `text(x, decimals)` | A number to a string with fixed decimals |
-| `number(s)` | A string to a number, or `none` if it does not parse |
-| `bool(x)` | `none` to `false`, a bool to itself. Numbers are not accepted |
+| `toNumber(s)` | A string to a number, or `none` if it does not parse |
+| `toBool(x)` | `none` to `false`, a bool to itself. Numbers are not accepted |
+
+Two of the three are spelled `to` and the type because `bool` and `number` are
+reserved words (section 3.4) and a call needs a name in front of it. `text` is
+not an exception to that: `text` is not a type name either, the string type is
+spelled `string`, and the same call is the formatter as well.
 
 ```
 s = "count: " + text(5)         // "count: 5"
@@ -643,9 +657,10 @@ are different facts and only the script knows the second one.
 - An object created while the moving bar is executing is rolled back with
   everything else when that bar executes again, so a live chart does not gain one
   object per tick (section 7.5).
-- There is no cap on how many objects a script may create. The budget is memory,
-  and a host that cannot hold them must say so rather than quietly dropping the
-  oldest.
+- The language fixes no number for how many objects a script may hold at once.
+  The budget is the host's memory, and a host that cannot hold another one says
+  so, with OS5010, rather than quietly dropping the oldest. Nothing is ever
+  discarded to make room.
 
 ```
 upper = plot(basis + dev, "Upper", aqua)    // a declaration handle
@@ -2011,7 +2026,7 @@ section that explains it.
    and the settings dialog can exist. (Section 7.1.)
 
 10. **There is no truthiness and no implicit conversion.** `if 1` is an error,
-    `"x" + 5` is an error. `text()` and `number()` are short. (Section 5.3.)
+    `"x" + 5` is an error. `text()` and `toNumber()` are short. (Section 5.3.)
 
 11. **Comparisons cannot be chained** and there is no `^`, no `!`, no `&&`, no
     `||`, no `;` and no braces. The words are `and`, `or`, `not`, and the power

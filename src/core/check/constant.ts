@@ -10,6 +10,12 @@
  * An `input()` counts because it is resolved before bar 0 as well. The name a
  * script assigns an input to counts for the same reason, which is what lets
  * `table(position = corner)` work with `corner` declared above it.
+ *
+ * So does a colour built out of constants, which is the one call in the library
+ * whose result is settled before bar 0 as surely as a literal is. `fade(red, 50)`
+ * is the same four numbers on every bar, it is what a level and a marker are
+ * normally coloured with, and refusing it would leave a script no way to write a
+ * translucent colour in a field that has to be fixed.
  */
 import type { Expression } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
@@ -18,6 +24,26 @@ import { BAR_SERIES } from './surface.js';
 
 /** The names `math` holds that are numbers rather than functions. */
 const CONSTANT_MEMBERS = new Set(['math.pi', 'math.e']);
+
+/**
+ * The calls that produce a value before the first bar, `stdlib.md` 11.2.
+ *
+ * A colour built out of constants is a constant: `fade(red, 50)` is the same
+ * four numbers on every bar, and a level or a marker declared with one has a
+ * colour to carry. The list is here, beside the rule, because the compiler folds
+ * exactly these and the two have to be one list rather than two. A call this
+ * accepted and the emitter could not fold would reach a declaration field with
+ * nothing to write in it, and the compiler would have to refuse a script that
+ * the checker had already passed.
+ */
+export const FOLDABLE_CALLS: ReadonlySet<string> = new Set([
+  'rgb',
+  'rgba',
+  'fade',
+  'withAlpha',
+  'alpha',
+  'mix',
+]);
 
 export function isCompileTimeConstant(checker: Checker, expression: Expression): boolean {
   const inner = withoutGrouping(expression);
@@ -50,8 +76,12 @@ export function isCompileTimeConstant(checker: Checker, expression: Expression):
     }
     case 'member':
       return CONSTANT_MEMBERS.has(memberPath(inner.object, inner.member.text));
-    case 'call':
-      return calleeName(inner.callee) === 'input';
+    case 'call': {
+      const name = calleeName(inner.callee);
+      if (name === 'input') return true;
+      if (name === undefined || !FOLDABLE_CALLS.has(name)) return false;
+      return inner.args.every((argument) => isCompileTimeConstant(checker, argument.value));
+    }
     default:
       return false;
   }

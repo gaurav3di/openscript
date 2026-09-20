@@ -233,8 +233,8 @@ message = "entry at " + text(close, 2)
 no implicit conversion anywhere in the language: every silent coercion rule in
 every language is a source of bugs that survive review, and a trading script that
 quietly treats a zero as a false has a bug nobody will find until it costs money.
-The conversions are explicit and short: `text(x)`, `text(x, decimals)`, `number(s)`
-and `bool(x)`.
+The conversions are explicit and short: `text(x)`, `text(x, decimals)`,
+`toNumber(s)` and `toBool(x)`.
 
 Concatenation follows the absence rule like everything else: `"a" + none` is
 `none`, not `"anone"`. To print an absent value deliberately, convert it first:

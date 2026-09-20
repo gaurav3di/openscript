@@ -1,6 +1,6 @@
 /**
- * The nine target scripts that reach the engine, and the five studies the
- * phase's gate names.
+ * The target scripts that reach the engine, and the five studies the phase's
+ * gate names.
  *
  * `ROADMAP.md` fixes the gate: EMA, RSI, MACD, Bollinger Bands and Supertrend
  * match reference implementations to the last decimal, and each one's warmup is
@@ -38,7 +38,7 @@ function firstValue(column: readonly Value[]): number {
   return at;
 }
 
-test('the nine emittable targets run a whole dataset without a diagnostic', () => {
+test('every emittable target runs a whole dataset without a diagnostic', () => {
   // The broadest test in the suite, and the one that would catch an instruction
   // implemented backwards: between them these programs use most of the
   // instruction set, every kind of channel, arrays, grids, drawing objects,
@@ -55,6 +55,24 @@ test('the nine emittable targets run a whole dataset without a diagnostic', () =
     );
     assert.equal(run.bars.length, data.length, name);
   }
+});
+
+// Catches: a plot that draws nothing because the value behind it went absent and
+// could not come back. The trailing stop is the study, and the band it trails is
+// seeded from the raw band the first time the average produces one; trail against
+// an absent band and max propagates the absence, the next bar's previous band is
+// that absence, and the line is never drawn again. A study that plots nothing
+// still runs, still has a legend row and still passes every other test here.
+test('the trailing stop of the volatility study draws once its average has warmed', () => {
+  const data = bars(400);
+  const engine = engineFor(compileTarget('02-supertrend.oscript'));
+  engine.run(data, states(400));
+  // The two stop columns are one line with a gap in each, so the study draws a
+  // stop on a bar when exactly one of them has a value.
+  const long = engine.column(0);
+  const short = engine.column(1);
+  const drawn = long.filter((one, at) => one !== null || short[at] !== null).length;
+  assert.ok(drawn > data.length / 2, `the stop is drawn on ${drawn} of ${data.length} bars`);
 });
 
 test('a study that declares a grid fills it from the bar that wrote the cells', () => {
@@ -74,7 +92,7 @@ test('a study that draws objects leaves the ones it did not delete', () => {
   engine.run(data, states(300));
   const drawn = engine.drawings();
   assert.ok(drawn.length > 0, 'the study drew zones');
-  assert.ok(drawn.every((one) => one.object.kind === 'box'), 'every zone is a box');
+  assert.ok(drawn.every((one) => one.kind === 'box'), 'every zone is a box');
 });
 
 test('a strategy holds its orders back until the bar is confirmed', () => {

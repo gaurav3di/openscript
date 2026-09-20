@@ -318,8 +318,9 @@ study("Day range, read twice", overlay = true, precision = 2)
 // For the eye: what the day has done so far. It moves, and that is the point.
 soFar = req.timeframe("1D", high, mode = "developing")
 
-// For the decisions: only days that have closed. It never moves.
-settled = req.timeframe("1D", high[1], mode = "confirmed")
+// For the decisions: only days that have closed. It never moves. No [1] inside
+// it, because "confirmed" is already the last day that closed.
+settled = req.timeframe("1D", high, mode = "confirmed")
 
 plot(soFar,   "Today's high so far", fade(aqua, 40), width = 1, style = "step")
 plot(settled, "Yesterday's high",    aqua,           width = 2, style = "step")

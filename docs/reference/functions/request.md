@@ -203,8 +203,17 @@ are OS3006. A read computes a value; it does not act and it does not draw.
 A `req.symbol` read cannot complete until the host supplies the other
 instrument's bars, which is not instant. Until then the read is absent, the
 study reports itself as loading, and the engine recalculates when the bars land.
-A refusal, an unknown symbol, or a host with no provider at all surfaces as
-OS6009 with the reason available from `req.error(...)`.
+A refusal is reported and is never an empty answer, because an empty series looks
+exactly like an instrument that did not trade. An instrument the host does not
+know is OS6007, one it resolved with no bars over the chart's range is OS6008,
+and a source that refused or did not answer is OS6009 carrying the host's own
+reason. Each of them leaves the read absent and puts its reason in
+`req.error(...)`.
+
+A host that serves no requests at all is a different case and is settled before
+the first bar: it gives its engine no `req.symbol` capability, so a file that
+reads another instrument is refused at load with OS6006 naming the capability
+rather than drawing a study with a silently empty line through it.
 
 The study keeps drawing everything that does not depend on the read, which is
 why a comparison study should be written so that its own instrument's plots do

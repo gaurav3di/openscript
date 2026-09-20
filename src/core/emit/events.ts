@@ -16,6 +16,7 @@
  * channel and a channel nothing wrote is absent, which is no alert.
  */
 import type { Call } from '../ast/index.js';
+import { alertKey } from '../check/index.js';
 import type { Emitter, Frame } from './context.js';
 import { ALERT_DEFAULTS, MARKER_DEFAULTS } from './defaults.js';
 import { emitExpression } from './expressions.js';
@@ -80,9 +81,14 @@ function emitMarker(e: Emitter, f: Frame, call: Call): void {
 }
 
 function emitAlert(e: Emitter, f: Frame, call: Call): void {
-  const index = e.alerts.length;
-  const condChannel = e.layout.channel('bool', true, false, `alert ${index}`);
-  const messageChannel = e.layout.channel('string', true, false, `alert ${index} message`);
+  const id = fieldFor(e, call, 'id', ALERT_DEFAULTS);
+  // `id` is the stable name of the entry, so a user's alert subscription
+  // survives an edit to the script. With none, the compiler derives one from
+  // the call's position, which is what OS8008 already warns about, and the
+  // checker refuses two alerts that would land under one name with OS3017.
+  const key = alertKey(typeof id === 'string' ? id : undefined, call.span.line);
+  const condChannel = e.layout.channel('bool', true, false, key);
+  const messageChannel = e.layout.channel('string', true, false, `${key} message`);
 
   f.builder.at(call.span);
   f.builder.push('CONST', e.pool.bool(true));
@@ -98,12 +104,8 @@ function emitAlert(e: Emitter, f: Frame, call: Call): void {
   f.builder.at(call.span);
   f.builder.push('EMIT', messageChannel);
 
-  const id = fieldFor(e, call, 'id', ALERT_DEFAULTS);
   e.alerts.push({
-    // `id` is the stable name of the entry, so a user's alert subscription
-    // survives an edit to the script. With none, the compiler derives one from
-    // the call's position, which is what OS8008 already warns about.
-    key: typeof id === 'string' && id !== '' ? id : `a${index}`,
+    key,
     title: fieldFor(e, call, 'title', ALERT_DEFAULTS),
     condChannel,
     messageChannel,

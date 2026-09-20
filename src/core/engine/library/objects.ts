@@ -17,10 +17,28 @@
  * **A deleted object stays deleted rather than becoming absent.** OS4005 names
  * the bar it was deleted on, because a script that mutates a stale handle is
  * holding a name for something it already threw away, and answering "absent"
- * would hide that behind a drawing that quietly stopped moving.
+ * would hide that behind a drawing that quietly stopped moving. An *absent*
+ * handle is a different fact and does nothing: a setter given `none` is a gap
+ * like every other absence reaching a drawing surface (`language.md` 6.7), and
+ * it is what the fix for OS4005 asks a script to produce.
+ *
+ * **An object is anchored to a time and a price and to nothing else.** Neither
+ * anchor is read against the bars: an anchor past the newest bar is kept as it
+ * was given, so a projected line reaches into the margin, and an anchor inside
+ * the history does not move when more history loads and every bar index
+ * shifts. A bar index is a position in the data the engine was given
+ * (`language.md` 7.2), and an object that stored one would be somewhere else
+ * on the same chart tomorrow.
+ *
+ * **A polyline holds its own path.** The two arrays it is given are read once,
+ * at the call, and the points are the object's from then on; `draw.setPoints`
+ * is how a path changes. The alternative, keeping the arrays and reading them
+ * when the host draws, would mean a `push` to an array the script kept for its
+ * own bookkeeping silently redrawing a shape, and two engines could then
+ * disagree about when the path was read.
  */
 import type { DrawingObject, GridCell, Value } from '../values/index.js';
-import { isDrawing, reference } from '../values/index.js';
+import { isDrawing, isNumber, reference } from '../values/index.js';
 import { entry, refAt, valueAt, wholeAt } from './binding.js';
 import type { CallContext, ManifestEntry } from './binding.js';
 import { clearArray } from './arrays.js';
@@ -36,9 +54,55 @@ function drawing(ctx: CallContext, args: readonly Value[], index: number): Drawi
   return object;
 }
 
-function make(ctx: CallContext, kind: DrawingObject['kind'], props: Record<string, Value>): Value {
-  const id = ctx.heap.allocate({ kind, props, deleted: false, deletedAt: -1 });
+/**
+ * Creates one object, once the ceiling has been asked.
+ *
+ * The properties arrive as a function rather than as a record so that the
+ * ceiling is charged before any of the work: a polyline copies its whole path
+ * into the heap, and an engine that built that and then refused to keep it
+ * would have spent the memory it was refusing to spend.
+ */
+function make(
+  ctx: CallContext,
+  kind: DrawingObject['kind'],
+  props: () => Record<string, Value>,
+): Value {
+  ctx.guard.drawing(ctx.span, ctx.heap.drawingCount());
+  const id = ctx.heap.allocate({ kind, props: props(), deleted: false, deletedAt: -1 });
   return reference(id);
+}
+
+/** The numbers one path argument holds, or an empty path when it holds none. */
+function pointsIn(ctx: CallContext, args: readonly Value[], index: number): readonly Value[] {
+  const held = ctx.heap.deref(valueAt(args, index));
+  return held !== undefined && held.kind === 'array' ? held.items : [];
+}
+
+/**
+ * A polyline's path, copied out of the two arrays that describe it.
+ *
+ * The arrays are paired by index over the longer of them, so a script that
+ * supplies more times than prices gets a point with no price rather than a
+ * shorter path: absence reaching a drawing surface is a gap the host draws as a
+ * break (`language.md` 6.7), and dropping the odd points instead would quietly
+ * redraw the shape. A value that is not a number is absent for the same reason.
+ *
+ * The copies are heap arrays, so they are rolled back, swept and counted like
+ * every other object rather than being a second kind of storage.
+ */
+function path(ctx: CallContext, args: readonly Value[], first: number): Record<string, Value> {
+  const times = pointsIn(ctx, args, first);
+  const prices = pointsIn(ctx, args, first + 1);
+  const length = Math.max(times.length, prices.length);
+  const copy = (source: readonly Value[]): Value => {
+    const items: Value[] = [];
+    for (let i = 0; i < length; i += 1) {
+      const one = source[i];
+      items.push(one !== undefined && isNumber(one) ? one : null);
+    }
+    return reference(ctx.heap.allocate({ kind: 'array', items }));
+  };
+  return { times: copy(times), prices: copy(prices) };
 }
 
 /** A mutator that writes named fields onto an existing object. */
@@ -57,7 +121,7 @@ function setter(
 
 export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
   entry('draw.line', 't1 p1 t2 p2 color width style extendLeft extendRight', (ctx, args) =>
-    make(ctx, 'line', {
+    make(ctx, 'line', () => ({
       t1: valueAt(args, 0),
       p1: valueAt(args, 1),
       t2: valueAt(args, 2),
@@ -67,11 +131,11 @@ export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
       style: valueAt(args, 6),
       extendLeft: valueAt(args, 7),
       extendRight: valueAt(args, 8),
-    }),
+    })),
   ),
 
   entry('draw.label', 't p text color textColor align tooltip', (ctx, args) =>
-    make(ctx, 'label', {
+    make(ctx, 'label', () => ({
       t: valueAt(args, 0),
       p: valueAt(args, 1),
       text: valueAt(args, 2),
@@ -79,14 +143,14 @@ export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
       textColor: valueAt(args, 4),
       align: valueAt(args, 5),
       tooltip: valueAt(args, 6),
-    }),
+    })),
   ),
 
   entry(
     'draw.box',
     't1 p1 t2 p2 color fillColor opacity width text textColor tooltip',
     (ctx, args) =>
-      make(ctx, 'box', {
+      make(ctx, 'box', () => ({
         t1: valueAt(args, 0),
         p1: valueAt(args, 1),
         t2: valueAt(args, 2),
@@ -98,19 +162,18 @@ export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
         text: valueAt(args, 8),
         textColor: valueAt(args, 9),
         tooltip: valueAt(args, 10),
-      }),
+      })),
   ),
 
   entry('draw.polyline', 'times prices color width closed fillColor opacity', (ctx, args) =>
-    make(ctx, 'polyline', {
-      times: valueAt(args, 0),
-      prices: valueAt(args, 1),
+    make(ctx, 'polyline', () => ({
+      ...path(ctx, args, 0),
       color: valueAt(args, 2),
       width: valueAt(args, 3),
       closed: valueAt(args, 4),
       fillColor: valueAt(args, 5),
       opacity: valueAt(args, 6),
-    }),
+    })),
   ),
 
   setter('draw.setFrom', 'obj t p', (args) => ({ t1: valueAt(args, 1), p1: valueAt(args, 2) })),
@@ -122,10 +185,12 @@ export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
     t2: valueAt(args, 3),
     p2: valueAt(args, 4),
   })),
-  setter('draw.setPoints', 'obj times prices', (args) => ({
-    times: valueAt(args, 1),
-    prices: valueAt(args, 2),
-  })),
+  entry('draw.setPoints', 'obj times prices', (ctx, args) => {
+    const object = drawing(ctx, args, 0);
+    if (object === undefined) return null;
+    object.props = { ...object.props, ...path(ctx, args, 1) };
+    return null;
+  }),
   setter('draw.setText', 'obj text', (args) => ({ text: valueAt(args, 1) })),
   setter('draw.setColor', 'obj color', (args) => ({ color: valueAt(args, 1) })),
   setter('draw.setTextColor', 'obj color', (args) => ({ textColor: valueAt(args, 1) })),
@@ -138,30 +203,20 @@ export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
   })),
   setter('draw.setTooltip', 'obj text', (args) => ({ tooltip: valueAt(args, 1) })),
 
+  // Deleting twice is not an error: the script asked for the object to be gone
+  // and it is gone. Only a change to a deleted object is OS4005.
   entry('draw.delete', 'obj', (ctx, args) => {
     const handle = refAt(args, 0);
-    if (handle === null) return null;
-    const object = ctx.heap.get(handle.id);
-    if (object === undefined || !isDrawing(object)) return null;
-    // Deleting twice is not an error: the script asked for the object to be
-    // gone and it is gone. Only a change to a deleted object is OS4005.
-    if (object.deleted) return null;
-    ctx.heap.touch(handle.id);
-    object.deleted = true;
-    object.deletedAt = ctx.bar.index;
+    if (handle !== null) ctx.heap.deleteDrawing(handle.id, ctx.bar.index);
     return null;
   }),
 
   entry('draw.deleteAll', '', (ctx) => {
-    for (const { id, object } of ctx.heap.drawings()) {
-      ctx.heap.touch(id);
-      object.deleted = true;
-      object.deletedAt = ctx.bar.index;
-    }
+    for (const { id } of ctx.heap.drawings()) ctx.heap.deleteDrawing(id, ctx.bar.index);
     return null;
   }),
 
-  entry('draw.count', '', (ctx) => ctx.heap.drawings().length),
+  entry('draw.count', '', (ctx) => ctx.heap.drawingCount()),
 
   /**
    * `cell(t, row, col, text, ...)`: one cell of a grid for this bar.

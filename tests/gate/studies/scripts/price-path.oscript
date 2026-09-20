@@ -1,0 +1,25 @@
+// The last stretch of closes traced as one connected outline, rebuilt on the
+// newest bar rather than left behind on the bar it was drawn on.
+//
+// Exercises: a drawing whose shape is two arrays rather than two anchors, a
+// loop that fills those arrays oldest bar first, and the fact that one object
+// redrawn every bar is one object and not eighty.
+
+version 1
+
+study("Price path", overlay = true, precision = 2)
+
+span = input(20, "Bars in the outline", min = 2, max = 200)
+
+// Only on the newest bar. The outline shows one thing, the recent path, so
+// building it on every bar of the history would cost a drawing per bar to show
+// the last of them.
+if bar.isLast and not isNone(close[span - 1])
+    times  = [time[span - 1]]
+    prices = [close[span - 1]]
+    for k = span - 2 to 0 step -1
+        push(times, time[k])
+        push(prices, close[k])
+    draw.polyline(times, prices, color = aqua, width = 2)
+
+plot(close, "Close", fade(silver, 70))

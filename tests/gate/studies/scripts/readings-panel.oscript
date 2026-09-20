@@ -1,0 +1,51 @@
+// A panel pinned to a corner of the chart holding the readings a discretionary
+// reader glances at, rather than a line drawn per bar.
+//
+// Exercises: a grid declared once before bar 0 and written per bar, a cell
+// colour decided per bar, a user function that decides what an absent reading
+// looks like, and writing the panel only on the bar anybody is looking at.
+
+version 1
+
+study("Readings panel", overlay = true)
+
+rangeLen = input(20, "Range lookback", min = 2, max = 500)
+atrLen   = input(14, "Average range length", min = 1, max = 200)
+corner   = input("topRight", "Corner",
+                 options = ["topLeft", "topRight", "bottomLeft", "bottomRight"])
+
+panel = table("Readings", rows = 5, cols = 2, position = corner,
+              textColor = silver, bgColor = fade(black, 25))
+
+top     = highest(high, rangeLen)
+bottom  = lowest(low, rangeLen)
+span    = top - bottom
+place   = span > 0 ? (close - bottom) / span * 100 : none
+average = atr(atrLen)
+share   = average / close * 100
+flow    = volume / sma(volume, rangeLen)
+
+// One place decides what an absent reading looks like in a cell. A blank cell
+// and a zero are both wrong: the first hides that the study is still warming
+// up and the second invents a number.
+fn show(value, decimals) => isNone(value) ? "warming up" : text(value, decimals)
+
+// Written only on the newest bar. The panel shows one state, the current one,
+// so writing it on every bar of the history would cost a write per bar to
+// display the last of them.
+if bar.isLast
+    cell(panel, 0, 0, "Instrument", textColor = white)
+    cell(panel, 0, 1, chart.symbol + " " + chart.interval, textColor = white)
+
+    cell(panel, 1, 0, "Close")
+    cell(panel, 1, 1, text(close, 2), textColor = white)
+
+    cell(panel, 2, 0, "Place in range, percent")
+    cell(panel, 2, 1, show(place, 0),
+         textColor = place > 80 ? lime : place < 20 ? red : silver)
+
+    cell(panel, 3, 0, "Average range, percent of price")
+    cell(panel, 3, 1, show(share, 2))
+
+    cell(panel, 4, 0, "Volume against its average")
+    cell(panel, 4, 1, show(flow, 2), textColor = flow > 2 ? orange : silver)

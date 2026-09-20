@@ -28,22 +28,17 @@ import test from 'node:test';
 import * as numeric from '../../src/core/stdlib/index.js';
 import type { Bar, Value as Numeric } from '../../src/core/stdlib/index.js';
 import { libraryEntries, libraryNames, typeText } from '../../src/core/index.js';
-import { BAR_FACTS, BAR_FIELDS, DECLARATION_CALLS } from '../../src/core/emit/index.js';
+import { BAR_FACTS, BAR_FIELDS, DECLARATION_CALLS, REQUEST_CALLS } from '../../src/core/emit/index.js';
 import { COLOUR_NAMES, manifestEntries, manifestEntry, namedColour } from '../../src/core/engine/library/index.js';
 import type { BarView, CallContext, ManifestEntry } from '../../src/core/engine/library/index.js';
 import { Heap } from '../../src/core/engine/values/index.js';
 import type { Value } from '../../src/core/engine/values/index.js';
-import { compile, compileTarget, emittableTargets } from './support.js';
+import { HOST, asWire, compile, compileTarget, emittableTargets } from './support.js';
+import type { HostBar } from '../../src/core/engine/index.js';
 import { load } from '../../src/core/index.js';
 
-/**
- * Names the emitter tags as a capability rather than calling through the
- * manifest: the engine may not implement them, and the format says so by name.
- */
-const CAPABILITY_NAMES = new Set(['req.timeframe', 'req.symbol']);
-
-/** The smallest script that reaches one capability name. */
-function capabilitySource(name: string): string {
+/** The smallest script that reaches one of the two reads. */
+function readSource(name: string): string {
   const read =
     name === 'req.symbol'
       ? 'req.symbol("SYMBOL", "1D", close)'
@@ -53,6 +48,53 @@ study("Capability")
 
 plot(${read}, "D", aqua)
 `;
+}
+
+/**
+ * A host that can date a calendar bucket.
+ *
+ * A day, a week and a month are folded by the calendar rather than by counting,
+ * so a read at one of them needs the instrument's timezone. A host that states
+ * none leaves the read absent, which is the answer `library/dates.ts` gives to
+ * the same question and is not the state these tests are about.
+ */
+const ZONED = { instrument: { ...HOST.instrument, timezone: 'UTC' } };
+
+/** A day of one minute bars, which a daily read folds into two buckets. */
+function minuteBars(): readonly HostBar[] {
+  const start = Date.UTC(2025, 0, 6, 9, 0, 0);
+  const out: HostBar[] = [];
+  for (let i = 0; i < 48; i += 1) {
+    const price = 100 + i;
+    const day = Math.floor(i / 24) * 86_400_000;
+    out.push({
+      open: price,
+      high: price + 1,
+      low: price - 1,
+      close: price,
+      volume: 10,
+      time: start + day + (i % 24) * 60_000,
+    });
+  }
+  return out;
+}
+
+/** What a provider answers with, for the read that needs one. */
+function dailyBars(): readonly HostBar[] {
+  const start = Date.UTC(2025, 0, 6, 0, 0, 0);
+  const out: HostBar[] = [];
+  for (let i = 0; i < 3; i += 1) {
+    const price = 200 + i;
+    out.push({
+      open: price,
+      high: price + 2,
+      low: price - 2,
+      close: price,
+      volume: 100,
+      time: start + i * 86_400_000,
+    });
+  }
+  return out;
 }
 
 
@@ -93,7 +135,7 @@ function contextFor(heap: Heap): CallContext & { state: Record<string, unknown>;
     guard: {
       array: () => undefined,
       string: (_span: unknown, text: string) => text,
-      heap: () => undefined,
+      drawing: () => undefined,
       badArgument: (): never => {
         throw new Error('badArgument');
       },
@@ -524,21 +566,27 @@ test('every entry the engine implements agrees with the checker on state and eff
  * is what keeps it so. The three subtractions are the three ways a name reaches
  * a program without being a `CALL_LIB`, and each is taken from the module that
  * owns it rather than listed again here.
+ *
+ * **None of the three is an exemption for a name nothing executes.** A bar field
+ * is a `"bar"` register the engine fills at step 4, a read is a `"request"`
+ * register it fills at the same step, and a declaration is an entry in
+ * `outputs`. Each of those runs, reached by something other than a `CALL_LIB`,
+ * and the two tests below run the reads. A round that skipped the reads here
+ * because no engine executed them is what this paragraph is about: the skip
+ * outlived its reason by a whole phase, and nothing noticed.
  */
-test('every name the checker accepts runs, says it is planned, or names a capability', () => {
+test('every name the checker accepts runs, says it is planned, or is a register', () => {
   const registers = new Set([...BAR_FIELDS, ...BAR_FACTS]);
   const unrunnable: string[] = [];
   for (const name of libraryNames()) {
     // A declaration is a fixed entry in `outputs`, not a call an engine makes.
     if (DECLARATION_CALLS.has(name)) continue;
+    // A read is a `"request"` register, filled at step 4 from the fold of
+    // `compiled-program.md` 2.16 rather than by an instruction of its own.
+    if (REQUEST_CALLS.has(name)) continue;
     for (const one of libraryEntries(name)) {
       if (one.planned) continue;
       if (!one.callable && registers.has(name)) continue;
-      // A name the emitter tags as a capability is the format's own answer to
-      // "this engine cannot run that": the program carries the tag and load
-      // refuses by name. That is a real state, not an exemption, so the next
-      // test proves the refusal happens rather than assuming it.
-      if (CAPABILITY_NAMES.has(name)) continue;
       const arity = one.callable ? one.parameters.length : 0;
       if (manifestEntry(name, arity) === undefined) unrunnable.push(`${name}/${arity}`);
     }
@@ -546,7 +594,7 @@ test('every name the checker accepts runs, says it is planned, or names a capabi
   assert.deepEqual(
     unrunnable,
     [],
-    'these compile and no engine will run them: wire them, mark them planned, or tag them as a capability',
+    'these compile and no engine will run them: wire them, or mark them planned',
   );
 });
 
@@ -558,41 +606,58 @@ test('every name the checker accepts runs, says it is planned, or names a capabi
  * and the engine refused the result with a message blaming the compiler that
  * wrote it. The skip is what let that sit.
  *
- * So the capability state is not taken on trust. Every name in it must produce a
- * program that names the capability, and an engine without it must refuse that
- * program by that name. An engine that quietly ran one, or refused it with
- * anything other than the capability code, fails here.
+ * So neither name is taken on trust. Each must compile, carry its tag, and put a
+ * number on a bar. Nothing here passes because a refusal exists somewhere.
  */
-test('a capability name compiles, tags itself, and is refused by name at load', () => {
-  for (const name of CAPABILITY_NAMES) {
-    const source = capabilitySource(name);
-    const compiled = compile(name, source);
+test('each read compiles, tags itself, and puts a value on a bar', () => {
+  const answer = dailyBars();
+  const bars = minuteBars();
+  for (const name of REQUEST_CALLS) {
+    const compiled = compile(name, readSource(name));
     assert.deepEqual(
       compiled.diagnostics.map((one) => one.code),
       [],
-      `${name}: a capability name must compile cleanly, not be refused at the call`,
+      `${name}: a read must compile cleanly, not be refused at the call`,
     );
-    assert.ok(compiled.program, `${name}: a capability name must produce a program`);
+    assert.ok(compiled.program, `${name}: a read must produce a program`);
     assert.ok(
       compiled.program.requires.includes(name),
       `${name}: the program must carry the capability tag, or an engine cannot know what it needs`,
     );
-    const loaded = load(compiled.program);
-    assert.equal(loaded.ok, false, `${name}: an engine without the capability must refuse`);
-    assert.equal(
-      loaded.diagnostic.code,
-      'OS6006',
-      `${name}: refuse with the capability code, not by failing verification`,
-    );
-    assert.match(
-      loaded.diagnostic.message,
-      new RegExp(name.replace('.', '\.')),
-      `${name}: the refusal must name the capability the reader is missing`,
+
+    const loaded = load(asWire(compiled.program), {
+      host: { ...ZONED, requestBars: () => ({ bars: answer }) },
+    });
+    assert.equal(loaded.ok, true, `${name}: a host that can answer it must be able to run it`);
+    if (!loaded.ok) continue;
+    loaded.engine.run(bars, bars.map(() => ({ isConfirmed: true })));
+    assert.ok(
+      loaded.engine.column(0).some((value) => typeof value === 'number'),
+      `${name}: a read that never produces a value is a plot that is always absent`,
     );
   }
 });
 
-test('the engine implements every call the nine target scripts make', () => {
+/**
+ * The refusal the tag exists for, which outlives the feature being built.
+ *
+ * `req.symbol` needs bars the engine does not hold and cannot derive, so a host
+ * with no request provider cannot serve one. The program says what it needs and
+ * the engine says what it lacks, by name, at load. That is the path a second
+ * engine comes through for whatever it has not built yet, so it is proved here
+ * rather than assumed.
+ */
+test('a read the host cannot serve is refused at load, by name', () => {
+  const compiled = compile('req.symbol', readSource('req.symbol'));
+  assert.ok(compiled.program);
+  const loaded = load(asWire(compiled.program), { host: ZONED });
+  assert.equal(loaded.ok, false, 'a host with no request provider must refuse');
+  if (loaded.ok) return;
+  assert.equal(loaded.diagnostic.code, 'OS6006');
+  assert.equal(loaded.diagnostic.values['tag'], 'req.symbol');
+});
+
+test('the engine implements every call the runnable target scripts make', () => {
   // The other direction, and the one that decides whether the phase is done:
   // a name the engine lacks is refused at load, so a target that needs one does
   // not run at all.

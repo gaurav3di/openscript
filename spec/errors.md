@@ -179,14 +179,14 @@ up is not renumbered.
 | Range | Kind | Covers | Severity | Entries |
 |---|---|---|---|---|
 | OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 29 |
-| OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 19 |
+| OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 20 |
 | OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 20 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
-| OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 9 |
+| OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 15 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **143** |
+| | | | **Total** | **145** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -1412,7 +1412,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 9
 
 **Cause.** The ternary yields one value, so both arms must agree on its type. The one exception is none, which is a member of every type and is how an arm says there is nothing here.
 
-**Fix.** Make both arms the same type with text() or number(), or use none for the empty arm.
+**Fix.** Make both arms the same type with text() or toNumber(), or use none for the empty arm.
 
 Before:
 
@@ -1912,7 +1912,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 5
 
 **Cause.** Arguments are checked against the declared parameter types, with broadcast as the only widening: a plain value may be passed where a series is expected, and it is read as that same value on every bar. Nothing else converts on its own. A declaration handle passed to an argument that does not take one arrives here too; where that argument wanted a runtime object the case has its own code, OS3019, and fill's two plot arguments have OS3020.
 
-**Fix.** Convert the value with text(), number() or bool(), or pass an expression of type {expected}.
+**Fix.** Convert the value with text(), toNumber() or toBool(), or pass an expression of type {expected}.
 
 Before:
 
@@ -2061,11 +2061,11 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 
 **Message.** `{kind} names must be unique in a file; {name} is also used at line {line}.`
 
-- `{kind}` is the thing being named: plot, plotCandles, level, input, table or leg.
+- `{kind}` is the thing being named: plot, plotCandles, level, input, table, alert or leg.
 - `{name}` is the repeated name, quoted.
 - `{line}` is the line of the first use of that name.
 
-**Cause.** The legend row, the settings dialog and the saved layout all key a column by its name, and an alert message names it. Two columns with one name would overwrite each other's saved settings. fill is not on the list: a band has no name of its own and is identified by the two plots it is drawn between. A leg's name is what every later call keys on, so two legs with one name leave every leg call with no answer.
+**Cause.** The legend row, the settings dialog and the saved layout all key a column by its name, and an alert message names it. Two columns with one name would overwrite each other's saved settings. fill is not on the list: a band has no name of its own and is identified by the two plots it is drawn between. A leg's name is what every later call keys on, so two legs with one name leave every leg call with no answer. An alert is named by its id, written or derived from the line, and a subscription is kept under that name, so two alerts sharing one leave the user subscribed to whichever of the two the host kept.
 
 **Fix.** Rename one of them so each name appears once.
 
@@ -2784,6 +2784,36 @@ fn avgOf(len) => sma(close, len)
 a1 = avgOf(10)
 a2 = avgOf(20)
 a3 = avgOf(30)
+```
+
+### OS5010 Too many drawing objects
+
+Severity error. Stage engine. Since language version 1. Reference stdlib.md 14.4. Test `tests/errors/OS5010`.
+
+**Message.** `A script holds at most {max} drawing objects; this one would be number {found}.`
+
+- `{max}` is the number of drawing objects the host will hold at once.
+- `{found}` is the count the object being created would have reached.
+
+**Cause.** An object lives until the script deletes it, so a script that creates one on every bar and deletes none grows for as long as the chart is open, and nothing can reclaim it: an undeleted object is held by the chart whether or not the script still names it. The ceiling is the host's, and reaching it stops the bar and names the number. The oldest object is never dropped to make room, because a study that is correct on the right of the chart and quietly wrong on the left is worse than one that stops.
+
+**Fix.** Delete each object when it stops being wanted, and bound the set: keep the objects in an array, and when it is longer than you want, delete the oldest object and remove the element.
+
+Before:
+
+```
+var zones: array<box> = []
+push(zones, draw.box(time, low, time, high))
+```
+
+After:
+
+```
+var zones: array<box> = []
+push(zones, draw.box(time, low, time, high))
+if size(zones) > 50
+    draw.delete(element(zones, 0))
+    shift(zones)
 ```
 
 ---
@@ -3903,15 +3933,15 @@ study("Bands", overlay = true, precision = 0)
 plot(upper, "Upper", aqua)
 ```
 
-### OS8008 An alert with no id
+### OS8008 An alert with no fixed id
 
 Severity warning. Stage checker. Since language version 1. Reference language.md 15.3. Test `tests/errors/OS8008`.
 
-**Message.** `This alert has no id, so its identity is derived from its position at line {line}.`
+**Message.** `This alert has no fixed id, so its identity is derived from its position at line {line}.`
 
 - `{line}` is the line the alert is declared on.
 
-**Cause.** A user's alert subscription is keyed by the alert's id, and an id derived from a call's position changes the moment a line is inserted above it. The subscription then belongs to an alert that no longer exists, and it stops firing without telling anybody.
+**Cause.** A user's alert subscription is keyed by the alert's id, and an id derived from a call's position changes the moment a line is inserted above it. The subscription then belongs to an alert that no longer exists, and it stops firing without telling anybody. An id taken from an input() is not fixed either, and is derived in the same way: the key is written into the program before any setting is read, and a name that moves when somebody opens the settings dialog is not a name a subscription can be kept under.
 
 **Fix.** Give the alert a stable id of your own: alert("text", id = "emaCross").
 

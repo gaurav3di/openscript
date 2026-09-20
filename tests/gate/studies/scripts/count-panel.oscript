@@ -1,0 +1,31 @@
+// How many of the last bars closed up, how many closed down, and a bar drawn
+// out of characters so the two can be compared at a glance.
+//
+// Exercises counting a condition over a window, a cell whose text is built by
+// repeating a character, and the one reading that has to be a whole number.
+
+version 1
+
+study("Count panel", overlay = true)
+
+len = input(20, "Window", min = 2, max = 500)
+
+panel = table("Counts", rows = 3, cols = 2, position = "topLeft", textColor = silver)
+
+roseBar  = close > open
+fellBar  = close < open
+rose     = count(roseBar, len)
+fell     = count(fellBar, len)
+
+fn show(value) => isNone(value) ? "warming up" : text(value, 0)
+
+// A bar drawn out of characters, which is the one thing a grid can do that a
+// pane cannot: the reading and its picture in the same cell.
+fn bar(value) => isNone(value) ? "" : str.repeat("|", value)
+
+cell(panel, 0, 0, "Closed up", align = "left")
+cell(panel, 0, 1, show(rose) + " " + bar(rose), textColor = lime, align = "left")
+cell(panel, 1, 0, "Closed down", align = "left")
+cell(panel, 1, 1, show(fell) + " " + bar(fell), textColor = red, align = "left")
+cell(panel, 2, 0, "Unchanged", align = "left")
+cell(panel, 2, 1, show(isNone(rose) or isNone(fell) ? none : len - rose - fell), align = "left")

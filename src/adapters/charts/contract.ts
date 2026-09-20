@@ -16,16 +16,43 @@
  * const descriptor: IndicatorDescriptor = descriptorFor(program);
  * ```
  *
- * Only the Phase 2 slice is declared: plots, bands, levels, inputs and the pane
- * range. Markers, grids, drawings, bar colouring, pane background and alerts are
- * slots the descriptor has and this adapter does not fill yet, and declaring
- * them here before anything writes them would claim a mapping that does not
- * exist.
+ * **That line catches a value of the wrong shape and not an argument of the
+ * wrong shape**, and the difference is worth knowing before trusting it. A
+ * method's parameters are compared in both directions, so a hook declared here
+ * as taking something the chart never passes still assigns: the chart calls it
+ * with what it has, the hook reads nothing, and the study draws none of that
+ * output with nothing anywhere saying so. That failure is the one this module
+ * has actually made. So every hook below takes the chart's own argument, spelled
+ * as the chart spells it, and every test in `tests/adapters/charts` calls each
+ * hook with the argument the chart passes rather than with one of its own.
+ *
+ * Where the two worlds spell something differently the translation is in this
+ * module, which is the only one allowed to know both.
+ *
+ * What is declared is the whole output surface: the inputs and the settings
+ * dialog a chart generates from them, the plots with their styles and scales,
+ * the bands between them, the horizontal levels, the pane's fixed range, the
+ * markers, the candle and pane painting, the summary grid, the drawing objects,
+ * the watched conditions, and the lifecycle a read of another instrument fetches
+ * through.
+ *
+ * **Three things a study computes have no field on the descriptor to land in**,
+ * and they are left out rather than approximated: an alert's per-bar message,
+ * the frequency it repeats at, and a second declared grid. Each is named in the
+ * file that would have written it.
  *
  * Every member is narrowed to what the adapter can emit. A narrower type is
  * still assignable to the library's wider one, and a value this adapter cannot
  * produce is better left out than declared and never written.
  */
+import type {
+  ChartAlertSpec,
+  ChartAttachContext,
+  ChartDrawing,
+  ChartGrid,
+  ChartMarker,
+  ChartSurfaceContext,
+} from './surfaces.js';
 
 /** One bar as the chart holds it. Its time is UTC seconds, not milliseconds. */
 export interface ChartBar {
@@ -153,12 +180,16 @@ export type ChartInput =
       readonly tooltip?: string;
     };
 
-/** What a per-bar colour callback is handed. */
-export interface ChartColorContext {
-  readonly value: number;
+/** What a per-bar callback that has no series value of its own is handed. */
+export interface ChartPaintContext {
   readonly index: number;
   readonly values: ChartValues;
   readonly settings: ChartSettings;
+}
+
+/** What a per-bar colour callback is handed. */
+export interface ChartColorContext extends ChartPaintContext {
+  readonly value: number;
 }
 
 /** A candle plot's colour, split into the three parts a candle is drawn from. */
@@ -236,6 +267,8 @@ export interface ChartDescriptor {
   readonly inputs: readonly ChartInput[];
   readonly plots: readonly ChartPlot[];
   readonly fills?: readonly ChartFill[];
+  /** The conditions a user may subscribe to, fixed before the first bar. */
+  readonly alerts?: readonly ChartAlertSpec[];
   calc(
     bars: readonly ChartBar[],
     settings: ChartSettings,
@@ -252,4 +285,32 @@ export interface ChartDescriptor {
   ): ChartValues | null;
   levels?(ctx: ChartLevelContext): readonly ChartLevel[];
   range?(settings: ChartSettings): { readonly min: number; readonly max: number } | null;
+
+  /**
+   * The instrument's own candles, one colour per bar and `null` where the script
+   * painted none.
+   *
+   * Present only on a study that calls `barColor()`. Only one study may own the
+   * candles of a pane at a time, which is `compiled-program.md` 11's rule rather
+   * than whichever calculation ran last; a chart that arbitrates between
+   * publishers applies it itself, and `candleOwner` is the same rule for a host
+   * whose chart does not.
+   */
+  barColors?(ctx: ChartSurfaceContext): readonly (string | null)[];
+  /** The full height shading behind each bar's column, `null` for unshaded. */
+  background?(ctx: ChartSurfaceContext): readonly (string | null)[];
+  /** Every marker the last calculation produced, oldest bar first. */
+  markers?(ctx: ChartSurfaceContext): readonly ChartMarker[];
+  /** The declared grid as the last executed bar left it, or nothing. */
+  table?(ctx: ChartSurfaceContext): ChartGrid | null;
+  /** Every drawing object the script currently holds, oldest first. */
+  draws?(ctx: ChartSurfaceContext): readonly ChartDrawing[];
+  /**
+   * The lifecycle one instance runs, for a read of another instrument.
+   *
+   * Present only on a program that makes one. A study that computes from the
+   * chart's own bars needs no transport and declares no lifecycle, so it costs
+   * a host nothing.
+   */
+  attach?(ctx: ChartAttachContext): (() => void) | void;
 }

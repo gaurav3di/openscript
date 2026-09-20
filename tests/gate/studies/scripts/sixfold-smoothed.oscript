@@ -1,0 +1,28 @@
+// An exponential mean pushed past itself by a fraction of the error its own
+// second smoothing still carries, applied three times over.
+//
+// Exercises: a user function that holds per-bar state, called three times so
+// that each call site keeps a state of its own, and the deepest warmup in this
+// half of the gate: one layer is two averages and the layers nest three deep,
+// so the first value is six averages of averages away from bar 0.
+
+version 1
+
+study("Sixfold smoothed", overlay = true, precision = 4)
+
+len    = input(5,   "Length", min = 1, max = 1000)
+factor = input(0.7, "Factor", min = 0, max = 1)
+
+// Each call to this holds its own pair of averages, because a call site is
+// where a stateful function's state lives. Writing the three layers out by hand
+// would be the same arithmetic and three times the text.
+fn layer(src, span, lift) =>
+    first  = ema(src, span)
+    second = ema(first, span)
+    return first * (1 + lift) - second * lift
+
+once   = layer(close, len, factor)
+twice  = layer(once, len, factor)
+thrice = layer(twice, len, factor)
+
+plot(thrice, "Sixfold", purple, width = 2)

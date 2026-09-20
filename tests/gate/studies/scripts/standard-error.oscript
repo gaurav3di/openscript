@@ -1,0 +1,35 @@
+// The residual spread of the closes about the least squares line fitted through
+// them, which is what makes it an error rather than a deviation.
+//
+// Exercises: three loops over the same window inside one bar, the history
+// operator read at a distance the loop decides rather than the source, and a
+// divisor of two less than the length because two degrees of freedom went into
+// the fitted line.
+
+version 1
+
+study("Standard error", precision = 6)
+
+len = input(14, "Length", min = 3, max = 2000)
+
+// The ladder of positions is the same on every bar, and it is written out
+// rather than reduced to a closed form so that the sum has the order the study
+// was defined with.
+centre = (len + 1) / 2
+
+total = 0.0
+for k = 0 to len - 1
+    total = total + close[k]
+middle = total / len
+
+spread = 0.0
+tilt  = 0.0
+ladder = 0.0
+for k = 0 to len - 1
+    fromMean = middle - close[k]
+    pos = centre - k - 1
+    spread = spread + fromMean * fromMean
+    tilt  = tilt + pos * fromMean
+    ladder = ladder + pos * pos
+
+plot(sqrt((spread - (tilt * tilt) / ladder) / (len - 2)), "Standard error", orange, width = 2)

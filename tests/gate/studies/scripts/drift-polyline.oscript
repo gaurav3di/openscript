@@ -1,0 +1,31 @@
+// A path through the turning points, rebuilt as each new one is confirmed.
+//
+// Exercises a polyline, which takes two parallel arrays because version one has
+// no record type, and the rule that the path is read once at the call: the
+// object keeps its own copy, so a push to the arrays afterwards changes nothing
+// until the path is replaced.
+
+version 1
+
+study("Drift polyline", overlay = true, precision = 2)
+
+wings = input(2, "Bars on each side", min = 1, max = 20)
+keep  = input(4, "Points kept", min = 2, max = 50)
+
+var pathTimes  = []
+var pathPrices = []
+var path = none
+
+turn = pivotLow(low, wings, wings)
+
+if not isNone(turn)
+    push(pathTimes, time[wings])
+    push(pathPrices, turn)
+    if size(pathTimes) > keep
+        remove(pathTimes, 0)
+        remove(pathPrices, 0)
+    if size(pathTimes) > 1
+        if isNone(path)
+            path = draw.polyline(pathTimes, pathPrices, color = teal, width = 2)
+        else
+            draw.setPoints(path, pathTimes, pathPrices)

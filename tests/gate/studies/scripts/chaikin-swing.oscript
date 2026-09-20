@@ -1,0 +1,23 @@
+// The difference between a fast and a slow smoothing of the accumulation line,
+// which reads as acceleration in accumulation rather than as the flow itself.
+//
+// Exercises a running total feeding two smoothings of different lengths, and
+// the guard on a bar with no range, where the close has no location inside it.
+
+version 1
+
+study("Chaikin swing", overlay = false, precision = 2)
+
+fastLen = input(3,  "Fast length", min = 1, max = 500)
+slowLen = input(10, "Slow length", min = 1, max = 500)
+
+// A bar with no range has an undefined close location, and the published
+// definition contributes exactly nothing for it rather than an absence that
+// would blank every bar after it through the running total.
+flat = (close == high and close == low) or high == low
+term = flat ? 0 : (2 * close - low - high) / (high - low) * volume
+line = cum(term)
+
+plot(ema(line, fastLen) - ema(line, slowLen), "Swing", pink, width = 2)
+
+level(0, "Zero", gray, style = "dashed")

@@ -1,0 +1,22 @@
+// How far the bar's midpoint travelled for the volume it took, scaled by the
+// bar's own range.
+//
+// Exercises a bar with no volume, where there is no measure of how easily price
+// moved and the answer is nothing rather than a number, and a window that
+// refuses to average across that hole.
+
+version 1
+
+study("Ease of move", overlay = false, precision = 4)
+
+len     = input(14, "Length", min = 1, max = 500)
+divisor = input(10000, "Divisor", min = 1, max = 1000000)
+
+travel = change(hl2)
+
+// The divisor exists only to bring the reading into a range somebody can read.
+term = volume == 0 ? none : divisor * travel * (high - low) / volume
+
+plot(sma(term, len), "Ease", green, width = 2)
+
+level(0, "Zero", gray, style = "dashed")

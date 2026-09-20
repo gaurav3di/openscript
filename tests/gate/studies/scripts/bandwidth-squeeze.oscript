@@ -1,0 +1,32 @@
+// How wide the deviation rails are as a share of their own middle, with the
+// widest and narrowest readings of the last stretch drawn beside it.
+//
+// Exercises a window taken over a reading that is itself absent while it warms
+// up, which is the case a windowed extreme has to refuse rather than answer from
+// the bars it happens to hold, and a marker on the bar the reading sits on its
+// own low.
+
+version 1
+
+study("Bandwidth squeeze", overlay = false, precision = 4)
+
+len   = input(20, "Length", min = 1, max = 2000)
+mult  = input(2.0, "Deviations", min = 0.001, max = 50)
+reach = input(20, "Bars searched", min = 1, max = 5000)
+
+rails  = bollinger(close, len, mult)
+basis  = element(rails, 0)
+upper  = element(rails, 1)
+lower  = element(rails, 2)
+
+width = basis == 0 ? none : (upper - lower) / basis * 100
+
+widest   = highest(width, reach)
+narrowest = lowest(width, reach)
+
+plot(width, "Bandwidth", blue, width = 2)
+plot(widest, "Widest", red)
+plot(narrowest, "Narrowest", green)
+
+if not isNone(narrowest) and width == narrowest
+    signal("SQUEEZE", green, at = "below", shape = "circle")

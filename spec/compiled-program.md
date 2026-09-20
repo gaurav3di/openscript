@@ -539,6 +539,10 @@ at load; `tables[].position` and `plots[].color` are the two a script reaches fo
 | `messageChannel` | number? | String channel for the message, `defer` true |
 | `frequency` | string | `"oncePerBar"`, `"once"` or `"everyUpdate"` |
 
+When an alert fires at all is section 5.4's, and it is two rules rather than one:
+the bar has to have been decided, and the host has to have stated that it is
+driving that bar live.
+
 `frequency` sits beside the key and the title because nothing else in the program
 implies it, and two engines that guessed would fire different numbers of alerts
 from one program. `"oncePerBar"` is at most one alert for a bar, `"once"` is the
@@ -953,6 +957,86 @@ function it calls reaches a register from any frame.
 language refuses inside a request expression (OS3006), so nothing in a body can
 write a column, and an engine never has to decide what a plot declared on other
 bars would mean on this chart.
+
+#### 2.16.2 The fold
+
+`stdlib.md` section 15.3 says what each of the three modes is allowed to know.
+This is the arithmetic that produces it, and it is here because two engines that
+folded differently would disagree about the value of every higher timeframe study
+ever written, one bar at a time, in a way nothing on a chart would show.
+
+**Where the requested bars come from.** A `"timeframe"` read is of the chart's own
+instrument at a coarser interval, so an engine folds the bars it already holds. A
+`"symbol"` read is of an instrument the engine holds none of, so the bars come
+from the host (`host-interface.md` section 5) and a host that serves none gives
+its engine no `req.symbol` capability. A host may also answer a `"timeframe"`
+read, and an engine that is answered folds the answer instead of the chart's bars.
+Either way one fold runs, over whichever bars are the source.
+
+**A bucket is a key, and the key comes from a bar's open instant.** Source bars
+whose open instants give the same key are one requested bar. The key is:
+
+| Timeframe | Key |
+|---|---|
+| `m`, `h` | The open instant divided by the period, rounded down, counted from the epoch |
+| `D` | The day number of the civil date the open instant falls on, in the instrument's timezone, divided by the count |
+| `W` | That day number's week, weeks starting Monday, divided by the count |
+| `M` | The civil year times twelve plus the month, divided by the count |
+
+An intraday key is a count and a calendar key is a date, which is the distinction
+OS6015 turns on: an intraday request must be a whole multiple of the chart's
+interval, because a boundary that fell inside a chart bar would put part of one
+bar in two requested bars, and a dated request is exempt because its boundaries
+are the calendar's.
+
+**A calendar key needs the instrument's timezone and is absent without it.** A
+host states the zone or it does not; an engine that folded days in a zone nobody
+chose would put the boundary in the middle of a session for most of the world and
+look correct doing it. A read with no key is absent on every bar, on the same
+terms as any other absence.
+
+**The bucket bar.** Its `time` is the first source bar's open instant, which is a
+reading from the data rather than the boundary the key names; its `open` is the
+first source bar's open and its `close` the last one's; `high` and `low` are the
+extremes; `volume` is the sum; `oi` is the last source bar's, because it is a
+level and not a flow (`host-interface.md` section 3.1). **Absence propagates
+through every one of them**: a bucket missing one bar's high has no high, rather
+than the highest of the bars that did report one, which is a number with no name.
+
+**The three modes are three horizons over the same fold.** Let `k` be the bucket
+key of the chart bar's own open instant.
+
+| Mode | Source bars the fold may consume | The value the chart bar takes |
+|---|---|---|
+| `"confirmed"` | Those opening at or before this chart bar | The last bucket that closed |
+| `"developing"` | Those opening at or before this chart bar | The bucket keyed `k`, as far as it has formed |
+| `"lookahead"` | Those keyed `k` or lower | The bucket keyed `k`, in full |
+
+A bucket closes when a source bar of a later one is folded, and never by the
+clock. So **a confirmed read steps on the first chart bar of the next bucket**,
+holds that value across every bar of it including the last, and steps again on
+the first bar of the one after: on the bar a bucket closes, that bucket had not
+closed at the bar's own open instant, so the bar still reads the one before it.
+
+The first two horizons stop at the chart bar, so an engine given a whole dataset
+and an engine given one bar at a time compute the same numbers. The third does
+not, which is the mode: on settled history it reads the bucket's final value from
+the bucket's first bar, and on the newest bucket, where there is nothing past the
+bar to read, it is the bucket so far because nothing better exists. That is
+`stdlib.md` section 15.3's "repaints on history, permanently and by design",
+stated as the one place an engine's answer depends on how much it has been given.
+
+**Warmup translates by arithmetic rather than by a rule.** The body runs on
+requested bars, so a length inside it is counted in requested bars and its absence
+folds onto the chart like any other value: a twenty period average of daily closes
+is absent until twenty daily bars have closed, which on a five minute chart is
+about a month of history. The `warmup` field above is what a host extends the
+fetched range backwards by, and nothing an engine applies.
+
+**A bucket at the left edge of the chart may be partial**, because the host chose
+the range and the oldest bar it supplied may not be its bucket's first. An engine
+folds what it was given and does not discard it: section 5.2 forbids adjusting,
+resampling or padding the bars, and `warmup` is how a host is told to supply more.
 
 ---
 
@@ -1929,6 +2013,34 @@ inventing an order id at call time, would hand the script an identifier for
 something that may never exist. A script that needs to act on a placed order reads
 the `pos` and `order` namespaces on the next bar, where the fact is real.
 
+**An alert is raised only on a bar the host is driving live.** Deferral covers
+half of when an alert fires: the condition channel is applied at step 9, so a
+condition that was true halfway through a bar and false when it closed never
+fires. The other half is that adding a study to a chart that already holds
+history fires nothing for those bars (`stdlib.md` section 16.2), and the fact
+that separates a bar of history from the bar in front of you is `bar.isRealtime`,
+which the host states and no engine can derive (`host-interface.md` section 6.1).
+So an engine raises the alerts of `outputs.alerts` at step 9 on a bar it decided
+and the host stated `isRealtime` for, and on no other bar. An engine that only
+backtests is handed `isRealtime` false throughout and raises none, which is the
+same answer reached from the other side.
+
+**What a raised alert carries** is the entry's `key`, its `title`, the value the
+message channel held for that bar, the bar's index in this run and the bar's open
+time. That is the whole payload, and it is fixed here because a host cannot
+compose a notification out of fields that differ between engines. The message is
+whatever the channel held, absence included: a message built out of a value that
+was absent during warmup is absent, and an engine that substituted an empty
+string for it would hide the one thing the author needs to see. Both the index
+and the time are carried because they answer different questions: the index
+locates the bar in the run the host has just computed, and the time is the one
+that still means the same bar after more history loads.
+
+The frequency of section 2.8 is applied on top of that, and neither it nor a
+firing is rolled back. A moving bar's executions are discarded before they are
+decided, so nothing is fired to take back; once one has been raised it has been
+sent, and section 6's restore does not unsend it.
+
 ### 5.5 The loop budget
 
 The counter is set to zero at step 3 and incremented by one for each `TICK`
@@ -2303,10 +2415,57 @@ a separate module, and it is a mapping rather than a decision:
 | `outputs.alerts[]` | Conditions the runtime watches |
 | `outputs.barColor` | Recolouring of the price bars |
 | `outputs.background` | Per-bar shading behind the pane |
+| The drawing objects the script holds | The free drawings the host redraws each recompute |
+| `requests[]` | The host's fetch for another instrument, and the study's data status |
 
 The mapping is listed here so that an independent engine knows what its output is
 for, not because an engine must perform it. An engine that only backtests produces
 the same columns and hands them to a report instead.
+
+The last two rows are the two that are not fields of `outputs`, and each is read
+from somewhere else for a reason section 2.8 already gives. The drawing objects
+are in the object heap because their set is unbounded and changes as bars arrive,
+which is the whole difference from a plot. The reads are in `requests` because
+their identity is fixed before bar 0 and the host answers them there.
+
+**The whole set of drawing objects is handed over after every execution, and it
+replaces what was handed over before.** There is no instruction to add one, none
+to remove one and no field in the compiled program for the live set: an engine is
+asked what the script holds now, and what it holds now is the answer. Three
+things follow, and they are the reason this is a rule rather than an engine's
+choice. An object the script deleted is simply not in the set, so nothing has to
+be told about deletion. A bar that re-executes has already rolled its objects back
+(section 6.3), so the set after five updates to a moving bar is the set after one,
+and a host that redraws what it is given accumulates nothing. And an anchor is
+carried in the unit `bar.time` is carried in, so a host whose chart counts time
+differently converts an anchor exactly where it converts a bar, and nowhere else.
+
+**A read of another instrument is asked once and may be answered later.** The set
+of reads is settled at load and a host is asked about each one there, which is
+what lets it fetch in parallel; a host that has not fetched yet says so, the read
+is absent, `req.isReady` is false and the study draws everything that does not
+depend on it (`stdlib.md` section 15.5). An answer arriving afterwards is a fresh
+load and a recalculation over the whole history, never a splice into a run already
+past the bars it would have changed.
+
+**Only one study may own the instrument's candles.** Every other output on that
+table belongs to the study that produced it: two studies plotting a line draw two
+lines, and two shading a pane background compose, because a colour carries its
+own alpha and two translucent shadings are two drawings that overlap. The price
+bars are not like that. They are one object, drawn once, and `outputs.barColor`
+is a statement about them rather than about the study, so two studies painting
+them is not an overlap, it is two answers to one question.
+
+The rule is that **the owner is the study latest in the host's own study order
+that declares a `barColor`**, and every other study's bar colouring is not drawn.
+Two things about it matter more than which end of the list wins. It is decided
+from the list of studies, which is what a legend shows and what a user reorders,
+rather than from the order the calculations returned in, so it does not move when
+one study is slower than another on a frame. And it changes only when a user adds,
+removes or reorders a study, so the candles do not alternate between two
+colourings while both studies keep recomputing. A host that draws the study list
+in the other order applies the rule in that order: what is fixed is that the rule
+is the order the user sees, stated, rather than whichever study ran last.
 
 ---
 
@@ -2605,6 +2764,9 @@ following hold, and the conformance suite tests each one.
 - [ ] Evaluates each read's body (section 2.16) over the requested bars against
       the body's own tables, or declares neither `req.timeframe` nor `req.symbol`
       and refuses such a program at load with OS6006.
+- [ ] Folds a read onto the chart's bars by section 2.16.2, taking each mode's
+      horizon and stepping a confirmed read on the first chart bar of the next
+      bucket.
 
 **Per bar**
 
@@ -2620,6 +2782,9 @@ following hold, and the conformance suite tests each one.
 - [ ] Takes a checkpoint holding everything section 6.1 lists.
 - [ ] Restores it before re-executing a bar, exempting `"live"` cells.
 - [ ] Preserves object sharing across a restore.
+- [ ] Hands over the whole live object set after every execution, in creation
+      order, with every anchor resolved and with nothing left from an execution
+      that was rolled back (section 11).
 - [ ] Satisfies the replay invariant of section 6.4 for every bar of every
       conformance case.
 

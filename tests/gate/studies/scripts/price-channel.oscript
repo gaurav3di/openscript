@@ -1,0 +1,21 @@
+// The highest high and the lowest low of a window, with the midpoint between
+// them, shaded from edge to edge.
+//
+// Exercises: two rolling extremes over two different bar fields, a middle that
+// is derived from the two edges rather than computed separately, and a band
+// between two plots whose edges both warm up on the same bar.
+
+version 1
+
+study("Price channel", overlay = true, precision = 4)
+
+len = input(20, "Length", min = 1, max = 1000)
+
+top  = highest(high, len)
+base = lowest(low, len)
+
+upper = plot(top, "Upper", fade(aqua, 20))
+lower = plot(base, "Lower", fade(aqua, 20))
+fill(upper, lower, fade(aqua, 88))
+
+plot((top + base) / 2, "Middle", orange, width = 2)

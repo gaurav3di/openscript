@@ -1,0 +1,21 @@
+// Three exponential means in a row, combined so that the lag of a straight line
+// cancels exactly rather than merely shrinking.
+//
+// Exercises: three averages each taken over the previous one's output, which is
+// where the warmup comes from, and an association written the way the study
+// states it. Three of one mean less three of the second plus the third is the
+// same quantity in exact arithmetic and a different number in binary64, so the
+// brackets here are part of the study rather than a matter of taste, and the
+// library's own triple mean uses the other arrangement.
+
+version 1
+
+study("Triple exponential average", overlay = true, precision = 4)
+
+len = input(9, "Length", min = 1, max = 1000)
+
+once   = ema(close, len)
+twice  = ema(once, len)
+thrice = ema(twice, len)
+
+plot(3 * (once - twice) + thrice, "Triple", aqua, width = 2)

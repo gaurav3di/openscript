@@ -460,7 +460,7 @@ produce a value on bar 0 whenever their arguments do.
 | `mod(a, b)` | `number` | `a - b * floor(a / b)`, the floored remainder, whose sign follows `b`; `none` when `b` is zero |
 | `isNone(x)` | `bool` | True when the value is absent |
 | `orElse(x, fallback)` | same as `x` | `x` when present, `fallback` when absent |
-| `bool(x)` | `bool` | `none` to `false`, a bool to itself; numbers are rejected |
+| `toBool(x)` | `bool` | `none` to `false`, a bool to itself; numbers are rejected |
 
 `round(x)` rounds halves away from zero rather than to even, because a price
 rounded for display should agree with what a trader would write down, and
@@ -572,7 +572,7 @@ been true. Zero would read as "it happened on this bar".
 |---|---|---|
 | `text(x)` | `string` | Any value to a string; `text(none)` is `"none"` |
 | `text(x, decimals)` | `string` | A number to a string with fixed decimals, halves away from zero |
-| `number(s)` | `number` | A string to a number, `none` when it does not parse |
+| `toNumber(s)` | `number` | A string to a number, `none` when it does not parse |
 | `str.length(s)` | `number` | Count of Unicode code points |
 | `str.upper(s)` | `string` | Upper case, invariant, not locale dependent |
 | `str.lower(s)` | `string` | Lower case, on the same terms |
@@ -1014,8 +1014,21 @@ spellings (`compiled-program.md` section 2.8).
 `signal` does not fire on a bar that is still moving unless the declaration sets
 `onUnconfirmed = true` (`language.md` section 7.5).
 
+`cell`'s `align` takes `"left"`, `"center"` or `"right"`, and is the one of its
+arguments with a closed set. It is read per bar, like the text and the two
+colours beside it, because a cell's style is written with the cell rather than
+declared with the grid.
+
 `background(none)` and `barColor(none)` leave the bar alone, which is how a
 conditional paint switches itself off. Passing an absent colour is not an error.
+
+**`barColor` paints the instrument's own candles, and they are not the study's.**
+Several studies can sit on one price pane and the candles are drawn once, so
+which study's colouring is shown is a question the language cannot answer on its
+own. `compiled-program.md` section 11 answers it: the study latest in the host's
+own study order that paints owns them, and the rule is the order a user sees and
+reorders rather than whichever study recomputed last. A background needs no such
+rule, because two translucent shadings compose.
 
 `print` writes to the per-script log, not to the chart. It is rate limited by the
 host rather than by the language, and a host that drops lines must say how many
@@ -1037,10 +1050,11 @@ Objects a script creates and then mutates over time, rather than a column of one
 value per bar. They are anchored to a time and a price, so an object stays where
 it was put when more history is loaded and every bar index shifts.
 
-**An object persists until the script deletes it.** There is no cap on how many
-a script may create; the only budget is memory, and a host that cannot hold them
-must say so rather than dropping the oldest. This is a deliberate difference from
-the platforms this language exists to replace.
+**An object persists until the script deletes it.** The language fixes no number
+for how many a script may hold at once; the budget is the host's memory, and a
+host that cannot hold another one says so, with OS5010, rather than dropping the
+oldest. Nothing is ever discarded to make room, which is the deliberate
+difference from the platforms this language exists to replace.
 
 The four creation calls return a value of type `line`, `label`, `box` and
 `polyline`. These are runtime objects and ordinary values: a script assigns one
@@ -1067,6 +1081,11 @@ Creation:
 
 `draw.polyline` takes two parallel arrays rather than an array of points because
 version 1 has no record type. It arrives in its natural shape when `type` does.
+The path is read once, at the call: the object keeps its own copy of the points,
+and `draw.setPoints` is the only thing that changes it, so a `push` to an array
+the script kept for its own bookkeeping never silently redraws a shape. The two
+arrays are paired by index, and a point whose time or price is absent is a gap
+in the path, as absence reaching any other drawing surface is.
 
 Mutation, deletion and counting:
 
@@ -1973,9 +1992,9 @@ band stops, a level is not drawn, a bar keeps its own colour, a cell is blank.
 - **Arrays.** `size`, `push`, `pop`, `slice`, `sort` and the rest are specified
   in `language.md` section 14.1, because an array is part of the language rather
   than a library of market functions. They are not repeated here.
-- **Operators and conversions.** `text`, `number` and `bool` appear here because
-  a script calls them, but the conversion rules behind them are in `language.md`
-  section 5.3 and are not restated.
+- **Operators and conversions.** `text`, `toNumber` and `toBool` appear here
+  because a script calls them, but the conversion rules behind them are in
+  `language.md` section 5.3 and are not restated.
 - **Maps and matrices.** Reserved and unimplemented, `language.md` section 14.2.
   Nothing in this document depends on them.
 - **Per-function formulas.** Each entry states the arguments, the result, the

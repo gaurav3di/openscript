@@ -13,14 +13,21 @@
  * library's own type by the host, in one line, at the host's build. See that
  * file for the line.
  *
- * What is mapped today is the first slice: the declared inputs and the settings
- * dialog a chart generates from them, the plots with their styles and scales,
- * the bands between them, the horizontal levels and the pane's fixed range. A
- * study's markers, its summary grid, its drawings, its bar colouring, its pane
- * background and its alerts are slots the descriptor has and this does not fill
- * yet.
+ * What is mapped is the whole output surface: the declared inputs and the
+ * settings dialog a chart generates from them, the plots with their styles and
+ * scales, the bands between them, the horizontal levels, the pane's fixed range,
+ * the markers, the candle and pane painting, the summary grid, the drawing
+ * objects a script mutates over time, the watched conditions, and the lifecycle
+ * a read of another instrument fetches through.
+ *
+ * Three things a study can express have no field on the descriptor to land in,
+ * and each is named where it would have been written: an alert's per-bar message
+ * and its frequency, in `alerts.ts`, and a second declared grid, in `tables.ts`.
  */
 export { descriptorFor } from './descriptor.js';
+
+export { candleOwner } from './paint.js';
+export type { Painter } from './paint.js';
 
 export { ChartAdapterError } from './errors.js';
 
@@ -31,9 +38,7 @@ export type { SessionCalendar } from './bars.js';
 
 export type {
   ChartBar,
-  ChartBarColor,
   ChartCalcContext,
-  ChartColorContext,
   ChartDescriptor,
   ChartFill,
   ChartInput,
@@ -50,3 +55,24 @@ export type {
   ChartStore,
   ChartValues,
 } from './contract.js';
+
+export type {
+  ChartAlertContext,
+  ChartAlertSpec,
+  ChartAnchor,
+  ChartAttachContext,
+  ChartBarsRequest,
+  ChartCell,
+  ChartCellAlign,
+  ChartDataChange,
+  ChartDataStatus,
+  ChartDrawing,
+  ChartGrid,
+  ChartMarker,
+  ChartMarkerPosition,
+  ChartMarkerShape,
+  ChartMarkerSize,
+  ChartSurfaceContext,
+  ChartTableOptions,
+  ChartTablePosition,
+} from './surfaces.js';

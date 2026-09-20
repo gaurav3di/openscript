@@ -1,0 +1,21 @@
+// The same construction as the falling volume index, over the complementary set
+// of bars: the ones where volume rose.
+//
+// Exercises: the same ratchet with the comparison the other way round, so that
+// a study whose branch condition was inverted would produce the other study's
+// numbers and be caught by a column comparison rather than by a reading.
+
+version 1
+
+study("Positive volume index", precision = 2)
+
+maLen = input(20, "Average length", min = 1, max = 500)
+
+var index = 1.0
+if volume > volume[1]
+    index = index * (close / close[1])
+
+value = index * 1000
+
+plot(value, "Index", lime, width = 2)
+plot(ema(value, maLen), "Index average", orange, width = 2)

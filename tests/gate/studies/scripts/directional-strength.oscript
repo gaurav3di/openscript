@@ -1,0 +1,20 @@
+// The two directional readings and the strength of whichever is winning.
+//
+// Exercises a library call with three outputs whose warmups differ from one
+// another, and a level that marks the reading a trend is usually said to start
+// at.
+
+version 1
+
+study("Directional strength", overlay = false, precision = 2)
+
+diLen  = input(14, "Directional length", min = 1, max = 500)
+adxLen = input(14, "Strength smoothing", min = 1, max = 500)
+
+readings = adx(diLen, adxLen)
+
+plot(element(readings, 1), "Up", teal, width = 1)
+plot(element(readings, 2), "Down", red, width = 1)
+plot(element(readings, 0), "Strength", white, width = 2)
+
+level(25, "Trending", gray, style = "dashed")

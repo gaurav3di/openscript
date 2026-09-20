@@ -78,10 +78,6 @@
       "reason": "The bool type and its two literals."
     },
     {
-      "set": "bool|number|text",
-      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
-    },
-    {
       "set": "both|long|short",
       "reason": "Known duplication awaiting a home. Tracked in issues/0004."
     },
@@ -295,6 +291,10 @@
     },
     {
       "set": "teal|white|yellow",
+      "reason": "Known duplication awaiting a home. Tracked in issues/0004."
+    },
+    {
+      "set": "text|toBool|toNumber",
       "reason": "Known duplication awaiting a home. Tracked in issues/0004."
     }
   ]

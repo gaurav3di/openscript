@@ -102,6 +102,11 @@ test('the worked example computes the columns 12.6 prints, bar by bar', () => {
   const moving = engine.append(flat(first.close), { isConfirmed: false, isRealtime: true }, 5);
   assert.equal(moving.columns[0], first.plot, '12.6 publishes the column on a moving bar');
   assert.equal(moving.applied, false, 'the marker is held: the bar is not confirmed');
+  // 12.6 writes "held" in that row's marker cell and 12.7 says step 9 discards
+  // it. The channel was written by the execution, so an engine that published it
+  // anyway would draw the marker on a bar that is still moving and take it back
+  // on the next tick.
+  assert.equal(moving.columns[1], first.marker, 'a held marker reads back as no marker');
 
   const again = engine.update(flat(second.close), { isConfirmed: false, isRealtime: true });
   assert.equal(again.columns[0], second.plot, 'the column is rewritten after the rollback');

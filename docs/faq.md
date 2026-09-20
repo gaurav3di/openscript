@@ -195,8 +195,9 @@ stay where you put them when more history loads. See
 [visuals/lines-and-boxes.md](./visuals/lines-and-boxes.md).
 
 **Is there a limit on how many objects I can draw?**
-No cap in the language. The only budget is memory, and a host that cannot hold
-them has to say so rather than dropping the oldest.
+The language fixes no number. The budget is the host's memory, and a host that
+cannot hold another object has to say so, with OS5010, rather than dropping the
+oldest.
 
 **How do I colour the candles themselves?**
 `barColor(color)`, per bar, anywhere in the script. `barColor(none)` leaves the

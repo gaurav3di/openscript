@@ -41,28 +41,19 @@ test('every declared input becomes one settings row, in source order, with its b
   assert.equal('tooltip' in fast, false);
 });
 
-test('a choice is a choice whatever the type of its members', () => {
-  const strings = descriptorOf('08-dashboard-table.oscript').inputs.find(
+test('a choice carries its options and its default in the order the script wrote', () => {
+  // `options` belongs to a string input and to no other kind (`stdlib.md`
+  // 13.3), so every select's values are strings on both sides of this boundary
+  // and there is no numeric choice to convert.
+  const corner = descriptorOf('08-dashboard-table.oscript').inputs.find(
     (one) => one.key === 'corner',
   );
-  assert.ok(strings !== undefined && strings.type === 'select');
+  assert.ok(corner !== undefined && corner.type === 'select');
   assert.deepEqual(
-    strings.options.map((one) => one.value),
+    corner.options.map((one) => one.value),
     ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'],
   );
-  assert.equal(strings.default, 'topRight');
-
-  // A numeric choice reaches the adapter as a number carrying options, because
-  // the compiled `kind` is `"select"` only where the values are strings. Drawn
-  // as a spinner it would offer every value between the two the script allowed.
-  const numbers = descriptorOfSource(
-    'version 1\nstudy("Choice")\nn = input(10, "Length", options = [10, 20])\nplot(sma(close, n), "SMA")\n',
-  ).inputs[0];
-  assert.ok(numbers !== undefined && numbers.type === 'select');
-  assert.deepEqual(
-    numbers.options.map((one) => one.value),
-    ['10', '20'],
-  );
+  assert.equal(corner.default, 'topRight');
 });
 
 test("a plot's declared style reaches the series and its colour keeps its alpha", () => {

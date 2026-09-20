@@ -1,0 +1,28 @@
+// One label that follows the highest close of the recent window rather than one
+// label left behind on every bar it moved.
+//
+// Exercises: a drawing object held in a var across bars, the three setters that
+// move it and rewrite it, and the difference between creating an object and
+// moving the one already there.
+
+version 1
+
+study("Value labels", overlay = true, precision = 2)
+
+span = input(20, "Window", min = 2, max = 500)
+
+top = highest(close, span)
+
+// An array of one rather than a bare name, because a name has to hold something
+// on the bar before the object exists and there is no such thing as an empty
+// drawing. The guard is the count, which is a number the language does have.
+var marks: array<label> = []
+
+if size(marks) == 0 and not isNone(top)
+    push(marks, draw.label(time, top, text(top, 2), color = fade(lime, 20), textColor = black))
+else if size(marks) > 0
+    draw.setAt(element(marks, 0), time, top)
+    draw.setText(element(marks, 0), text(top, 2))
+    draw.setColor(element(marks, 0), close >= top ? fade(lime, 20) : fade(silver, 40))
+
+plot(top, "Window high", lime, width = 2)

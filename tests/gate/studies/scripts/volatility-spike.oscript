@@ -1,0 +1,34 @@
+// How far this bar's low sits below the highest close of its lookback, as a
+// percentage, so a spike reads as capitulation rather than as a wide bar.
+//
+// Exercises: a band and a percentile range measured over the study's own
+// output, a plot whose colour is a two state channel, and two rolling extremes
+// taken over a series that is itself absent for its first window.
+
+version 1
+
+study("Volatility spike", precision = 6)
+
+lookback  = input(22,   "Lookback",            min = 1, max = 500)
+bandLen   = input(20,   "Band length",         min = 1, max = 500)
+mult      = input(2.0,  "Band width",          min = 1, max = 5)
+rangeLen  = input(50,   "Range lookback",      min = 1, max = 500)
+highShare = input(0.85, "Highest percentile",  min = 0, max = 1)
+lowShare  = input(1.01, "Lowest percentile",   min = 1, max = 2)
+
+peak = highest(close, lookback)
+spike = peak == 0 ? none : (peak - low) / peak * 100
+
+upper = sma(spike, bandLen) + mult * stdev(spike, bandLen)
+top   = highest(spike, rangeLen) * highShare
+base  = lowest(spike, rangeLen) * lowShare
+
+// The colour is a state rather than a level: the study says something only when
+// the reading breaks its own band or its own recent range.
+hitBand  = not isNone(upper) and spike >= upper
+hitRange = not isNone(top) and spike >= top
+
+plot(spike, "Spike", hitBand or hitRange ? lime : gray, width = 4, style = "histogram")
+plot(top, "Range high", fade(orange, 30), width = 2)
+plot(base, "Range low", fade(orange, 30), width = 2)
+plot(upper, "Upper band", fade(aqua, 30), width = 2)

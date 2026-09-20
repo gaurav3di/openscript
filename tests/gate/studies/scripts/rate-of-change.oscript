@@ -1,0 +1,23 @@
+// The distance from the price a fixed number of bars ago, as a percentage of
+// that price.
+//
+// Exercises: the plainest possible warmup, a zero reference price that has no
+// answer rather than an infinite one, and a marker on each crossing of zero.
+
+version 1
+
+study("Rate of change", precision = 4)
+
+len = input(9, "Length", min = 1, max = 500)
+
+value = close[len] == 0 ? none : 100 * (close - close[len]) / close[len]
+
+level(0, "Zero", fade(silver, 50), style = "dashed")
+
+plot(value, "Rate", aqua, width = 2)
+
+if crossUp(value, 0)
+    signal("ABOVE ZERO", lime, at = "below", shape = "arrowUp")
+
+if crossDown(value, 0)
+    signal("BELOW ZERO", red, at = "above", shape = "arrowDown")

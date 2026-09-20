@@ -65,6 +65,236 @@ The engine takes one object per bar, so code written from that page did not comp
 against the library. The page now describes the surface as it is, and the memory
 case it was making, which is real and unanswered, is measured in `issues/0005`.
 
+**Higher timeframe and other instrument reads run.** A file containing one used
+to compile, carry its capability tag, and be refused at load with a message
+naming the capability. The engine now evaluates a read's expression over the
+requested bars and folds the result onto the chart's, so `req.timeframe`,
+`req.symbol`, `req.isReady` and `req.error` do what the reference page says.
+
+A read of the chart's own instrument at a coarser interval is folded from the
+bars the engine already holds and needs nothing from a host. A read of another
+instrument needs bars only a host can supply, so a host states a request provider
+and an engine without one still refuses exactly those files, by name, at load:
+that path is what an older engine uses to tell a newer file what it lacks, and it
+is kept and tested.
+
+**The three modes produce three different numbers, and the difference is the
+whole repainting question.** A `"confirmed"` read takes the last coarse bar that
+closed and steps on the first chart bar of the next one, so it never uses a bar
+that had not happened. A `"developing"` read is the coarse bar as it stands on
+this chart bar. A `"lookahead"` read is the coarse bar in full, from its first
+chart bar, which is why it repaints. The first two stop at the bar being executed,
+so a chart given a whole dataset and a chart given one bar at a time compute the
+same numbers; the third reads past the bar, which is the mode.
+
+**Read the default twice if you have written `[1]` inside a read.**
+`req.timeframe("1D", high)` is yesterday's high, because `"confirmed"` is the
+default and it takes the last day that closed. `req.timeframe("1D", high[1])` is
+the day before that. Three documentation pages had those one day apart and said
+so in words; they now say what the specification has said all along, and the
+previous-session example no longer takes the extra step back.
+
+A read's warmup is counted in requested bars rather than chart bars, because the
+expression runs on the requested ones: `req.timeframe("1D", sma(close, 20))` is
+absent until twenty daily bars have closed, which on an intraday chart is about a
+month of history. A day, a week and a month are folded by the calendar, so a read
+at one of them needs the instrument's timezone and is absent without it rather
+than dated in a zone nobody chose.
+
+A request that cannot be folded is refused at load with the code that names it,
+OS6002 for one finer than the chart and OS6015 for one that is not a whole
+multiple of it, and a timeframe a setting supplied that is not a timeframe is
+OS6001. A refusal from the host is not: an unknown instrument, a range with no
+bars, a source that would not answer and an interval the feed does not carry
+leave the read absent, put the host's own words in `req.error(read)`, and let the
+rest of the study keep drawing. A host's ceiling on how many reads a file may make
+is OS5006 at load, with the count named rather than reads dropped quietly.
+
+The compiled format gains no field. What it gained is section 2.16.2, the fold
+itself: which requested bar each chart bar may see, written out so that a second
+engine computes the same number rather than inventing its own alignment.
+
+**A read's expression is verified like the program it sits in.** The same
+interpreter walks it over another instrument's history, so its tables, its
+instruction list and the lists of the functions it calls all go through check 1
+and check 8. A body that was not verified could jump out of its own instruction
+list, and the failure would have looked like a wrong number.
+
+**Every output a study can produce now reaches a chart.** Markers, bar colouring,
+the pane background, summary grids, watched conditions, drawing objects and reads
+of another instrument were all fields the compiled program carried and the chart
+adapter left empty, so a study that called `signal`, `barColor`, `background`,
+`cell`, `alert`, `draw.line` or `req.symbol` computed everything and drew none of
+it. Each of them is mapped onto the field the chart already has for it, under the
+chart's own name for that field and taking the chart's own argument.
+
+A marker arrives with its text, its declared shape and position and the bar's own
+time, and only for the bars its branch was taken on. A bar colour and a background
+arrive as columns of colours beside the plot columns, so a spliced tail carries
+them. A grid arrives as the last executed bar left it, read once per calculation
+rather than once per bar, which is the difference between a constant cost and the
+length of the history, and its cells are placed into the declared size so that a
+cell nothing wrote is blank rather than missing. A watched condition arrives as a
+row a user can subscribe to, under the `id` the script gave it, whose predicate
+reads the guard chain out of a column.
+
+**A study's drawing objects are handed to the chart as a set, and the set is
+replaced every time.** A line, a label, a box or a path the script created, moved,
+recoloured and deleted over many bars arrives as the shapes it currently holds,
+in the order it created them. Nothing has to tell the chart about a deletion, and
+a bar that re-executed five times leaves what one execution of it leaves, because
+the engine has already rolled the set back. An anchor crosses as a time and a
+price, converted into the seconds a chart counts exactly where a bar's time is,
+and an anchor past the newest bar stays where it was written so a projection
+reaches into the margin. An anchor missing its time or its price draws nothing,
+and a path with a hole in it becomes one shape per stretch that has none, rather
+than a line through prices the script never named.
+
+**A read of another instrument fetches through the chart, and the study draws
+while it waits.** The engine settles every read before bar 0 and asks the host
+there and then; a chart answers later, and a chart computes a study once before
+it attaches the lifecycle that has the transport. So the first calculation says
+"not yet", the read is absent, `req.isReady` is false and everything that does not
+depend on the read is drawn; the answer asks for the recompute that uses it. The
+range asked for covers the chart's own span, extended back by the read's warmup
+and quantised to requested bar boundaries, so a chart that ticks does not fetch
+once per bar, and what was fetched keeps serving while a wider fetch is in flight.
+A host that refuses is carried through as its own words, in `req.error` for the
+script and in the study's data status for the user, with a retry offered.
+
+**An alert fires for now and never for history.** Adding a study to a chart
+holding two years of bars fires nothing for any of them. The rule is in the
+specification rather than in a host: an alert is raised only on a bar the host
+states it is driving live and has confirmed, and `isRealtime` is a fact the host
+already states for every execution. The frequency is the engine's too: `once` is
+once for the life of the study, `oncePerBar` is once for a bar however many times
+that bar executes, and `everyUpdate` is once per execution. A host whose own
+runtime watches the declared conditions applies the same rule from its side, by
+judging only the bars that are new since it last looked.
+
+**A marker no longer appears on a bar that is still moving.** The channel
+carrying it was published for every bar whatever the bar's state, so a host
+reading the column drew the marker on a tick and took it off on the next one.
+Step 9 discards a deferred channel on a bar it did not decide, and the columns a
+host reads now say so. Plot columns are unaffected and are still published on
+every execution.
+
+**Which study owns the candles is a stated rule.** The instrument's bars are one
+object and two studies painting them are two answers to one question. The owner
+is the study latest in the chart's own study order that paints, which is the
+order a legend shows and a user reorders, so it does not change because one
+study recomputed before another. Every other study's bar colouring is not drawn.
+
+**Five declaration options that could not be carried now say so at the line that
+wrote them.** A level's colour, a grid's two colours and an alert's `id`, `title`
+and `frequency` are written into the program before the first bar, and one
+computed from bar data used to reach the compiler with nowhere to put it: it
+reported OS6018, which says the program is malformed and asks the author to
+report a compiler defect. They are checked with OS3003 like every other fixed
+option, which names the option and says what to write instead.
+
+**A colour built out of constants counts as one.** `fade(red, 50)` is the same
+four numbers on every bar, and it is what a level or a marker is normally
+coloured with. The checker accepts exactly the six colour calls the compiler
+folds, so a field that has to be fixed before bar 0 can hold one.
+
+**Two alerts can no longer share one name.** A subscription is kept under the
+alert's id, so two entries under one name left the host with two conditions and
+one row and nothing to say which the user subscribed to. It is OS3017, the same
+code two plots sharing a title get, and it counts the derived name as well as
+the written one. An id taken from an `input()` is derived rather than used, for
+the reason OS8008 now gives: a name that moves when somebody opens the settings
+dialog is not a name a subscription can be kept under. A derived id is now taken
+from the call's line, which is what OS8008 said all along.
+
+**The trailing stop in the volatility example drew nothing.** The band trails
+against the band as it stood, and `max` and `min` propagate absence like every
+other calculation, so the first bar after the average warmed up trailed against
+an absent band, the band went absent, and the next bar's previous band was that
+absence. The study ran, kept its legend row and plotted an empty column for the
+rest of the dataset. The example reads the previous band through `orElse` in the
+trail as well as in the comparison, and a test fails the build if that column
+stops being drawn.
+
+**A cell alignment that is not one of the three is refused.** `align = "middle"`
+compiled and was silently drawn left for ever. It is OS3008, which names the
+three and suggests the nearest.
+
+**Drawing objects are live.** Lines, labels, boxes and polylines are created,
+moved, extended, restyled, deleted and counted as bars arrive. Thirty-one calls,
+every one of them driven bar by bar in the tests, and the lifetime rules the
+specification states are now the ones the engine keeps.
+
+Three of those rules decide what a study looks like on a live chart. An object
+created while the newest bar was moving is rolled back when that bar runs again,
+along with every change made to an object that already existed, so five updates
+and a confirm leave exactly what one pass leaves and a live chart does not gain a
+copy per tick. A setter given an object the script already deleted is OS4005 with
+the bar it went on, rather than a silent no operation that leaves a drawing that
+quietly stopped moving; a setter given `none` does nothing, which is what the
+catalogue's own fix for OS4005 asks a script to produce. An anchor is a time and
+a price and is never resolved against a bar, so an anchor past the newest bar
+reaches into the margin and an old one does not move when more history loads.
+
+**A ceiling on drawing objects, reported rather than absorbed: OS5010.** An
+object lives until the script deletes it and nothing can reclaim one that is
+still drawing, so a script that creates one per bar and deletes none used to grow
+until the machine stopped it. It now stops with a diagnostic that names the
+ceiling and the count. The ceiling is the host's, as the string ceiling is; the
+language still fixes no number and nothing is ever dropped to make room, which is
+the part that would make a study wrong on the left of the chart and right on the
+right.
+
+**An argument a drawing call leaves out now arrives as the default the
+specification gives it.** `draw.line(t1, p1, t2, p2)` used to reach the engine
+with an absent colour, an absent width and an absent line style, and absence on a
+drawing surface means nothing is drawn. The library surface carries these four
+calls' defaults and the compiler writes them into the program, so an engine needs
+no table of them.
+
+**A polyline keeps its own path.** The two arrays are read once, at the call, and
+`draw.setPoints` is what changes a path, so pushing to an array a script kept for
+its own bookkeeping no longer silently redraws a shape. The arrays are paired by
+index, and a point missing a time or a price is a gap in the path rather than a
+point dropped.
+
+**`Engine.drawings()` hands a host facts instead of heap contents.** Each live
+object arrives as its kind, its anchors in time and price, and its style, in
+creation order. A host no longer dereferences anything, which it had no way to
+do: a polyline's path was a handle into the engine's own heap.
+
+**Two library calls no script could make are now callable.** The conversions to
+`bool` and to `number` were published under those names, and both are reserved
+words, so every spelling of them was refused before the checker saw one, with a
+message about naming a variable handed to somebody who had written a call. They
+are now `toBool(x)` and `toNumber(s)`. `text(x)` is unchanged: it is not a type
+name, so it never collided.
+
+If you wrote either old spelling it did not compile, so nothing that ran before
+stops running. Writing one now is still OS1019, and the fix names the spelling
+that works instead of telling you to rename a variable you never declared. The
+rule behind it is in the specification: no library name is a reserved word, and a
+test fails the build if one ever is again.
+
+**The no-eval check can no longer be got past.** The first rule of this project is
+that nothing here builds code out of text, and the check enforcing it knew only
+the obvious spellings. It now refuses the function builder however it is reached,
+including through `call`, `apply`, `bind`, `Reflect.construct` and a constructor
+property taken as a value; a name looked up on the global object by computed key;
+the runtime's own compiler reached through a binding rather than by naming its
+module; code assembled out of bytes; text put into a document; and a module
+specifier built out of text. It reads the git hooks and the compiled tests as
+well, which it never did. Before reading a file it puts forty-eight attack forms
+through its own rules and stops the build if one is not caught, or if an innocent
+form is.
+
+**The build removes output that no source makes.** A compiled module from a
+layout two refactors old was still in `dist`, which `package.json` publishes, so
+the package carried a file no source produced, no test covered and nothing here
+explains. Every build now names and removes any such file before it compiles,
+in both outputs, reading the directories from the compiler's own configuration
+rather than from a copy of them.
+
 ## 0.1.0-alpha.1
 
 The first release published by the automation rather than by hand.

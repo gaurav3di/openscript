@@ -1,0 +1,33 @@
+// Buying pressure over true range, measured across three windows at once and
+// weighted four, two and one so the fast window leads without the slower two
+// losing their vote.
+//
+// Exercises: three totals over one pair of series, an awkward warmup where
+// every term reaches back across a bar boundary so the first bar contributes to
+// nothing, and a weighted combination whose association is part of the answer.
+
+version 1
+
+study("Ultimate oscillator", precision = 2, range = [0, 100])
+
+fastLen = input(7,  "Fast length",   min = 1, max = 500)
+midLen  = input(14, "Middle length", min = 1, max = 500)
+slowLen = input(28, "Slow length",   min = 1, max = 500)
+
+// Both terms straddle a bar boundary, so bar 0 has neither, and a total over a
+// window holding bar 0 has no answer either. That is where the extra bar of
+// warmup comes from: the first reading is at bar `slowLen`, not `slowLen - 1`.
+top    = max(high, close[1])
+bottom = min(low, close[1])
+buying = close - bottom
+span   = top - bottom
+
+fastTotal = sum(span, fastLen)
+midTotal  = sum(span, midLen)
+slowTotal = sum(span, slowLen)
+
+fast = fastTotal == 0 ? none : sum(buying, fastLen) / fastTotal
+mid  = midTotal  == 0 ? none : sum(buying, midLen)  / midTotal
+slow = slowTotal == 0 ? none : sum(buying, slowLen) / slowTotal
+
+plot(100 * (4 * fast + 2 * mid + slow) / 7, "Oscillator", red, width = 2)

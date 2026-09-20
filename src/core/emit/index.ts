@@ -17,6 +17,7 @@ export type { EmitResult } from './emit.js';
 export type { EmitOptions } from './context.js';
 export { DECLARATION_CALLS } from './context.js';
 export { BAR_FACTS, BAR_FIELDS } from './registers.js';
+export { REQUEST_CALLS, REQUEST_STATUS_CALLS } from './requests.js';
 
 export type { Gap } from './gaps.js';
 
@@ -64,6 +65,7 @@ export type {
   Register,
   Request,
   RequestBody,
+  RequestField,
   RequestInput,
   SourceStamp,
   StateRegion,

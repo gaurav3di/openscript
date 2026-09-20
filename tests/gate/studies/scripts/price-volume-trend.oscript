@@ -1,0 +1,25 @@
+// A running total of each bar's percentage price change weighted by the volume
+// behind it, with the bars coloured by which way the total is moving.
+//
+// Exercises: a running total over a series that is absent on bar 0, the base
+// value a running total opens at written into the script rather than left for a
+// reader to infer, and bar colouring driven by the study's own direction.
+
+version 1
+
+study("Price volume trend", precision = 0)
+
+// Absent on bar 0, which has no previous close. The total opens at its base
+// rather than at a gap, and the base is stated here rather than arriving as a
+// side effect of how absence accumulates.
+term  = (close - close[1]) / close[1] * volume
+total = cum(term)
+value = bar.isFirst ? 0 : total
+
+plot(value, "Trend", aqua, width = 2)
+
+// The colour says whether the total rose or fell against the previous bar, so a
+// flat stretch of the line is visibly flat rather than merely shallow.
+rose = value > value[1]
+fell = value < value[1]
+barColor(rose ? lime : fell ? red : none)

@@ -1,0 +1,34 @@
+// Two means and the bars where they crossed, marked on the bar that crossed.
+//
+// Exercises a column that is present only on the bars an event happened, a
+// marker that carries which way the cross went, and a watched condition, which
+// is a declaration the host subscribes to rather than something drawn.
+
+version 1
+
+study("Crossing plates", overlay = true, precision = 2)
+
+fastLen = input(9,  "Short mean length", min = 1, max = 1000)
+slowLen = input(26, "Long mean length", min = 1, max = 1000)
+
+fast = sma(close, fastLen)
+slow = sma(close, slowLen)
+
+// Both sides have to be real on both bars: a comparison against an absent value
+// is false, which is what stops a cross being reported while either mean is
+// still warming up.
+crossedUp = crossUp(fast, slow)
+crossedDown = crossDown(fast, slow)
+crossed = crossedUp or crossedDown
+
+plot(fast, "Short mean", orange, width = 2)
+plot(slow, "Long mean", green, width = 2)
+plot(crossed ? fast : none, "Cross", blue, style = "lineWithMarkers")
+
+if crossedUp
+    signal("UP", lime, at = "below", shape = "arrowUp")
+    alert("Short mean crossed above long mean", id = "crossUp", title = "Cross up")
+
+if crossedDown
+    signal("DOWN", red, at = "above", shape = "arrowDown")
+    alert("Short mean crossed below long mean", id = "crossDown", title = "Cross down")

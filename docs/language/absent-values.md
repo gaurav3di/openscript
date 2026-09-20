@@ -48,7 +48,7 @@ every other type: a `series number` may hold `none` on any bar, and so may a
 | Another instrument, before the host answers | `req.symbol(...)` | Until the bars arrive. Test with `req.isReady` |
 | A condition that has never held | `barsSince(cond)`, `valueWhen(cond, src)` | Every bar before the first true one |
 | A position fact while flat | `pos.avgPrice`, `pos.openProfit` | Every bar with no position |
-| A string that does not parse | `number("12.5%")` | That call |
+| A string that does not parse | `toNumber("12.5%")` | That call |
 | A stateful call in a branch that did not run | `ema` inside an `if` | Every bar the branch was skipped |
 | Your own ternary | `ready ? value : none` | Whatever you said |
 

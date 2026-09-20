@@ -30,11 +30,18 @@ var dir = 1
 prevLower = lowerBand
 prevUpper = upperBand
 
-// orElse is doing real work here: on bar 0 the previous band is absent, the
-// comparison is absent, the branch is not taken, and the band seeds from the
-// raw value instead of staying absent for the rest of the dataset.
-lowerBand = close[1] > orElse(prevLower, rawLower) ? max(rawLower, prevLower) : rawLower
-upperBand = close[1] < orElse(prevUpper, rawUpper) ? min(rawUpper, prevUpper) : rawUpper
+// orElse is doing real work here, and it is needed in both halves of the line.
+// Until the average has warmed up there is no previous band, and max and min
+// propagate absence like every other calculation: trailing against an absent
+// band would make the band absent, and it would then stay absent for the rest
+// of the dataset, because the next bar's previous band is this one. So the
+// previous band is read through orElse once and used twice: the comparison
+// seeds from the raw band, and so does the trail.
+heldLower = orElse(prevLower, rawLower)
+heldUpper = orElse(prevUpper, rawUpper)
+
+lowerBand = close[1] > heldLower ? max(rawLower, heldLower) : rawLower
+upperBand = close[1] < heldUpper ? min(rawUpper, heldUpper) : rawUpper
 
 // Direction flips against the band as it stood on the previous bar, not against
 // the band this bar just produced, or every bar would flip its own trigger.

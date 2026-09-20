@@ -1,0 +1,44 @@
+// A line drawn between each pair of consecutive confirmed turning points, one
+// set for the highs and one for the lows, with the size of the move labelled.
+//
+// Exercises: drawing objects a script creates and never touches again, an
+// anchor that is a bar time rather than a bar index, and the lag a turning
+// point carries: it is only knowable a fixed number of bars after it happened,
+// so every anchor here reaches back by exactly that many bars.
+
+version 1
+
+study("Swing lines", overlay = true, precision = 2)
+
+leftBars  = input(3, "Bars to the left",  min = 1, max = 50)
+rightBars = input(3, "Bars to the right", min = 1, max = 50)
+
+turnUp   = pivotHigh(high, leftBars, rightBars)
+turnDown = pivotLow(low, leftBars, rightBars)
+
+var lastUpTime    = none
+var lastUpPrice   = none
+var lastDownTime  = none
+var lastDownPrice = none
+
+// A time rather than an index, because paging in older history renumbers every
+// bar and would drag every line sideways, while a bar time is the same number
+// for as long as the instrument exists.
+if not isNone(turnUp)
+    at = time[rightBars]
+    if not isNone(lastUpTime)
+        draw.line(lastUpTime, lastUpPrice, at, turnUp, color = red, width = 2)
+        draw.label(at, turnUp, text(turnUp - lastUpPrice, 2), color = none, textColor = red)
+    lastUpTime  = at
+    lastUpPrice = turnUp
+
+if not isNone(turnDown)
+    at = time[rightBars]
+    if not isNone(lastDownTime)
+        draw.line(lastDownTime, lastDownPrice, at, turnDown, color = lime, width = 2)
+        draw.label(at, turnDown, text(turnDown - lastDownPrice, 2), color = none, textColor = lime)
+    lastDownTime  = at
+    lastDownPrice = turnDown
+
+plot(turnUp, "Turning high", fade(red, 40), style = "lineWithMarkers")
+plot(turnDown, "Turning low", fade(lime, 40), style = "lineWithMarkers")

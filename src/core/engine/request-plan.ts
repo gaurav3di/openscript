@@ -1,0 +1,193 @@
+/**
+ * What is settled about a read before bar 0, `compiled-program.md` 2.16.
+ *
+ * **A request's identity is fixed before bar 0.** That is what lets the whole
+ * set be known at load, what lets a host fetch in parallel and cache by
+ * instrument and timeframe, and what makes a request that changed afterwards
+ * OS6013. So the three identity fields are resolved here, once, from the value
+ * the script wrote, the setting it named or the chart fact it named, and
+ * nothing below bar 0 ever asks again.
+ *
+ * **Two refusals belong at load and four belong to the host.** A timeframe the
+ * language does not know (OS6001), one finer than the chart's (OS6002) and one
+ * that does not fold into the chart's (OS6015) are facts about the program and
+ * the chart, both known before a bar runs, so they stop the load and name what
+ * was refused. An unknown instrument (OS6007), a range with no bars (OS6008), a
+ * source that refused (OS6009) and an interval the feed does not carry (OS6014)
+ * are the host's answers: they leave the read absent, put the reason in
+ * `req.error(read)` and let the study keep drawing everything else, which is
+ * `stdlib.md` 15.5.
+ */
+import { diagnosticFor } from '../diagnostics/index.js';
+import type { Diagnostic } from '../diagnostics/index.js';
+import { NO_POSITION, failure } from './errors.js';
+import type { EngineHost, RequestAnswer, RequestQuery, RequestRefusal } from './host.js';
+import type { ResolvedInput } from './inputs.js';
+import type { Request, RequestField } from './types.js';
+import { foldRefusal, parseTimeframe } from './timeframe.js';
+import type { Timeframe } from './timeframe.js';
+
+/** What a read holds once its identity, its timeframe and its source are fixed. */
+export interface RequestPlan {
+  readonly request: Request;
+  readonly query: RequestQuery;
+  readonly timeframe: Timeframe;
+  /** The zone a calendar bucket is dated in, or nothing when none was stated. */
+  readonly zone: string | null;
+}
+
+export type PlanResult =
+  | { readonly ok: true; readonly plans: readonly RequestPlan[] }
+  | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+/**
+ * One of the three identity fields, resolved.
+ *
+ * Three forms and no fourth: the string the script wrote, the value of the
+ * setting it named, and one of the three chart facts that identify a chart
+ * rather than describe it.
+ */
+export function identityOf(
+  field: RequestField,
+  inputs: readonly ResolvedInput[],
+  host: EngineHost,
+): string | null {
+  if (typeof field === 'string') return field;
+  if (field === null || typeof field !== 'object' || Array.isArray(field)) return null;
+
+  const named = field as { readonly input?: string; readonly chart?: string };
+  if (typeof named.input === 'string') {
+    const found = inputs.find((one) => one.key === named.input);
+    return typeof found?.value === 'string' ? found.value : null;
+  }
+  if (named.chart === 'symbol') return host.instrument?.symbol ?? null;
+  if (named.chart === 'exchange') return host.instrument?.exchange ?? null;
+  if (named.chart === 'interval') return host.instrument?.interval ?? null;
+  return null;
+}
+
+/**
+ * Every read the program makes, with its identity settled.
+ *
+ * Walks the nested reads as well, because a read written inside another is part
+ * of the program and a host handed a list with one missing would fetch less
+ * than the file asks for.
+ */
+export function planRequests(
+  requests: readonly Request[],
+  inputs: readonly ResolvedInput[],
+  host: EngineHost,
+): PlanResult {
+  const chart = chartTimeframe(host);
+  const plans: RequestPlan[] = [];
+  const problem = collect(requests, inputs, host, chart, plans);
+  if (problem !== undefined) return { ok: false, diagnostic: problem };
+  return { ok: true, plans };
+}
+
+function collect(
+  requests: readonly Request[],
+  inputs: readonly ResolvedInput[],
+  host: EngineHost,
+  chart: Timeframe | undefined,
+  into: RequestPlan[],
+): Diagnostic | undefined {
+  for (const request of requests) {
+    const written = identityOf(request.timeframe, inputs, host);
+    const timeframe = written === null ? undefined : parseTimeframe(written);
+    if (timeframe === undefined) {
+      return failure('OS6001', NO_POSITION, { value: written ?? 'nothing' });
+    }
+    // The chart's interval is a host fact and a host may state none. Without it
+    // there is nothing to compare a request against, so the two comparisons are
+    // skipped rather than answered from a value nobody supplied.
+    const refusal = chart === undefined ? undefined : foldRefusal(timeframe, chart);
+    if (refusal !== undefined && chart !== undefined) {
+      if (refusal.code === 'OS6002') {
+        return failure('OS6002', NO_POSITION, { chart: chart.text, requested: timeframe.text });
+      }
+      return failure('OS6015', NO_POSITION, {
+        requested: timeframe.text,
+        chart: chart.text,
+        suggestion: refusal.suggestion,
+      });
+    }
+
+    into.push({
+      request,
+      timeframe,
+      zone: host.instrument?.timezone ?? null,
+      query: {
+        id: request.id,
+        read: request.read,
+        symbol: identityOf(request.symbol, inputs, host),
+        exchange: identityOf(request.exchange, inputs, host),
+        timeframe: timeframe.text,
+        mode: request.mode,
+        warmup: request.warmup,
+      },
+    });
+    const nested = collect(request.body.requests, inputs, host, timeframe, into);
+    if (nested !== undefined) return nested;
+  }
+  return undefined;
+}
+
+/** The chart's own interval as a timeframe, when the host stated a usable one. */
+function chartTimeframe(host: EngineHost): Timeframe | undefined {
+  const interval = host.instrument?.interval;
+  return interval === undefined ? undefined : parseTimeframe(interval);
+}
+
+/**
+ * What the host says about one read.
+ *
+ * A host with no provider is not asked. A read of the chart's own instrument is
+ * then folded from the bars the engine already holds, and a read of another
+ * instrument cannot be: the engine holds none of that instrument's bars, so
+ * nothing to serve is the same answer as an instrument the host does not know.
+ */
+export function askHost(plan: RequestPlan, host: EngineHost): RequestAnswer | undefined {
+  const answer = host.requestBars?.(plan.query);
+  if (answer !== undefined) return answer;
+  if (plan.query.read === 'timeframe') return undefined;
+  return { refused: { code: 'OS6007' } };
+}
+
+/**
+ * The reason a refusal reads as through `req.error(read)`.
+ *
+ * The catalogue's own message, filled with the identity the read asked for and
+ * with the host's own words where it gave them. The host's words are carried
+ * and not paraphrased, because "the account's data subscription does not cover
+ * this instrument" is actionable and "the request failed" is not.
+ */
+export function reasonFor(refusal: RequestRefusal, query: RequestQuery): string {
+  const symbol = query.symbol ?? 'the chart\'s instrument';
+  const exchange = query.exchange ?? 'the chart\'s exchange';
+  const reason = refusal.reason ?? 'the host gave no reason';
+  switch (refusal.code) {
+    case 'OS6007':
+      return diagnosticFor('OS6007', NO_POSITION, { symbol, exchange }).message;
+    case 'OS6008':
+      return diagnosticFor('OS6008', NO_POSITION, { symbol, timeframe: query.timeframe }).message;
+    case 'OS6014':
+      return diagnosticFor('OS6014', NO_POSITION, {
+        timeframe: query.timeframe,
+        symbol,
+        available: refusal.available ?? 'nothing it named',
+      }).message;
+    case 'OS6015':
+      return diagnosticFor('OS6015', NO_POSITION, {
+        requested: query.timeframe,
+        chart: 'the chart\'s interval',
+        suggestion: refusal.available ?? 'a whole multiple of it',
+      }).message;
+    default:
+      return diagnosticFor('OS6009', NO_POSITION, {
+        symbol,
+        timeframe: query.timeframe,
+        reason,
+      }).message;
+  }
+}

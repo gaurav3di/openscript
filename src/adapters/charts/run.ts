@@ -26,7 +26,10 @@ import type {
   Engine,
   EngineHost,
   EngineLimits,
+  Grid,
+  RequestProvider,
   Instrument,
+  Drawing,
   Position,
   TimeResolver,
   Value,
@@ -38,6 +41,7 @@ import { hostBar, hostNow, stateFor } from './bars.js';
 import type { SessionCalendar } from './bars.js';
 import type { ChartBar, ChartCalcContext, ChartSettings, ChartStore } from './contract.js';
 import { refused, stopped } from './errors.js';
+import { stationIn, stationOf } from './requests.js';
 import { engineSettings, signatureOf } from './settings.js';
 
 /** What a host tells the adapter that neither the chart nor the program says. */
@@ -52,6 +56,15 @@ export interface ChartAdapterOptions {
   readonly id?: string;
   /** The category a picker groups the study under, when `meta.group` is empty. */
   readonly category?: string;
+  /**
+   * The plate colour a marker takes when the script named none.
+   *
+   * `signal`'s colour argument defaults to absence, which `stdlib.md` 14.3
+   * reads as the host's own default for a marker, and a chart needs a colour
+   * for every marker it draws. A host with a marker colour in its theme states
+   * it here; without one every unnamed marker is drawn in a neutral grey.
+   */
+  readonly markerColor?: string;
   /** The source, so a diagnostic can carry an offset as well as a line. */
   readonly source?: SourceFile;
   /** Instrument facts a chart does not hold: the exchange, the lot size. */
@@ -97,6 +110,21 @@ const HELD = 'openscript';
 /** Every channel's whole column, for the bars that were run. */
 export type Columns = readonly (readonly Value[])[];
 
+/**
+ * What one run produced beyond the columns.
+ *
+ * The grids and the drawing objects are here because neither is a column of
+ * numbers: a grid is the buffer the last executed bar left behind, and an object
+ * is a shape the script created and has been mutating since. They are read off
+ * the engine while it is in hand rather than left for a caller to go back for,
+ * because after a tail run the engine is the held one and nobody else has it.
+ */
+export interface RunOutput {
+  readonly columns: Columns;
+  readonly tables: readonly Grid[];
+  readonly drawings: readonly Drawing[];
+}
+
 export function fullRun(
   program: CompiledProgram,
   bars: readonly ChartBar[],
@@ -104,8 +132,9 @@ export function fullRun(
   store: ChartStore,
   ctx: ChartCalcContext | undefined,
   options: ChartAdapterOptions,
-): Columns {
-  const engine = start(program, settings, ctx, options);
+): RunOutput {
+  const station = stationIn(store);
+  const engine = start(program, settings, ctx, options, station.provider(bars));
   const zone = ctx?.timezone ?? '';
   const result = engine.run(
     bars.map(hostBar),
@@ -121,7 +150,8 @@ export function fullRun(
     lastTime: bars[bars.length - 1]?.time ?? 0,
   };
   store[HELD] = held;
-  return columnsOf(program, engine);
+  station.settle();
+  return outputOf(program, engine);
 }
 
 /**
@@ -141,7 +171,7 @@ export function tailRun(
   store: ChartStore,
   ctx: ChartCalcContext | undefined,
   options: ChartAdapterOptions,
-): Columns | null {
+): RunOutput | null {
   const held = store[HELD] as Held | undefined;
   if (held === undefined || held.engine.failed) return null;
   if (held.count !== from + 1 || from < 0 || bars.length < held.count) return null;
@@ -163,20 +193,34 @@ export function tailRun(
 
   held.count = bars.length;
   held.lastTime = bars[bars.length - 1]?.time ?? held.lastTime;
-  return columnsOf(program, held.engine);
+  // The provider was not asked anything this time, so the station is told where
+  // the newest bar now stands rather than working it out from a question.
+  const station = stationOf(store);
+  station?.extend(bars);
+  station?.settle();
+  return outputOf(program, held.engine);
 }
 
-/** A held engine is dropped when the descriptor's instance goes away. */
+/**
+ * A held engine is dropped when the descriptor's instance goes away.
+ *
+ * The station goes with it, because a fetch still in flight would otherwise ask
+ * a chart that has removed this study to recompute it.
+ */
 export function release(store: ChartStore): void {
   delete store[HELD];
+  stationOf(store)?.close();
 }
 
-function columnsOf(program: CompiledProgram, engine: Engine): Columns {
-  const out: (readonly Value[])[] = [];
+function outputOf(program: CompiledProgram, engine: Engine): RunOutput {
+  const columns: (readonly Value[])[] = [];
   for (let channel = 0; channel < program.channels.length; channel += 1) {
-    out.push(engine.column(channel));
+    columns.push(engine.column(channel));
   }
-  return out;
+  // The grids and the objects are read once, here. Reading either per bar would
+  // cost the length of the history to display the last state of it, which is
+  // `tables.ts`'s own first paragraph.
+  return { columns, tables: engine.tables(), drawings: engine.drawings() };
 }
 
 function start(
@@ -184,10 +228,11 @@ function start(
   settings: ChartSettings,
   ctx: ChartCalcContext | undefined,
   options: ChartAdapterOptions,
+  requests: RequestProvider,
 ): Engine {
   const loaded = load(program, {
     settings: engineSettings(program, settings),
-    host: hostFor(ctx, options),
+    host: hostFor(ctx, options, requests),
     time: timeFor(options, ctx?.timezone ?? ''),
     ...(options.limits === undefined ? {} : { limits: options.limits }),
     ...(options.source === undefined ? {} : { source: options.source }),
@@ -197,7 +242,21 @@ function start(
   return loaded.engine;
 }
 
-function hostFor(ctx: ChartCalcContext | undefined, options: ChartAdapterOptions): EngineHost {
+/**
+ * The host the engine reads, which always serves requests.
+ *
+ * A chart offers the transport whether or not its own host registered a
+ * provider, and it refuses with its own words when none was registered. So the
+ * capability is declared here rather than withheld: a study that reads another
+ * instrument then draws everything that does not depend on the read and puts
+ * the chart's own sentence in `req.error`, instead of being refused at load
+ * with OS6006 naming a capability the chart does have.
+ */
+function hostFor(
+  ctx: ChartCalcContext | undefined,
+  options: ChartAdapterOptions,
+  requests: RequestProvider,
+): EngineHost {
   const instrument: Instrument = {
     ...(options.instrument ?? {}),
     ...(ctx?.symbol === undefined ? {} : { symbol: ctx.symbol }),
@@ -206,6 +265,7 @@ function hostFor(ctx: ChartCalcContext | undefined, options: ChartAdapterOptions
   };
   return {
     instrument,
+    requestBars: requests,
     ...(ctx === undefined ? {} : { now: hostNow(ctx.now()) }),
     ...(options.position === undefined ? {} : { position: options.position }),
     ...(options.orders === undefined ? {} : { route: options.orders }),

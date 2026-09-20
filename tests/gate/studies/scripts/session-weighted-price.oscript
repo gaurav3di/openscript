@@ -1,0 +1,40 @@
+// The traded average price since the session opened, with a band a standard
+// deviation either side of it.
+//
+// Exercises: three running totals that reset together, a deviation taken from
+// the same accumulation rather than from a second pass, and a band whose edges
+// are both absent on the session's first bar because a single bar has no spread.
+
+version 1
+
+study("Session weighted price", overlay = true, precision = 4)
+
+mult = input(1.0, "Band width, in deviations", min = 0, max = 10)
+
+var flow    = 0.0
+var traded  = 0.0
+var squares = 0.0
+
+if session.isFirstBar
+    flow    = 0.0
+    traded  = 0.0
+    squares = 0.0
+
+price = hlc3
+
+flow    = flow + price * volume
+traded  = traded + volume
+squares = squares + price * price * volume
+
+middle = traded == 0 ? none : flow / traded
+spread = traded == 0 ? none : squares / traded - middle * middle
+// Clamped at zero rather than turned into absence: accumulated rounding can
+// drive an all but flat window a hair negative, and a band of nothing is not
+// what a flat window means.
+width  = isNone(spread) ? none : sqrt(max(spread, 0))
+
+upper = plot(middle + mult * width, "Upper band", fade(green, 40))
+lower = plot(middle - mult * width, "Lower band", fade(green, 40))
+fill(upper, lower, fade(green, 90))
+
+plot(middle, "Weighted price", aqua, width = 2)

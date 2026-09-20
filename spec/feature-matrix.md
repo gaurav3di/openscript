@@ -218,8 +218,8 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | No implicit conversion | `0` is not false, `""` is not false, `1 + true` is OS2003 | `specified` | `language.md` 5.3, `errors.md` OS2003 | `type/no-coercion` |
 | `text(x)` | Any value to a string; `text(none)` is `"none"` | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/text` |
 | `text(x, decimals)` | A number to a string with fixed decimals, halves away from zero | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/text-decimals` |
-| `number(s)` | A string to a number, or absence when it does not parse | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/number-parse` |
-| `bool(x)` | Absence to `false`, a bool to itself; numbers rejected | `specified` | `language.md` 5.3, `stdlib.md` 8.1 | `type/bool-convert` |
+| `toNumber(s)` | A string to a number, or absence when it does not parse | `specified` | `language.md` 5.3, `stdlib.md` 10 | `type/number-parse` |
+| `toBool(x)` | Absence to `false`, a bool to itself; numbers rejected | `specified` | `language.md` 5.3, `stdlib.md` 8.1 | `type/bool-convert` |
 | Broadcast | A plain `T` used where `series T` is expected is that value on every bar | `specified` | `language.md` 5.2 | `type/broadcast` |
 | Type fixed by first assignment | Assigning a different type to a name later is OS2003 | `specified` | `language.md` 10.1, `errors.md` OS2003 | `type/first-assignment-fixes` |
 | A name initialised to none | none fixes no type: the type comes from the first assignment in source order that gives a definite one, and a name never given one is absent for the whole run | `specified` | `language.md` 10.1, `language.md` 6 | `type/none-initialised` |
@@ -249,7 +249,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Deleting does not remove the array element | A script holding objects in an array deletes the object and then removes the element | `specified` | `language.md` 5.4 | `obj/delete-keeps-element` |
 | A table is never deleted | `clear(t)` empties its cells and the grid lives as long as the study | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-cleared-not-deleted` |
 | Rollback of objects created on a moving bar | The object set is restored to the end of the previous bar before the bar runs again, so a live chart does not gain one object per tick | `specified` | `language.md` 5.4, `language.md` 7.5, `stdlib.md` 14.4 | `obj/rollback` |
-| No object cap | The budget is memory, and a host that cannot hold them says so rather than dropping the oldest | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `obj/no-cap` |
+| No object cap in the language | The language fixes no number; the budget is the host's memory, and a host that cannot hold another one says so with OS5010 rather than dropping the oldest | `specified` | `language.md` 5.4, `stdlib.md` 14.4, `errors.md` OS5010 | `obj/no-cap` |
 | Object types in the grammar | `type` admits the object types and `array<objectType>` | `specified` | `language.md` 19, `language.md` 14.1 | `obj/grammar-object-types` |
 | Handle types are not in the grammar | They are deliberately absent because a handle type can never be annotated | `specified` | `language.md` 5.4, `language.md` 19 | `unit:obj/no-handle-annotation` |
 
@@ -727,7 +727,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | One paint channel per program | Three `barColor()` calls write one channel and the last write on the bar wins, which is the ordinary channel rule | `specified` | `compiled-program.md` 2.8 | `barcolor/last-write` |
 | `background(color)` | Per-bar shading behind the pane, a full-height column | `specified` | `stdlib.md` 14.3, `compiled-program.md` 2.8 | `background/basic` |
 | Background absence | An absent colour clears that bar's shading | `specified` | `stdlib.md` 14.3, `language.md` 6.7 | `background/absence` |
-| Single publisher rule | Which study wins when two of them colour the candles at once, and that the winner is stable from frame to frame | `planned` | `none` | `barcolor/single-publisher` |
+| Single publisher rule | The study latest in the host's own study order that paints owns the instrument's candles, and every other study's bar colouring is not drawn; the order is the one a legend shows and a user reorders, so it does not move between frames | `specified` | `compiled-program.md` 11, `stdlib.md` 14.3 | `unit:barcolor/single-publisher` |
 
 ## 25. Tables
 
@@ -736,7 +736,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | `table(...)` declaration | Declared at the top level because the grid's size and corner are part of the study's fixed shape | `specified` | `stdlib.md` 14.3, `language.md` 5.4, `errors.md` OS3006 | `table/declaration` |
 | Fixed rows, columns and corner | Registered in the contract with its rows, columns, corner and options, so its shape is declaration-time even though its cells are written per bar | `specified` | `compiled-program.md` 2.8, `stdlib.md` 14.3 | `table/fixed-shape` |
 | `cell(t, row, col, text, ...)` | Text, text colour and background colour per cell, written on any bar and from anywhere | `specified` | `stdlib.md` 14.3 | `table/cell-content` |
-| Cell alignment | Per cell, through the `align` argument | `specified` | `stdlib.md` 14.3 | `table/cell-alignment` |
+| Cell alignment | Per cell, through the `align` argument, which takes `"left"`, `"center"` or `"right"` | `specified` | `stdlib.md` 14.3 | `table/cell-alignment` |
 | A cell outside the grid | OS4008, naming the cell and the grid's size | `specified` | `errors.md` OS4008 | `unit:table/cell-out-of-range` |
 | `clear(t)` | Empties every cell, so a table can be rebuilt from scratch and a "show table" input can switch it off | `specified` | `stdlib.md` 14.3, `language.md` 5.4 | `table/clear` |
 | `clear` is one overloaded name | `clear(arr)` is the array operation and `clear(t)` is the table one, told apart by the argument's type | `specified` | `stdlib.md` 14.3, `stdlib.md` 2.2, `language.md` 14.1 | `table/clear-overload` |
@@ -763,7 +763,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Identity across bars | An object held in a `var` is the same object next bar | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `draw/identity` |
 | Engine capability | A program that creates objects declares the `objects` capability, and an engine without it refuses at load with OS6006 | `specified` | `compiled-program.md` 2.2, `errors.md` OS6006 | `draw/capability` |
 | Hit identity | A click identity on a box or a label, beyond the tooltip | `planned` | `none` | `draw/hit-identity` |
-| Layer replacement | Whether and how the host rebuilds the free-drawing layer from the script's state on a rerun; the compiled format carries no field for the live object set | `planned` | `none` | `draw/layer-replacement` |
+| Layer replacement | The whole live object set is handed over after every execution and replaces what was handed over before, so a deletion needs no instruction and a re-executed bar leaves no duplicate; the compiled format carries no field for the set because the engine is asked for it | `specified` | `compiled-program.md` 11 | `draw/layer-replacement` |
 
 ## 27. Higher timeframe and other instrument reads
 
@@ -778,7 +778,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | Warning on a developing read | OS8002, naming the line and what the study will now do | `specified` | `stdlib.md` 15.3, `errors.md` OS8002 | `unit:req/os8002-warning` |
 | Warning on a lookahead read | OS8005, and the compiled study is marked repainting so the host shows it in the legend | `specified` | `stdlib.md` 15.3, `errors.md` OS8005 | `unit:req/os8005-warning` |
 | Warmup per mode | Each mode's first present bar is stated, so alignment is not left to the engine | `specified` | `stdlib.md` 15.3 | `req/warmup` |
-| What an expression means inside a read | Compiled as a separate program over the requested bars, where the built-in series are the requested instrument's at the requested timeframe | `specified` | `stdlib.md` 15.4 | `req/expression` |
+| What an expression means inside a read | Compiled as a separate program over the requested bars, where the built-in series are the requested instrument's at the requested timeframe, and evaluated once per requested bar | `specified` | `stdlib.md` 15.4, `compiled-program.md` 2.16.1 | `req/expression` |
 | A per-bar name inside a read | OS6003, because a value computed on this chart's bars has no counterpart on the requested bars | `specified` | `stdlib.md` 15.4, `errors.md` OS6003 | `unit:req/per-bar-name` |
 | An order or a surface call inside a read | OS7003 for an order function, OS3006 for a drawing or alert call | `specified` | `stdlib.md` 15.4, `errors.md` OS7003, `errors.md` OS3006 | `unit:req/order-in-read` |
 | Waiting for the host | The read is absent until the answer arrives, the study reports itself loading, and the rest of it keeps drawing | `specified` | `stdlib.md` 15.5 | `req/waiting` |
@@ -787,7 +787,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | A request that changes after bar 0 | OS6013, because the set of requests is part of the program's shape | `specified` | `errors.md` OS6013 | `unit:req/request-stable` |
 | Too many outstanding requests | OS5006, with the count named rather than a quiet cap | `specified` | `errors.md` OS5006 | `req/request-budget` |
 | A feed that does not offer a timeframe | OS6014, distinct from a timeframe the language does not know | `specified` | `errors.md` OS6014 | `req/feed-timeframe` |
-| Alignment onto the chart's bars | Which chart bar each higher timeframe value first appears on, bar by bar, beyond the mode's warmup rule | `planned` | `none` | `req/alignment` |
+| Alignment onto the chart's bars | Which chart bar each higher timeframe value first appears on: a bucket is keyed by a bar's open instant, and a confirmed read steps on the first chart bar of the next bucket | `specified` | `compiled-program.md` 2.16.2 | `req/alignment` |
 | Calendar mismatch | How bars align when two instruments have different sessions or holidays | `planned` | `none` | `req/calendar-mismatch` |
 | `req.candle`, `req.events` | A whole higher timeframe bar at once, and scheduled events; named and not defined | `planned` | `stdlib.md` 15.1 | `req/planned-reads` |
 
@@ -802,9 +802,9 @@ library manifest, alongside the count of manifest entries that have a case.
 | `frequency` | `"oncePerBar"`, `"once"` or `"everyUpdate"`, the last requiring `onUnconfirmed = true` or OS3009 | `specified` | `stdlib.md` 16.2, `errors.md` OS3009 | `alert/frequency` |
 | Confirmed bar only | An alert does not fire on a moving bar unless the declaration opts in, and never fires if the condition has gone by the close | `specified` | `language.md` 7.5, `stdlib.md` 16.2 | `alert/confirmed-only` |
 | Absent condition | An absent condition does not fire, by the false-branch rule | `specified` | `language.md` 6.6 | `alert/absent-condition` |
-| Nothing fires for history | Adding a study to a chart that already holds history fires nothing for those bars | `specified` | `stdlib.md` 16.2 | `alert/no-history` |
+| Nothing fires for history | Adding a study to a chart that already holds history fires nothing for those bars: an alert is raised only on a bar the host states it is driving live, which is the fact that separates the two | `specified` | `stdlib.md` 16.2, `compiled-program.md` 5.4 | `alert/no-history` |
 | `notify(message, channel)` | Sending an alert somewhere the host has configured; named and not defined | `planned` | `stdlib.md` 16 | `alert/notify` |
-| Payload contract | What the host receives beyond identity, title and message: the bar time and the bar index are not fixed anywhere | `planned` | `compiled-program.md` 2.8 | `alert/payload` |
+| Payload contract | The entry's key, its title, the value the message channel held for that bar, the bar's index in the run and the bar's open time, and nothing else | `specified` | `compiled-program.md` 5.4 | `alert/payload` |
 
 ## 29. Strategy: orders
 

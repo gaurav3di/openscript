@@ -81,9 +81,9 @@ not a number: `0` is not false and `1` is not true, and `if 1` is OS2011.
 fn isExpanding(cond: bool, len: number) => count(cond, len) > len / 2
 ```
 
-See the known conflicts at the end of this page: the library also documents a
-conversion function spelled `bool(x)`, and a reserved word cannot be called under
-the grammar as written.
+The conversion to this type is spelled `toBool(x)`, not `bool(x)`: a call begins
+with a name and a reserved word is not one. Writing `bool(x)` is OS1019, and the
+fix names `toBool`.
 
 ## break
 
@@ -359,8 +359,9 @@ fn band(src: series number, len: number = 20, mult: number = 2) =>
 
 A function that requires a whole number rejects a fractional one with OS3004
 instead of truncating it, because a length of 14.5 is a bug in the script and
-rounding it hides the bug. See the known conflicts: the library also documents a
-conversion function spelled `number(s)`.
+rounding it hides the bug. The conversion to this type is spelled `toNumber(s)`,
+not `number(s)`: a call begins with a name and a reserved word is not one.
+Writing `number(s)` is OS1019, and the fix names `toNumber`.
 
 ## or
 
@@ -654,29 +655,35 @@ function that shadowing rules would cover. Avoid both as names until it does.
 
 ---
 
-## Known conflicts in the specification
+## A conflict that used to be here, and how it was settled
 
-Two reserved words are also spelled as something a script is documented as
-writing, and the grammar as published does not allow both. These are recorded here
-because a dictionary that quietly picks a side is worse than one that names the
-disagreement.
+Two reserved words were also published as library calls, and the grammar allows
+only one of those at a time: a call begins with a name, and a reserved word is
+not a name. So `bool(x)` and `number(s)` appeared in the reference and every
+spelling of them was refused by the lexer, with a message about naming a variable
+handed to somebody who had written a call.
 
-| Word | Reserved as | Also documented as | The problem |
-|---|---|---|---|
-| `number` | A type name | The conversion function `number(s)` | A call requires an identifier, and a reserved word is not one |
-| `bool` | A type name | The conversion function `bool(x)` | The same |
+It was settled by renaming the calls, not by shortening the reserved list.
+`bool` and `number` are type names, exactly as `string` and `color` are, and a
+list that struck two of the four off would have made an annotation's meaning
+depend on which type it named.
 
-The resolution is a specification change, not a script workaround: either these two
-words leave the reserved list, neither being needed as a keyword outside a type
-annotation, or the functions are renamed. Until one of those happens, treat any
-code that depends on the overlap as unsettled.
+| Word | Reserved as | The call is now |
+|---|---|---|
+| `number` | A type name | `toNumber(s)`, in [functions/string.md](./functions/string.md) |
+| `bool` | A type name | `toBool(x)`, in [functions/math.md](./functions/math.md) |
 
-**Two words that used to be on this list are not conflicts and never needed to
-be.** `color` and `step` appear in the library only as named argument labels, and
-a label is settled: `language.md` 3.4 says it is matched against the callee's
-parameter list and never looked up in a scope, so a reserved word is legal as one
-and the compiler accepts it. Nothing about `color = aqua` or `step = 0.02` is
-unsettled, and code using either is code you can write today.
+Writing the old spelling is still OS1019, and the fix it gives names the working
+spelling, so a reader who writes the natural thing is told what to write instead.
+The rule underneath it is in `language.md` 3.4: no library name is a reserved
+word, and a test fails the build if one ever is again.
+
+**Two words that were once listed beside them were never conflicts.** `color` and
+`step` appear in the library only as named argument labels, and a label is
+settled: `language.md` 3.4 says it is matched against the callee's parameter list
+and never looked up in a scope, so a reserved word is legal as one and the
+compiler accepts it. Nothing about `color = aqua` or `step = 0.02` is unsettled,
+and code using either is code you can write today.
 
 ---
 

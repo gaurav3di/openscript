@@ -177,7 +177,10 @@ that subscription has to survive an edit to the script.
 
 With no `id`, the compiler derives one from the call's position in the file.
 That derived name changes the moment somebody inserts a line above the call, and
-a subscription keyed to the old name no longer matches anything. The compiler
+a subscription keyed to the old name no longer matches anything. An `id` written
+as an `input()` is derived in the same way and warned about in the same words: it
+would move whenever somebody opened the settings dialog, and the entry's name is
+written into the program before any setting is read. The compiler
 says so rather than letting it happen silently. Give every `alert()` an id, keep
 the ids short, lowercase and hyphenated, and treat renaming one as what it is: a
 change that costs every subscriber their subscription.
@@ -337,7 +340,8 @@ release, and until it arrives the only delivery a script declares is an alert.
 | `"a" + 5` refused with OS2003 | No implicit conversion between a string and a number | `"a" + text(5)` |
 | Subscriptions stopped matching after an edit | The alert had no `id`, so its derived name moved | Give every alert a stable `id` |
 | `"everyUpdate"` refused | It needs `onUnconfirmed = true` in the declaration | Set it, or use `"oncePerBar"` |
-| Two alerts with the same title | Titles must be unique in a file (OS3017) | Rename one |
+| Two alerts with the same `id` | A subscription is kept under the id, so two of them is OS3017 | Rename one |
+| An `id` taken from an `input()` | A name that moves when a setting changes is not a name a subscription can be kept under, so it is derived instead and warned about with OS8008 | Write the id out |
 
 ## See also
 

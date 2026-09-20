@@ -1,0 +1,19 @@
+// Each bar's own volume, signed by the direction its close took, drawn as a
+// column and coloured by that sign.
+//
+// Exercises: a study with no warmup at all, a value of zero that has to stay a
+// zero rather than becoming absence, and a colour decided per bar.
+
+version 1
+
+study("Net volume", precision = 0)
+
+// Bar 0 has no previous close, so neither test can hold and the value falls
+// through to zero. Blanking it would put a hole in a series that is defined on
+// every other bar, and zero is the honest reading: nothing is known to have
+// moved.
+moved = close - close[1]
+value = moved > 0 ? volume : moved < 0 ? -volume : 0
+
+plot(value, "Net volume", aqua, style = "column")
+barColor(value > 0 ? lime : value < 0 ? red : silver)

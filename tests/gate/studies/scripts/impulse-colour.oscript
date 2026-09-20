@@ -1,0 +1,26 @@
+// The candles coloured by whether the trend and the force behind it are moving
+// the same way.
+//
+// Exercises two readings with different warmups deciding one colour, and the
+// third state, which is neither agreement nor disagreement and must not be
+// painted as either.
+
+version 1
+
+study("Impulse colour", overlay = true, precision = 2)
+
+meanLen  = input(13, "Mean length", min = 1, max = 500)
+forceLen = input(13, "Force length", min = 1, max = 500)
+
+trendMean = ema(close, meanLen)
+force     = ema(change(close) * volume, forceLen)
+
+// A comparison against an absent previous reading is false, so neither state
+// holds while either reading is still warming up and the candles keep their own
+// colour until both exist.
+climbing = trendMean > trendMean[1] and force > force[1]
+sinking  = trendMean < trendMean[1] and force < force[1]
+
+plot(trendMean, "Trend mean", orange, width = 2)
+
+barColor(climbing ? lime : sinking ? red : blue)

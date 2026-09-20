@@ -1,0 +1,37 @@
+// A coarser timeframe's trend, drawn over a finer chart, with the candles and
+// the pane behind them coloured by which side of its own mean it is on.
+//
+// Exercises a read of a coarser timeframe and the expression evaluated on the
+// folded bars rather than on the chart's, a step plot, because the value changes
+// once per coarse bar, and a flip marker that compares a top level name with its
+// own past.
+
+version 1
+
+study("Coarse bias", overlay = true, precision = 2)
+
+biasTf    = input("5", "Bias timeframe", kind = "interval")
+biasLen   = input(3, "Bias average length", min = 2, max = 500)
+paintBars = input(true, "Recolour the candles")
+
+// The mode is a literal and not a setting, deliberately: it decides whether the
+// study can be traded, and a reader who can change it from a dialog cannot see
+// that they have. A confirmed read never uses a coarse bar that had not finished.
+coarseClose = req.timeframe(biasTf, close, mode = "confirmed")
+coarseMean  = req.timeframe(biasTf, ema(close, biasLen), mode = "confirmed")
+
+up   = not isNone(coarseMean) and coarseClose > coarseMean
+down = not isNone(coarseMean) and coarseClose < coarseMean
+
+// A step plot, because the value changes once per coarse bar and a line sloping
+// between two readings would imply values that were never read.
+plot(coarseMean, "Coarse mean", orange, width = 2, style = "step")
+
+barColor(paintBars ? (up ? lime : down ? red : none) : none)
+background(up ? fade(lime, 95) : down ? fade(red, 95) : none)
+
+if up and not orElse(up[1], false)
+    signal("BIAS UP", lime, at = "below", shape = "triangleUp")
+
+if down and not orElse(down[1], false)
+    signal("BIAS DOWN", red, at = "above", shape = "triangleDown")

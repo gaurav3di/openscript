@@ -1,0 +1,30 @@
+// Where the chart's own trend and a coarser timeframe's trend agree, and the
+// bars where they part.
+//
+// Exercises a read folded onto the chart beside a calculation taken on the
+// chart's own bars, which are two different series even when they are written
+// with the same call and the same length.
+
+version 1
+
+study("Agreement marks", overlay = true, precision = 2)
+
+coarseTf = input("5", "Coarser timeframe", kind = "interval")
+meanLen  = input(4, "Mean length", min = 2, max = 500)
+
+fineMean   = sma(close, meanLen)
+coarseMean = req.timeframe(coarseTf, sma(close, meanLen))
+
+fineUp   = close > fineMean
+coarseUp = close > coarseMean
+
+agree  = not isNone(fineMean) and not isNone(coarseMean) and fineUp == coarseUp
+differ = not isNone(fineMean) and not isNone(coarseMean) and fineUp != coarseUp
+
+plot(fineMean, "Fine mean", aqua, width = 2)
+plot(coarseMean, "Coarse mean", orange, width = 2, style = "step")
+
+barColor(agree ? (fineUp ? lime : red) : none)
+
+if differ and orElse(agree[1], false)
+    signal("SPLIT", orange, at = "above", shape = "diamond")

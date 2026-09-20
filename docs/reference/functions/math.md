@@ -288,15 +288,19 @@ This is the one line that buys back the behaviour of a language where absence is
 zero, and it is explicit, on the line where it happens, rather than being a rule
 you have to remember about every line.
 
-### `bool(x)`
+### `toBool(x)`
 
 `none` to `false`, a bool to itself.
 Parameters: `x` `bool` or `none`.
 Returns `bool`.
 
 ```
-flag = bool(crossUp(fast, slow)[1])
+flag = toBool(crossUp(fast, slow)[1])
 ```
+
+It is spelled `toBool` and not `bool` because `bool` is a reserved word, so a
+call could never begin with it. Writing `bool(x)` is OS1019, and the fix names
+this spelling.
 
 Numbers are rejected. There is no truthiness in the language: `0` is not false
 and `""` is not false, because every silent coercion rule in every language is a

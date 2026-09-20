@@ -1,0 +1,27 @@
+// Rails set a fraction of each bar's own range away from that bar's high and
+// low, and then smoothed, so the channel widens with how far a bar travelled
+// rather than with how far the closes spread.
+//
+// Exercises a band whose two edges are means of two series the script builds
+// per bar, and a guard against a denominator that cannot be divided by.
+
+version 1
+
+study("Acceleration band", overlay = true, precision = 2)
+
+len    = input(20,    "Length", min = 1, max = 5000)
+factor = input(0.001, "Factor", min = 0, max = 1, step = 0.0001)
+
+// A zero or negative sum would make the ratio infinite, which is what a halted
+// or zero priced series produces, so the ratio is nothing there rather than a
+// number nobody can read.
+denominator = high + low
+ratio = denominator > 0 ? 4000 * factor * (high - low) / denominator : 0
+
+upperSource = high * (1 + ratio)
+lowerSource = low * (1 - ratio)
+
+upperRail = plot(sma(upperSource, len), "Upper", teal)
+plot(sma(close, len), "Basis", purple, width = 2)
+lowerRail = plot(sma(lowerSource, len), "Lower", teal)
+fill(upperRail, lowerRail, fade(yellow, 84))

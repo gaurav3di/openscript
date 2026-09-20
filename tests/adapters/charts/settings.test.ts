@@ -11,7 +11,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { bars, context, descriptorOfSource } from './support.js';
+import { bars, context, descriptorOfSource, refusalOf } from './support.js';
+
+/** The line break a script is written with, spelled once. */
+const NEWLINE = '\n';
 
 /** A script whose plotted colour is an input, read per bar so it reaches a channel. */
 const TINTED = [
@@ -49,23 +52,32 @@ test('a colour that states its own alpha replaces the declared one', () => {
   assert.equal(painted({ c: 'rgba(255, 0, 0, 0.8)' }), 'rgba(255, 0, 0, 0.8)');
 });
 
-test('a choice stored as text reaches the engine as the value the script wrote', () => {
-  // A select control's values are strings even where the declared choices are
-  // numbers, so a stored "20" has to become the number 20. Passed through as
-  // text the engine refuses it, and the study stops instead of drawing.
+test('a choice a dialog stored reaches the engine as the option the script wrote', () => {
+  // `options` is a string input's argument and nothing else's (`stdlib.md`
+  // 13.3), so a select's stored value and its declared option are both strings
+  // and the match is on the spelling. What the conversion has to get right is
+  // the one it is asked for and the one it is not: a stored choice selects the
+  // option, and a stored value that names no option is not quietly the default.
   const descriptor = descriptorOfSource(
-    'version 1\nstudy("Choice")\nn = input(10, "Length", options = [10, 20])\nplot(sma(close, n), "SMA")\n',
+    [
+      'version 1',
+      'study("Choice", overlay = true)',
+      'mode = input("fast", "Mode", options = ["fast", "slow"])',
+      'plot(sma(close, mode == "fast" ? 5 : 20), "SMA")',
+      '',
+    ].join(NEWLINE),
   );
   const data = bars(40);
-  const ten = descriptor.calc(data, { n: '10' }, {}, context(40));
-  const twenty = descriptor.calc(data, { n: '20' }, {}, context(40));
-  const asNumber = descriptor.calc(data, { n: 20 }, {}, context(40));
+  const declared = descriptor.calc(data, {}, {}, context(40));
+  const chosen = descriptor.calc(data, { mode: 'slow' }, {}, context(40));
 
-  assert.equal(ten['p0']?.findIndex((one) => one !== null), 9);
-  assert.equal(twenty['p0']?.findIndex((one) => one !== null), 19);
-  // The number and its text are the same setting, so a layout saved by a dialog
-  // and one written by a host agree.
-  assert.deepEqual(twenty['p0'], asNumber['p0']);
+  assert.equal(declared['p0']?.findIndex((one) => one !== null), 4, 'the declared default');
+  assert.equal(chosen['p0']?.findIndex((one) => one !== null), 19, 'the option the user picked');
+
+  // Replacing it with the default here would be a settings dialog that ignores
+  // what it was given, one layer further down than the engine reports it.
+  const refusal = refusalOf(() => descriptor.calc(data, { mode: 'sideways' }, {}, context(40)));
+  assert.equal(refusal.code, 'OS6019');
 });
 
 test('a source input selects the series the engine reads each bar', () => {

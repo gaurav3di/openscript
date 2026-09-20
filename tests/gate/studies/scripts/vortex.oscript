@@ -1,0 +1,24 @@
+// Two totals of the distance price travelled against the other side of the
+// previous bar, each divided by the total true range over the same window.
+//
+// Exercises: two warmups that differ by one bar in the same study, because both
+// movement terms reach across a bar boundary and the range they are divided by
+// does not.
+
+version 1
+
+study("Vortex", precision = 4)
+
+len = input(14, "Length", min = 2, max = 500)
+
+// Both terms are absent on bar 0, and so is any total over a window holding it.
+// The true range is not: the bar's own range is a true statement about that bar
+// even with no bar before it, which is why the denominator is ready one bar
+// earlier than the two numerators.
+upMove   = abs(high - low[1])
+downMove = abs(low - high[1])
+
+rangeTotal = sum(trueRange(), len)
+
+plot(sum(upMove, len) / rangeTotal, "Upward", aqua, width = 2)
+plot(sum(downMove, len) / rangeTotal, "Downward", red, width = 2)

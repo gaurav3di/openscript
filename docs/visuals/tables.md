@@ -157,7 +157,8 @@ if bar.isLast
 
 ## Alignment, and numbers that line up
 
-`align` takes `"left"`, `"center"` or `"right"`.
+`align` takes one of the three values `stdlib.md` section 14.3 names, and the
+examples above use two of them.
 
 The rule that makes a panel readable: **labels left, numbers right.** Numbers
 are compared by their last digit, and a column of right aligned numbers puts the

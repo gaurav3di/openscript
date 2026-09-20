@@ -36,7 +36,7 @@ Two rules follow from that position and hold everywhere in this document.
 | Nesting depth of expressions, blocks and calls | The implementation's ceiling | Not raisable | OS5005 | The compiler's |
 | Outstanding data requests | The host's ceiling | Not raisable | OS5006 | The host's |
 | Wall clock per bar | The host's budget | Not raisable from a script | OS5007 | The host's |
-| Drawing objects | No cap | Not applicable | Nothing: memory is the budget | Neither |
+| Drawing objects held at once | The host's ceiling | Not raisable from a script | OS5010 | The host's |
 | Bars in the dataset | The host's | Not applicable | Nothing | The host's |
 
 Each row has its own section below. The error catalogue,
@@ -275,18 +275,20 @@ weekHigh = req.timeframe("1W", high)
 And delete reads whose results are unused. An unused read still costs the host a
 whole aligned series, and an unread name earns warning OS8010 in any case.
 
-## Drawing objects: no cap, and what that means
+## Drawing objects held at once
 
-**A drawing object persists until the script deletes it, and there is no cap on
-how many a script may create.** The only budget is memory, and a host that
-cannot hold them must say so rather than dropping the oldest. This is a
-deliberate difference from the platforms this language exists to replace, where
-a fixed object count silently discards the oldest drawing and leaves a study
-that is correct on the right of the chart and wrong on the left.
+**A drawing object persists until the script deletes it, and the language fixes
+no number for how many a script may hold at once.** The budget is the host's
+memory. What the language does fix is what happens at the end of it: the host
+says so, with OS5010, and never discards the oldest drawing to make room. That
+is a deliberate difference from the platforms this language exists to replace,
+where a fixed object count silently drops the oldest and leaves a study that is
+correct on the right of the chart and wrong on the left.
 
-No cap is not a licence to leak. A script that creates an object per bar over
-fifty thousand bars has created fifty thousand objects, and nothing will stop it
-until the machine does. The discipline is simple:
+So the ceiling is a diagnostic rather than a leak. A script that creates an
+object per bar and deletes none reaches it, stops the bar, and names the number
+it reached, which is a script to fix rather than a machine to wait for. The
+discipline is simple:
 
 ```
 // A zone dies when price closes through it or it ages out. Counted downwards so
@@ -330,6 +332,7 @@ Two consequences matter in practice.
 | OS5007 | Does any loop's length depend on `bar.index`? | Carry the value forward in a `var`, or use `cum` |
 | OS4002 | Is the deep read intended? | `limits(history = n)` with the depth the message suggests |
 | OS5002 | Is this array a window or a log? | Trim on push; a window needs a fixed length |
+| OS5010 | Does every object I draw ever get deleted? | Delete the oldest as you create the newest, and remove the array element with it |
 | OS5008 | Am I building text per bar for output shown once? | Build it on `bar.isLast`, or keep an array and trim it |
 | OS5009 | Are there repeated blocks? | Extract a function |
 | OS5005 | Is this expression readable? | Name the inner part |

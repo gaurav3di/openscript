@@ -1,0 +1,24 @@
+// How close to a straight line the recent closes have been, measured as the
+// correlation between price and the passage of time.
+//
+// Exercises: a joint statistic over two series where one of them is the bar
+// count itself, and a reading bounded to minus one and one with its bands drawn
+// as levels rather than as plots.
+
+version 1
+
+study("Trend strength", precision = 4, range = [-1, 1])
+
+len = input(14, "Length", min = 2, max = 500)
+
+// Correlation is unchanged by shifting either input, so counting from the first
+// bar supplied rather than from the start of all history changes nothing.
+value = correlation(close, bar.index, len)
+
+level(1,  "Rising band", fade(lime, 40))
+level(0,  "Middle", fade(silver, 60), style = "dashed")
+level(-1, "Falling band", fade(red, 40))
+
+plot(value, "Strength", purple, width = 2)
+
+background(value > 0.8 ? fade(lime, 92) : value < -0.8 ? fade(red, 92) : none)

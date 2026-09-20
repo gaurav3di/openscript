@@ -162,11 +162,16 @@ test('a capability the program needs and does not declare is OS6018', () => {
 });
 
 test('a capability this engine does not have is OS6006 naming the tag', () => {
+  // `req.symbol` rather than `req.timeframe`: a read of the chart's own
+  // instrument is folded from the bars the engine already holds, so it needs
+  // nothing from a host and this engine always has it. A read of another
+  // instrument needs bars only a host can supply, which is why it is the tag a
+  // host without a request provider does not give its engine.
   const refusal = refusalOf(broken((program) => {
-    program['requires'] = ['core.1', 'req.timeframe'];
+    program['requires'] = ['core.1', 'req.symbol'];
   }));
   assert.equal(refusal.code, 'OS6006');
-  assert.equal(refusal.values['tag'], 'req.timeframe');
+  assert.equal(refusal.values['tag'], 'req.symbol');
 });
 
 test('a library entry that disagrees with the manifest is OS6004', () => {
@@ -235,11 +240,11 @@ test('a missing capability and a missing language version reports the capability
   // number. The wrong implementation this catches is the order the checks happen
   // to be written in.
   const refusal = refusalOf(broken((program) => {
-    program['requires'] = [...(program['requires'] as string[]), 'req.timeframe'];
+    program['requires'] = [...(program['requires'] as string[]), 'req.symbol'];
     program['openscript'] = { format: COMPILED_FORMAT_VERSION, language: 7 };
   }));
   assert.equal(refusal.code, 'OS6006');
-  assert.equal(refusal.values['tag'], 'req.timeframe');
+  assert.equal(refusal.values['tag'], 'req.symbol');
 });
 
 test('a language version this engine does not implement is OS6017', () => {

@@ -1,0 +1,26 @@
+// The running mean of the source since the session opened, the volume blind
+// sibling of the traded average: a thin bar counts for exactly as much as a
+// heavy one.
+//
+// Exercises: a running total and a running count that both reset on the
+// session's first bar, a source that is the mean of all four prices rather than
+// the close, and a study whose first value is on bar 0 rather than after a
+// window.
+
+version 1
+
+study("Time weighted average", overlay = true, precision = 4)
+
+var total = 0.0
+var seen = 0.0
+
+// The reset is before the accumulation, so the session's first bar is the first
+// bar of the new average rather than the last of the old one.
+if session.isFirstBar
+    total = 0.0
+    seen = 0.0
+
+total = total + ohlc4
+seen = seen + 1
+
+plot(total / seen, "Time weighted", orange, width = 2)

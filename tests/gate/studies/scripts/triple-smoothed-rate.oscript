@@ -1,0 +1,24 @@
+// The one bar rate of change of a triple smoothed log price, scaled so that a
+// reading of a hundred is one percent a bar.
+//
+// Exercises: three averages in a row over a logarithm, a change taken on top of
+// all three, and the deepest warmup of any study in this half of the gate.
+
+version 1
+
+study("Triple smoothed rate", precision = 4)
+
+len = input(18, "Length", min = 1, max = 500)
+
+// Working in logs is what makes the reading a pure rate rather than a number
+// whose size depends on the price level. A price at or below zero has no log,
+// and that is absence rather than a number.
+logPrice = close > 0 ? log(close) : none
+
+once   = ema(logPrice, len)
+twice  = ema(once, len)
+thrice = ema(twice, len)
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(10000 * change(thrice), "Rate", red, width = 2)

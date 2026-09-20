@@ -1,0 +1,23 @@
+// A mean with two rails a fixed percentage away from it, and the region between
+// them shaded.
+//
+// Exercises a band drawn between two named plot handles, which is the one place
+// the language has a compile time value that is not a number.
+
+version 1
+
+study("Envelope band", overlay = true, precision = 2)
+
+len     = input(20, "Length", min = 1, max = 1000)
+percent = input(10, "Percent", min = 0, max = 100)
+src     = input(close, "Source")
+
+basis = sma(src, len)
+share = percent / 100
+
+// Named, because a band joins two declared columns and takes their declaration
+// handles rather than the series behind them.
+upperRail = plot(basis * (1 + share), "Upper", aqua)
+plot(basis, "Basis", orange, width = 2)
+lowerRail = plot(basis * (1 - share), "Lower", aqua)
+fill(upperRail, lowerRail, fade(aqua, 88))

@@ -1,0 +1,21 @@
+// The root mean square percentage fall from the window's own running high,
+// which counts only the distance below a peak and not the distance above one.
+//
+// Exercises: a mean taken over a series that is itself squared, a window whose
+// own warmup pushes the reading a second window out, and a study that reads
+// zero on a series that only rises.
+
+version 1
+
+study("Ulcer index", precision = 6)
+
+len = input(14, "Length", min = 1, max = 500)
+
+peak = highest(close, len)
+
+// A peak of zero has no fall to express as a percentage of it, which is absence
+// rather than a zero reading.
+drop    = peak == 0 ? none : 100 * (close - peak) / peak
+squared = drop * drop
+
+plot(sqrt(sma(squared, len)), "Ulcer", aqua, width = 2)

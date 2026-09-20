@@ -296,11 +296,11 @@ Objects a script creates and then mutates over time, rather than a column of one
 value per bar. They are anchored to a time and a price, so an object stays where
 it was put when more history is loaded and every bar index shifts underneath it.
 
-**An object persists until the script deletes it.** There is no cap on how many
-a script may create; the only budget is memory, and a host that cannot hold them
-must say so rather than dropping the oldest. A study that silently loses its
-oldest zone is a study whose picture depends on how long you have been looking
-at it.
+**An object persists until the script deletes it.** The language fixes no number
+for how many a script may hold at once; the budget is the host's memory, and a
+host that cannot hold another one says so, with OS5010, rather than dropping the
+oldest. A study that silently loses its oldest zone is a study whose picture
+depends on how long you have been looking at it.
 
 An object created on a bar that is then re-executed is subject to the rollback
 rule: the object set is restored to what it was at the end of the previous bar

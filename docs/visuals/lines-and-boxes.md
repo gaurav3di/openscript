@@ -52,6 +52,11 @@ stated in the library reference rather than hidden: the call arrives in its
 natural shape when `type` does, and until then the two arrays must be the same
 length and are read index by index.
 
+**The path is read once, at the call.** The polyline keeps its own copy, so
+pushing to the arrays afterwards does not redraw it: `draw.setPoints` is how a
+path changes, which is what the example at the end of this page does on every
+swing.
+
 ## An anchor is a time and a price
 
 **Every anchor is a timestamp in UTC milliseconds and a price on the pane's
@@ -247,13 +252,13 @@ else if not isNone(zone)
 
 ## The lifecycle discipline
 
-**An object persists until the script deletes it.** There is no cap on how many
-a script may create, and no silent eviction of the oldest: the only budget is
-memory, and a host that cannot hold what a script created has to say so rather
-than dropping objects behind your back. That is a deliberate difference from the
-closed chart scripting languages this one exists to replace, where a hard object
-limit is the reason half the drawing studies in the wild are written the way
-they are.
+**An object persists until the script deletes it.** There is no silent eviction
+of the oldest, ever. The language fixes no number for how many a script may hold
+at once; the budget is the host's memory, and a host that cannot hold another
+one stops the bar with OS5010 and names the number rather than dropping objects
+behind your back. That is a deliberate difference from the closed chart
+scripting languages this one exists to replace, where a hard object limit is the
+reason half the drawing studies in the wild are written the way they are.
 
 The freedom costs you one obligation: **decide the lifecycle before you write
 the constructor.** There are three shapes, and every correct drawing study is

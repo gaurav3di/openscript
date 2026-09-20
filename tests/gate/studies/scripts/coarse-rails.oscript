@@ -1,0 +1,21 @@
+// Deviation rails computed on a coarser timeframe and sampled onto every bar of
+// a finer one.
+//
+// Exercises three reads of one coarser timeframe whose expressions each have a
+// warmup of their own, counted in coarse bars and folded back onto the chart.
+
+version 1
+
+study("Coarse rails", overlay = true, precision = 2)
+
+railTf  = input("5", "Rail timeframe", kind = "interval")
+railLen = input(4, "Length", min = 2, max = 500)
+mult    = input(2.0, "Deviations", min = 0.1, max = 50)
+
+coarseBasis = req.timeframe(railTf, sma(close, railLen))
+coarseSpread = req.timeframe(railTf, stdev(close, railLen))
+
+upperRail = plot(coarseBasis + mult * coarseSpread, "Upper", aqua, style = "step")
+plot(coarseBasis, "Basis", orange, width = 2, style = "step")
+lowerRail = plot(coarseBasis - mult * coarseSpread, "Lower", aqua, style = "step")
+fill(upperRail, lowerRail, fade(aqua, 90))

@@ -17,6 +17,7 @@
  * budget is passed separately, in `LoadOptions`, because it decides when to
  * stop rather than what a script computes.
  */
+import type { HostBar } from './bars.js';
 import type { PendingEffect } from './channels.js';
 import type { Value } from './values/index.js';
 
@@ -47,6 +48,79 @@ export interface Position {
 /** Where an applied effect goes: an order route, a log, or nothing at all. */
 export type EffectRoute = (effect: PendingEffect, bar: number) => void;
 
+/**
+ * One read, as the host is asked about it, `host-interface.md` 5.2.
+ *
+ * The whole set is handed over at load and never grows during a run: a
+ * request's identity is fixed before bar 0, which is what lets a host fetch in
+ * parallel, cache by instrument and timeframe, and have the answers in hand
+ * before the first bar runs.
+ */
+export interface RequestQuery {
+  /** The engine's handle, which every answer and every refusal carries back. */
+  readonly id: number;
+  readonly read: 'timeframe' | 'symbol';
+  /** The instrument, or nothing on a read of the chart's own. */
+  readonly symbol: string | null;
+  /** Where it trades, or nothing when the script named none. */
+  readonly exchange: string | null;
+  /** A timeframe string, `stdlib.md` 15.2, resolved from the program. */
+  readonly timeframe: string;
+  readonly mode: 'confirmed' | 'developing' | 'lookahead';
+  /**
+   * Requested bars of history the expression needs, or nothing when no number
+   * is known.
+   *
+   * A floor rather than a promise: a host that extends the range backwards by
+   * less gets a read that is absent for longer, never a wrong number.
+   */
+  readonly warmup: number | null;
+}
+
+/**
+ * Why a host cannot answer, `host-interface.md` 5.4.
+ *
+ * **A refusal is reported and is never an empty answer**, because an empty
+ * series looks exactly like an instrument that did not trade. The reason text
+ * reaches the script through `req.error(read)`, and the study keeps drawing
+ * everything that does not depend on the failed read.
+ */
+export interface RequestRefusal {
+  readonly code: 'OS6007' | 'OS6008' | 'OS6009' | 'OS6014' | 'OS6015';
+  /** The host's own words, carried and never paraphrased, for OS6009. */
+  readonly reason?: string;
+  /** The intervals the host does serve for this instrument, for OS6014. */
+  readonly available?: string;
+}
+
+/**
+ * What a host says about one read.
+ *
+ * `bars` is the answer: the host's own bars at the requested timeframe, oldest
+ * first, never padded or synthesised. `refused` is 5.4.
+ *
+ * `pending` is a host that is still fetching. The read is absent and
+ * `req.isReady` is false, and it stays that way for this run: 5.3 delivers an
+ * answer between bars and then recalculates the study over its whole history,
+ * which is a fresh load rather than an answer spliced into a run already past
+ * the bars it would have changed. A host that wants the engine to fold the
+ * chart's own bars instead returns nothing at all.
+ */
+export type RequestAnswer =
+  | { readonly bars: readonly HostBar[] }
+  | { readonly pending: true }
+  | { readonly refused: RequestRefusal };
+
+/**
+ * Where the engine asks for another instrument's or another interval's bars.
+ *
+ * Returning nothing means the host does not serve this request. On a read of
+ * the chart's own instrument that is the ordinary case and the engine folds the
+ * bars it already holds; on a read of another instrument the engine holds none
+ * of them, so nothing to serve is OS6007.
+ */
+export type RequestProvider = (query: RequestQuery) => RequestAnswer | undefined;
+
 export interface EngineHost {
   readonly instrument?: Instrument;
   /** The chart clock, for `chart.now()`. Fixed by the host, never read here. */
@@ -60,6 +134,17 @@ export interface EngineHost {
    * declare and OS6006 names it at load.
    */
   readonly route?: EffectRoute;
+  /**
+   * Bars for another instrument or another interval, `host-interface.md` 5.
+   *
+   * Optional, and the capability follows it: a host with no provider declares
+   * no `req.symbol`, so a program that reads another instrument is refused at
+   * load with OS6006 naming the tag rather than drawing a study with a silently
+   * empty line through it. `req.timeframe` needs no provider, because the
+   * engine folds the chart's own bars, which is the read 5.1 says an engine can
+   * satisfy from what it already holds.
+   */
+  readonly requestBars?: RequestProvider;
 }
 
 /** A number the host stated, or absence when it stated none. */

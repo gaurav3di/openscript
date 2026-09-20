@@ -1,0 +1,50 @@
+// The floor levels taken from the window that ended on the previous bar, drawn
+// as reference lines and listed in a panel.
+//
+// Exercises a level whose price is data driven, which is the reason the contract
+// recomputes levels after every calculation rather than fixing them at
+// declaration, and a window read as it stood one bar ago.
+
+version 1
+
+study("Levels panel", overlay = true, precision = 2)
+
+len = input(20, "Window", min = 2, max = 500)
+
+windowHigh = highest(high, len)
+windowLow  = lowest(low, len)
+
+// Read as the window stood on the previous bar, so this bar's own high cannot
+// move the levels it is being measured against.
+priorHigh  = windowHigh[1]
+priorLow   = windowLow[1]
+priorClose = close[1]
+
+pivot = (priorHigh + priorLow + priorClose) / 3
+reach = priorHigh - priorLow
+
+firstUp   = 2 * pivot - priorLow
+firstDown = 2 * pivot - priorHigh
+secondUp   = pivot + reach
+secondDown = pivot - reach
+
+plot(pivot, "Pivot", orange, width = 2, style = "step")
+plot(firstUp, "First up", red, style = "step")
+plot(firstDown, "First down", green, style = "step")
+
+level(0, "Nothing", gray, style = "dotted")
+
+panel = table("Levels", rows = 5, cols = 2, position = "bottomLeft", textColor = silver)
+
+fn show(value) => isNone(value) ? "warming up" : text(value, 2)
+
+cell(panel, 0, 0, "Second up", align = "left")
+cell(panel, 0, 1, show(secondUp), align = "right")
+cell(panel, 1, 0, "First up", align = "left")
+cell(panel, 1, 1, show(firstUp), align = "right")
+cell(panel, 2, 0, "Pivot", align = "left")
+cell(panel, 2, 1, show(pivot), textColor = white, align = "right")
+cell(panel, 3, 0, "First down", align = "left")
+cell(panel, 3, 1, show(firstDown), align = "right")
+cell(panel, 4, 0, "Second down", align = "left")
+cell(panel, 4, 1, show(secondDown), align = "right")

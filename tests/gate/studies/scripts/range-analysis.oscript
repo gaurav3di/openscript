@@ -1,0 +1,19 @@
+// The bar's own high to low span as a column, with a mean of it over it.
+//
+// Exercises: the shortest study in this half of the gate, present from bar 0,
+// and a bar colour that says whether this bar was wider than the mean of its
+// recent neighbours.
+
+version 1
+
+study("Range analysis", precision = 4)
+
+span = input(3, "Average length", min = 1, max = 500)
+
+width = high - low
+mean  = sma(width, span)
+
+plot(width, "Range", red, style = "column")
+plot(mean, "Average range", aqua, width = 2)
+
+barColor(width > mean ? orange : none)

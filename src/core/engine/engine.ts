@@ -25,6 +25,8 @@ import type { SourceFile } from '../source/index.js';
 import type { Span } from '../span/index.js';
 import { BAR_FIELDS, barField, factsFor } from './bars.js';
 import type { BarFacts, BarState, HostBar } from './bars.js';
+import { alertsFor } from './alerts.js';
+import type { AlertFiring, Alerts } from './alerts.js';
 import { Budget, limitsWith, stepBound } from './budget.js';
 import type { Clock, EngineLimits } from './budget.js';
 import { Channels } from './channels.js';
@@ -40,10 +42,17 @@ import type { BarView, HostFacts, ManifestEntry } from './library/index.js';
 import { Machine } from './machine.js';
 import { Memory } from './memory.js';
 import { Registers } from './registers.js';
+import { Grids } from './grids.js';
+import type { Grid } from './grids.js';
 import type { CompiledProgram, Position } from './types.js';
+import { planRequests } from './request-plan.js';
+import type { RequestPlan } from './request-plan.js';
+import { RequestSet } from './requests.js';
 import { capabilitiesFor, verify } from './verify.js';
-import type { DrawingObject, GridCell, Value } from './values/index.js';
-import { Heap, reference } from './values/index.js';
+import type { Value } from './values/index.js';
+import { Heap } from './values/index.js';
+import { drawingsIn } from './drawings.js';
+import type { Drawing } from './drawings.js';
 
 export interface LoadOptions {
   /** The host's settings, keyed by input `key`. */
@@ -70,6 +79,8 @@ export interface BarResult {
   /** Whether step 9 applied the deferred channels and the pending effects. */
   readonly applied: boolean;
   readonly effects: readonly PendingEffect[];
+  /** The watched conditions this bar raised, empty on a bar that raised none. */
+  readonly alerts: readonly AlertFiring[];
   /** The failure that stopped the bar, when one did. */
   readonly diagnostic: Diagnostic | undefined;
 }
@@ -77,14 +88,6 @@ export interface BarResult {
 export interface RunResult {
   readonly bars: readonly BarResult[];
   readonly diagnostic: Diagnostic | undefined;
-}
-
-/** A grid the program declared, with the cells this bar wrote into it. */
-export interface Grid {
-  readonly key: string;
-  readonly rows: number;
-  readonly cols: number;
-  readonly cells: readonly GridCell[];
 }
 
 /**
@@ -98,7 +101,7 @@ export function load(program: unknown, options: LoadOptions = {}): LoadResult {
   const limits = limitsWith(options.limits);
   const host = options.host ?? {};
   const checked = verify(program, {
-    capabilities: capabilitiesFor(host.route !== undefined),
+    capabilities: capabilitiesFor(host.route !== undefined, host.requestBars !== undefined),
     limits,
   });
   if (!checked.ok) return { ok: false, diagnostic: checked.diagnostic };
@@ -123,7 +126,17 @@ export function load(program: unknown, options: LoadOptions = {}): LoadResult {
   );
   if (!resolved.ok) return { ok: false, diagnostic: resolved.diagnostic };
 
-  return { ok: true, engine: new Engine(checked.program, resolved.inputs, options, limits) };
+  // 2.16: a request's identity is fixed before bar 0, so it is settled here,
+  // along with the two refusals that are facts about the program and the chart
+  // rather than answers from the host: a timeframe the language does not know,
+  // and one that cannot be folded onto this chart's bars.
+  const planned = planRequests(checked.program.requests, resolved.inputs, host);
+  if (!planned.ok) return { ok: false, diagnostic: planned.diagnostic };
+
+  return {
+    ok: true,
+    engine: new Engine(checked.program, resolved.inputs, options, limits, planned.plans),
+  };
 }
 
 export class Engine {
@@ -134,9 +147,22 @@ export class Engine {
   private readonly budget: Budget;
   private readonly machine: Machine;
   private readonly library: ManifestEntry[] = [];
-  private readonly grids: { readonly key: string; readonly slot: number; readonly id: number }[] =
-    [];
+  private readonly grids: Grids;
   private readonly onUnconfirmed: boolean;
+  private readonly alerting: Alerts;
+  private readonly requests: RequestSet;
+  /**
+   * The bars the engine has been given, which a read folds.
+   *
+   * A read of the chart's own instrument at a coarser interval is folded from
+   * these, so the fold needs the bars themselves and not only the registers
+   * derived from them. `run` seeds the whole dataset before bar 0 and `append`
+   * adds one at a time, which is the difference a `"lookahead"` read shows and
+   * the other two modes do not: lookahead reads to the end of the bucket the
+   * chart bar is inside, and on a live feed there is nothing there yet. That is
+   * the mode repainting on history, permanently and by design.
+   */
+  private known: HostBar[] = [];
 
   private supplied = 0;
   private index = -1;
@@ -157,6 +183,7 @@ export class Engine {
     inputs: readonly ResolvedInput[],
     options: LoadOptions,
     limits: EngineLimits,
+    plans: readonly RequestPlan[] = [],
   ) {
     this.program = program;
     this.inputs = inputs;
@@ -171,6 +198,11 @@ export class Engine {
       options.clock,
     );
     this.onUnconfirmed = fieldValue(program.meta.onUnconfirmed, inputs) === true;
+    // A watched condition's title and frequency are declaration fields, which a
+    // script may write with an `input()`, and inputs are resolved at load. So
+    // they are read once here rather than per bar, as every other declaration
+    // the descriptor is built from is.
+    this.alerting = alertsFor(program, inputs);
 
     for (const entry of program.lib.functions) {
       // Verification refused a name this engine does not have, so the lookup
@@ -201,33 +233,23 @@ export class Engine {
       this.view,
     );
 
-    this.buildGrids();
-  }
+    this.requests = new RequestSet(
+      {
+        program,
+        plans: new Map(plans.map((one) => [one.request.id, one])),
+        host: options.host ?? {},
+        limits,
+        clock: options.clock,
+        library: this.library,
+        inputs,
+        facts: this.hostFacts(),
+        heapOf: () => this.heap,
+        spanAt: (line: number, column: number): Span => spanAt(options.source, line, column),
+      },
+      program.requests,
+    );
 
-  /**
-   * The grids the program declared, built once before bar 0.
-   *
-   * `table()` emits no instruction. The declaration fixes the grid's shape
-   * before the first bar, exactly as an input's does, and the engine fills the
-   * declared slot with the handle at step 5. Building it per bar would give a
-   * script a different object every bar for something 2.8 calls part of the
-   * study's fixed shape.
-   */
-  private buildGrids(): void {
-    for (const declared of this.program.outputs.tables) {
-      const rows = fieldValue(declared.rows, this.inputs);
-      const cols = fieldValue(declared.cols, this.inputs);
-      const id = this.heap.allocate({
-        kind: 'table',
-        rows: typeof rows === 'number' ? rows : 0,
-        cols: typeof cols === 'number' ? cols : 0,
-        cells: [],
-      });
-      this.grids.push({ key: declared.key, slot: declared.slot, id });
-    }
-    // The grids exist before the first bar, so nothing about them belongs to a
-    // bar's undo journal.
-    this.heap.commit();
+    this.grids = new Grids(program, inputs, this.heap);
   }
 
   private hostFacts(): HostFacts {
@@ -245,11 +267,12 @@ export class Engine {
       hasVolume: () => hostBool(of().instrument?.hasVolume),
       hasOpenInterest: () => hostBool(of().instrument?.hasOpenInterest),
       now: () => hostNumber(of().now),
-      // A host that answers no request has answered this one no, and has
-      // reported no reason, which is what the two calls of stdlib.md 15.1 say
-      // those states read as. An engine given request answers replaces both.
-      requestReady: () => false,
-      requestError: () => '',
+      // Both name a read rather than taking its value, which is why the
+      // compiler resolved the name to the request's id: a value on a bar cannot
+      // say which request produced it (2.16). A read this program does not make
+      // has not been answered and has reported no reason.
+      requestReady: (id: Value) => this.requests.answered(id),
+      requestError: (id: Value) => this.requests.failure(id),
       positionSize: () => hostNumber(of().position?.size),
       positionPrice: () => hostNumber(of().position?.avgPrice),
     };
@@ -299,6 +322,7 @@ export class Engine {
     this.updates = 1;
     this.started = true;
     this.previousClose = this.lastClose;
+    if (this.known.length <= this.index) this.known[this.index] = bar;
     return this.execute(bar, state, true);
   }
 
@@ -314,12 +338,25 @@ export class Engine {
     if (!this.started) return this.append(bar, state);
     this.rollback();
     this.updates += 1;
+    // A revision replaces the bar the fold already read, so the bucket it is
+    // inside is rebuilt from this reading rather than from the one it replaced.
+    this.known[this.index] = bar;
     return this.execute(bar, state, false);
   }
 
-  /** A whole dataset, appended in order. Stops at the first bar that fails. */
+  /**
+   * A whole dataset, appended in order. Stops at the first bar that fails.
+   *
+   * The whole set is handed to the fold before bar 0 rather than discovered one
+   * bar at a time. Nothing about a confirmed or a developing read changes: both
+   * stop at the bar being executed, so running a dataset and appending it bar by
+   * bar give the same numbers. A `"lookahead"` read is the one that differs, and
+   * that difference is the mode: it reads to the end of the bucket the chart bar
+   * is inside, which exists in a dataset and does not exist on a live feed.
+   */
   run(bars: readonly HostBar[], states: readonly BarState[] = []): RunResult {
     const out: BarResult[] = [];
+    this.known = [...bars];
     for (let i = 0; i < bars.length; i += 1) {
       const bar = bars[i];
       if (bar === undefined) continue;
@@ -332,7 +369,14 @@ export class Engine {
 
   private execute(bar: HostBar, state: BarState, isNew: boolean): BarResult {
     if (this.failure !== undefined) {
-      return { index: this.index, columns: [], applied: false, effects: [], diagnostic: this.failure };
+      return {
+        index: this.index,
+        columns: [],
+        applied: false,
+        effects: [],
+        alerts: [],
+        diagnostic: this.failure,
+      };
     }
     const index = this.index;
     this.facts = factsFor(index, this.supplied, state, isNew, this.updates);
@@ -346,10 +390,7 @@ export class Engine {
       this.channels.clear();
       this.registers.clearCurrent();
       this.budget.begin(index);
-      for (const grid of this.grids) {
-        const object = this.heap.get(grid.id);
-        if (object !== undefined && object.kind === 'table') object.cells = [];
-      }
+      this.grids.clear();
       this.machine.begin(this.view, index);
 
       // Step 4.
@@ -358,6 +399,9 @@ export class Engine {
         if (register.kind !== 'bar' || register.field === null) continue;
         this.registers.set(register.id, barField(register.field, bar, this.facts));
       }
+      // The same step fills each read's `"request"` register, absent where the
+      // answer has not arrived or the read's mode allows no value yet (2.16).
+      if (!this.requests.empty) this.requests.fill(this.registers, this.known, index, isNew);
 
       // Step 5. An input's value and a grid's handle land in their slots here,
       // and nothing is resolved: that happened once, at load.
@@ -365,7 +409,7 @@ export class Engine {
         slots[input.slot] =
           input.field === undefined ? input.value : barField(input.field, bar, this.facts);
       }
-      for (const grid of this.grids) slots[grid.slot] = reference(grid.id);
+      this.grids.fill(slots);
 
       // Step 6.
       this.machine.run();
@@ -377,11 +421,18 @@ export class Engine {
     this.registers.close(index);
     // Step 8: the columns, whatever the bar's state.
     this.channels.publish(index);
-    // Step 9.
+    // Step 9. The deferred channels and the pending effects, together: a
+    // marker, an alert and an order are one decision about one bar.
     const applied = this.facts.isConfirmed || this.onUnconfirmed;
-    const effects = this.channels.decide(applied);
+    const effects = this.channels.decide(index, applied);
     const route = this.options.host?.route;
     if (route !== undefined) for (const effect of effects) route(effect, index);
+    const alerts = applied
+      ? this.alerting.raise(
+          { index, time: bar.time ?? null, isRealtime: this.facts.isRealtime },
+          (channel) => this.channels.at(channel, index),
+        )
+      : [];
     // Step 10.
     this.registers.trim(index, this.program.limits.history);
 
@@ -391,6 +442,7 @@ export class Engine {
       columns: this.channels.row(index),
       applied,
       effects,
+      alerts,
       diagnostic: undefined,
     };
   }
@@ -409,7 +461,7 @@ export class Engine {
       thrown instanceof ScriptError ? thrown.diagnostic : unexpected('the bar', thrown);
     this.rollback();
     this.failure = diagnostic;
-    return { index: this.index, columns: [], applied: false, effects: [], diagnostic };
+    return { index: this.index, columns: [], applied: false, effects: [], alerts: [], diagnostic };
   }
 
   /** Step 11, and the sweep that pays for the objects the bar left behind. */
@@ -419,7 +471,7 @@ export class Engine {
     this.heap.sweep((visit) => {
       this.memory.walk(visit);
       this.registers.walk(visit);
-      for (const grid of this.grids) visit(reference(grid.id));
+      this.grids.walk(visit);
     });
   }
 
@@ -434,21 +486,12 @@ export class Engine {
   }
 
   /** The drawing objects a host should render, in creation order. */
-  drawings(): readonly { readonly id: number; readonly object: DrawingObject }[] {
-    return this.heap.drawings();
+  drawings(): readonly Drawing[] {
+    return drawingsIn(this.heap);
   }
 
   /** The grids and the cells the last executed bar wrote into them. */
   tables(): readonly Grid[] {
-    return this.grids.map((grid) => {
-      const object = this.heap.get(grid.id);
-      const table = object !== undefined && object.kind === 'table' ? object : undefined;
-      return {
-        key: grid.key,
-        rows: table?.rows ?? 0,
-        cols: table?.cols ?? 0,
-        cells: table?.cells ?? [],
-      };
-    });
+    return this.grids.read();
   }
 }

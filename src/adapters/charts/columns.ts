@@ -21,8 +21,15 @@ import { isColourValue, packChannels, unpackColour } from './colours.js';
 import type { ChartValues } from './contract.js';
 import type { Columns } from './run.js';
 
-/** Which part of a channel's value a column carries. */
-export type ColumnPart = 'value' | 'rgb' | 'alpha';
+/**
+ * Which part of a channel's value a column carries.
+ *
+ * `flag` is a condition rather than a number: a channel that published `true`
+ * for the bar reads 1 and everything else, absence included, reads as a gap.
+ * That is what lets a watched condition travel in a table of numbers, and it
+ * keeps `language.md` 6.6's answer intact on the way: absent is not true.
+ */
+export type ColumnPart = 'value' | 'rgb' | 'alpha' | 'flag';
 
 export interface ColumnSpec {
   readonly key: string;
@@ -86,6 +93,7 @@ export function valuesFrom(
 
 function partOf(value: Value, part: ColumnPart): number | null {
   if (part === 'value') return typeof value === 'number' ? value : null;
+  if (part === 'flag') return value === true ? 1 : null;
   if (!isColourValue(value)) return null;
   return part === 'rgb' ? packChannels(value) : value.a;
 }

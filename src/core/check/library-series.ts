@@ -357,10 +357,17 @@ const maths: readonly LibraryEntry[] = [
   entry('orElse(x: T, fallback: T) -> T', {
     warmup: { kind: 'either', params: ['x', 'fallback'] },
   }),
-  entry('bool(x: any) -> bool', { warmup: TOTAL }),
+  // The three conversions. Two of them are spelled `to` and the type because
+  // `bool` and `number` are reserved words: a call has a name in front of it,
+  // a reserved word is not one, and a library that published those two spellings
+  // published two names no script could ever write. `text` is not the odd one
+  // out: `text` is not a type name either, the type is `string`, and the same
+  // call is the formatter as well (`text(x, 2)`), so it never collided and it
+  // keeps the name every script already writes.
+  entry('toBool(x: any) -> bool', { warmup: TOTAL }),
   entry('text(x: any) -> string'),
   entry('text(x: number, decimals: number) -> string'),
-  entry('number(s: string) -> number'),
+  entry('toNumber(s: string) -> number'),
 ];
 
 const colour: readonly LibraryEntry[] = [

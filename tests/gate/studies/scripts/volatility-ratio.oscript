@@ -1,0 +1,23 @@
+// The rate of change of a smoothed high to low range, which answers whether the
+// bar is getting wider rather than how wide it is.
+//
+// Exercises: an exponential mean of a range rather than of a price, a rate of
+// change taken over that mean, and the division that has no answer when a
+// stretch of perfectly flat bars leaves nothing to compare against.
+
+version 1
+
+study("Volatility ratio", precision = 4)
+
+periods  = input(10, "Periods", min = 1, max = 2000)
+lookback = input(10, "Rate of change lookback", min = 1, max = 2000)
+
+// An exponential mean rather than a simple one. A simple mean of ranges reacts
+// to one wide bar for a whole window and then drops it in a single step, which
+// prints a second move on the rate of change that the data never made.
+smoothed = ema(high - low, periods)
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(smoothed[lookback] == 0 ? none : 100 * (smoothed - smoothed[lookback]) / smoothed[lookback],
+     "Ratio", purple, width = 2)

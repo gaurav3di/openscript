@@ -1,0 +1,65 @@
+// A range that holds while every bar's body stays inside it, and the bar whose
+// body finally leaves it.
+//
+// Exercises a state machine carried in var across bars, two reads of that state
+// either side of its own reassignment, a rail that is absent while no range is
+// running, markers on the bar that broke out, and candles tinted for the bars
+// that were inside.
+
+version 1
+
+study("Consolidation and breakout", overlay = true, precision = 2)
+
+markBreaks = input(true, "Mark the breakouts")
+tintInside = input(true, "Tint the inside bars")
+
+// How stale a range may be before a body leaving it stops counting, and how
+// fresh. A body that escapes the bar right after the one that set the range is
+// that bar's own follow through rather than a break of a consolidation.
+minAge = 1
+maxAge = 250
+
+bodyTop = max(open, close)
+bodyBottom = min(open, close)
+
+var rangeTop = none
+var rangeBottom = none
+var setAt = 0
+
+// Read one. The range a bar breaks is the one it has not claimed yet, so these
+// three are read before the reassignment below.
+heldTop = rangeTop
+heldBottom = rangeBottom
+age = bar.index - setAt
+
+breakable = age > minAge and age <= maxAge
+brokeUp = breakable and bodyTop > heldTop
+brokeDown = breakable and bodyBottom < heldBottom
+
+// Bar 1 cannot be an inside bar: the range seeded on bar 0 has had no chance to
+// be broken, so measuring bar 1 against it would start a consolidation that was
+// never tested.
+inside = bar.index > 1 and bodyBottom >= heldBottom and bodyBottom <= heldTop and
+         bodyTop >= heldBottom and bodyTop <= heldTop
+
+if not inside
+    rangeTop = high
+    rangeBottom = low
+    setAt = bar.index
+
+// Read two, after the reassignment. A bar that took the range over prints
+// nothing, so the rails stop at the last bar the old range held. Bar 0 is the
+// one bar where the seed and the reassignment agree, so it prints its own high
+// and low and opens the first range.
+showRails = inside or bar.index == 0
+
+plot(showRails ? rangeTop : none, "Range high", fuchsia, width = 2)
+plot(showRails ? rangeBottom : none, "Range low", fuchsia, width = 2)
+
+if markBreaks and brokeUp
+    signal("BREAK UP", lime, at = "below", shape = "triangleUp")
+
+if markBreaks and brokeDown
+    signal("BREAK DOWN", red, at = "above", shape = "triangleDown")
+
+barColor(tintInside and inside ? navy : none)

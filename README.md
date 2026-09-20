@@ -75,7 +75,7 @@ OpenScript is the opposite of that:
 
 - **Yours.** Plain text files in a folder. Version control, diffs, your own editor.
 - **Local.** It compiles and runs on your machine. No execution quota, no loop
-  timeout, no cap on how many things you may draw.
+  timeout, and nothing you drew silently dropped to make room for the next one.
 - **Honest.** A higher timeframe read has to say whether it repaints. The
   compiler warns when a script would.
 - **Connected.** The same script places real orders through your own broker
@@ -189,7 +189,7 @@ fails the build.
 
 | Guarantee | How you can tell | Today |
 |---|---|---|
-| No `eval`, no generated code, runs under a strict content security policy | `scripts/check-no-eval.mjs`, over the source, the built output and the build steps themselves. It refuses `eval`, a generated function, the indirect route to one through a constructor property, a timer handed a string, a module loaded at run time and a script URL built at run time | Enforced |
+| No `eval`, no generated code, runs under a strict content security policy | `scripts/check-no-eval.mjs`, over the source, both built outputs, the tooling, the git hooks and the build steps themselves. It refuses `eval`, the function builder however it is reached, a constructor property, a name looked up on the global object by computed key, a timer handed a string, a module loaded at run time or given a specifier built out of text, the runtime's own compiler, code assembled out of bytes, text put into a document and a script URL built at run time. It attacks itself with every one of those forms before it reads a file | Enforced |
 | Zero runtime dependencies | `dependencies` is empty and stays empty | Enforced |
 | The pieces are separable: take the language without the chart, or the chart without the language | `scripts/check-layering.mjs`. The core may not import a package or touch a browser global | Enforced |
 | Small modules with a stated surface | `scripts/check-modularity.mjs`. A module's index is its only door | Enforced |

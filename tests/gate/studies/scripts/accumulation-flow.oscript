@@ -1,0 +1,15 @@
+// The running total of where each bar closed inside its own range, weighted by
+// the volume behind it.
+//
+// Exercises a running total that must never take an absent term: one hole in it
+// would blank every bar after it, so the bar with no range contributes nothing
+// instead.
+
+version 1
+
+study("Accumulation flow", overlay = false, precision = 2)
+
+reach = high - low
+flowStep = reach > 0 ? ((close - low) - (high - close)) / reach * volume : 0
+
+plot(cum(flowStep), "Accumulation", blue, width = 2)

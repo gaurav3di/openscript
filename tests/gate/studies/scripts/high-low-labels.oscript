@@ -1,0 +1,24 @@
+// A plate of text at every turning point, carrying the price that turned.
+//
+// Exercises a label anchored at a bar the script has already passed, text built
+// from a number with fixed decimals, and two objects created under two separate
+// conditions on the same bar.
+
+version 1
+
+study("High low labels", overlay = true, precision = 2)
+
+wings = input(2, "Bars on each side", min = 1, max = 20)
+
+topTurn    = pivotHigh(high, wings, wings)
+bottomTurn = pivotLow(low, wings, wings)
+
+// Anchored at the bar that turned rather than at the bar that confirmed it. The
+// study knows the turn only now, and the plate belongs where the turn happened.
+if not isNone(topTurn)
+    draw.label(time[wings], topTurn, text(topTurn, 2),
+               color = red, textColor = white, align = "center")
+
+if not isNone(bottomTurn)
+    draw.label(time[wings], bottomTurn, text(bottomTurn, 2),
+               color = green, textColor = white, align = "center")

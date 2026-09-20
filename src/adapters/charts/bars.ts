@@ -30,7 +30,7 @@ export interface SessionCalendar {
 }
 
 /** Milliseconds in a second, so the conversion is named rather than a literal. */
-const MS = 1000;
+export const MS = 1000;
 
 export function hostBar(bar: ChartBar): HostBar {
   return {

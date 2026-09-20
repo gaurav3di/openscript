@@ -1,0 +1,25 @@
+// The same double smoothing as the true strength reading at faster lengths,
+// drawn against its own signal, with the gap between the two as a column.
+//
+// Exercises: three columns out of one construction, a histogram that is the
+// difference between two plotted lines, and a study whose warmup is settled by
+// three lengths in a row.
+
+version 1
+
+study("Smoothed ergodic", precision = 4)
+
+longLen   = input(20, "Long length",   min = 1, max = 500)
+shortLen  = input(5,  "Short length",  min = 1, max = 500)
+signalLen = input(5,  "Signal length", min = 1, max = 500)
+
+moved  = change(close)
+top    = ema(ema(moved, longLen), shortLen)
+bottom = ema(ema(abs(moved), longLen), shortLen)
+
+value      = 100 * (top / bottom)
+signalLine = ema(value, signalLen)
+
+plot(value - signalLine, "Gap", fade(silver, 30), style = "histogram")
+plot(value, "Ergodic", aqua, width = 2)
+plot(signalLine, "Signal", orange, width = 2)

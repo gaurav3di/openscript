@@ -1,0 +1,78 @@
+// Where a fresh turn in the strength reading disagrees with the turn in price
+// beside it, with a plate drawn back at the bar that turned.
+//
+// Exercises a pivot's confirmation delay reaching four different places at once:
+// the readings sampled from the pivot bar, the count of bars since the previous
+// pivot, the previous pivot's own reading, and a plate anchored at the bar the
+// pivot happened on rather than at the bar that confirmed it.
+
+version 1
+
+study("Divergence plates", overlay = false, precision = 2)
+
+len        = input(14, "Strength length", min = 1, max = 500)
+leftBars   = input(5,  "Pivot left bars", min = 1, max = 100)
+rightBars  = input(5,  "Pivot right bars", min = 1, max = 100)
+rangeLower = input(5,  "Closest two pivots may be", min = 1, max = 1000)
+rangeUpper = input(60, "Furthest two pivots may be", min = 1, max = 1000)
+showHidden = input(false, "Mark the hidden classes too")
+
+osc = rsi(close, len)
+
+turnLow   = pivotLow(osc, leftBars, rightBars)
+turnHigh  = pivotHigh(osc, leftBars, rightBars)
+foundLow  = not isNone(turnLow)
+foundHigh = not isNone(turnHigh)
+
+// The pivot bar's own readings, sampled from the bar that confirms it.
+oscAt  = osc[rightBars]
+lowAt  = low[rightBars]
+highAt = high[rightBars]
+
+// Counted from the found flag delayed one bar, so the pivot being confirmed
+// right now is not counted as its own predecessor.
+sinceLow  = barsSince(orElse(foundLow[1], false))
+sinceHigh = barsSince(orElse(foundHigh[1], false))
+
+prevOscLow  = valueWhen(foundLow, oscAt, 1)
+prevLowAt   = valueWhen(foundLow, lowAt, 1)
+prevOscHigh = valueWhen(foundHigh, oscAt, 1)
+prevHighAt  = valueWhen(foundHigh, highAt, 1)
+
+// Every comparison here is fed an absent value until a second pivot exists, and
+// a comparison against absence is false, so nothing fires before then.
+lowInRange  = rangeLower <= sinceLow and sinceLow <= rangeUpper
+highInRange = rangeLower <= sinceHigh and sinceHigh <= rangeUpper
+
+// Four classes, each comparing the newest turn in the reading with the one
+// before it and the price at both. The two hidden classes are the same tests
+// with both comparisons reversed, and each is gated on its own setting so an
+// unwanted one produces no plate at all rather than an invisible one.
+bull = foundLow and lowInRange and oscAt > prevOscLow and lowAt < prevLowAt
+bear = foundHigh and highInRange and oscAt < prevOscHigh and highAt > prevHighAt
+hiddenBull = showHidden and foundLow and lowInRange and oscAt < prevOscLow and lowAt > prevLowAt
+hiddenBear = showHidden and foundHigh and highInRange and oscAt > prevOscHigh and highAt < prevHighAt
+
+plot(osc, "Strength", blue, width = 2)
+plot(bull ? oscAt : none, "Bull", lime, style = "lineWithMarkers")
+plot(bear ? oscAt : none, "Bear", red, style = "lineWithMarkers")
+plot(hiddenBull ? oscAt : none, "Hidden bull", lime, style = "lineWithMarkers")
+plot(hiddenBear ? oscAt : none, "Hidden bear", red, style = "lineWithMarkers")
+
+// A plate rather than a marker, because a marker lands on the bar being
+// executed and this belongs at the bar that turned.
+if bull
+    draw.label(time[rightBars], oscAt, "Bull", color = lime, textColor = black)
+
+if bear
+    draw.label(time[rightBars], oscAt, "Bear", color = red, textColor = white)
+
+if hiddenBull
+    draw.label(time[rightBars], oscAt, "H bull", color = lime, textColor = black)
+
+if hiddenBear
+    draw.label(time[rightBars], oscAt, "H bear", color = red, textColor = white)
+
+level(70, "High", gray, style = "dashed")
+level(50, "Middle", gray, style = "dashed")
+level(30, "Low", gray, style = "dashed")

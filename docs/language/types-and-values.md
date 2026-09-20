@@ -367,8 +367,8 @@ There are four, and they are all calls.
 |---|---|---|---|
 | `text(x)` | any value | `string` | `text(none)` is the string `"none"` |
 | `text(x, decimals)` | `number` | `string` | Fixed decimals, halves away from zero |
-| `number(s)` | `string` | `number` | `none` when the string does not parse |
-| `bool(x)` | `none` or `bool` | `bool` | `none` becomes `false`; a number is refused |
+| `toNumber(s)` | `string` | `number` | `none` when the string does not parse |
+| `toBool(x)` | `none` or `bool` | `bool` | `none` becomes `false`; a number is refused |
 
 ```
 version 1
@@ -389,10 +389,14 @@ if bar.isLast
     print(message)
 ```
 
-`number(s)` is the one conversion that can fail, and it fails the way everything
-else in this language fails: it returns the absent value rather than raising.
-`number("12.5")` is `12.5`, `number("12.5%")` is `none`. Test it with `isNone`
-before you rely on it.
+`toNumber(s)` is the one conversion that can fail, and it fails the way
+everything else in this language fails: it returns the absent value rather than
+raising. `toNumber("12.5")` is `12.5`, `toNumber("12.5%")` is `none`. Test it
+with `isNone` before you rely on it.
+
+Two of the four are spelled `to` and the type because `bool` and `number` are
+reserved words, and a call has to begin with a name. Writing `number("12.5")` is
+OS1019, and the fix it gives names `toNumber`.
 
 ## Conversions the language refuses
 
@@ -407,7 +411,7 @@ anywhere.
 | `if hits` | OS2011 | `if hits > 0` |
 | `up ? 1 : "down"` | OS2012, the arms disagree | Make both arms one type, or use `none` |
 | `["RSI", 14]` | OS2013, a mixed array literal | Two arrays, indexed together |
-| `bool(1)` | Refused, numbers are not booleans | `n != 0` |
+| `toBool(1)` | Refused, numbers are not booleans | `n != 0` |
 | `len = 14` then `len = "fourteen"` | OS2003, the type was fixed | Use a second name |
 
 That last row is a rule in its own right: **a name's type is fixed by its first
@@ -424,7 +428,7 @@ that holds `none` on some bars and a number on others is an ordinary
 
 | Code | Means | Usual fix |
 |---|---|---|
-| OS2003 | Two types do not mix, or a name changed type | Convert with `text`, `number` or `bool`, or use a second name |
+| OS2003 | Two types do not mix, or a name changed type | Convert with `text`, `toNumber` or `toBool`, or use a second name |
 | OS2004 | The value has no history | Name the per-bar number at the top level of the file, and read that name |
 | OS2011 | A condition is not a `bool` | Write the test out: `x > 0`, `isNone(x)`, `s != ""` |
 | OS2012 | The ternary arms have different types | Make them agree, or use `none` for the empty arm |

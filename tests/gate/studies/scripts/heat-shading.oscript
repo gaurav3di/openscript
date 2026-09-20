@@ -1,0 +1,23 @@
+// The pane behind the bars shaded by which zone the strength reading is in.
+//
+// Exercises a background, which is the one surface that composes rather than
+// competing: two translucent shadings from two studies both show, so nothing
+// has to decide which study owns it.
+
+version 1
+
+study("Heat shading", overlay = true, precision = 2)
+
+len  = input(14, "Length", min = 1, max = 500)
+upperZone = input(70, "Upper zone", min = 50, max = 100)
+lowerZone = input(30, "Lower zone", min = 0, max = 50)
+
+reading = rsi(close, len)
+
+plot(reading, "Strength", blue, width = 2, overlay = false)
+
+// Absence takes neither arm: while the reading is warming up the pane is left
+// alone rather than shaded as if the market were in the middle zone.
+background(isNone(reading) ? none :
+           reading > upperZone ? fade(red, 90) :
+           reading < lowerZone ? fade(green, 90) : fade(silver, 96))

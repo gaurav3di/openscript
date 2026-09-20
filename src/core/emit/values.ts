@@ -24,6 +24,7 @@
  */
 import type { Argument, Call, Expression, NameReference } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
+import { FOLDABLE_CALLS } from '../check/index.js';
 import type { Colour, Field } from './program.js';
 import { hexColour, namedColour } from './colours.js';
 
@@ -82,11 +83,18 @@ function channel(x: number): number {
  * `mix` is included because it is the call that produces fractional channels
  * and is therefore the one where the rounding rule bites; `alpha` is included
  * because it returns a number and a script may use one in a field.
+ *
+ * Which names those are is the checker's `FOLDABLE_CALLS`, and is read from
+ * there rather than repeated here: the checker accepts a call in a field that
+ * has to be fixed before bar 0 on the strength of this folding it, so the two
+ * lists being one list is what keeps the compiler from refusing a script it had
+ * already passed.
  */
 function foldColourCall(
   name: string,
   args: readonly (Value | undefined)[],
 ): Value | undefined {
+  if (!FOLDABLE_CALLS.has(name)) return undefined;
   if (name === 'rgb' || name === 'rgba') {
     const r = numberOf(args[0]);
     const g = numberOf(args[1]);

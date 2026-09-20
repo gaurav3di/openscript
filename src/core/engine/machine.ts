@@ -109,6 +109,15 @@ export class Machine {
   private barIndex = 0;
   /** The loop whose `TICK` executed most recently, for OS5001's line. */
   private lastLoop = -1;
+  /**
+   * The value a top level `RET` handed back, `compiled-program.md` 2.16.1.
+   *
+   * A program's own `code` ends in `HALT` and produces nothing, so this stays
+   * absent for it. A request body ends in `RET` and its value is the read's
+   * value for that requested bar, which is the one thing the interpreter has to
+   * hand out rather than write into a register or a channel.
+   */
+  private returned: Value = ABSENT;
   private readonly ctx: MutableContext;
   private readonly ops: Ops;
 
@@ -145,11 +154,17 @@ export class Machine {
     this.view = view;
     this.barIndex = index;
     this.lastLoop = -1;
+    this.returned = ABSENT;
     this.callers.length = 0;
     this.frame = this.top;
     this.top.pc = 0;
     this.top.stack.length = 0;
     this.top.slots.fill(ABSENT);
+  }
+
+  /** What the last `run` handed back, for an instruction list that ends in `RET`. */
+  result(): Value {
+    return this.returned;
   }
 
   /** The slot array of frame 0, which inputs and grids are written into. */
@@ -309,7 +324,10 @@ export class Machine {
         case 'RET': {
           const value = pop(stack);
           const caller = this.callers.pop();
-          if (caller === undefined) return;
+          if (caller === undefined) {
+            this.returned = value;
+            return;
+          }
           this.frame = caller;
           caller.stack.push(value);
           break;

@@ -14,6 +14,14 @@
  * or `meta.onUnconfirmed` is true: a signal, an alert or an order waits for the
  * bar to close.
  *
+ * **A bar that was not decided reads back absent on its deferred channels.**
+ * Step 9 discards them rather than delivering them (5.1, and 12.7's held
+ * marker), and a reader of the columns is where that discarding has to be
+ * visible: a marker whose text stayed in the buffer would be drawn on the
+ * moving bar by whoever read the column, which is the one thing the deferral
+ * exists to prevent. The value is kept rather than erased, because the next
+ * execution of that bar may be the one that confirms it.
+ *
  * A second write on the same bar replaces the first, so the last write wins and
  * no surface needs a rule of its own.
  */
@@ -37,11 +45,16 @@ export class Channels {
   private readonly deferred: boolean[];
   /** One column per channel: the value published for each bar. */
   private readonly columns: Value[][];
+  /** Whether step 9 applied the deferred channels for each bar. */
+  private readonly decided: boolean[] = [];
   private pending: PendingEffect[] = [];
+  /** Whether any channel at all is deferred, so the common case costs nothing. */
+  private readonly anyDeferred: boolean;
 
   constructor(channels: readonly Channel[]) {
     this.current = new Array<Value>(channels.length).fill(ABSENT);
     this.deferred = channels.map((one) => one.defer);
+    this.anyDeferred = this.deferred.some((one) => one);
     this.columns = channels.map(() => []);
   }
 
@@ -86,7 +99,8 @@ export class Channels {
    * true halfway through a bar and false when it closed never places an order,
    * because the execution that produced the record was thrown away.
    */
-  decide(apply: boolean): readonly PendingEffect[] {
+  decide(bar: number, apply: boolean): readonly PendingEffect[] {
+    this.decided[bar] = apply;
     if (!apply) {
       this.pending = [];
       return [];
@@ -103,19 +117,36 @@ export class Channels {
 
   /** The value published for one channel on one bar, absent where nothing wrote. */
   at(channel: number, bar: number): Value {
+    if (this.withheld(channel, bar)) return ABSENT;
     return this.columns[channel]?.[bar] ?? ABSENT;
   }
 
   /** One channel's whole column, for a host building a plotted series. */
   column(channel: number, bars: number): readonly Value[] {
     const held = this.columns[channel] ?? [];
+    const deferred = this.anyDeferred && this.deferred[channel] === true;
     const out: Value[] = [];
-    for (let bar = 0; bar < bars; bar += 1) out.push(held[bar] ?? ABSENT);
+    for (let bar = 0; bar < bars; bar += 1) {
+      out.push(deferred && this.decided[bar] !== true ? ABSENT : held[bar] ?? ABSENT);
+    }
     return out;
   }
 
   /** Every channel's value on one bar, which is what a bar's result carries. */
   row(bar: number): readonly Value[] {
-    return this.columns.map((column) => column[bar] ?? ABSENT);
+    return this.columns.map((column, channel) =>
+      this.withheld(channel, bar) ? ABSENT : column[bar] ?? ABSENT,
+    );
+  }
+
+  /**
+   * Whether a channel's value for a bar is one step 9 discarded.
+   *
+   * A channel that is not deferred is never withheld, and a bar step 9 applied
+   * withholds nothing, so this is false for every channel of every confirmed
+   * bar and for every plot column ever.
+   */
+  private withheld(channel: number, bar: number): boolean {
+    return this.anyDeferred && this.deferred[channel] === true && this.decided[bar] !== true;
   }
 }

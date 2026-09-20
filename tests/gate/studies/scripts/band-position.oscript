@@ -1,0 +1,25 @@
+// Where the source sits inside its own deviation bands, rescaled so the lower
+// rail reads zero and the upper reads one.
+//
+// Exercises levels in a pane of the study's own, a reading that is deliberately
+// unbounded, and a flat window, where the two rails meet and the reading has no
+// answer rather than a fabricated one.
+
+version 1
+
+study("Band position", overlay = false, precision = 4)
+
+len  = input(20,  "Length", min = 1, max = 2000)
+mult = input(2.0, "Deviations", min = 0.001, max = 50)
+src  = input(close, "Source")
+
+rails = bollinger(src, len, mult)
+upperRail = element(rails, 1)
+lowerRail = element(rails, 2)
+span = upperRail - lowerRail
+
+plot(span > 0 ? (src - lowerRail) / span : none, "Position", blue, width = 2)
+
+level(1, "Upper rail", red, style = "dashed")
+level(0.5, "Middle", blue, style = "solid")
+level(0, "Lower rail", green, style = "dashed")

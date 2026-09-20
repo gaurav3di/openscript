@@ -1,0 +1,30 @@
+// A frame around the window's range with a plate on each edge, both replaced
+// every bar rather than moved.
+//
+// Exercises creating and deleting objects on the same bar, which is what a study
+// that redraws rather than mutates does, and the rule that a deleted object is
+// gone rather than hidden.
+
+version 1
+
+study("Lookback box", overlay = true, precision = 2)
+
+len = input(15, "Window", min = 2, max = 500)
+
+top    = highest(high, len)
+bottom = lowest(low, len)
+
+var frame    = none
+var topPlate = none
+var lowPlate = none
+
+if not isNone(top) and not isNone(bottom)
+    // Deleted before the new ones are made, so the chart holds three objects at
+    // a time rather than three per bar.
+    if not isNone(frame)
+        draw.delete(frame)
+        draw.delete(topPlate)
+        draw.delete(lowPlate)
+    frame = draw.box(time[len - 1], top, time, bottom, color = teal, fillColor = fade(teal, 94))
+    topPlate = draw.label(time, top, text(top, 2), color = teal, textColor = black)
+    lowPlate = draw.label(time, bottom, text(bottom, 2), color = teal, textColor = black)

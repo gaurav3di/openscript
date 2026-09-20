@@ -1,0 +1,38 @@
+// A coarse timeframe trend read drawn over a fine timeframe chart, stating in
+// the source which of the three readings it takes.
+//
+// Exercises: a read of a coarser interval folded onto this chart's bars, an
+// average computed on the folded bars rather than on the chart's, bar colouring
+// and pane shading driven by the regime, and a marker on the bar the regime
+// changes.
+
+version 1
+
+study("Wider bias", overlay = true, precision = 2)
+
+wideTf  = input("10", "Bias timeframe", kind = "interval")
+biasLen = input(3,    "Bias average length", min = 2, max = 500)
+
+// "confirmed" is the default and the only honest one on history: it reads the
+// last coarse bar that has finished and holds it across the one now forming, so
+// what is on the chart today is what was on it at the time.
+wideClose   = req.timeframe(wideTf, close, mode = "confirmed")
+wideAverage = req.timeframe(wideTf, sma(close, biasLen), mode = "confirmed")
+
+// The average is computed from the folded bars, not from the chart's: a three
+// period average of coarse closes sampled onto every fine bar, which is not the
+// same series as a three period average of fine closes.
+up   = not isNone(wideAverage) and wideClose > wideAverage
+down = not isNone(wideAverage) and wideClose < wideAverage
+
+plot(wideClose,   "Wider close",   fade(silver, 40), style = "step")
+plot(wideAverage, "Wider average", orange, width = 2, style = "step")
+
+barColor(up ? lime : down ? red : none)
+background(up ? fade(lime, 95) : down ? fade(red, 95) : none)
+
+if up and not orElse(up[1], false)
+    signal("BIAS UP", lime, at = "below", shape = "triangleUp")
+
+if down and not orElse(down[1], false)
+    signal("BIAS DOWN", red, at = "above", shape = "triangleDown")

@@ -1,0 +1,27 @@
+// Candles whose close is the whole bar's average and whose open is the midpoint
+// of the previous blended candle, so a run of one colour reads as a trend.
+//
+// Exercises a bar shaped output built from a recurrence rather than from a read,
+// and the first bar, where there is no previous blended candle to take a
+// midpoint of.
+
+version 1
+
+study("Blended candles", overlay = true, precision = 2)
+
+var lastOpen  = none
+var lastClose = none
+
+blendClose = (open + high + low + close) * 0.25
+blendOpen  = isNone(lastOpen) or isNone(lastClose) ?
+             (open + close) / 2 : (lastOpen + lastClose) / 2
+blendHigh  = max(high, max(blendOpen, blendClose))
+blendLow   = min(low, min(blendOpen, blendClose))
+
+lastOpen  = blendOpen
+lastClose = blendClose
+
+plotCandles(blendOpen, blendHigh, blendLow, blendClose, "Blended",
+            colorUp = lime, colorDown = red)
+
+barColor(blendClose >= blendOpen ? lime : red)

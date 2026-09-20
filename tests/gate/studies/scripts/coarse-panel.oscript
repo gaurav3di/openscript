@@ -1,0 +1,30 @@
+// A panel of readings taken from a coarser timeframe.
+//
+// Exercises a grid whose contents come from a read rather than from the chart's
+// own bars, and the one thing a panel has to say honestly: that a coarse bar has
+// not closed yet.
+
+version 1
+
+study("Coarse panel", overlay = true)
+
+panelTf = input("5", "Panel timeframe", kind = "interval")
+meanLen = input(3, "Mean length", min = 2, max = 500)
+
+panel = table("Coarse", rows = 3, cols = 2, position = "topLeft", textColor = silver)
+
+coarseClose = req.timeframe(panelTf, close)
+coarseMean  = req.timeframe(panelTf, ema(close, meanLen))
+
+fn show(value, decimals) => isNone(value) ? "waiting" : text(value, decimals)
+
+state = isNone(coarseMean) ? "waiting" :
+        coarseClose > coarseMean ? "above" : coarseClose < coarseMean ? "below" : "level"
+
+cell(panel, 0, 0, "Coarse close", align = "left")
+cell(panel, 0, 1, show(coarseClose, 2), align = "right")
+cell(panel, 1, 0, "Coarse mean", align = "left")
+cell(panel, 1, 1, show(coarseMean, 2), align = "right")
+cell(panel, 2, 0, "Close against mean", align = "left")
+cell(panel, 2, 1, state, textColor = state == "above" ? lime : state == "below" ? red : silver,
+     align = "right")

@@ -1,0 +1,32 @@
+// One line kept for the life of the study, joining the last two turning highs
+// and moved as each new one arrives.
+//
+// Exercises an object created once and mutated afterwards rather than recreated,
+// which is the difference between a chart holding one line and a chart holding
+// one line per bar.
+
+version 1
+
+study("Link line", overlay = true, precision = 2)
+
+wings = input(2, "Bars on each side", min = 1, max = 20)
+
+topTurn = pivotHigh(high, wings, wings)
+
+var link = none
+var lastTime = none
+var lastPrice = none
+
+if not isNone(topTurn)
+    turnTime = time[wings]
+    if isNone(link)
+        // The first turn has nothing to join to, so the line is not created
+        // until a second one exists.
+        if not isNone(lastTime)
+            link = draw.line(lastTime, lastPrice, turnTime, topTurn,
+                             color = orange, width = 2, style = "solid")
+    else
+        draw.setFrom(link, lastTime, lastPrice)
+        draw.setTo(link, turnTime, topTurn)
+    lastTime = turnTime
+    lastPrice = topTurn

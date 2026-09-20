@@ -1,0 +1,72 @@
+// A stop that accelerates toward price, flips when price reaches it, and is
+// held out of the previous two bars' range.
+//
+// Exercises: a recursion with four pieces of carried state, a clamp that has to
+// be applied after the flip rather than before it, and a marker on each flip.
+//
+// The recursion is written out here rather than taken from the library's own
+// stop and reverse, and the two are not the same study: the library's follows
+// the plain description and applies no clamp, which `stdlib.md` section 4 says
+// in as many words. A study defined with the clamp has to write the clamp.
+
+version 1
+
+study("Parabolic stop", overlay = true, precision = 2)
+
+startRate = input(0.02, "Start",     min = 0.001, max = 1)
+stepRate  = input(0.02, "Increment", min = 0.001, max = 1)
+maxRate   = input(0.2,  "Maximum",   min = 0.01,  max = 1)
+
+var goingUp  = true
+var stop    = none
+var extreme = none
+var rate    = 0.0
+var seeded  = false
+
+turnedLong  = false
+turnedShort = false
+
+// The seed bar carries the seed itself, and bar 0 carries nothing: the side is
+// taken from whether bar 1 closed at or above bar 0.
+if not seeded and not bar.isFirst
+    goingUp  = close >= close[1]
+    stop    = goingUp ? low[1] : high[1]
+    extreme = goingUp ? high : low
+    rate    = startRate
+    seeded  = true
+else if seeded
+    stop = stop + rate * (extreme - stop)
+
+    // The flip is decided on the propagated stop, before the clamp below: a
+    // stop already pulled back inside the previous two bars can no longer be
+    // breached, and clamping first would swallow flips the definition does
+    // fire. On a flip the stop is the ending side's extreme, widened to include
+    // this bar, so it is not left inside the bar that triggered it.
+    if goingUp and low < stop
+        goingUp      = false
+        stop        = max(extreme, high)
+        extreme     = low
+        rate        = startRate
+        turnedShort = true
+    else if not goingUp and high > stop
+        goingUp     = true
+        stop       = min(extreme, low)
+        extreme    = high
+        rate       = startRate
+        turnedLong = true
+    else if goingUp and high > extreme
+        extreme = high
+        rate    = min(maxRate, rate + stepRate)
+    else if not goingUp and low < extreme
+        extreme = low
+        rate    = min(maxRate, rate + stepRate)
+
+    stop = goingUp ? min(min(stop, low[1]), low[2]) : max(max(stop, high[1]), high[2])
+
+plot(stop, "Stop", orange, style = "lineWithMarkers")
+
+if turnedLong
+    signal("FLIP LONG", lime, at = "below", shape = "arrowUp")
+
+if turnedShort
+    signal("FLIP SHORT", red, at = "above", shape = "arrowDown")

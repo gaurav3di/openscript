@@ -66,14 +66,63 @@ export function reportCallWarnings(
   }
 }
 
+/**
+ * The name one watched condition is known by, `stdlib.md` 16.1.
+ *
+ * It is the `id` the script wrote, and where there is none to write down, one
+ * derived from the line the call sits on. The derivation is here, once, because
+ * the checker reports two alerts that would land under one name and the emitter
+ * writes the name into `outputs.alerts[].key`, and two spellings of it would be
+ * two different answers to "which subscription is this".
+ *
+ * An id is written down only when it is a literal. One taken from an `input()`
+ * is a name that changes when a setting changes, and a subscription keyed on it
+ * would stop matching the moment a user touched the dialog, so it is derived
+ * like an absent one and OS8008 says so.
+ */
+export function alertKey(id: string | undefined, line: number): string {
+  return id === undefined || id === '' ? `alert@${line}` : id;
+}
+
+/** The `id` a call wrote down, or nothing where it wrote none it can keep. */
+function writtenAlertId(entry: LibraryEntry, checked: CheckedCall): string | undefined {
+  const written = literalString(argumentFor(entry, checked, 'id')?.value);
+  return written === '' ? undefined : written;
+}
+
+/**
+ * OS3017 over the watched conditions: two alerts that would share one name.
+ *
+ * A subscription is keyed by the name, so two entries under one name leave the
+ * host with two conditions and one row: whichever it keeps, the other fires
+ * nothing and nothing says which of the two the user subscribed to. The check
+ * runs over the derived name as well as the written one, because an id somebody
+ * writes by hand can collide with a derived one.
+ */
+export function reportRepeatedAlertIds(checker: Checker): void {
+  const seen = new Map<string, number>();
+  for (const checked of checker.calls) {
+    if (checked.name !== 'alert' || checked.entry === undefined) continue;
+    const line = checked.call.span.line;
+    const key = alertKey(writtenAlertId(checked.entry, checked), line);
+    const first = seen.get(key);
+    if (first === undefined) {
+      seen.set(key, line);
+      continue;
+    }
+    checker.report('OS3017', checked.call.span, { kind: 'alert', name: `"${key}"`, line: first });
+  }
+}
+
 function reportAlertWarnings(
   checker: Checker,
   entry: LibraryEntry,
   checked: CheckedCall,
 ): void {
-  // With no id the compiler derives one from the call's position, which changes
-  // the moment a line is inserted above it and breaks a subscription with it.
-  if (argumentFor(entry, checked, 'id') === undefined) {
+  // With no id of its own the compiler derives one from the call's position,
+  // which changes the moment a line is inserted above it and breaks a
+  // subscription with it.
+  if (writtenAlertId(entry, checked) === undefined) {
     checker.report('OS8008', checked.call.span, { line: checked.call.span.line });
   }
 

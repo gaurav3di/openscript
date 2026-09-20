@@ -1,0 +1,76 @@
+// A box drawn where price turned, extended to the right while it holds, and
+// deleted when price closes through it or it grows too old.
+//
+// Exercises: drawing objects a script creates, mutates and deletes over many
+// bars; arrays held in a var; a descending loop with a negative step so that
+// removing an element does not renumber one the loop has yet to visit; and the
+// parallel arrays a script has to keep because a drawing cannot be read back.
+
+version 1
+
+study("Zone boxes", overlay = true, precision = 2)
+
+leftBars  = input(3,  "Bars to the left",  min = 1, max = 50)
+rightBars = input(3,  "Bars to the right", min = 1, max = 50)
+maxAge    = input(30, "Delete a zone this many bars after it was drawn", min = 5, max = 5000)
+
+var zones  = []
+var tops   = []
+var bases = []
+var sides  = []
+var born   = []
+
+// Counted downwards so that removing element i does not renumber an element the
+// loop has yet to visit. Counting upwards with a removal inside is the classic
+// way to skip half a list, and a negative step costs one word to make
+// impossible.
+for i = size(zones) - 1 to 0 step -1
+    top    = element(tops, i)
+    base  = element(bases, i)
+    side   = element(sides, i)
+    age    = bar.index - element(born, i)
+
+    // Closing through, not touching: a wick into a zone is the zone working,
+    // and deleting on a touch would delete every zone that ever did its job.
+    broken = side > 0 ? close > top : close < base
+
+    if broken or age > maxAge
+        draw.delete(element(zones, i))
+        remove(zones, i)
+        remove(tops, i)
+        remove(bases, i)
+        remove(sides, i)
+        remove(born, i)
+        continue
+
+    draw.setTo(element(zones, i), time, base)
+    draw.setTooltip(element(zones, i), (side > 0 ? "Above" : "Below") + ", " + text(age, 0) + " bars")
+
+turnUp   = pivotHigh(high, leftBars, rightBars)
+turnDown = pivotLow(low, leftBars, rightBars)
+
+if not isNone(turnUp)
+    startTime = time[rightBars]
+    zoneTop   = high[rightBars]
+    zoneBase = max(open[rightBars], close[rightBars])
+    shape = draw.box(startTime, zoneTop, time, zoneBase,
+                     color = red, fillColor = fade(red, 85), text = "Above")
+    push(zones, shape)
+    push(tops, zoneTop)
+    push(bases, zoneBase)
+    push(sides, 1)
+    push(born, bar.index - rightBars)
+
+if not isNone(turnDown)
+    startTime = time[rightBars]
+    zoneTop   = min(open[rightBars], close[rightBars])
+    zoneBase = low[rightBars]
+    shape = draw.box(startTime, zoneTop, time, zoneBase,
+                     color = lime, fillColor = fade(lime, 85), text = "Below")
+    push(zones, shape)
+    push(tops, zoneTop)
+    push(bases, zoneBase)
+    push(sides, -1)
+    push(born, bar.index - rightBars)
+
+plot(size(zones), "Live zones", fade(silver, 60), overlay = false)

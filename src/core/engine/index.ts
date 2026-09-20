@@ -22,7 +22,11 @@
  *   data produce the same numbers.
  */
 export { Engine, load } from './engine.js';
-export type { BarResult, Grid, LoadOptions, LoadResult, RunResult } from './engine.js';
+export type { BarResult, LoadOptions, LoadResult, RunResult } from './engine.js';
+
+export type { AlertFiring } from './alerts.js';
+
+export type { Grid } from './grids.js';
 
 export type { BarFacts, BarState, HostBar } from './bars.js';
 export { BAR_FIELDS, barField, isBarField } from './bars.js';
@@ -30,9 +34,23 @@ export { BAR_FIELDS, barField, isBarField } from './bars.js';
 export type { Clock, EngineLimits } from './budget.js';
 export { DEFAULT_LIMITS, stepBound } from './budget.js';
 
+export type { Anchor, Drawing, DrawingKind } from './drawings.js';
+
 export type { PendingEffect } from './channels.js';
 
-export type { EffectRoute, EngineHost, Instrument, Position } from './host.js';
+export type {
+  EffectRoute,
+  EngineHost,
+  Instrument,
+  Position,
+  RequestAnswer,
+  RequestProvider,
+  RequestQuery,
+  RequestRefusal,
+} from './host.js';
+
+export type { Timeframe, TimeframeUnit } from './timeframe.js';
+export { bucketKeyOf, isIntraday, minutesOf, nominalMinutes, parseTimeframe } from './timeframe.js';
 
 export type { ResolvedInput, TimeResolver } from './inputs.js';
 export { constantValue, utcTime } from './inputs.js';

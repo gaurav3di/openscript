@@ -1,0 +1,15 @@
+// A simple mean whose window is weighted by the volume behind each bar, so the
+// bars that actually traded set the level.
+//
+// Exercises: a window over two series at once, the division that has no answer
+// when a window traded nothing at all, and a comparison against the unweighted
+// mean of the same window, which the two agree on only when volume is flat.
+
+version 1
+
+study("Volume weighted average", overlay = true, precision = 4)
+
+len = input(20, "Length", min = 1, max = 1000)
+
+plot(vwma(close, len), "Weighted", aqua, width = 2)
+plot(sma(close, len), "Unweighted", fade(silver, 50))

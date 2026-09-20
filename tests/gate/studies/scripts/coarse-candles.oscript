@@ -1,0 +1,19 @@
+// The coarser timeframe's own bars, drawn over the finer ones.
+//
+// Exercises a bar shaped output, which is four columns behind one declaration,
+// and four reads of the same timeframe whose values have to agree on which
+// coarse bar they came from.
+
+version 1
+
+study("Coarse candles", overlay = true, precision = 2)
+
+candleTf = input("5", "Candle timeframe", kind = "interval")
+
+coarseOpen  = req.timeframe(candleTf, open)
+coarseHigh  = req.timeframe(candleTf, high)
+coarseLow   = req.timeframe(candleTf, low)
+coarseClose = req.timeframe(candleTf, close)
+
+plotCandles(coarseOpen, coarseHigh, coarseLow, coarseClose, "Coarse candles",
+            colorUp = lime, colorDown = red)

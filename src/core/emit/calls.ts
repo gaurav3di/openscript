@@ -10,8 +10,10 @@
  */
 import type { Call, Expression, Member, NameReference } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
-import type { LibraryEntry } from '../check/index.js';
+import type { LibraryEntry, LibraryParameter } from '../check/index.js';
 import { libraryEntries } from '../check/index.js';
+import { namedColour } from './colours.js';
+import type { Value } from './values.js';
 import type { Emitter, Frame } from './context.js';
 import { calleeText } from './context.js';
 import { emitExpression } from './expressions.js';
@@ -102,21 +104,62 @@ function emitLibraryCall(
       continue;
     }
     const parameter = entry.parameters[i];
-    e.gap(
-      'an omitted optional argument is emitted as absent, because the library surface records ' +
-        'which parameters are optional and not what each one defaults to',
-      'compiled-program.md 4.10, against stdlib.md section 1',
-      call.span,
-      false,
-    );
+    const value = parameter === undefined ? undefined : defaultOf(parameter);
+    if (value === undefined) {
+      e.gap(
+        'an omitted optional argument is emitted as absent, because the library surface records ' +
+          'which parameters are optional and not what each one defaults to',
+        'compiled-program.md 4.10, against stdlib.md section 1',
+        call.span,
+        false,
+      );
+    }
     f.builder.at(call.span);
-    f.builder.push('CONST', e.pool.absent());
-    if (parameter === undefined) continue;
+    const constant = value === undefined ? undefined : e.pool.of(value);
+    f.builder.push('CONST', constant ?? e.pool.absent());
   }
 
   f.builder.at(call.span);
   const state = entry.stateful ? f.layout.state(index) : -1;
   f.builder.push('CALL_LIB', index, entry.parameters.length, state);
+}
+
+/**
+ * The constant an omitted argument becomes, from the default its signature
+ * declares.
+ *
+ * The text is read here rather than in the checker because a default is a
+ * value, and values are the emitter's: 4.10 puts named arguments, argument
+ * order and defaults entirely at compile time, so the program carries the
+ * number a script left out and no engine holds a table of them. A default the
+ * signature does not declare, or one whose text does not match its type, is
+ * nothing: the caller emits absence and records the gap rather than guessing at
+ * a value that would then be this compiler's invention.
+ */
+function defaultOf(parameter: LibraryParameter): Value | undefined {
+  const text = parameter.defaultText;
+  if (text === undefined) return undefined;
+  if (text === 'none') return { kind: 'absent' };
+  switch (parameter.type.kind) {
+    case 'bool':
+      return text === 'true' || text === 'false'
+        ? { kind: 'bool', value: text === 'true' }
+        : undefined;
+    case 'number': {
+      const value = Number(text);
+      return Number.isFinite(value) ? { kind: 'number', value } : undefined;
+    }
+    case 'string':
+      return text.length >= 2 && text.startsWith('"') && text.endsWith('"')
+        ? { kind: 'string', value: text.slice(1, -1) }
+        : undefined;
+    case 'color': {
+      const value = namedColour(text);
+      return value === undefined ? undefined : { kind: 'colour', value };
+    }
+    default:
+      return undefined;
+  }
 }
 
 /**

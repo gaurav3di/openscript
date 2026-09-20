@@ -1,0 +1,27 @@
+// The bar's body over its range, on the reading that a rising market closes
+// near its high. Both halves are smoothed by the fixed four bar kernel before
+// being totalled, so one wide bar cannot swing the answer on its own.
+//
+// Exercises: the four bar symmetric mean, a total taken over a series that
+// already carries a warmup gap, and a signal line that is the same kernel
+// applied to the study's own output.
+
+version 1
+
+study("Relative vigour", precision = 4)
+
+len = input(10, "Length", min = 1, max = 500)
+
+body  = swma(close - open)
+range = swma(high - low)
+
+top    = sum(body, len)
+bottom = sum(range, len)
+
+value  = bottom == 0 ? none : top / bottom
+signalLine = swma(value)
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(value, "Vigour", green, width = 2)
+plot(signalLine, "Signal", red, width = 2)

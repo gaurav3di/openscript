@@ -66,7 +66,17 @@ export function asWire(program: CompiledProgram): unknown {
 }
 
 export const HOST: EngineHost = {
-  instrument: { symbol: 'AAA', exchange: 'XX', interval: '1', tickSize: 0.05, lotSize: 50 },
+  // A zone, because a host states one: a day, a week and a month are dated
+  // rather than counted, so a read at one of them is absent without it, and a
+  // suite whose host stated none would never exercise the calendar fold.
+  instrument: {
+    symbol: 'AAA',
+    exchange: 'XX',
+    interval: '1',
+    timezone: 'UTC',
+    tickSize: 0.05,
+    lotSize: 50,
+  },
   now: 1_748_736_000_000,
   position: { size: 0, avgPrice: 0 },
   route: () => {},
@@ -139,8 +149,9 @@ export function flat(close: number, time = BASE_TIME): HostBar {
 /** The names of the target scripts that reach the engine at all. */
 export function emittableTargets(): readonly string[] {
   return ['01-ema-cross', '02-supertrend', '03-anchored-vwap', '04-rsi-divergence',
-    '05-opening-range', '08-dashboard-table', '09-supply-demand-zones',
-    '10-strategy-ema-cross', '11-strategy-opening-range'].map((one) => `${one}.oscript`);
+    '05-opening-range', '07-higher-timeframe-bias', '08-dashboard-table',
+    '09-supply-demand-zones', '10-strategy-ema-cross',
+    '11-strategy-opening-range'].map((one) => `${one}.oscript`);
 }
 
 /** A deep copy a test can mutate without disturbing the program it came from. */

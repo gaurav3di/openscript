@@ -1,0 +1,25 @@
+// Five bar reversal marks: the middle bar of five whose high tops the two bars
+// on each side of it, or whose low undercuts them.
+//
+// Exercises a pivot's confirmation delay, two marker call sites with a shape
+// and a side of their own, and a column that is absent again after every value.
+// The pattern is only known two bars after the bar that made it, so both the
+// column and the mark land on the bar that confirmed it.
+
+version 1
+
+study("Five bar reversal marks", overlay = true, precision = 2)
+
+wings = input(2, "Bars on each side", min = 1, max = 20)
+
+topPivot = pivotHigh(high, wings, wings)
+lowPivot = pivotLow(low, wings, wings)
+
+plot(topPivot, "Top", red, style = "lineWithMarkers")
+plot(lowPivot, "Bottom", lime, style = "lineWithMarkers")
+
+if not isNone(topPivot)
+    signal("TOP", red, at = "above", shape = "triangleDown")
+
+if not isNone(lowPivot)
+    signal("BOTTOM", lime, at = "below", shape = "triangleUp")

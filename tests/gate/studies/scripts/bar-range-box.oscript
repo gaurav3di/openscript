@@ -1,0 +1,24 @@
+// One box around the window's range, moved and relabelled on every bar.
+//
+// Exercises a single object mutated on every bar of the run, a caption rewritten
+// from the data, and a tooltip, which is a field with no column behind it.
+
+version 1
+
+study("Bar range box", overlay = true, precision = 2)
+
+len = input(10, "Window", min = 2, max = 500)
+
+top    = highest(high, len)
+bottom = lowest(low, len)
+
+var frame = none
+
+if not isNone(top) and not isNone(bottom)
+    if isNone(frame)
+        frame = draw.box(time[len - 1], top, time, bottom,
+                         color = navy, fillColor = fade(navy, 92), width = 1)
+    else
+        draw.setBounds(frame, time[len - 1], top, time, bottom)
+    draw.setText(frame, text(top - bottom, 2))
+    draw.setTooltip(frame, "Range over " + text(len, 0) + " bars")

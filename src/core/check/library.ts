@@ -86,6 +86,16 @@ export interface LibraryParameter {
   readonly type: Type;
   /** Whether the entry gives it a default. A missing required one is OS3012. */
   readonly optional: boolean;
+  /**
+   * The default, written as `stdlib.md`'s own tables write it, or nothing.
+   *
+   * An omitted argument is emitted as the constant this text names, so the
+   * default is a compile-time fact and no engine carries a table of them
+   * (`compiled-program.md` 4.10). A parameter with no text here is emitted as
+   * absent and the emitter records the gap, which is the state every optional
+   * parameter was in before any of them said what they default to.
+   */
+  readonly defaultText: string | undefined;
 }
 
 export interface LibraryEntry {
@@ -195,8 +205,10 @@ function splitParameters(text: string): readonly string[] {
  *
  * A name with no bracket is a value a script reads bare, such as `close` or
  * `bar.index`. A `?` after a parameter name means the library gives it a
- * default; what that default is belongs to the library manifest, not here, so
- * the checker never carries a second copy of a number it does not use.
+ * default, and `= value` after the type says what that default is, written the
+ * way `stdlib.md`'s tables write it so the two can still be compared by eye.
+ * The text is carried, never interpreted here: the emitter turns it into a
+ * constant, because that is where a default belongs (4.10).
  */
 export function entry(signature: string, options: EntryOptions = {}): LibraryEntry {
   const arrow = signature.indexOf('->');
@@ -216,10 +228,17 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
       if (colon < 0) throw new Error(`library parameter has no type: ${part}`);
       const written = part.slice(0, colon).trim();
       const optional = written.endsWith('?');
+      const rest = part.slice(colon + 1);
+      const equals = rest.indexOf('=');
+      const defaultText = equals < 0 ? undefined : rest.slice(equals + 1).trim();
+      if (defaultText !== undefined && !optional) {
+        throw new Error(`library parameter has a default and no question mark: ${part}`);
+      }
       parameters.push({
         name: optional ? written.slice(0, -1) : written,
-        type: parseType(part.slice(colon + 1)),
+        type: parseType(equals < 0 ? rest : rest.slice(0, equals)),
         optional,
+        defaultText,
       });
     }
   }

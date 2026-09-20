@@ -1,0 +1,35 @@
+// A running total of each bar's whole volume, signed by the direction its close
+// took, with a mean of that total and a band around it.
+//
+// Exercises: a running total whose first value is on bar 0, a mean and a
+// deviation taken over the study's own output rather than over price, and a
+// marker on each crossing of the mean.
+
+version 1
+
+study("On balance volume", precision = 0)
+
+maLen = input(9,   "Mean length", min = 1, max = 500)
+mult  = input(2.0, "Band width, in deviations", min = 0.001, max = 50)
+
+// A whole bar's volume on any up close, which is the difference from the study
+// that weights the contribution by how far price actually moved: here a drift
+// of one tick and a gap of five percent count the same.
+signed = close > close[1] ? volume : close < close[1] ? -volume : 0
+value  = cum(signed)
+
+middle = sma(value, maLen)
+width  = stdev(value, maLen) * mult
+
+upper = plot(middle + width, "Upper band", fade(green, 30))
+lower = plot(middle - width, "Lower band", fade(green, 30))
+fill(upper, lower, fade(green, 90))
+
+plot(value, "Balance", aqua, width = 2)
+plot(middle, "Mean", yellow, width = 2)
+
+if crossUp(value, middle)
+    signal("ABOVE MEAN", lime, at = "below", shape = "arrowUp")
+
+if crossDown(value, middle)
+    signal("BELOW MEAN", red, at = "above", shape = "arrowDown")

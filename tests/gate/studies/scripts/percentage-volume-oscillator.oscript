@@ -1,0 +1,32 @@
+// The same construction as the price oscillator, over volume rather than price.
+//
+// Exercises: a study whose source is the one bar field a host may not have, the
+// same four state histogram colouring driven by a different series, and the
+// division that has no answer on a feed that reports no volume.
+
+version 1
+
+study("Percentage volume oscillator", precision = 4)
+
+fastLen   = input(12, "Fast length",   min = 1, max = 500)
+slowLen   = input(26, "Slow length",   min = 1, max = 500)
+signalLen = input(9,  "Signal length", min = 1, max = 500)
+
+fast = ema(volume, fastLen)
+slow = ema(volume, slowLen)
+
+// A window that traded nothing has no baseline to express the spread as a
+// percentage of, so the reading is absent rather than an infinity that would
+// drag the pane's scale with it.
+value      = slow == 0 ? none : 100 * (fast - slow) / slow
+signalLine = ema(value, signalLen)
+gap        = value - signalLine
+
+growing = gap > orElse(gap[1], gap)
+shade   = gap >= 0 ? (growing ? teal : aqua) : (growing ? pink : red)
+
+level(0, "Zero", fade(silver, 60), style = "dashed")
+
+plot(gap, "Histogram", shade, style = "histogram")
+plot(value, "Oscillator", aqua, width = 2)
+plot(signalLine, "Signal", orange, width = 2)
