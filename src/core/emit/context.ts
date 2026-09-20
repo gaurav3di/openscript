@@ -265,6 +265,11 @@ export class Emitter {
     return this.checked.references.get(reference);
   }
 
+  /** The input one `input()` call declares, from the checker's own table. */
+  inputAt(call: Call): CheckedInput | undefined {
+    return this.checked.inputs.find((one) => one.call === call);
+  }
+
   /** Whether a call is a declaration rather than something an engine calls. */
   isDeclaration(name: string): boolean {
     return DECLARATION_CALLS.has(name);
@@ -354,6 +359,10 @@ export class Emitter {
         const checked = this.callAt(call);
         if (checked === undefined || checked.target !== 'library') return undefined;
         return { name: checked.name, args: checked.arguments };
+      },
+      input: (call: Call): Value | undefined => {
+        const input = this.inputAt(call);
+        return input === undefined ? undefined : { kind: 'input', key: inputKey(input) };
       },
     };
   }

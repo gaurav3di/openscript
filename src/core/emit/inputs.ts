@@ -13,7 +13,7 @@
  * is what says the string names a series, so the constant pool needs no tag of
  * its own for one.
  */
-import type { Argument } from '../ast/index.js';
+import type { Argument, Call } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import type { CheckedInput } from '../check/index.js';
 import type { Span } from '../span/index.js';
@@ -29,6 +29,9 @@ import type { Value } from './values.js';
 export function buildInputs(e: Emitter, f: Frame): void {
   const shadows: { readonly slot: number; readonly register: number; readonly span: Span }[] = [];
 
+  // One entry per checked input, in the checker's own order, so an input's `id`
+  // is its index here as well and `emitInputRead` can find the slot it was
+  // given without a second table to keep in step.
   for (const input of e.checked.inputs) {
     const binding = e.checked.bindings.find((one) => one.input === input.id);
     const slot = binding === undefined ? f.layout.slot(input.name) : f.layout.slotFor(binding);
@@ -49,6 +52,44 @@ export function buildInputs(e: Emitter, f: Frame): void {
     f.builder.push('LOAD', shadow.slot);
     f.builder.push('SSTORE', shadow.register);
   }
+}
+
+/**
+ * An `input()` written where a value belongs, which is a read of its slot.
+ *
+ * Reaching here means the call stands in an expression rather than being the
+ * whole of a statement, and `outputs.ts` is where that split is decided and
+ * argued. The declaration itself still emits nothing: the row and the slot are
+ * made above, before a statement is emitted, and the engine writes the slot at
+ * step 5 of every bar. All this adds is the one instruction that puts what the
+ * engine wrote on the stack.
+ *
+ * **A slot belongs to one frame** (3.2), and an input's slot belongs to the top
+ * level's. So a read from inside a function body, or from inside a read's
+ * expression, which is compiled as a program of its own over other bars, has no
+ * instruction that reaches it. `language.md` 13.4 puts an `input()` at the top
+ * level of a file in the first place, and where the checker has not already
+ * refused one this says the compiler cannot carry it rather than loading a slot
+ * of another frame that happens to have the same number.
+ */
+export function emitInputRead(e: Emitter, f: Frame, call: Call): void {
+  const input = e.inputAt(call);
+  const slot = input === undefined ? undefined : e.inputs[input.id]?.slot;
+  f.builder.at(call.span);
+  if (slot === undefined || !f.topLevel || e.request !== undefined) {
+    e.gap(
+      "an input() read from anywhere but the file's top level cannot be carried: an input's " +
+        'slot belongs to the top-level frame and no instruction reaches it from another one',
+      'compiled-program.md 2.6 and 3.2, against language.md 13.4',
+      call.span,
+      true,
+    );
+    // Absent rather than nothing, so the one refusal above is what a reader
+    // sees instead of a second one about a stack that does not add up.
+    f.builder.push('CONST', e.pool.absent());
+    return;
+  }
+  f.builder.push('LOAD', slot);
 }
 
 function entryFor(e: Emitter, input: CheckedInput, slot: number): CompiledInput {

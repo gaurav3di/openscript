@@ -2453,6 +2453,163 @@ yet.
 
 ---
 
+## 40. A quantity stated on a close, and the bar's rows that outlived their orders
+
+**Question.** `stdlib.md` 17.1 says no order crosses zero, and `close(qty)`
+crossed it. Measured against the built engine, on a leg holding one unit long,
+`close(qty = 5)` sent one sell of five: the leg ended the bar four short, under
+one position reference, with no diagnostic anywhere. Every other quantity a
+close sends is one the engine works out from the leg's own settled fills and is
+bounded by them; a quantity the script stated was passed through as written.
+Issue 0013 laid out three answers and declined to pick between them, correctly,
+because they are three different languages rather than three implementations of
+one.
+
+**Decision. A `qty` written on a close may not be larger than what that close is
+closing, and larger is OS7017, at the call, with the call sending nothing.** What
+it is closing is the whole leg where no tag is named and the part one tag
+entered where one is, which is the same number the engine already computes to
+size a close that states none.
+
+**Why not the first answer, sending what is there.** Clamping sends a quantity
+the script did not ask for and leaves the script believing it closed the one it
+did. That is the wrong-belief class this repository has now refused three times
+in a row, at OS7002 for an argument written as absent, at OS7004 for a sign that
+came out backwards, and at OS7016 for a tag no order places. Adding a fourth
+instance of it in the same release that removed the third would be incoherent.
+
+**Why not the third answer, reading it as a reversal.** It would make `close`
+able to open a position. `docs/strategies/orders.md` already calls that the most
+expensive naming mistake available, in its own paragraph about why `cancelAll`
+does not liquidate, and the language has `order.reverse` for scripts that mean
+it.
+
+**The rule underneath, which is the one that keeps being the answer.** An
+argument the script wrote is a claim, and a false claim is refused; an argument
+it did not write is the engine's to work out. That is why `buy(qty = none)` is
+OS7002 while `buy()` takes the declared size, and why `close(tag = "typo")` is
+OS7016 while `close(tag = "entry")` on an already flat tag stays silent. A
+quantity on a close is a claim about the strategy's own position, and the engine
+holds the ledger that settles it.
+
+**The consequence, which is deliberate.** `close(tag = "entry", qty = 1)` on a
+tag that has already flattened is now refused, while `close(tag = "entry")` on
+the same tag stays silent and idempotent. Those two look inconsistent side by
+side and are not, for exactly the reason above. The place a reader is stopped
+from tripping on it is `stdlib.md` 17.2's own close paragraph, and the same
+sentence is on the two documentation pages that teach the call.
+
+**What the refusal is, in full.** The ledger asks about the call before it maps
+it, so the call reaches no destination; and a bar that places a good order and
+then meets this refusal sends nothing at all, the good order included, because
+every call on a bar is mapped before any of them is routed.
+
+**Where it is not evaluated, and why that is stated rather than hidden.** The
+comparison is made only where the stated quantity and the folded position count
+the same thing, which is a declaration whose `qtyType` is `"units"`. A position
+is folded from filled quantities and a stated quantity is in the declaration's
+own unit (`host-interface.md` 7.1), so in lots, cash or equity percent the two
+are different kinds of number and the lot size that would join them is the fact
+OS7005 has been deferred on since the beginning. `refuse.ts` already refuses to
+evaluate a rule it cannot evaluate truthfully, and this is the fourth entry on
+that list rather than a new kind of exemption. A close that crosses zero is not
+refused there, and it is better named than answered with a number nobody can
+defend.
+
+**The second defect, found in the same place.** `engine.orders()` reported a row
+for an order no destination was ever handed. A bar that placed an order tagged
+`"good2"` and then called `cancel("nosuch")` left the destination with zero
+intents from that bar, which is right, and left the ledger reporting `good2` at
+`placed` with an empty `orderRef`. `stdlib.md` 17.7 says a row is appended when
+the order is sent, and `refuse.ts`'s own header says a refused call reaches no
+destination rather than being sent and then reported: both were true of the
+refused call and false of the good ones before it on the same bar. A host
+reconciling against that record after a stopped run reads an order it never
+received.
+
+**Decision, part two. A bar's rows and a bar's orders are the same set.** A
+refusal anywhere on a bar takes back every row that bar appended.
+
+**Why taken back rather than never written.** A row has to be there while the
+rest of the bar is mapped, because the calls after one are measured against the
+rows before it: `cancel` asks whether a tag names a working order, pyramiding
+counts the entries a position already holds, and a close measures what one tag
+entered. Deferring the append would turn an entry and a cancellation of it on one
+bar into OS7009. So the bar writes its rows and a refused bar undoes them, which
+is the shape the moving bar already uses on the cells, one scope up from the
+sentence the ledger already keeps for a single call.
+
+**Changes required.**
+
+- `errors.md` and `errors.json`: a new entry, OS7017, stage `runtime`.
+- `errors.md` 4, the ranges table: the OS7xxx count and the total.
+- `stdlib.md` 17.2: the paragraph on what a `qty` on a close may be, and the
+  paragraph on why the call with one is not idempotent while the call without
+  one is.
+- `stdlib.md` 17.7: a bar's rows and a bar's orders are the same set.
+- `feature-matrix.md` 29: three rows, `order/close-beyond-position`,
+  `order/close-qty-unit` and `order/bar-rows-and-intents`.
+- `docs/strategies/orders.md`: the ceiling in the exiting section, the pair of
+  calls that look inconsistent, and OS7017 in the refusal table.
+- `docs/strategies/reading-the-books.md`: the same pair beside the tag rules, and
+  OS7017 in the pitfalls table.
+- `docs/troubleshooting.md`: OS7017 in the refused-order table, and what to do.
+- `docs/reference/functions/strategy.md`: the ceiling and the idempotence note in
+  the `close` entry.
+- `src/core/engine/ledger/place.ts`: `closableUnits` exported, so the mapping and
+  the refusal read one number.
+- `src/core/engine/ledger/refuse.ts`: the refusal, and the unit narrowing added to
+  the header's list of what it will not evaluate.
+- `src/core/engine/ledger/ledger.ts` and `src/core/engine/orders.ts`: the bar's
+  rows taken back with the bar.
+
+**Still open, and deliberately not settled here.** `docs/strategies/orders.md`
+teaches `sell(qty = abs(pos.size) + newQty)` as "one instruction the engine
+splits into two orders, because no order crosses zero", and the engine splits
+nothing: `buy` and `sell` map to one order at the quantity written. Either the
+page is wrong or `entering` is, and that is a question about what an entry means
+rather than about what a close means. It needs its own issue and its own
+decision.
+
+---
+
+## 41. A specification sentence that could not be violated
+
+**Question.** `stdlib.md` 20.3's `ema` paragraph said "The new value is
+multiplied first and the running value second, and the two products are added in
+that order". Section 20 is the manifest a second engine implements from, and
+every sentence in it is meant to be a constraint an implementer can fail.
+
+**Decision. The sentence constrained nothing and is replaced by one that names
+the arrangement that actually varies.** Binary64 multiplication and addition are
+both commutative, so the swapped arrangement is not a second implementation at
+all: run over the eighty bar fixture the release gate compares bit for bit, it
+gives 0 differences out of the 164 values the three gate lengths produce. The
+arrangement that does vary is `running + (value - running) * weight`, which
+differs on 142 of those 164: 70 of 72 at length 9, 42 of 61 at length 20 and 30
+of 31 at length 50. It is also the one an implementer is most likely to reach
+for, because it is one multiplication rather than two, and it is the arrangement
+the same section already refuses for `rma` in the same words.
+
+**Why this matters more than a wording fix.** A sentence that cannot bite sends
+an implementer to check the half that does not matter, which costs them exactly
+the time section 20 exists to save. Two sentences beside it, on the seeding and
+on associativity, are correct and measured, and a reader who finds one sentence
+in a paragraph that cannot be wrong has no way to tell which of the others can.
+
+**Changes required.**
+
+- `stdlib.md` 20.3: the `ema` arrangement paragraph, naming
+  `running + (value - running) * weight` and the measured differences, and a
+  second paragraph saying what is deliberately not fixed and why.
+- `tests/gate/ema.test.ts`: two tests, one asserting that the refused
+  arrangement gives different numbers on the gate fixture and one asserting that
+  writing the two products in the other order gives the same ones. The second is
+  a statement about `compiled-program.md` 8.1's arithmetic rather than about this
+  library, and it is the measurement that justifies the silence.
+
+---
+
 ## Applier index
 
 Seven appliers, each owning its own files and nobody else's. A decision touching

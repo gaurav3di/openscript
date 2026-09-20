@@ -67,6 +67,17 @@ accepts are fields on the entry, beside `deferred` and for the same reason: an
 `transcript` for the entries whose example is the host's input rather than
 source.
 
+**A fix sentence is held to the language this release has.** The blocks are
+compiled and the sentence beside them is what a reader acts on, so every call a
+`fix` names is put to the compiler one at a time: a name the language does not
+have, or one marked planned, fails the build unless the entry itself carries a
+`deferred` sentence. And a fix that writes a call out with a reader's own values
+in it, a string literal or a named argument, has to show one of its calls in its
+own after block, because the block is the only part of an entry a compiler sees.
+Both rules are narrow and `scripts/lib/fix-sentence.mjs` says which cases they
+do not reach, because a check that overstates its reach is worse than one that
+states a small reach truthfully.
+
 **A test an entry points at is a test that exists.** The `test` field names a
 file under `tests/` that writes the code, or `null` saying in the open that
 nothing tests it. `scripts/check-catalogue-tests.mjs` resolves every pointer,

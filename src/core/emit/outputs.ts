@@ -93,6 +93,37 @@ function colourFor(
   return { colour: null, channel };
 }
 
+/**
+ * The per-bar work one declaration needs, which for two of them is none.
+ *
+ * **Every caller of this is a statement that is entirely one declaration call**:
+ * `plot(close, "C")` written on a line of its own, `panel = table(...)`, and
+ * `len = input(14, "Length")`. `statements.ts` sends all three forms here
+ * directly and `emitCall` sends nothing else, so reaching this function means
+ * the call declares and nothing is waiting for a value from it.
+ *
+ * That invariant is here for one case, and it is worth the paragraph because
+ * the case is easy to get subtly wrong in both directions. An `input()` is a
+ * row of the settings dialog and a slot the engine writes at step 5 of every
+ * bar, and 12.2 says in as many words that there is no instruction for one. But
+ * that is the reading of `len = input(14, "Length")` only, where the name and
+ * the input share one slot and the engine's write is the assignment. The same
+ * call written inside an expression, which `language.md` 13.2 asks for on the
+ * declaration line itself and 13.4 allows anywhere at the top level, has to
+ * leave its value on the stack like any other expression, and an emitter that
+ * emitted nothing there left the stack one value short and produced a program
+ * refused at 3.5 check 5 with OS6018: a correct script told it had met a broken
+ * compiler.
+ *
+ * So the two are told apart by **which caller they arrive through**, and never
+ * by inspecting the call. The statement is the only place that can see whether
+ * the call is the whole of itself, and it is the place that already knows: it
+ * had to decide that anyway to know whether to emit a store. Asking here
+ * instead would mean re-deriving from the checker's tables, at the one point
+ * with the least context, a fact the caller was holding when it called.
+ *
+ * `inputs.ts` has the other half, which is the read.
+ */
 export function emitDeclarationCall(
   e: Emitter,
   f: Frame,
@@ -102,8 +133,8 @@ export function emitDeclarationCall(
 ): string | undefined {
   switch (name) {
     case 'input':
-      // A row of the settings dialog and a slot the engine writes at step 5 of
-      // every bar. There is no instruction for it (2.6, and 12.2's reading).
+      // The row and the slot are made before any statement is emitted, and the
+      // engine writes the slot; the assignment itself has nothing to do (2.6).
       return undefined;
     case 'plot':
       return declarePlot(e, f, call);

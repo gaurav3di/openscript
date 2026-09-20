@@ -58,7 +58,7 @@ export interface LedgerOptions {
  */
 export interface PlacedCall {
   readonly intents: readonly OrderIntent[];
-  /** Why the call was refused, `errors.md` OS7002 to OS7013. */
+  /** Why the call was refused, `errors.md` OS7002 to OS7013 and OS7017. */
   readonly refusal: Diagnostic | undefined;
 }
 
@@ -91,12 +91,12 @@ export class Ledger {
    * returns no intent: there is nothing for a host to send and nothing to take
    * back afterwards. A call that sends two orders sends both or neither.
    *
-   * A refusal that names an order call earlier on the same bar, which OS7013
-   * is, leaves that earlier call's row where it is. The row is not deleted to
-   * match a later decision, because a row is the record of what the engine
-   * handed over and rewriting one backwards is the guesswork this ledger does
-   * not do; nothing reached a destination either way, since every call on a bar
-   * is mapped before any of them is routed.
+   * **The bar is the same promise one scope up**, and `discard` below is how
+   * it is kept. A refusal anywhere on a bar hands none of the bar's orders to a
+   * destination, so none of the bar's rows may survive it either, including the
+   * rows of calls that had already been mapped when the refusal happened. That
+   * is not the ledger rewriting a record backwards: nothing was handed over, so
+   * there is no record of a hand-over to rewrite.
    */
   place(
     name: string,
@@ -138,6 +138,47 @@ export class Ledger {
       }
     }
     return { intents, refusal: undefined };
+  }
+
+  /**
+   * The bar sent nothing after all: every row it appended is taken back.
+   *
+   * A refusal anywhere on a bar hands none of the bar's orders over, because
+   * every call is mapped before any of them is routed (`orders.ts`). Until this
+   * existed, the rows of the calls that had already been mapped stayed: a bar
+   * that placed an order and then met a refusal left `orders()` reporting an
+   * order at `placed` that no destination was ever handed, and a host
+   * reconciling after a stopped run saw an order it never received. 17.7 says a
+   * row is appended when the order is sent, and nothing had been sent.
+   *
+   * **Taken back rather than never written.** A row has to be there while the
+   * rest of the bar is mapped: `cancel` asks whether a tag names a working
+   * order, pyramiding counts the entries a position already holds, and a close
+   * measures what one tag entered, all from rows this same bar may have
+   * appended. Deferring the append would make an entry and a cancellation of it
+   * on one bar into OS7009. So the bar writes its rows and a refused bar undoes
+   * them, which is the same shape the moving bar already uses on the cells.
+   *
+   * The intent ids the bar minted are not reissued. An id is unique within a
+   * run (`stdlib.md` 17.7), a frame that quoted one must never match a later
+   * order, and a gap in the numbering is invisible to a host, so the cheap
+   * invariant is the one worth keeping.
+   *
+   * **`from` is the row count the routing pass began at**, and it is held by
+   * that pass rather than by a bar index kept here. A bar declared
+   * `onUnconfirmed` applies its effects on every execution of itself, so one bar
+   * can route more than once, and a mark taken when the bar index last changed
+   * would take back rows whose orders a previous execution really did hand over.
+   * The promise belongs to the pass that made it, so the mark does too.
+   */
+  discard(from: number): void {
+    const dropped = this.placed.length - from;
+    if (dropped <= 0) return;
+    for (const row of this.placed.slice(from)) this.byIntent.delete(row.intentId);
+    this.placed.length = from;
+    // One row appended pushed exactly one entry here, in the same order, so the
+    // orders OS7013 has seen this bar shrink by the same count.
+    this.sent.length = Math.max(0, this.sent.length - dropped);
   }
 
   /** A frame from the destination, held until the next bar boundary. */

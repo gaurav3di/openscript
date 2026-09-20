@@ -16,8 +16,11 @@ stuck, and they paste it; nothing had ever put one through a compiler. That is
 how OS7009's fix came to call a function the language does not have, be cited in
 five documents and sit there being read. Four more did not compile: OS7012's
 names a planned call, OS1023's puts a `plot` inside an `if`, and OS1022's and
-OS3003's are both refused by the emitter, which is a defect in the emitter and is
-recorded as one. Five compiled and warned, which is the compiler complaining about
+OS3003's were both refused by the emitter, which was a defect in the emitter and
+is fixed below. OS3003's example is back to the input form its own fix sentence
+names. OS1022's stays as deleting the trailing operator, on its own merits: the
+statement was already complete before the stray operator, and supplying an
+operand instead invents a number the reader never wrote. Five compiled and warned, which is the compiler complaining about
 the reader for doing what it had just told them to do. Every after block now
 compiles with no diagnostic, bar the two warnings that say a fragment stopped
 rather than that it is wrong.
@@ -567,6 +570,120 @@ always ran them that way. What was missing was the compiler saying so.
 A file that compiled clean before can report OS8001 now. Nothing it computes has
 changed, and the fix is the one the warning already names: take the call at the
 top level and use its result inside the guard.
+
+**A tunable declaration option now compiles.** `language.md` 13.2 has always
+allowed an option value to be "a literal, arithmetic over literals, or a call to
+`input()`", 13.4 allows an `input()` anywhere at the top level of a file, and
+`decisions.md` decision 9 settled how such an option reaches a compiled program.
+The emitter carried none of it. An `input()` that was not the entire right-hand
+side of a top-level assignment had nowhere to go, so
+`study("Range", precision = input(2, "Precision"))` was refused with OS6018 and
+no program, and so were `study(input("R", "Title"))`,
+`len = input(14, "Length") + 1` and an input written inside any other expression.
+OS6018's message says a program that fails verification came from a broken
+compiler, so a correct script was told it had found our bug, and every
+declaration option in the language was a literal in practice whatever the page
+said. A platform adopting the language from those pages wrote a study that would
+not compile.
+
+Two halves were missing and both are here. Folding now resolves an `input()`
+written in place to the `{ "input": "<key>" }` reference of
+`compiled-program.md` 2.3, which is the form decision 9 put in the format and
+which every field of `meta`, of `meta.strategy` and of every declaration in
+`outputs` may hold; the engine substitutes the resolved value at load, as it
+already did for an option written as a name. And an `input()` read inside an
+expression now loads the slot the engine writes at step 5 of every bar, while the
+same call written as the whole of `name = input(...)` goes on emitting nothing,
+because there the name and the input share that slot and the engine's write is
+the assignment. The two are told apart by which caller reaches the emitter, never
+by inspecting the call: the statement is the only place that can see whether the
+call is the whole of itself.
+
+A colour computed from an input comes back with the rest of it.
+`plot(close, "C", fade(input(aqua, "Tint"), 50))` was refused for the same
+reason: the per-bar colour path emits the expression a script wrote, and the
+input inside it emitted nothing. It paints the colour the setting gives it on
+every bar now, which is what the checker had always accepted.
+
+Nothing is now allowed that 13.2 and 13.4 did not already allow. An `input()`
+inside a block or a function is still OS3007, and the single line form of a
+function body is now held to that rule as the indented form always was:
+`fn f(x) => x + input(3, "K")` was checked as though it stood at the top level
+and declared a settings row from inside a function with nothing said.
+
+**A `close` no longer crosses zero, and the ledger no longer keeps a row for an
+order nobody was sent.** On a leg holding one unit long, `close(qty = 5)` sent
+one sell of five: the leg ended the bar four short, under one position
+reference, with no diagnostic anywhere, and a call named `close` had opened a
+position. `stdlib.md` 17.1 forbids it outright, and `close` was the one call
+that could do it, because every other quantity a close sends is one the engine
+works out from the leg's own settled fills while a quantity the script states
+was passed through as written. It is now OS7017, naming what was asked for and
+what is held, and the call reaches no destination: a bar that places a good
+order and then meets it sends nothing at all, the good order included.
+
+Refused rather than quietly reduced to what is there. Sending the smaller number
+would send a quantity the script did not write and leave it believing it had
+closed the one it did, which is the wrong belief this release has now refused
+three times already; and reading the call as a reversal would let `close` open a
+position, which the order page already calls the most expensive naming mistake
+available. `close()` with no quantity is untouched and goes on working the
+number out for itself.
+
+One consequence is worth knowing before you meet it.
+`close(tag = "entry", qty = 1)` on a tag that has already flattened is now
+refused, while `close(tag = "entry")` on that same tag stays silent and
+idempotent. The two look inconsistent and are not: a quantity is an argument the
+script wrote, so it is a claim about its own position and the claim can be
+false, while a call with no quantity asks the engine for the right number and has
+nothing in it to be wrong about. It is the same sentence that separates `buy()`
+from `buy(qty = none)`. The comparison is made only where the stated quantity
+and the folded position count the same thing, which is a declaration whose
+`qtyType` is `"units"`; in lots, cash or equity percent they are different kinds
+of number and the engine says so rather than refusing against a figure it cannot
+defend.
+
+The second half of that area: `engine.orders()` reported rows for orders no
+destination was ever handed. A bar that placed an order tagged `"good2"` and
+then called `cancel("nosuch")` left the destination with zero intents from that
+bar, which is right, and left the ledger reporting `good2` at `placed` with an
+empty `orderRef`. A host reconciling against that record after a stopped run saw
+an order it never received. A bar's rows and a bar's orders are now the same set:
+mapping a call still appends its row, because the calls after it on the same bar
+are measured against the rows before it, and a bar that is then refused takes
+those rows back.
+
+**One sentence of the arithmetic manifest could not be violated, and now can.**
+`stdlib.md` 20.3 said of the exponential mean that "the new value is multiplied
+first and the running value second, and the two products are added in that
+order". Binary64 multiplication and addition are both commutative, so that
+constrained nothing: run over the eighty bar fixture the release gate compares
+bit for bit, the swapped arrangement gives 0 differences out of 164 values. The
+arrangement that does vary is `running + (value - running) * weight`, which
+differs on 142 of them, and it is the one an implementer is most likely to reach
+for because it is one multiplication rather than two. The paragraph now names
+it, says what it measured, and says in the open what is deliberately not fixed.
+Section 20 is the manifest a second engine implements from, and a sentence that
+cannot bite sends that implementer to check the half that does not matter.
+
+**The catalogue check now reads the fix sentence, not just the blocks.** The
+blocks were compiled and the sentence beside them never was, and the sentence is
+the part a reader acts on. That is how OS7009's fix came to tell a reader to
+call `order.working(tag)`, which is marked planned, and how OS3003's came to
+hand out `precision = input(2, "precision")` while its own after block had been
+edited to show something else because that form did not compile at the time. Two
+rules now, both narrow and both stated narrowly. Every call a fix names is put to
+the compiler, one at a time, and a name the language does not have or one marked
+planned fails the build, unless the entry itself carries a `deferred` sentence.
+And a fix that writes a call out with a reader's own values in it, a string
+literal or a named argument, has to show one of its calls in its own after
+block, which is the only part of an entry a compiler sees. What the rules do not
+cover is written in `scripts/lib/fix-sentence.mjs`: the fix is not compiled,
+because the code in it is a fragment of a line rather than a line; the second
+rule asks for one call rather than all of them, because eleven entries offer a
+reader two remedies and demonstrate one; an after block that writes no call at
+all is counted and named rather than skipped, and one entry is in that state;
+and neither rule can tell whether the advice is any good.
 
 ## 0.1.0-alpha.1
 

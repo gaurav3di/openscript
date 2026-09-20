@@ -1,5 +1,5 @@
 /**
- * What the order layer will not do, `errors.md` OS7002 to OS7013.
+ * What the order layer will not do, `errors.md` OS7002 to OS7013 and OS7017.
  *
  * **An order is the one place in the language where doing nothing quietly is
  * worse than stopping loudly** (`language.md` 6.8). Every refusal here replaced
@@ -23,6 +23,14 @@
  * - **A quantity that is not a whole number of lots, OS7005**, and **an order
  *   outside the instrument's session, OS7012**: both are facts the leg would
  *   have to be given and neither is one the ledger holds today.
+ * - **A stated close quantity, OS7017, where the declaration counts in
+ *   anything but units.** The refusal compares what the script stated with what
+ *   the leg holds, and a position is folded from filled quantities while a
+ *   stated quantity is in the declaration's own unit (`host-interface.md` 7.1).
+ *   In lots, cash or equity percent those are two different kinds of number,
+ *   and the lot size that would join them is the same fact OS7005 is waiting
+ *   for. A close that crosses zero is not refused there, and it is better named
+ *   than answered with a number nobody can defend.
  * - **The capital a strategy has left, OS7011.** Every money figure of
  *   `stdlib.md` 17.4 is planned, so there is no equity to compare against and a
  *   number invented for the message would be the wrong one.
@@ -35,6 +43,7 @@ import { diagnosticFor } from '../../diagnostics/index.js';
 import type { Diagnostic } from '../../diagnostics/index.js';
 import type { OrderCall } from './call.js';
 import type { Identity, OrderSide } from './intent.js';
+import { closableUnits } from './place.js';
 import type { Placement, PlacingContext } from './place.js';
 import { isTerminal } from './row.js';
 
@@ -63,6 +72,11 @@ function nameOf(instrument: Identity): string {
 /** An order call as a message names one: what was called, and where. */
 function spell(name: string, line: number): string {
   return `${name}() on line ${line}`;
+}
+
+/** What a close is closing, as a message names it: the leg, or one tag of it. */
+function partOf(tag: string | null): string {
+  return tag === null ? 'the leg' : `the tag "${tag}"`;
 }
 
 /**
@@ -127,11 +141,54 @@ function entriesOpen(ctx: PlacingContext, side: OrderSide): number {
 }
 
 /**
+ * A close asked to send more than it is closing, OS7017.
+ *
+ * **No order crosses zero** (`stdlib.md` 17.1), and this is the one call that
+ * could. Every other quantity a close sends is one the engine worked out from
+ * the leg's own settled fills and is bounded by it; a quantity the script
+ * stated was passed through as written, so `close(qty = 5)` against one unit
+ * long sent one sell of five and the leg ended the bar four short, under one
+ * position reference, with a call named close having opened a position.
+ *
+ * **Refused rather than clamped**, because the quantity is an argument the
+ * script wrote and is therefore a claim about the strategy's own position.
+ * Sending what is there would leave the script believing it closed the number
+ * it asked for, which is the wrong-belief class OS7002, OS7004 and OS7016 each
+ * already refuse. Reading it as a reversal would make `close` open a position.
+ *
+ * **What this does not touch.** A close that states no quantity works the
+ * number out itself and is unchanged, whether the leg is flat, the tag has
+ * already flattened or its entry has not fired yet: that is the idempotence of
+ * `stdlib.md` 17.2 and a refusal keyed on it would break the shape a strategy
+ * is written in. The two look inconsistent beside each other and are not. The
+ * call with a quantity makes a claim, and the claim is checkable; the call
+ * without one asks the engine for the right number, and there is nothing to be
+ * wrong about.
+ *
+ * **Only where the two numbers count the same thing.** See the header: a
+ * declaration in lots, cash or equity percent states a quantity the ledger
+ * cannot compare with a folded position, and a refusal with a wrong number in
+ * it is worse than the silence it replaced.
+ */
+function beyondTheClose(call: OrderCall, ctx: PlacingContext): Diagnostic | undefined {
+  if (call.name !== 'close') return undefined;
+  const stated = call.qty;
+  if (stated === null || ctx.qtyType !== 'units') return undefined;
+  const held = closableUnits(ctx, call.tag);
+  if (stated <= held) return undefined;
+  return diagnosticFor('OS7017', call.at, { qty: stated, part: partOf(call.tag), held });
+}
+
+/**
  * What the call itself is wrong about, before anything is computed from it.
  *
- * Three refusals, all of them about what the script wrote rather than about the
- * leg or the instrument, so all three are the same on every bar and on every
- * host.
+ * Four refusals. Three are about what the script wrote and nothing else, so
+ * they are the same on every bar and on every host. The fourth, OS7017, is the
+ * one quantity a script writes that is a claim about the leg rather than about
+ * itself, so it is answered here, against the leg, before the call is mapped:
+ * a close whose stated quantity is refused has to send nothing at all, and a
+ * close that flattens a tag on a leg holding nothing else maps to no order for
+ * the mapping to refuse.
  */
 export function refusalInCall(call: OrderCall, ctx: PlacingContext): Diagnostic | undefined {
   // OS7002. Every argument the script wrote that came out absent, named in
@@ -154,6 +211,11 @@ export function refusalInCall(call: OrderCall, ctx: PlacingContext): Diagnostic 
   if (stated === null && SIZED_BY_DECLARATION.includes(call.name) && !(ctx.declaredQty > 0)) {
     return diagnosticFor('OS7004', call.at, { name: call.name, qty: ctx.declaredQty });
   }
+
+  // OS7017. After OS7004, so a negative quantity is still answered by the code
+  // that is about the sign rather than by the one that is about the size.
+  const crossing = beyondTheClose(call, ctx);
+  if (crossing !== undefined) return crossing;
 
   // OS7007. Filling the price in from the bar's close would make the order a
   // market order wearing another name.

@@ -15,7 +15,7 @@
  */
 import type { Block, Expression, FunctionDeclaration, Script } from '../ast/index.js';
 import { walk } from '../ast/index.js';
-import type { Checker } from './checker.js';
+import type { Checker, Placement } from './checker.js';
 import { TOP_LEVEL } from './checker.js';
 import type { Binding, Mutable } from './checked.js';
 import { calleeNameOf } from './constant.js';
@@ -243,6 +243,21 @@ function declareParameters(
 }
 
 /**
+ * Inside a function body, which both spellings of one are.
+ *
+ * The single line form used to be checked as though it stood at the top level,
+ * and the placement is what OS3006 and OS3007 read: `fn f(x) => x + input(3,
+ * "K")` declared a settings row from inside a function, which `language.md`
+ * 13.4 forbids in as many words, and nothing said so. The two forms are the
+ * same construct written two ways and a rule that holds for one holds for both.
+ */
+const INSIDE_A_BODY: Placement = {
+  topLevel: false,
+  construct: 'a function body',
+  inLoop: false,
+};
+
+/**
  * A body and what it gives back.
  *
  * The single line form is one expression. The indented form ends in a bare
@@ -254,15 +269,11 @@ function runBody(
   body: Block | Expression,
 ): { readonly type: Type; readonly warmup: Warmup } {
   if (body.kind !== 'block') {
-    const type = checkExpression(checker, body, TOP_LEVEL);
+    const type = checkExpression(checker, body, INSIDE_A_BODY);
     return { type, warmup: checker.warmupOf(body) };
   }
 
-  checkStatements(checker, body.statements, {
-    topLevel: false,
-    construct: 'a function body',
-    inLoop: false,
-  });
+  checkStatements(checker, body.statements, INSIDE_A_BODY);
 
   const last = body.statements[body.statements.length - 1];
   if (last === undefined || last.kind !== 'expressionStatement') {

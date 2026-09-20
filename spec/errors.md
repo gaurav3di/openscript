@@ -186,9 +186,9 @@ up is not renumbered.
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
-| OS7xxx | Orders | An order could not be placed as written. | error | 16 |
+| OS7xxx | Orders | An order could not be placed as written. | error | 17 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **146** |
+| | | | **Total** | **147** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -1809,7 +1809,7 @@ study("Range", precision = round(close / 1000))
 After:
 
 ```
-study("Range", precision = 2)
+study("Range", precision = input(2, "precision"))
 ```
 
 ### OS3004 Argument is not a valid whole number
@@ -3921,6 +3921,38 @@ if pos.isFlat
     buy(qty = 1, tag = "entry")
 else
     close(tag = "entry")
+```
+
+### OS7017 A close states more than it is closing
+
+Severity error. Stage engine. Since language version 1. Reference stdlib.md 17.1, 17.2. Test `tests/engine/closing.test.ts`.
+
+**Message.** `close was given a quantity of {qty}, and {part} holds {held}.`
+
+- `{qty}` is the quantity the call stated.
+- `{part}` is what the close is closing: the leg, or the tag it named.
+- `{held}` is the quantity that part holds.
+
+**Cause.** No order crosses zero. A close larger than the position it is closing sends one order that flattens the position and opens the opposite one under the same position reference, so a leg that was long ends the bar short and a call named close has opened a position. The quantity is an argument the script wrote, which makes it a claim about the strategy's own position, and this claim is false. Sending what is there instead would leave the script believing it closed the number it asked for, and reading it as a reversal would make close open a position, which is the most expensive naming mistake available. A close that states no quantity is not this: the engine works out what the leg or the tag holds and sends that, and closing a tag that holds nothing sends nothing and says nothing. The comparison is made only where the two numbers count the same thing, which is a declaration whose quantity type is units: elsewhere a position folded from filled quantities and a quantity stated in the declaration's own unit are two different kinds of number, and a refusal with the wrong one in it is worse than none.
+
+**Fix.** Leave the quantity out and close() flattens what is there, or size the part from pos.size and pass close(qty = {held}) or less.
+
+Before:
+
+```
+if pos.isFlat
+    buy(qty = 1)
+else
+    close(qty = 5)
+```
+
+After:
+
+```
+if pos.isFlat
+    buy(qty = 1)
+else
+    close()
 ```
 
 ---

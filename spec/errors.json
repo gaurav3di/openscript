@@ -1180,7 +1180,7 @@
       "autofix": false,
       "example": {
         "before": "study(\"Range\", precision = round(close / 1000))",
-        "after": "study(\"Range\", precision = 2)"
+        "after": "study(\"Range\", precision = input(2, \"precision\"))"
       },
       "spec": "language.md 13.2, 15.3",
       "refines": null,
@@ -2878,6 +2878,29 @@
       "spec": "stdlib.md 17.2",
       "refines": null,
       "test": "tests/unit/check-tags.test.ts"
+    },
+    {
+      "code": "OS7017",
+      "title": "A close states more than it is closing",
+      "severity": "error",
+      "stage": "runtime",
+      "since": 1,
+      "message": "close was given a quantity of {qty}, and {part} holds {held}.",
+      "placeholders": {
+        "qty": "the quantity the call stated",
+        "part": "what the close is closing: the leg, or the tag it named",
+        "held": "the quantity that part holds"
+      },
+      "cause": "No order crosses zero. A close larger than the position it is closing sends one order that flattens the position and opens the opposite one under the same position reference, so a leg that was long ends the bar short and a call named close has opened a position. The quantity is an argument the script wrote, which makes it a claim about the strategy's own position, and this claim is false. Sending what is there instead would leave the script believing it closed the number it asked for, and reading it as a reversal would make close open a position, which is the most expensive naming mistake available. A close that states no quantity is not this: the engine works out what the leg or the tag holds and sends that, and closing a tag that holds nothing sends nothing and says nothing. The comparison is made only where the two numbers count the same thing, which is a declaration whose quantity type is units: elsewhere a position folded from filled quantities and a quantity stated in the declaration's own unit are two different kinds of number, and a refusal with the wrong one in it is worse than none.",
+      "fix": "Leave the quantity out and close() flattens what is there, or size the part from pos.size and pass close(qty = {held}) or less.",
+      "autofix": false,
+      "example": {
+        "before": "if pos.isFlat\n    buy(qty = 1)\nelse\n    close(qty = 5)",
+        "after": "if pos.isFlat\n    buy(qty = 1)\nelse\n    close()"
+      },
+      "spec": "stdlib.md 17.1, 17.2",
+      "refines": null,
+      "test": "tests/engine/closing.test.ts"
     },
     {
       "code": "OS8001",

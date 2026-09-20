@@ -13,7 +13,7 @@
  * clothes, and an emitter that stored them would be emitting per-bar work for
  * something settled before bar 0.
  */
-import type { Block, Statement, SwitchStatement } from '../ast/index.js';
+import type { Block, Call, Expression, Statement, SwitchStatement } from '../ast/index.js';
 import { withoutGrouping } from '../ast/index.js';
 import type { Binding } from '../check/index.js';
 import { libraryEntries } from '../check/index.js';
@@ -46,6 +46,17 @@ export function emitStatement(e: Emitter, f: Frame, statement: Statement): void 
       // The header describes the file. It is `meta` and `limits`, read once.
       return;
     case 'expressionStatement': {
+      // A declaration written as a statement of its own, `plot(close, "C")`
+      // being the ordinary one, goes straight to the declaration path rather
+      // than through the expression path that would reach the same function a
+      // step later. The instructions are the same either way, and what it buys
+      // is the invariant `outputs.ts` argues from: a declaration call reaches
+      // `emitCall` only where a value is wanted.
+      const declared = declarationIn(e, statement.expression);
+      if (declared !== undefined) {
+        emitDeclarationCall(e, f, declared.call, declared.name, undefined);
+        return;
+      }
       emitExpression(e, f, statement.expression);
       if (!leavesValue(e, statement.expression)) return;
       f.builder.at(statement.span);
@@ -98,6 +109,17 @@ export function emitStatement(e: Emitter, f: Frame, statement: Statement): void 
       return;
     }
   }
+}
+
+/** The resolved declaration call a statement is entirely one of, or nothing. */
+function declarationIn(
+  e: Emitter,
+  expression: Expression,
+): { readonly call: Call; readonly name: string } | undefined {
+  const inner = withoutGrouping(expression);
+  if (inner.kind !== 'call') return undefined;
+  const name = e.callAt(inner)?.name;
+  return name !== undefined && e.isDeclaration(name) ? { call: inner, name } : undefined;
 }
 
 function emitStore(e: Emitter, f: Frame, binding: Binding): void {

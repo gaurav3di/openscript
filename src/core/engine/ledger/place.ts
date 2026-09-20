@@ -183,6 +183,26 @@ function heldUnder(ctx: PlacingContext, tag: string): number {
 }
 
 /**
+ * What a `close` is closing, in units, whether or not it names a quantity.
+ *
+ * The whole leg where the call names no tag, and the part that tag entered
+ * where it names one, bounded by what the leg holds so that closing a part can
+ * never cross zero. Zero while the leg is flat, and zero for a tag whose rows
+ * have netted to nothing.
+ *
+ * Exported because `refuse.ts` asks the same question of the same call: the
+ * quantity a script states is refused against this number (OS7017) and the
+ * quantity the engine works out for itself is this number. Two readings of what
+ * a tag holds would be one fact in two files, and the refusal would be about a
+ * quantity the mapping was not going to send.
+ */
+export function closableUnits(ctx: PlacingContext, tag: string | null): number {
+  const size = Math.abs(ctx.size());
+  if (tag === null) return size;
+  return Math.min(Math.abs(heldUnder(ctx, tag)), size);
+}
+
+/**
  * A cancellation names the tag it cancels and nothing else.
  *
  * No side, no quantity and no price: it is not an order, and what becomes of
@@ -264,16 +284,13 @@ export function placementsFor(call: OrderCall, ctx: PlacingContext): readonly Pl
     }
 
     case 'close': {
-      const size = ctx.size();
-      const closing = closingSide(size);
+      const closing = closingSide(ctx.size());
       if (closing === undefined) return [];
-      const tag = call.tag;
       // A tag names the part of the position that tag entered, which is the
-      // settled quantity of its own rows. Bounded by what the leg holds, so
-      // that closing a part can never cross zero.
-      const held =
-        tag === null ? Math.abs(size) : Math.min(Math.abs(heldUnder(ctx, tag)), Math.abs(size));
-      return flattening(ctx, held, closing, call.qty, tag ?? '');
+      // settled quantity of its own rows. A quantity the script stated has
+      // already been held against this same number by `refuse.ts`, so nothing
+      // reaching here crosses zero.
+      return flattening(ctx, closableUnits(ctx, call.tag), closing, call.qty, call.tag ?? '');
     }
 
     case 'order.reverse': {

@@ -1,5 +1,6 @@
 /**
- * What the order layer refuses, `errors.md` OS7002 to OS7013.
+ * What the order layer refuses, `errors.md` OS7002 to OS7013. OS7017, the one
+ * quantity a close may not state, is `closing.test.ts`.
  *
  * The defect these exist to catch is one silence with two shapes. A call the
  * language says is refused returned an empty list, so the script was told

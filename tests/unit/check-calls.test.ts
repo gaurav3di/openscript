@@ -121,6 +121,17 @@ test('input inside a block is its own refusal', () => {
   assert.deepEqual(codes('if close > open\n    len = input(9, "L")'), ['OS8018', 'OS3007']);
 });
 
+// Catches a checker that reads the single line form of a body as though it
+// stood at the top level, which is what it used to do. `language.md` 13.4 says
+// an input() may appear only at the top level, never inside a block or a
+// function, and the two spellings of a body are the same construct: the
+// indented form was refused and `fn f(x) => x + input(3, "K")` was not.
+test('a single line function body is inside a function, like the indented form', () => {
+  const body = 'fn f(x) => x + input(3, "K")\nplot(f(close), "C")';
+  assert.deepEqual(codes(body), ['OS3007']);
+  assert.equal(spanFor(body, 'OS3007'), '3:16+13');
+});
+
 // Catches a checker that treats fill's first two arguments as series, which
 // would ask the contract to shade between a column that was never declared.
 test('fill takes two declared plots and not two expressions', () => {

@@ -356,3 +356,97 @@ test('a cancellation names a tag and states no side, size or price', () => {
   assert.equal(cancel.qty, null);
   assert.equal(run.engine.orders().length, 1, 'a cancellation appended a row of its own');
 });
+
+/**
+ * The bar's rows and the bar's intents cannot disagree.
+ *
+ * `stdlib.md` 17.7: a row is appended when the order is sent. A bar that placed
+ * a good order and then met a refusal used to leave that row behind: the
+ * destination was handed nothing, which is right, and `engine.orders()`
+ * reported the good order at `placed` with an empty `orderRef`, which is an
+ * order no destination ever received. A host reconciling after a stopped run
+ * reads that record.
+ *
+ * Catches the implementation this replaced, where mapping appended the row and
+ * only the routing was held back, and it catches an over-correction as well: it
+ * asserts that the rows of the bars **before** the refused one are untouched,
+ * because those orders really were handed over.
+ */
+test('a bar refused after placing an order leaves no row for the order it never sent', () => {
+  const run = runFor(
+    [
+      'version 1',
+      'strategy("Probe", qty = 1, pyramiding = 50)',
+      'if bar.index == 0',
+      '    buy(qty = 1, tag = "good1")',
+      'if bar.index == 1',
+      '    buy(qty = 1, tag = "good2")',
+      '    cancel("nosuch")',
+    ].join('\n'),
+  );
+  const result = run.engine.run([at(0, 100), at(1, 101)], [CONFIRMED, CONFIRMED]);
+
+  assert.equal(result.diagnostic?.code, 'OS7009');
+  // One intent, from bar 0, and one row: the row is the order that was sent.
+  assert.equal(run.sent.length, 1);
+  assert.deepEqual(
+    run.engine.orders().map((row) => row.tag),
+    ['good1'],
+    'the ledger holds a row for an order the destination was never handed',
+  );
+});
+
+/**
+ * The same rule with nothing good on the bar, so the count is zero rather than
+ * one. Catches a discard that only ever ran after a successful call.
+ */
+test('a bar whose first order call is refused appends no row at all', () => {
+  const run = runFor(
+    [
+      'version 1',
+      'strategy("Probe", qty = 1)',
+      'if bar.index == 0',
+      '    cancel("nosuch")',
+    ].join('\n'),
+  );
+  const result = run.engine.run([at(0, 100)], [CONFIRMED]);
+  assert.equal(result.diagnostic?.code, 'OS7009');
+  assert.deepEqual(run.engine.orders(), []);
+  assert.deepEqual(run.sent, []);
+});
+
+/**
+ * The other direction, on the one path where a bar routes more than once.
+ *
+ * A file declared `onUnconfirmed = true` applies its effects on every execution
+ * of the moving bar, so a bar can hand orders over and then be executed again.
+ * The rows of the execution that really did hand its order over stay; only the
+ * rows of the pass that was refused go. Catches a mark taken when the bar index
+ * last changed, which would take back a row for an order the destination is
+ * holding.
+ */
+test('a refused execution of a moving bar leaves the rows an earlier one sent', () => {
+  const run = runFor(
+    [
+      'version 1',
+      'strategy("Probe", qty = 1, pyramiding = 50, onUnconfirmed = true)',
+      'if bar.index == 0 and close > 100',
+      '    buy(qty = 1, tag = "good")',
+      'if bar.index == 0 and close > 101',
+      '    cancel("nosuch")',
+    ].join('\n'),
+  );
+  // The first execution enters. The second re-runs the same bar at a higher
+  // close, so the entry goes out again and the cancellation refuses the pass.
+  assert.equal(run.engine.append(at(0, 101), CONFIRMED, 1).diagnostic, undefined);
+  assert.equal(run.engine.orders().length, 1);
+  const again = run.engine.update(at(0, 102), CONFIRMED);
+
+  assert.equal(again.diagnostic?.code, 'OS7009');
+  assert.deepEqual(
+    run.engine.orders().map((row) => row.tag),
+    ['good'],
+    'the row of an order the destination was handed was taken back',
+  );
+  assert.equal(run.sent.length, 1);
+});

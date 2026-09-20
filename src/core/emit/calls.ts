@@ -18,6 +18,7 @@ import type { Emitter, Frame } from './context.js';
 import { arityOf, calleeText, effectOf } from './context.js';
 import { emitExpression } from './expressions.js';
 import { bodyFor } from './functions.js';
+import { emitInputRead } from './inputs.js';
 import { emitDeclarationCall } from './outputs.js';
 import { registerOfName } from './registers.js';
 import {
@@ -45,6 +46,15 @@ export function emitCall(e: Emitter, f: Frame, call: Call): void {
   }
 
   if (e.isDeclaration(checked.name)) {
+    // A declaration written as a statement of its own never arrives here:
+    // `statements.ts` sends all three of its forms straight to the declaration
+    // path. So an `input()` that reaches this point stands where a value
+    // belongs, and the value is what it has to leave behind. `outputs.ts`
+    // argues that split, which is the one this call is decided by.
+    if (checked.name === 'input') {
+      emitInputRead(e, f, call);
+      return;
+    }
     emitDeclarationCall(e, f, call, checked.name, undefined);
     return;
   }

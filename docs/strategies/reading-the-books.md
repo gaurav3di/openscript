@@ -133,6 +133,15 @@ OS7016 at the call, before any bar runs. A close on a tag that is placed
 somewhere in the file and holds nothing right now is neither: it sends nothing
 and says nothing, which is what makes closing the same tag twice safe to write.
 
+Write a `qty` on that same close and it stops being safe, and the reason is the
+same rule read from the other end. A quantity is something the script wrote, so
+it is a claim about the position, and a claim larger than what is held is
+OS7017: no order crosses zero, and a close that sent more than the part holds
+would open the opposite position under a call named `close`. So
+`close(tag = "runner")` on a flattened tag is silent and
+`close(tag = "runner", qty = 1)` on it is refused. If a scale-out can fire twice
+on one position, guard it on `pos.size`.
+
 ### The positions
 
 In a file with one leg, the `pos` namespace is the position:
@@ -263,6 +272,7 @@ the day you want to find out from a panel rather than from a statement.
 | `order.filled(tag)` never falls back to zero after an exit (planned) | It is that order's life total, not the position | Read `pos.size` for what is held |
 | OS7009 from `cancel` | The tag names no order that is still working | Use the tag the order was placed with; `order.working(tag)` is the guard and is planned, so until it lands cancel on the condition the order was placed on, or call `cancelAll()` |
 | OS7016 on a `close` | The tag is one no order in the file is placed with, usually a typo | Use the tag the entry was placed with, or leave the tag out to flatten the whole leg |
+| OS7017 on a `close` | The quantity written on it is larger than what that close is closing, usually a scale-out fired twice | Guard on `pos.size`, or leave the quantity out and let the close send what is there |
 | A late fill applied to the wrong trade | Expecting fills to settle the current position | They settle their own position reference; a flip is two orders |
 | The strategy's position disagrees with the account's | Something else is trading that contract | `pos.isShared`, then find out who |
 | A reconciliation against the declared product fails | The destination translated the product | Reconcile against `leg.product(name)`, which is what was sent |

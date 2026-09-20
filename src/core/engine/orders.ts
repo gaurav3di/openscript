@@ -81,6 +81,16 @@ export interface AppliedOrders {
  * routed each call as it mapped it would already have sent the first. Every
  * call is therefore mapped before any of them is handed over, and a refusal
  * anywhere on the bar hands over none of them.
+ *
+ * **Which is why a refusal here discards the bar's rows.** Mapping a call
+ * appends its row, because the calls after it on the same bar are measured
+ * against the rows before them: a cancellation asks whether a tag is working, a
+ * close asks what one tag entered, and pyramiding counts what a position
+ * already holds. So the rows of a bar that is then refused have to be taken
+ * back, or `engine.orders()` reports an order at `placed` that no destination
+ * was ever handed, and a host reconciling after a stopped run sees an order it
+ * never received. The bar's intents and the bar's rows cannot disagree, because
+ * they are made and unmade together.
  */
 export function routedEffects(
   ledger: Ledger,
@@ -88,6 +98,11 @@ export function routedEffects(
   at: IntentBar,
   route: EffectRoute | undefined,
 ): AppliedOrders {
+  // Where this pass found the ledger, so a refusal can take back exactly the
+  // rows this pass appended and no others: a bar declared `onUnconfirmed`
+  // routes on every execution of itself, and an earlier one really did hand its
+  // orders over.
+  const appended = ledger.rows().length;
   const effects: RoutedEffect[] = [];
   for (const effect of applied) {
     if (effect.effect !== 'order') {
@@ -95,7 +110,10 @@ export function routedEffects(
       continue;
     }
     const placed = ledger.place(effect.name, effect.params, effect.args, at, effect.at);
-    if (placed.refusal !== undefined) return { effects: [], refusal: placed.refusal };
+    if (placed.refusal !== undefined) {
+      ledger.discard(appended);
+      return { effects: [], refusal: placed.refusal };
+    }
     effects.push({ ...effect, intents: placed.intents });
   }
   if (route !== undefined) for (const effect of effects) route(effect, at.index);

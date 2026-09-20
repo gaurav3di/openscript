@@ -47,6 +47,13 @@
  *     the opposite rule: a block declared not to be source that compiles fails,
  *     so the field cannot be used to take an example out of this check.
  *
+ * **Every fix names something a script may write, and shows its worked forms.**
+ * The blocks are what a reader looks at and the fix is what they act on, and the
+ * sentence was the half nothing read: OS7009's told a reader to call a planned
+ * function, and OS3003's handed out a form its own block had been edited away
+ * from. Two rules, both narrow, both answered by the compiler rather than by a
+ * list, and `lib/fix-sentence.mjs` says at length what they do not cover.
+ *
  * And a fourth that is not declared anywhere because it follows from the
  * entry's own `stage`: a host code is the host's answer to the engine, and this
  * harness drives one host. Those are counted and listed, every run, and the
@@ -62,6 +69,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { CORE_MODULE, EMITTER_MODULE, TEST_HOSTS_MODULE, fromRoot } from './lib/built.mjs';
 import { isConventional, programFor } from './lib/example-context.mjs';
+import { fixProblems, fixSelfTest } from './lib/fix-sentence.mjs';
 import { BAR_COUNT, VENUES, harnessWith } from './lib/example-run.mjs';
 
 const CATALOGUE = 'spec/errors.json';
@@ -147,6 +155,24 @@ function built(block) {
   }
   return { program, out };
 }
+
+/**
+ * One block compiled inside the fragment program, for the fix rules to read.
+ *
+ * The same `programFor` the two block rules use, so a name is asked about in the
+ * file a fragment is a fragment of: an order function needs a strategy header
+ * around it, and asking without one would answer OS7001 for every one of them.
+ */
+function ask(block) {
+  const program = programFor(block, {
+    free: [],
+    orderNames: surface.ORDER_NAMES,
+    strategyNamespaces: surface.STRATEGY_NAMESPACES,
+  });
+  return compile('probe.oscript', program.text).diagnostics;
+}
+
+const FIX_RULES = { ask, namespaces: surface.NAMESPACES, cache: new Map() };
 
 /** A diagnostic as the report names it, with the line inside the block. */
 function at(diagnostic, offset) {
@@ -266,6 +292,8 @@ function selfTest() {
     broken.push('the before rule proved OS1001 from a block that has no such character in it');
   }
 
+  for (const one of fixSelfTest(FIX_RULES)) broken.push(one);
+
   if (broken.length === 0) return;
   console.error(
     'The rules in this file no longer do what they say:\n\n' +
@@ -295,12 +323,23 @@ const counted = {
   unexercised: 0,
   transcript: 0,
   host: [],
+  fixNames: 0,
+  fixWorked: 0,
+  fixUncompared: [],
 };
 const listing = [];
 
 for (const entry of entries) {
   const example = entry.example ?? {};
   const isTranscript = example.kind === 'transcript';
+
+  // The fix rules run over every entry, a transcript included: a transcript's
+  // example is host input rather than source and its fix is still a fix.
+  const sentence = fixProblems(entry, FIX_RULES);
+  counted.fixNames += sentence.named;
+  if (sentence.uncompared) counted.fixUncompared.push(entry.code);
+  else if (sentence.worked > 0) counted.fixWorked += 1;
+  for (const one of sentence.problems) fail(`${CATALOGUE}: ${one}`);
 
   if (isTranscript) {
     counted.transcript += 1;
@@ -405,6 +444,23 @@ if (problems.length > 0) {
 }
 
 const proved = counted.byCompile + counted.byRun;
+console.log(
+  `Fix sentence check passed: ${counted.fixNames} names written across ${entries.length} fix ` +
+    'sentences are names a script may write today and is not planned, each asked of the ' +
+    `compiler rather than of a list; and ${counted.fixWorked} of those sentences write a call ` +
+    "out with a reader's own values in it, every one of which is a call its own after block " +
+    'shows.',
+);
+if (counted.fixUncompared.length > 0) {
+  console.log(
+    `
+${counted.fixUncompared.length} more write one out and were not compared, because the ` +
+      "entry's after block writes no call at all for it to be compared against: " +
+      `${counted.fixUncompared.join(', ')}. Each of those offers a reader two remedies and ` +
+      'demonstrates the one that is not a call.',
+  );
+}
+
 console.log(
   `Example compile check passed: ${counted.compiled} after blocks compile with no diagnostic ` +
     `(${counted.tolerated} ended one line short of reading what they declared, which is OS8010 ` +

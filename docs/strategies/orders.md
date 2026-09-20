@@ -421,8 +421,9 @@ mistake in the language.
 | To | Call | Notes |
 |---|---|---|
 | Flatten a leg | `close()` | Whatever is held, long or short |
-| Flatten part | `close(qty = n)` | `n` is positive, whichever way the position points |
+| Flatten part | `close(qty = n)` | `n` is positive, whichever way the position points, and no larger than what is held |
 | Flatten one part by name | `close(tag = "runner")` | Closes the part carrying that tag |
+| Set a stop or a target | `exit(...)` | Covered in the exits page |
 
 A tag on `close` is a **reference**: it names the part of the position that tag
 entered, so it has to be a tag some order in the file is placed with. A tag
@@ -430,7 +431,24 @@ nothing places is OS7016, reported at the call before any bar runs, because such
 a call could only send nothing on every bar and say nothing while the position
 stayed open. Closing a tag that has already flattened is not that: it sends
 nothing, says nothing, and is how a strategy is ordinarily written.
-| Set a stop or a target | `exit(...)` | Covered in the exits page |
+
+**A quantity written on a `close` is the one size the engine holds to a
+ceiling.** No order crosses zero, so a close larger than what it is closing
+would flatten the position and open the opposite one in a single order, and a
+leg that was long would end the bar short under a call named `close`. That is
+OS7017, it names what was asked for and what is held, and the call sends
+nothing. The engine does not quietly send what is there instead: that would be a
+quantity you did not write, and your script would carry on believing it had
+closed the one you did.
+
+The two rules meet in a place worth knowing about before you meet it.
+`close(tag = "runner")` on a tag that has already flattened is silent, and
+`close(tag = "runner", qty = 1)` on that same tag is refused. That is not an
+inconsistency. A quantity is something you wrote, so it is a claim about your own
+position and the claim can be wrong; a call with no quantity is a request for
+whatever is there, and there is nothing in it to be wrong about. If a scale-out
+can run twice on one position, guard it on `pos.size` rather than sizing it and
+hoping.
 
 A partial close needs a whole, valid quantity like any other order, so size it and
 round it rather than passing a fraction:
@@ -551,6 +569,7 @@ codes you will actually meet:
 | OS7008 | The entry was refused by pyramiding | No position guard on the entry |
 | OS7009 | Unknown order tag | Cancelling an order that has already filled, or a tag with a typo in it |
 | OS7016 | A close names a tag nothing places | A typo in the tag of a `close`, caught at compile time |
+| OS7017 | A close states more than it is closing | A scale-out size computed from a position that has already shrunk |
 | OS7011 | The order needs more capital than the strategy has | Fixed unit sizing against a small `capital` |
 | OS7012 | The instrument is outside its session | No `session.isOpen` guard |
 | OS7013 | Two opposite orders on one leg on one bar | Two independent `if` blocks that can both be true |

@@ -47,6 +47,8 @@ export interface FoldEnvironment {
   call(
     call: Call,
   ): { readonly name: string; readonly args: readonly (Argument | undefined)[] } | undefined;
+  /** The input an `input()` call declares, as the reference that names it. */
+  input(call: Call): Value | undefined;
 }
 
 /** The language's own rounding, halves away from zero, `stdlib.md` 8.1. */
@@ -203,6 +205,10 @@ export function fold(expression: Expression, environment: FoldEnvironment): Valu
       for (const element of inner.elements) {
         const value = fold(element, environment);
         if (value === undefined) return undefined;
+        // A reference stands **in place of** a field's value and never inside
+        // one, so `range = [input(0, "Low"), 100]` has nowhere in the format to
+        // live and is refused here rather than written as an absent range.
+        if (value.kind === 'input') return undefined;
         values.push(value);
       }
       return { kind: 'array', values };
@@ -233,6 +239,11 @@ export function fold(expression: Expression, environment: FoldEnvironment): Valu
     case 'call': {
       const resolved = environment.call(inner);
       if (resolved === undefined) return undefined;
+      // An `input()` written in place is the reference of 2.3, exactly as the
+      // name a script bound one to is. `language.md` 13.2 admits both spellings
+      // of an option value and the declaration line can only write this one:
+      // it is the first statement of the file, so there is no name above it.
+      if (resolved.name === 'input') return environment.input(inner);
       const args = resolved.args.map((one) =>
         one === undefined ? undefined : fold(one.value, environment),
       );

@@ -1474,6 +1474,29 @@ also what a working script looks like before its entry has fired. A tag the
 script computes is not read at all. Closing a tag that named rows which now hold
 nothing is not this: it is idempotence, it sends nothing, and it says nothing.
 
+**A `qty` written on a close may not be larger than what that close is
+closing**, which is the whole leg where no tag is named and the part one tag
+entered where one is. Larger is OS7017, naming what was asked for and what is
+held, and the call sends nothing: no order crosses zero (17.1), and this is the
+one call that otherwise could, because every other quantity a close sends is one
+the engine worked out from the leg's own settled fills. A ceiling applied
+silently would send a quantity the script did not ask for and leave it believing
+it had closed the one it did, and reading the call as a reversal would let
+`close` open a position. The engine compares the two numbers only where they
+count the same thing, which is a declaration whose `qtyType` is `"units"`: a
+position is folded from filled quantities and a stated quantity is in the
+declaration's own unit (`host-interface.md` 7.1), and the lot size that would
+join them is the fact 17.14's list is still waiting for.
+
+**This is why `close(tag = "entry", qty = 1)` on a tag that has already
+flattened is refused while `close(tag = "entry")` on the same tag is silent.**
+The two look inconsistent and are not. A quantity is an argument the script
+wrote, so it is a claim about the strategy's own position and the claim can be
+false; a call that writes no quantity asks the engine for the right number, and
+there is nothing there to be wrong about. The same sentence settles `buy()`
+against `buy(qty = none)` (17.1) and `close(tag = "entry")` against a tag no
+order places (OS7016), and it is one rule rather than three.
+
 ### 17.3 The `order` namespace
 
 | Call | Returns | For |
@@ -1668,6 +1691,16 @@ sent and is never rewritten in place: each frame from the destination appends a
 revision, and the row's current fact is the fold of its revisions, so the
 sequence that produced a position can be replayed and audited rather than
 inferred.
+
+**A bar's rows and a bar's orders are the same set.** A refusal anywhere on a
+bar places none of that bar's orders, the ones decided before it included, so
+none of them may leave a row either. An engine that appends a row as it maps
+each call, which is the ordinary way to write it because the calls after one on
+the same bar are measured against the rows before it, has to take those rows
+back when the bar is refused. Otherwise the ledger reports an order at `placed`
+with an empty `orderRef` that no destination was ever handed, and a host
+reconciling against this record after a stopped run sees an order it never
+received.
 
 | Field | Holds |
 |---|---|
@@ -2214,8 +2247,25 @@ step   = value * weight + running * rest
 ```
 
 `weight` and `rest` are computed once from `len` and are the same two values on
-every bar. The new value is multiplied first and the running value second, and
-the two products are added in that order.
+every bar. **The step is the two products added, and it is not
+`running + (value - running) * weight`.** That is a third arrangement of the
+same algebra and a third set of last bits, the one the `rma` paragraph below
+refuses in the same words, and it is the arrangement an engine is most likely
+to reach for, because it is one multiplication rather than two. Over the eighty
+bar fixture the release gate compares bit for bit it differs from these lines on
+70 of the 72 values at length 9, 42 of the 61 at length 20 and 30 of the 31 at
+length 50.
+
+Nothing is fixed about the order the two products are written in, or about the
+order of the two factors inside either of them: binary64 multiplication and
+addition are both commutative, so every such rearrangement gives the same values
+on that fixture, and a sentence fixing one of them would send an implementer to
+check the half that cannot differ. Nor is anything fixed about whether `rest` is
+computed once or written out as `1 - weight` at the step, because `weight` is
+one value and `1 - weight` is therefore one value whenever it is formed. This
+is 20.1's second rule read the other way round: an arrangement is named here
+when a second one is in common use **and** differs, and this entry names the one
+that does.
 
 **`rma(src, len)`** is the seeded recurrence of 20.2.2 with
 
