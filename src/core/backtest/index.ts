@@ -18,11 +18,12 @@
  * fills, and `rerun` executes a stored one again and is held to producing the
  * same bytes. `recordToJson` and `recordFromJson` are the document itself.
  * `compareRuns` puts two records beside each other and says whether the gap
- * between them clears the noise. `caseFilesFrom` is named by the design and is
- * not here yet: it will return text and write nothing, because core does no
- * I/O, and it needs a channel the record does not carry today. `conformance.md`
+ * between them clears the noise. `caseFilesFrom` turns a record into the files
+ * of a conformance case, returning text and writing nothing because core does
+ * no I/O. It needed a channel the record did not carry: `conformance.md`
  * section 2 requires a case to hold `script.os`, the source text, and a record
- * carries only the source's hash, its line count and its file name.
+ * carried only the source's hash, its line count and its file name. Record
+ * version 2 carries the text as well, checked against that hash.
  */
 export { backtest } from './drive.js';
 export type { BacktestResult, DriveOptions } from './drive.js';
@@ -37,6 +38,8 @@ export type { RestOutcome, RestingOrder } from './resting.js';
 export { Simulator } from './simulate.js';
 export type { SimulatorOptions } from './simulate.js';
 export { DEFAULT_FILL, EXACT, WHOLE_RANGE, checkSettings, settingsFor } from './settings.js';
+export { caseFilesFrom } from './case.js';
+export type { CaseFiles, CaseIdentity, CaseResult } from './case.js';
 export { RECORD_VERSION, barsHash, recordFromJson, recordOf, recordToJson, runBytes } from './record.js';
 export type { RecordParts } from './record.js';
 export type { BacktestSettings, DateRange, FillPolicy, Tolerance } from './settings.js';

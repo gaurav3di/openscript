@@ -32,6 +32,31 @@ produced elsewhere) runs the engine half and says so; see profiles in section 8.
 What is not under test: speed, memory, the look of a chart, the wording of a
 diagnostic message. Those matter, and they are not what the suite fixes.
 
+### Where a case comes from
+
+**A strategy case is harvested from a run, not written by hand.** A run record
+already holds every file section 2 names: the script, the bars, the settings, and
+what came back. `caseFilesFrom` projects one into the other and computes nothing,
+so what a case asserts is what a run actually produced.
+
+The distinction is not stylistic. A case written by hand asserts what somebody
+believed a run does, and it agrees with that belief whether or not any engine
+ever behaved that way. A harvested case asserts what an engine did on a day, over
+bars that existed, under settings somebody chose.
+
+A record has to carry the script's own text to be harvestable, which is record
+version 2 and later. Earlier records identify their script by hash, and a hash
+settles whether two files are the same without yielding either of them, so a
+record written before version 2 replays and reruns but cannot become a case. The
+text is checked against that hash when the record is written, because a case
+whose script is a different revision than the one that produced its expected
+output cannot reproduce that output, and the engine under test would be blamed
+for a disagreement that was in the case all along.
+
+A record that cannot make a whole case makes none. A directory missing one file
+fails on an implementation we did not write, and the cost of that lands on its
+author rather than on us.
+
 ---
 
 ## 2. A case on disk

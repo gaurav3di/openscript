@@ -7,6 +7,46 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## Unreleased
+
+**A run record becomes a conformance case.** `caseFilesFrom(record, identity)`
+returns the files of one case, keyed by the names `conformance.md` section 2
+gives them: `case.json`, `script.os`, `bars.csv`, `expected.json`, and
+`instrument.json` and `settings.json` where the run had them. It returns text
+and writes nothing, because core does no I/O, so the caller decides where a case
+lives and the same call works in a browser.
+
+This is what the suite the second engine will be measured against is built from.
+A case written by hand asserts what somebody believed a run does; a harvested one
+asserts what an engine actually produced, over bars that existed, under settings
+somebody chose.
+
+**Record version 2 carries the script's text**, in a new `sourceText` channel.
+A record identified its script by hash, and a hash settles whether two files are
+the same without yielding either of them, so a case could never be given the
+`script.os` it is required to hold. The text is checked against that hash when
+the record is written: text from a different revision than the one compiled is
+refused, rather than written into a case that could not reproduce its own
+expected output.
+
+The text is on the record and not on the compiled program. A program is
+executable data that no engine needs the source to run, and it is the versioned
+artefact other implementations depend on; putting the text there would send a
+script everywhere a program travels and widen the format every engine reads. The
+compiled format is unchanged.
+
+**A record written before this still reads**, with `sourceText` absent. An
+earlier revision only ever has fewer channels, and every one it carries means
+here what it meant when it was written. A later revision is still refused, which
+is the asymmetry that matters: a later one may mean something new by a field this
+version thinks it knows. Such a record replays and reruns as before; the one
+thing it cannot do is become a case.
+
+`backtest` takes `sourceText` in its options. A caller that has only a compiled
+program leaves it out and loses nothing but the ability to harvest.
+
+---
+
 ## 0.4.0
 
 **A backtest is driven, and what it produces is a document rather than a

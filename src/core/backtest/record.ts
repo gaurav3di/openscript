@@ -26,7 +26,7 @@
  */
 import type { RecordedFill, Report } from '../accounting/index.js';
 import type { Diagnostic } from '../diagnostics/index.js';
-import { canonicalise, programHash, sha256 } from '../emit/index.js';
+import { canonicalise, programHash, sha256, sourceHash } from '../emit/index.js';
 import type { CompiledProgram, SourceStamp } from '../emit/index.js';
 import type { LedgerRow } from '../engine/index.js';
 import { VERSION } from '../version/index.js';
@@ -121,6 +121,23 @@ export interface RunRecord {
   readonly programHash: string;
   /** Hash, lines, file: the script revision. */
   readonly source: SourceStamp;
+  /**
+   * The source text itself, or null on a record written before version 2.
+   *
+   * **A record is the conformance case, and a case has to hold `script.os`.**
+   * `source` above identifies the script and cannot reproduce it: a hash is a
+   * fingerprint, so it settles whether two files are the same and yields
+   * neither of them. Without the text a stored record could be replayed months
+   * later and still not be handed to anybody else to run, which is the whole
+   * claim the suite exists to test.
+   *
+   * It lives here and not on the compiled program on purpose. A program is
+   * executable data that no engine needs the source to run, and it is the
+   * versioned artefact adopters depend on; putting the text there would send a
+   * script everywhere its program travels and widen the format every engine
+   * has to read. The record is the thing that wants to be self-contained.
+   */
+  readonly sourceText: string | null;
   readonly settings: BacktestSettings;
   readonly bars: BarsInRecord;
   /** What the destination answered, in delivery order. */
@@ -141,7 +158,7 @@ export interface RunRecord {
  * file alone. It moves when a channel is added or a meaning changes, never when
  * a figure in a report does.
  */
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2;
 
 /** What this engine calls itself in a record it wrote. */
 const ENGINE_NAME = 'openscript';
@@ -149,6 +166,15 @@ const ENGINE_NAME = 'openscript';
 /** The parts a run hands over, each already in the shape the record holds. */
 export interface RecordParts {
   readonly program: CompiledProgram;
+  /**
+   * The script's own text, so the record can become a conformance case.
+   *
+   * Optional because a caller that has only a compiled program cannot invent
+   * it, and a run is still worth recording without it. `caseFilesFrom` is the
+   * one thing that then cannot be served, and it says so rather than writing a
+   * case with a hole in it.
+   */
+  readonly sourceText?: string;
   readonly settings: BacktestSettings;
   readonly bars: readonly RecordedBar[];
   /**
@@ -184,6 +210,7 @@ export function recordOf(parts: RecordParts): RunRecord {
     program: parts.program,
     programHash: programHash(parts.program),
     source: parts.program.source,
+    sourceText: textFor(parts),
     settings: parts.settings,
     bars: barsIn(parts.bars, parts.form),
     frames: parts.frames,
@@ -192,6 +219,26 @@ export function recordOf(parts: RecordParts): RunRecord {
     diagnostics: parts.diagnostics,
     report: parts.report,
   };
+}
+
+/**
+ * The source text, checked against the hash the program already carries.
+ *
+ * A check rather than a promise, and it costs one hash of a few kilobytes. The
+ * failure it exists for is quiet: a caller that passes the text of a different
+ * revision than the one it compiled produces a case whose script does not make
+ * its own expected output, and the engine being tested gets the blame for a
+ * disagreement that was in the case all along.
+ */
+function textFor(parts: RecordParts): string | null {
+  const text = parts.sourceText;
+  if (text === undefined) return null;
+  if (sourceHash(text) !== parts.program.source.hash) {
+    throw new Error(
+      'openscript: the source text does not hash to the source hash the program carries',
+    );
+  }
+  return text;
 }
 
 /**
@@ -283,7 +330,16 @@ export function recordFromJson(text: string): RunRecord | null {
   const parsed: unknown = JSON.parse(text);
   if (parsed === null || typeof parsed !== 'object') return null;
   const record = parsed as RunRecord;
-  return record.recordVersion === RECORD_VERSION ? record : null;
+  const version = record.recordVersion;
+  if (typeof version !== 'number' || version < 1 || version > RECORD_VERSION) return null;
+  // An earlier revision is readable and a later one is not, and the asymmetry
+  // is the point. A later revision may mean something by a field this one
+  // thinks it knows, which is how a record silently becomes a different run. An
+  // earlier one only ever has fewer: every channel it carries means here what
+  // it meant there, and the ones added since are absent rather than wrong. So a
+  // run stored months ago still reads, which is the whole of what it was stored
+  // for, and the text it never carried reads as absent.
+  return version === RECORD_VERSION ? record : { ...record, sourceText: null };
 }
 
 /**

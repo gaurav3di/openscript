@@ -143,13 +143,26 @@ alone before it is reported again, run again, refused over revised bars, and
 compared. What the gate does not cover, and says so in its own summary, is the
 half that needs somebody else's engine, which is the next phase's.
 
-**What this phase owed the next one and could not pay in full.** A run record is
-the conformance case, and it is written. The case *files* are not, and cannot be
-produced from a record alone: `spec/conformance.md` section 2 requires a case
-directory to carry `script.os`, the source text, and a record carries the
-source's hash, its line count and its file name. Adding the text to the record,
-or handing it to the writer beside the record, is the first thing the next phase
-has to decide.
+**What this phase owed the next one, and has since paid.** A run record is the
+conformance case, and it is written. The case *files* could not be produced from
+a record alone: `spec/conformance.md` section 2 requires a case directory to
+carry `script.os`, the source text, and a record carried only the source's hash,
+its line count and its file name. A hash settles whether two files are the same
+and yields neither of them.
+
+Settled by putting the text in the record rather than beside it. Record version 2
+carries `sourceText`, checked against the hash the compiled program already
+holds, and `caseFilesFrom` projects a record into the files of a case: text out,
+no I/O, nothing computed. A record that cannot make a whole case makes none,
+because a directory missing one file fails on somebody else's engine and the
+cost lands on them.
+
+It went in the record and not in the compiled program deliberately. A program is
+executable data no engine needs the source to run, and it is the versioned
+artefact adopters depend on; the text there would travel everywhere a program
+travels and widen the format every engine has to read. Earlier records still
+read, with the text absent: a version bump that made every stored run unreadable
+would cost the thing the record is for.
 
 ## Phase 6. The second engine, and live running
 

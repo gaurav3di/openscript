@@ -186,6 +186,7 @@ const RECORD: Portable<RunRecord> = {
   languageVersion: '1',
   program: COMPILED.program,
   programHash: programHash(COMPILED.program),
+  sourceText: null,
   source: COMPILED.program.source,
   settings: SETTINGS,
   bars: INLINE,

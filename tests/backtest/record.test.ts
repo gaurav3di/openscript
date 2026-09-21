@@ -36,7 +36,8 @@ import {
 } from '../../src/core/backtest/index.js';
 import type { RunRecord } from '../../src/core/backtest/index.js';
 import { reportOf } from '../../src/core/accounting/index.js';
-import { CONTRACT, inAndOut, revised, rising, runSettings } from './support.js';
+import { CONTRACT, inAndOut, probeText, revised, rising, runSettings } from './support.js';
+import { compile } from '../engine/support.js';
 
 const BARS = rising(8);
 
@@ -55,6 +56,7 @@ const CHANNELS: readonly string[] = [
   'report',
   'settings',
   'source',
+  'sourceText',
 ];
 
 function recorded(form: 'inline' | 'referenced' = 'inline'): RunRecord {
@@ -92,6 +94,44 @@ test('a record carries every channel it promises', () => {
   assert.deepEqual(record.diagnostics, []);
   assert.equal(record.report.trades.length, 1);
   assert.equal(record.settings.contract.symbol, CONTRACT.symbol);
+});
+
+test('a record records the script text when it is given one, and checks it', () => {
+  // The text is what makes a record a conformance case, and the check is what
+  // stops a case being built from a different revision than the one that ran:
+  // its script would not make its own expected output, and the engine under
+  // test would be blamed for a disagreement that was in the case all along.
+  const text = probeText();
+  const program = compile('probe.oscript', text).program;
+  const out = backtest(program, BARS, runSettings(), { sourceText: text });
+  assert.equal(out.ok, true);
+  if (!out.ok) return;
+  assert.equal(out.record.sourceText, text);
+
+  assert.throws(
+    () => backtest(program, BARS, runSettings(), { sourceText: `${text}
+# edited
+` }),
+    /does not hash/,
+  );
+});
+
+test('a record written without the text says so rather than guessing', () => {
+  const record = recorded();
+  assert.equal(record.sourceText, null);
+});
+
+test('a record from before the text existed still reads, with the text absent', () => {
+  // A version bump that made every stored run unreadable would cost the thing
+  // the record is for. An earlier revision only ever has fewer channels.
+  const record = recorded();
+  const older = { ...record, recordVersion: 1 };
+  delete (older as { sourceText?: unknown }).sourceText;
+
+  const read = recordFromJson(JSON.stringify(older));
+  assert.notEqual(read, null);
+  assert.equal(read?.sourceText, null);
+  assert.equal(read?.report.trades.length, record.report.trades.length);
 });
 
 /**

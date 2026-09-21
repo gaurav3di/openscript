@@ -19,6 +19,9 @@ import { settingsFor } from '../../src/core/backtest/index.js';
 import type { RecordedBar } from '../../src/core/backtest/index.js';
 import { compile } from '../engine/support.js';
 
+/** One line break, named so a generated script cannot pick up a stray one. */
+const BREAK = String.fromCharCode(10);
+
 /** One bar an hour, which is an interval and not a market. */
 export const HOUR = 3_600_000;
 export const START = 1_748_736_000_000;
@@ -80,6 +83,26 @@ export function inAndOut(options: {
   readonly commissionType?: string;
   readonly slippage?: number;
 } = {}): CompiledProgram {
+  return compile('probe.oscript', probeText(options)).program;
+}
+
+/**
+ * The same probe, as text.
+ *
+ * A case holds the script rather than a fingerprint of it, so a test about
+ * cases needs the source and the program to be the same revision. Both come
+ * from here, so the two cannot drift.
+ */
+export function probeText(options: {
+  readonly entryBar?: number;
+  readonly exitBar?: number;
+  readonly qty?: number;
+  readonly qtyType?: string;
+  readonly fillOn?: string;
+  readonly commission?: number;
+  readonly commissionType?: string;
+  readonly slippage?: number;
+} = {}): string {
   const entry = options.entryBar ?? 1;
   const exit = options.exitBar ?? 4;
   const lines = [
@@ -98,7 +121,7 @@ export function inAndOut(options: {
     '',
     'plot(close, "Close")',
   ];
-  return compile('probe.oscript', lines.join('\n')).program;
+  return lines.join(BREAK);
 }
 
 /** A strategy that rests a limit below the market and never cancels it. */

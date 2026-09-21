@@ -66,6 +66,19 @@ export type BacktestResult =
 export interface DriveOptions {
   /** Whether the bars travel in the record. Inline is the conformance form. */
   readonly form?: 'inline' | 'referenced';
+  /**
+   * The script's own text, so the record it produces is a conformance case.
+   *
+   * A compiled program identifies its source and cannot reproduce it, and a
+   * case has to hold `script.os`. A caller holding only a program leaves this
+   * out and gets a record that replays and reruns like any other; the one
+   * thing it cannot do is be handed to somebody else's engine as a case.
+   *
+   * It is checked against the program's own source hash, so text from a
+   * different revision than the one that was compiled is refused rather than
+   * written into a case that could never make its own expected output.
+   */
+  readonly sourceText?: string;
 }
 
 /**
@@ -121,6 +134,7 @@ export function backtest(
     ok: true,
     record: recordOf({
       program: engine.program,
+      ...(options.sourceText === undefined ? {} : { sourceText: options.sourceText }),
       settings,
       bars,
       form: options.form ?? 'inline',
