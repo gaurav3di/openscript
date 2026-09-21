@@ -42,6 +42,39 @@ is the asymmetry that matters: a later one may mean something new by a field thi
 version thinks it knows. Such a record replays and reruns as before; the one
 thing it cannot do is become a case.
 
+**Specification decisions for the second engine.** Three, all in
+`conformance.md` and `stdlib.md`, and each one was a place two implementations
+could not have been written against the same page.
+
+*The adapter is invoked once per case*, and the runner assembles the result
+document. The page allowed both readings. Per-case is forced by the `error`
+outcome, which covers a crash, a hang and a timeout: none of the three can be
+reported by the program that suffered it, so only a caller holding a clock and a
+child process can turn them into an outcome.
+
+*An adapter also answers `--actual`*, writing what it computed with no
+comparison. Section 10 requires comparing two engines channel by channel, and a
+case result carries an outcome and a first difference rather than the values, so
+two adapters both reporting `pass` proved only that each matched an expected
+file, which is the thing that section says is not enough.
+
+*The equity curve is not a conformance channel.* It is one value per bar derived
+from fills and closes that the case already asserts, so it can only fail with the
+channels it comes from or alone, and alone means the engines disagree about
+arithmetic section 6 compares directly. It was also most of the bytes in a case.
+Trade markers move to the `markers` channel, which already existed, and
+`performance` is a list of one flat object.
+
+**The transcendental gap is scoped out of conformance rather than solved.**
+`exp`, `log`, `pow`, the trigonometric family and the three indicators built on
+them have no portable reference algorithm, and `compiled-program.md` 8.3 forbids
+answering them from the platform's maths library. No conformance case may assert
+a value reaching them until one is written. They still compute what they always
+did; what they do not carry is a cross-engine guarantee. The deciding fact was
+deployment rather than theory: the first host installs across two processor
+architectures and most common operating systems, so that one library is several
+in practice, and the disagreement is two traders reading two numbers.
+
 **A harvested case carries the frames the run was handed.** Without them the
 case was unpassable on every engine, including the one that wrote it:
 `conformance.md` section 3 ends "a case with no `frames.csv` is handed no frames

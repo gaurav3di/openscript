@@ -313,6 +313,34 @@ ordered list, and each element is a flat object of named fields.
 An element of the `orders` channel is a ledger row of `stdlib.md` section 17.7,
 compared on the fields the case names and no others.
 
+**`performance` is a list of one flat object**, holding the run's summary
+statistics and nothing nested. The channel is a list for the same reason every
+other one here is, so a reader and a runner need one shape rather than two.
+
+**A trade marker belongs to the `markers` channel, not to `performance`.**
+Section 2's vocabulary already has `markers`, and a marker is a chart output that
+a study can produce as readily as a strategy, so folding it inside a performance
+summary would put one channel in two places depending on what produced it.
+
+**The equity curve is not a conformance channel, and neither is any other series
+derived from the fills.** Section 2's vocabulary does not name one, and this is
+the reason rather than an oversight. An equity curve is one value per bar
+computed from the fills and the bar closes, both of which the case already
+asserts: the `orders` and `trades` channels fix every fill, and `bars.csv` fixes
+every close. A case asserting the curve as well is asserting the same facts a
+second time, so it can only fail in two ways. Either it fails together with the
+channels it is derived from, and says nothing they did not, or it fails alone,
+which means the engines disagree about arithmetic the suite is already comparing
+directly under section 6.
+
+The cost is not small. A four hundred bar strategy case carries a four hundred
+point curve, which is most of the bytes in the file and grows with every case
+added, so a suite of a hundred cases pays megabytes for a channel that cannot
+tell anybody anything new. An implementation that wants the curve compared has
+the `values` channel and `expected.csv`, which is where one value per bar
+belongs; that is a decision for a case that is about the curve, not a tax on
+every case that is about money.
+
 A diagnostic is compared on `code`, `line`, `column` and `severity` only. The
 message text and the suggested fix are deliberately not compared, because
 improving the wording of an error is something the project wants to keep doing,
@@ -496,6 +524,41 @@ also report `engine-only`, meaning it runs compiled programs supplied to it and
 implements no compiler; it then runs every case except the compiler-diagnostic
 categories, and its report says so.
 
+### What a profile cannot say
+
+A profile says what an **implementation** covers. There is a second kind of hole
+it cannot express, and conflating the two would let the suite claim agreement it
+has no right to require: a region the **specification** does not fix.
+
+`stdlib.md` section 20.11 lists these, and gap 1 is the live one. The
+transcendental calls (`exp`, `log`, `log10`, `log2`, `pow`, `hypot` and the
+trigonometric family, and `alma`, `hv` and `chop`, which are built on them) have
+no portable reference algorithm written yet. `compiled-program.md` section 8.3
+forbids an engine from answering them out of the platform's maths library, and
+nothing yet says what it should answer instead.
+
+**No case may assert a value that reaches an open gap.** Not reported
+`unsupported`, not admitted with a tolerance: not admitted. An engine that meets
+such a case is being compared against arithmetic no document fixes, so a correct
+engine can fail it, and section 10 would then stop a release over a defect that
+is in this specification rather than in either engine. Section 11 says a case is
+in practice never removed, which is the other half of the reason: a case admitted
+today under a gap could not be withdrawn when the gap closes.
+
+This is a debt and not a carve-out. It is recorded in 20.11 with what would close
+it, and the calls return to the profiles that cover them on the day a reference
+algorithm is written. Until then an implementation is told plainly which calls
+carry no cross-engine guarantee, which is the same courtesy a profile extends
+about features: it does not have to cover everything, and it does not get to
+imply that it did.
+
+The reason it cannot be deferred quietly is deployment. Those calls are answered
+by the platform's own library today, and a platform is not one thing: two C
+libraries, two processor architectures and several operating systems all answer
+them differently in the last bit, and browser engines differ from each other as
+well. A gap that looks theoretical on one machine is a visible disagreement
+across a real install base.
+
 A case that an implementation does not support is reported `unsupported` with the
 feature named. It is not a pass, it is not a failure, and it is counted and
 printed separately on every report. An implementation with any `unsupported` case
@@ -507,11 +570,44 @@ inside the profile it claims does not pass that profile.
 
 ### The adapter
 
-An implementation ships an adapter: any program the suite can invoke with a case
-directory path, which writes one JSON object to standard output and exits 0. The
-suite makes no requirement about what language the adapter is written in and does
-not load the engine into its own process, because an engine written in another
-language must be a first-class participant rather than a special case.
+An implementation ships an adapter: a program the suite invokes, which writes one
+JSON object to standard output and exits 0. The suite makes no requirement about
+what language the adapter is written in and does not load the engine into its own
+process, because an engine written in another language must be a first-class
+participant rather than a special case.
+
+**An adapter is invoked once per case, and never for the suite as a whole.** It
+is handed one case directory and answers for that case alone. The runner walks
+the suite, invokes the adapter once per case, and assembles the result document
+below; an adapter never writes that document and never learns how many cases
+there are.
+
+The reason is the `error` outcome. That row covers "a crash, a hang, a timeout",
+and none of the three can be reported by the program that suffered it: a process
+that hangs writes nothing at all, and one that dies takes any partial document
+with it. Only a caller holding a clock and a child process can turn those into an
+outcome, and it can only do so for one case at a time. An adapter invoked once
+for the whole suite loses every result when it dies on the ninth case of four
+hundred, and the failure is reported as the whole run being broken rather than as
+one case erroring.
+
+Three invocations, and an adapter implements all three:
+
+| Invocation | Writes |
+|---|---|
+| `adapter --describe` | The engine's own identity: `name`, `version`, `profile`, `languageVersions` and `schemaVersion`. The runner copies these into the result document, because only the engine knows them |
+| `adapter <case-directory>` | One case result: the object the `cases` array below holds, for that case |
+| `adapter --actual <case-directory>` | The engine's actual output for the channels the case asserts, and no comparison |
+
+The third exists for section 10. Comparing two engines against each other means
+comparing what each produced, and a case result carries an outcome and a first
+difference rather than the values themselves, so two adapters reporting `pass`
+prove only that both matched an expected file, which is the thing section 10 says
+is not enough. In `--actual` mode an adapter makes no comparison, reads no
+tolerance and reports no outcome: it writes what it computed, in the encoding
+section 4 gives that channel, and the runner does the comparing. That keeps one
+comparison in one place, which is what makes "exactly, whatever the case
+declares" mean the same thing for both engines.
 
 ### The result document
 

@@ -3439,6 +3439,28 @@ reached three of the gaps and the sentence still read as a fact.
    script's own `pow` call carries the full risk. The hyperbolic functions
    section 8.2 lists as planned join the row above on the day they arrive.
 
+   **Decided: scoped out of conformance, not solved.** A reference algorithm for
+   the exponential, the logarithm and the power is weeks of specialist work, and
+   nothing in the language or the backtest is blocked on it, so the second engine
+   proceeds on the rest of the library rather than waiting. Until an algorithm is
+   written here, no conformance case may assert a value that reaches this row,
+   and `conformance.md` section 8 carries that rule and its reasoning.
+
+   The choice was made against a real deployment picture rather than in the
+   abstract. The first host installs on two processor architectures and most of
+   the common operating systems, so the platform library this row depends on is
+   several different libraries in practice, and the disagreement is not an
+   argument about the last bit: it is two traders on two machines reading two
+   numbers. That is what makes scoping honest and silence dishonest. The calls
+   still work, they still compute what they always did, and what they do not
+   carry is a cross-engine guarantee.
+
+   **What closes it:** an algorithm for `exp`, `log` and `pow` written down on
+   this page, in the accumulation order this section fixes for everything else,
+   with the rest of the row derived from those three. On that day the calls
+   return to the profiles that cover them and the cases that were refused can be
+   harvested.
+
    **This is the gap the gate reaches.** One study takes the logarithm of the
    close and smooths it three times, so every number in its plotted column
    depends on the last bit of `log`, and the reference that column is compared
