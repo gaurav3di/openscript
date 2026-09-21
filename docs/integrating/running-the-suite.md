@@ -4,8 +4,9 @@ For anyone holding an engine, this one or another, who wants to know whether it
 produces the numbers every other engine produces.
 
 By the end of this page you will know how to run the suite against an engine,
-how to run two engines against each other, what the result document says, and
-what each of this repository's two adapters does not yet reach.
+how to run two engines against each other, how the build stops a release when
+they disagree, what the result document says, and what each of this
+repository's two adapters does not yet reach.
 
 ---
 
@@ -77,37 +78,58 @@ adapter proper and can be driven on its own:
 echo '{"program":"<the canonical program text>"}' | python -m openscript <case-directory>
 ```
 
-**What it claims.** The lowest profile the specification's table names, and the
-identity it writes carries `engineOnly` beside it, because section 8's word for
-an implementation with no compiler is not one of the three profiles a runner
-accepts. Everything it cannot do is named on the case with the `unsupported`
-outcome, and the engine is what names it: a program needing a capability it does
-not serve, or a library function its manifest does not hold, is refused at load
-with that tag or that function in the refusal, and the refusal becomes the
-feature the case reports.
+**What it claims.** The profile that covers the cases it runs, which is
+`strategy`: it loads a compiled program, runs the bars, folds the frames a case
+supplies and reports what the run made. The identity it writes carries
+`engineOnly` beside the profile, because section 8's word for an implementation
+with no compiler is not one of the three profiles a runner accepts.
+
+The claim is worth reading against the table it is made from, because the table
+and this engine do not line up. A profile there is cumulative, so `strategy`
+reads as "everything `chart` covers, and orders as well", and this engine draws
+nothing: a case asserting a marker or a drawing is answered `unsupported` naming
+the channel. The alternative is to claim `core` and have every strategy case
+skipped, which is a suite that says nothing about the engine that runs the
+money. So the wider claim is made and every shortfall is named on the case,
+which is the arrangement section 8 describes for a feature and has no spelling
+for here.
+
+Everything it cannot do is named on the case with the `unsupported` outcome, and
+the engine is what names it: a program needing a capability it does not serve, or
+a library function its manifest does not hold, is refused at load with that tag
+or that function in the refusal, and the refusal becomes the feature the case
+reports.
 
 **What it does not reach.** Said here so a reader does not discover it as a
 surprise, and each is `unsupported` or `error` on the case, never a pass.
 
-- **Every channel but two.** It answers `diagnostics` and `values`. The
-  first adapter above answers `diagnostics`, `orders`, `trades` and
-  `performance`, so today the two engines can be compared directly on
-  `diagnostics` and on nothing else. That is a hole in the coverage of the whole
-  suite rather than of either adapter, and it is the reason a run of the two
-  against each other over `cases/` compares nothing: both cases there are
-  strategy cases, which this engine reports unsupported by name.
+- **Every channel but five.** It answers `diagnostics`, `values`, `orders`,
+  `trades` and `performance`. A case asserting a chart channel, a table, a
+  drawing, an alert or the log is `unsupported` naming the channel, because an
+  empty channel compares equal to an empty expectation and would be a pass
+  nobody earned.
 - **A compiler case.** A case whose assertion is a diagnostic raised by
   compiling is `unsupported`: the compiler here is the first engine's, and its
   diagnostics are not the second engine's to claim.
 - **`ticks.csv` and a secondary series.** The machine re-executes a bar and
   rolls its state back, and how a tick row becomes the newest bar's four prices
   is written down nowhere, so a replay would be the adapter's invention.
-- **`frames.csv`.** An order frame is folded by a ledger, and this engine has
-  none yet.
+- **A frame delivered after the last bar.** Section 3 has a frame delivered
+  after the bar it names and folded before the next execution, and the last bar
+  has no next execution, so what becomes of such a frame is written down
+  nowhere. A case carrying one is `unsupported` rather than run against a
+  ledger missing whatever the frame said.
 - **`expectedExitCode`.** Section 2 names the field and fixes no shape for it,
   so no shape is read.
-- **A time input outside the one timezone this engine reads.** A host with a
-  zone supplies its own reader; this engine has been given none.
+- **A calendar outside the one timezone this engine reads.** A written time and
+  a session boundary are both read in the instrument's zone, and a host with
+  another zone supplies its own reader; this engine has been given none.
+- **The two derived instrument facts, and the planned entries of every
+  namespace.** `chart.intervalMinutes` and `chart.isIntraday` are computed from
+  the interval string, which this engine does not read, and
+  `session.isLastBar` needs the bar's own length to know which bar reaches the
+  scheduled close. Each is refused at load naming the function, which the case
+  reports as the feature.
 
 ## Running it
 
@@ -136,6 +158,28 @@ node scripts/run-suite.mjs --against path/to/their-adapter.mjs
 invocation, and `--out <file>` writes the document to a file instead of
 standard output. The one-line summary goes to standard error either way, so
 standard output is the document and nothing else.
+
+Three named commands do the same three things from the repository root, and the
+third is the one the build runs:
+
+```
+npm run suite          # this engine, against the expected files
+npm run suite:engine   # the second engine, against the expected files
+npm run suite:agree    # the two engines, against each other, exactly
+```
+
+## The gate
+
+`npm test` runs `suite:agree`, so a disagreement between the two engines fails
+the build. That is section 10 made mechanical: a disagreement is a release
+blocker, and the release stops where the disagreement is found rather than where
+somebody remembers to look.
+
+One rule belongs to that mode alone. A run where every case was skipped exits
+non-zero, saying it compared nothing. In the first mode a skipped case is one
+engine honestly reporting the profile it claims, which is what section 8 is for;
+in the second it means neither engine was asked about a single case, and a green
+line there would be the same evidence a suite with no cases in it produces.
 
 ## Reading the result
 
@@ -180,6 +224,8 @@ list is in its section above.
   instrument names no currency, and the money layer refuses to charge in none,
   so such a case is answered with that refusal in its diagnostics. A harvested
   case always states its instrument.
-- **The money rounding digit count.** It is a fact of a run that no case file
-  carries; the adapter uses the fixture's, which every harvested case ran
-  under, until the page gives it a place.
+- **A strategy case with no `backtest.json`.** Section 3 requires the file of
+  every strategy case and both adapters refuse a case without it, by name,
+  rather than running it under a digit count, a schedule or a window nobody
+  stated. Two engines rounding to counts they each assumed agree by
+  coincidence.

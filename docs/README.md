@@ -433,4 +433,4 @@ What you get, what you supply, and the three routes to adopting it.
 - [integrating/the-python-engine.md](./integrating/the-python-engine.md) - the second engine in this repository: what is in it, how to run it, what refuses bad code in it
 - [integrating/backtesting.md](./integrating/backtesting.md) - what a backtest gives you and what you fill in
 - [integrating/the-editor-half.md](./integrating/the-editor-half.md) - the language intelligence an editor needs, and what stays yours
-- [integrating/running-the-suite.md](./integrating/running-the-suite.md) - run the conformance suite against an engine, or two engines against each other
+- [integrating/running-the-suite.md](./integrating/running-the-suite.md) - run the conformance suite against an engine, or two engines against each other, which is what the build does

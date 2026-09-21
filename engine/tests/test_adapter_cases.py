@@ -2,11 +2,11 @@
 
 Every case below is written in a temporary directory by this file, so what is
 asserted is what the file says rather than what some run once produced. The two
-cases in the repository's own suite are strategy cases, which this engine reports
-unsupported by name, so a test that only ran those would exercise the refusal and
-nothing else: the engine would never load a program, never execute a bar and
-never compare a number, and this file would be a green tick with nothing behind
-it.
+cases in the repository's own suite are strategy cases over four hundred bars,
+and what they hold this engine to is a ledger and a report;
+``test_strategy_profile.py`` runs those. What is here is the adapter itself: the
+files it reads, the channels it answers, and every shortfall it names rather than
+passes over.
 
 The arithmetic asserted here is arithmetic anybody can check by hand. ``close``
 doubled is exact in binary64 for every value used, so a difference in the last
@@ -213,27 +213,33 @@ class Running(unittest.TestCase):
         self.assertEqual(found["bound"], "absence")
 
     def test_a_capability_this_engine_does_not_serve_is_named_on_the_case(self):
+        # A table is one of the tags no stage has wired in, and the tag is the
+        # whole of what this asserts: the day one is, this test is about another
+        # tag rather than about a mechanism that stopped working.
         made = doubling()
-        made["requires"] = sorted(set(made["requires"]) | {"orders"})
+        made["requires"] = sorted(set(made["requires"]) | {"tables"})
         found = result_for(self.case(), envelope(made))
         self.assertEqual(found["outcome"], "unsupported")
-        self.assertIn("orders", found["feature"])
+        self.assertIn("tables", found["feature"])
 
     def test_a_library_function_this_engine_has_no_manifest_row_for_is_named(self):
         made = doubling()
-        made["lib"] = {"manifest": 1, "functions": [{"name": "ema", "arity": 2, "state": True, "effect": "none"}]}
+        made["lib"] = {
+            "manifest": 1,
+            "functions": [{"name": "draw.line", "arity": 5, "state": False, "effect": "draw"}],
+        }
         found = result_for(self.case(), envelope(made))
         self.assertEqual(found["outcome"], "unsupported")
-        self.assertIn("ema", found["feature"])
+        self.assertIn("draw.line", found["feature"])
 
     def test_a_channel_this_engine_does_not_answer_is_named_rather_than_left_empty(self):
         # An empty channel compares equal to an empty expectation, so an adapter
         # that answered one would report a pass for a channel it cannot produce.
-        declared = {**CASE, "asserts": ["orders"]}
+        declared = {**CASE, "asserts": ["markers"]}
         directory = self.case(**{"case.json": json.dumps(declared)})
         found = result_for(directory, envelope(doubling()))
         self.assertEqual(found["outcome"], "unsupported")
-        self.assertIn("orders", found["feature"])
+        self.assertIn("markers", found["feature"])
 
     def test_a_script_that_did_not_compile_is_the_compiler_and_not_this_engine(self):
         found = result_for(self.case(), {"diagnostics": [{"code": "OS1002"}]})

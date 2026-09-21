@@ -4,8 +4,9 @@ For anyone who has to run a compiled program somewhere a JavaScript runtime is
 not, and for anyone working on the engine that does it.
 
 By the end of this page you will know what is in `engine/`, what a host needs in
-order to run it, how to run its tests and its checks, and what refuses a piece
-of Python that would quietly break the two promises the whole design rests on.
+order to run it, how to run its tests and its checks, how the build holds it to
+the other engine, and what refuses a piece of Python that would quietly break
+the two promises the whole design rests on.
 
 ---
 
@@ -34,6 +35,9 @@ engine/
   openscript/        the package, importable as one name
     __init__.py      the door
     __main__.py      the conformance adapter's command line
+    library/         the functions of the library, both halves
+    strategy/        orders, frames, fills and the ledger
+    accounting/      what a run made, what it cost and what that is worth
     adapter/         what it answers: a case read, run and compared
   tests/             the engine's own tests
   tools/             programs about the engine rather than part of it
@@ -48,6 +52,12 @@ Much of the package is not written yet. `__init__.py` says what goes where and
 which stage fills it, and a module that is not there yet is absent rather than
 stubbed: a stub that answers an invocation with a shape somebody starts
 depending on is worse than nothing.
+
+What is written runs a strategy end to end: the machine, both halves of the
+library, the order ledger, the money, and the adapter that joins them over a
+case. What it does not have is the chart surface, and a case asserting one is
+answered `unsupported` naming the channel.
+[`running-the-suite.md`](./running-the-suite.md) has the whole list.
 
 ## What a host needs
 
@@ -96,8 +106,19 @@ That step finds an interpreter, refuses one older than the distribution
 requires, reads every import in the tree, and then runs the tests under the same
 interpreter it just measured. A missing interpreter fails it. That is
 deliberate: a suite that quietly checks one engine is how two engines drift
-apart, and the phase this work belongs to is measured by the two agreeing on
-every conformance case.
+apart.
+
+The other half of the gate is the two engines compared with each other:
+
+```
+npm run suite:agree
+```
+
+`npm test` runs it, so a case where the two disagree by one bit fails the build
+with the case, the channel and the first differing value named. That is the
+phase's own gate rather than a report anybody has to read, and
+[`running-the-suite.md`](./running-the-suite.md) says what it does and does not
+reach.
 
 The test runner is the standard library's, with one thing added. A discovery
 that found nothing exits zero and prints a passing line, and that failure has

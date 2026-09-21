@@ -2,11 +2,20 @@
 
 ``contracts.py`` says what the machine asks of a library: a manifest to disagree
 with at load, a sentence describing what this engine holds instead, and a way to
-call one. ``library/stateless.py`` answers a different shape: a table keyed by a
-name and an argument count, whose calls take a context of six members and the
-arguments. Nothing in the package joins the two yet, so this adapter carries the
-join, and it carries it here rather than inside the answer so that the day a
-module in the package does it, one import changes and nothing else does.
+call one. ``library/`` answers a different shape, and two of them: a stateless
+table whose calls take a context and the arguments, and a stateful one whose
+calls take the call site's region as well. Nothing in the package joins them, so
+this adapter carries the join, and it carries it here rather than inside the
+answer so that the day a module in the package does it, one import changes and
+nothing else does.
+
+**Four tables and not one.** Beside the two halves of the library are the two
+namespaces that are not in it: the ``chart`` and ``pos`` facts of ``facts.py``,
+whose answer is the host's record and the strategy's own fills, and the nine
+order calls of ``ordering.py``, which carry an effect and are therefore never
+called through here at all. A name in none of the four is a name this engine's
+manifest does not hold, and a program calling it is refused at load (OS6004)
+naming the function and what this engine holds instead.
 
 **Two things the machine cannot pass through, and how they are served.**
 
@@ -37,43 +46,84 @@ seam that converted quietly would hide the one place a test can see it.
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..contracts import CallContext, LibraryEntry
-from ..library import table
+from ..library import stateful_table, table
 from ..library.stateless import Entry
 from ..values import ABSENT, ArrayValue, Reference, tag
+from .facts import FACT_NAMES, POSITION_FACTS, Book, fact_value
+from .ordering import ORDER_ENTRIES
+from .sessions import SESSION_FIRST
 
 
 class Serving:
-    """The stateless half of the library, as the machine's ``Library``.
+    """The library and the two namespaces that are not in it, as a ``Library``.
 
     One instance per run. ``at_bar`` is called by whatever drives the bars,
     before each execution, with the three facts a bar-reading call needs and no
     context carries.
+
+    ``book`` is the strategy's position book, which is the ledger. A run without
+    one serves no ``pos`` entry and no order call, so a program that places an
+    order is refused at load naming the function (OS6004) rather than running as
+    a study that quietly trades nothing.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, book: Optional[Book] = None) -> None:
         self._entries = table()
+        self._stateful = stateful_table()
+        self._book = book
         self._bar: Dict[str, Any] = {}
         self._first = False
         self._context: Optional[CallContext] = None
 
     # -- what the caller states before a bar --------------------------------
 
-    def at_bar(self, high: Any, low: Any, previous_close: Any, first: bool) -> None:
-        """The bar facts ``trueRange`` reads, for the execution about to happen."""
-        self._bar = {"high": high, "low": low, "previousClose": previous_close}
+    def at_bar(self, facts: Dict[str, Any], first: bool) -> None:
+        """The bar facts a library call reads, for the execution about to happen.
+
+        Six of them, and each is read by name: ``high``, ``low``, ``close``,
+        ``previousClose``, ``volume`` and ``isSessionFirst``. The names are the
+        library's, asked for through ``bar``, and a fact the caller does not state
+        is absent rather than a value read from somewhere else: a study that
+        answered absence for every bar would be a study with a silently empty
+        line through it, and this is the one place that could happen quietly.
+        """
+        self._bar = dict(facts)
         self._first = first
 
     # -- the manifest, which is what a load is held to ----------------------
 
+    def _facts(self) -> Sequence[str]:
+        """The fact names this run can answer, which the ``pos`` half depends on."""
+        if self._book is not None:
+            return FACT_NAMES
+        return tuple(name for name in FACT_NAMES if name not in POSITION_FACTS)
+
     def entry(self, name: str, arity: int) -> Optional[LibraryEntry]:
-        held = self._entries.get((name, arity))
-        if held is None:
-            return None
-        return LibraryEntry(held.name, held.arity, held.state, held.effect)
+        """One manifest row, from whichever of the four tables holds the name.
+
+        The order they are asked in decides nothing: a name is in one of them,
+        because the two halves of the library are keyed apart by their own module
+        and neither namespace is a function the library holds.
+        """
+        held = self._entries.get((name, arity)) or self._stateful.get((name, arity))
+        if held is not None:
+            return LibraryEntry(held.name, held.arity, held.state, held.effect)
+        if arity == 0 and name in self._facts():
+            return LibraryEntry(name, 0, False, "none")
+        return ORDER_ENTRIES.get((name, arity))
+
+    def _arities(self, name: str) -> Sequence[int]:
+        """Every argument count this engine holds the name under."""
+        found = {arity for (held, arity) in self._entries if held == name}
+        found |= {arity for (held, arity) in self._stateful if held == name}
+        found |= {arity for (held, arity) in ORDER_ENTRIES if held == name}
+        if name in self._facts():
+            found.add(0)
+        return sorted(found)
 
     def describe(self, name: str) -> str:
         """What this engine's manifest holds for a name, in OS6004's own words."""
-        arities = sorted(arity for (held, arity) in self._entries if held == name)
+        arities = self._arities(name)
         if not arities:
             return f"no function called {name}"
         spelled = " or ".join(str(one) for one in arities)
@@ -90,15 +140,30 @@ class Serving:
     ) -> Any:
         """One ``CALL_LIB``, dispatched by the name and the argument count.
 
-        ``state`` is not read: every entry of this half holds nothing across
-        bars, which is what the manifest says of it, and a region handed to one
-        would be a region the load-time check should have refused.
+        ``state`` is the call site's own region and is passed to the half of the
+        library that keeps one and to nothing else: a region handed to a
+        stateless call would be a region the load-time check should have refused,
+        and a stateful call reaching this engine without one is the same
+        disagreement from the other side, so it answers absence rather than
+        making a region of its own that no rollback would ever restore.
+
+        An order call never arrives here. Its manifest row carries an effect, so
+        the machine holds it until step 9 and hands it to the ledger, which is
+        ``compiled-program.md`` 5.4 and the whole reason a strategy is
+        reproducible on a moving bar.
         """
-        held: Optional[Entry] = self._entries.get((name, len(arguments)))
-        if held is None:
-            return ABSENT
         self._context = context
-        return held.call(self, list(arguments))
+        held: Optional[Entry] = self._entries.get((name, len(arguments)))
+        if held is not None:
+            return held.call(self, list(arguments))
+        keeping = self._stateful.get((name, len(arguments)))
+        if keeping is not None:
+            return ABSENT if state is None else keeping.call(self, list(arguments), state)
+        if len(arguments) == 0 and name in self._facts():
+            return fact_value(
+                name, self._instrument(), self._now(), self._book, self._bar.get(SESSION_FIRST, ABSENT)
+            )
+        return ABSENT
 
     # -- the six members a stateless call may ask for -----------------------
 
@@ -112,6 +177,14 @@ class Serving:
 
     def first_bar(self) -> bool:
         return self._first
+
+    def _instrument(self) -> Any:
+        """The record the host stated, which is what a ``chart`` fact is read from."""
+        return {} if self._context is None else self._context.instrument
+
+    def _now(self) -> Any:
+        """The clock's fixed value, which a case states and no engine reads."""
+        return ABSENT if self._context is None else self._context.now
 
     def kind_of(self, reference: Any) -> str:
         return tag(reference)

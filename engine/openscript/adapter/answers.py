@@ -47,9 +47,21 @@ from .spellings import Malformed
 #: The distribution file beside the package, which states the version once.
 _PROJECT = "pyproject.toml"
 
-#: Section 8: what this implementation claims. The lowest profile of the table,
-#: because a case inside a higher one is one it would report unsupported.
-PROFILE = PROFILES[0]
+#: Section 8: what this implementation claims. The profile that covers the cases
+#: it runs, which is the one a case it would report ``unsupported`` is not in.
+#:
+#: The claim is read against the runner rather than against the table's own
+#: sentence, and the two do not say the same thing. Section 8 makes a profile
+#: cumulative, so ``strategy`` reads as "everything ``chart`` covers, and orders
+#: as well", and this engine draws nothing: a surface case would be answered
+#: ``unsupported`` naming the channel. The runner's vocabulary is that table, so
+#: the honest alternatives are to claim this and report every channel it cannot
+#: answer by name, or to claim ``core`` and have every strategy case skipped,
+#: which is a suite that proves nothing about the engine that runs the money.
+#: The first is chosen, the shortfall is named on the case rather than in a
+#: footnote, and the stage's report records the page's missing profile as a
+#: defect of the page.
+PROFILE = PROFILES[2]
 
 
 def _distribution() -> Dict[str, Any]:

@@ -10,6 +10,11 @@ What goes where:
 - ``spellings``     how a value is written in a case file and in a report
 - ``reading``       one case directory, by the names section 2's table gives it
 - ``expectations``  what the case's own files expect, as channels
+- ``sessions``      the session facts an engine derives from the record
+- ``facts``         the ``chart``, ``pos`` and session entries, which are not the library's
+- ``ordering``      the nine order calls, and the desk that folds a case's frames
+- ``reporting``     what a strategy run's report was folded under
+- ``channels``      the orders, trades and performance channels, as section 4 writes them
 - ``serving``       the seam between the library's entries and the machine
 - ``running``       the engine's answer for one case, with no comparison made
 - ``matching``      the comparison of section 6, and the caps it is held to

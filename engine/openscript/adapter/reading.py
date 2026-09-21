@@ -31,6 +31,7 @@ from .page import (
     BARS_HEADER,
     CHANNELS,
     DEFAULT_INSTRUMENT,
+    FRAMES_HEADER,
     PROFILES,
     is_case_file,
     is_secondary,
@@ -50,6 +51,25 @@ class Bar:
     volume: Optional[float]
 
 
+@dataclass(frozen=True)
+class Frame:
+    """One row of ``frames.csv``, with the boundary it is delivered at.
+
+    ``intent`` is an ordinal and not an id: 1 is the first intent the run placed.
+    A case cannot know the id an engine minted and must not depend on its
+    spelling, so the ordinal is what a case names an order by and the driver maps
+    it to whatever this engine minted.
+    """
+
+    after_bar: int
+    intent: int
+    status: str
+    filled_qty: float
+    avg_fill_price: Optional[float]
+    order_ref: str
+    text: str
+
+
 @dataclass
 class Case:
     """A case directory, read. Every field is a file's, or the page's default."""
@@ -66,7 +86,7 @@ class Case:
     settings: Dict[str, Any] = field(default_factory=dict)
     backtest: Optional[Dict[str, Any]] = None
     ticks: bool = False
-    frames: Optional[str] = None
+    frames: Optional[Tuple[Frame, ...]] = None
     secondary: Tuple[str, ...] = ()
 
     @property
@@ -144,6 +164,49 @@ def read_bars(text: str, name: str = "bars.csv") -> List[Bar]:
     if not bars:
         raise Malformed(f"{name} holds a header and no bar")
     return bars
+
+
+def read_frames(text: str, name: str = "frames.csv") -> Tuple[Frame, ...]:
+    """``frames.csv``: one row per frame, in the order the destination sent them.
+
+    Section 3 gives the header and makes the last two columns optional, and "an
+    omitted column is absent on every row". An extra column is an error, as in
+    ``bars.csv``, and so is a column out of order: the fields are read by
+    position, and a file that named them in another order would be folded into
+    another ledger without anything saying so.
+
+    Nothing is sorted. "Several rows may name one bar and are delivered in file
+    order, which is how a case orders two frames that cross", so the file's order
+    is the delivery order and this reader is the last place it could be lost.
+    """
+    rows = _rows_of(text, name)
+    header = tuple(rows[0])
+    if header != FRAMES_HEADER[: len(header)]:
+        raise Malformed(
+            f"{name} has the header {','.join(header)} and section 3 gives it "
+            f"{','.join(FRAMES_HEADER)}, of which only the last two columns may be left out"
+        )
+    found: List[Frame] = []
+    for at, row in enumerate(rows[1:]):
+        where = f"{name} line {at + 2}"
+        if len(row) != len(header):
+            raise Malformed(f"{where} holds {len(row)} fields and the header names {len(header)}")
+        cell = dict(zip(header, row))
+        price = cell["avgFillPrice"]
+        found.append(
+            Frame(
+                after_bar=read_whole(cell["afterBar"], f"{where}, afterBar"),
+                intent=read_whole(cell["intent"], f"{where}, intent"),
+                status=cell["status"],
+                filled_qty=read_number(cell["filledQty"], f"{where}, filledQty"),
+                avg_fill_price=(
+                    None if price == ABSENT_TEXT else read_number(price, f"{where}, avgFillPrice")
+                ),
+                order_ref=cell.get("orderRef", ""),
+                text=cell.get("text", ""),
+            )
+        )
+    return tuple(found)
 
 
 def _read_expected_csv(text: str) -> Tuple[Tuple[str, ...], List[List[str]]]:
@@ -278,6 +341,6 @@ def read_case(directory: str) -> Case:
         case.backtest = _backtest_from(_json_of(held["backtest.json"]))
     case.ticks = "ticks.csv" in held
     if "frames.csv" in held:
-        case.frames = _text_of(held["frames.csv"])
+        case.frames = read_frames(_text_of(held["frames.csv"]))
     case.secondary = tuple(name for name in names if is_secondary(name))
     return case

@@ -28,17 +28,38 @@ count supplied is the whole file: that is what makes ``bar.isLast`` true on the
 last row and false everywhere else. An engine that only backtests is handed
 ``isRealtime`` false throughout, which is why no alert is raised here, and
 ``run.py`` reaches the same answer from the other side.
+
+**A strategy case is the same loop with a desk beside it.** The frames are the
+case's, delivered after the bar ``frames.csv`` names and folded before the next
+execution; the orders are the calls step 9 applied, in the order the bar made
+them; and the trades and the summary are folded after the last bar from the
+fills, under the three facts ``backtest.json`` states. Nothing in that sentence
+is this module's decision: ``ordering`` holds the boundary, ``reporting`` holds
+what the report was folded under, and ``accounting`` holds the arithmetic. What
+is here is the order the three are asked in.
 """
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from ..accounting import report_of, schedule_problem
 from ..contracts import Bar as EngineBar, BarState
 from ..inputs import utc_time
 from ..run import load_text
+from ..strategy import IntentBar
 from ..values import ABSENT
 from ..verify import capabilities
+from .channels import orders_channel, performance_channel, trade_row
+from .ordering import ORDER_ENTRIES, Desk, options_for, unfoldable
 from .reading import Bar, Case
+from .reporting import contract_for, marks_for, schedule_for
 from .serving import Serving, is_reference
+from .sessions import (
+    READABLE_ZONE,
+    SESSION_FACTS,
+    SESSION_FIRST,
+    first_bars,
+    session_from,
+)
 from .spellings import Malformed, as_reported
 
 #: The codes a load raises when the program needs something this engine does not
@@ -54,11 +75,27 @@ _UNSUPPORTED_CODES = {
 #: assert is named ``unsupported`` on the case rather than answered emptily,
 #: because an empty channel compares equal to an empty expectation and would be a
 #: pass nobody earned.
-ANSWERED = ("diagnostics", "values")
+ANSWERED = ("diagnostics", "values", "orders", "trades", "performance")
 
-#: The timezone the engine's own time reader is right for. Every other zone is a
-#: reader the host supplies, and this engine has not been given one.
-_READABLE_ZONE = "UTC"
+#: ``compiled-program.md`` 2.2's tag for a program that places orders, and the
+#: word the meta uses for a program that is one. This engine serves the tag
+#: because it has a ledger: what it cannot serve is refused by name at load.
+ORDERS = "orders"
+STRATEGY = "strategy"
+
+#: What this engine reads out of the declaration: the five the ledger sizes an
+#: order from, and the three the money charges a fill under, plus the capital
+#: every figure in the report is a fraction of.
+DECLARED: Tuple[str, ...] = (
+    "qty",
+    "qtyType",
+    "product",
+    "pyramiding",
+    "capital",
+    "commission",
+    "commissionType",
+    "slippage",
+)
 
 
 class Answer:
@@ -82,6 +119,19 @@ class Answer:
 def _diagnostic_row(code: str, line: int, column: int, bar: Optional[int]) -> Dict[str, Any]:
     """A diagnostic in the columns section 4 compares one on, and the bar it was on."""
     return {"code": code, "line": line, "column": column, "severity": "error", "barIndex": bar}
+
+
+def _refusal_row() -> Dict[str, Any]:
+    """OS6021, as a run refused before its first bar records it.
+
+    A setting the run cannot be carried out under is refused while nothing has
+    been computed, so it carries no position in the source: the defect is in what
+    the host stated rather than in a line of the script. The setting and the
+    problem are the message's own values and are not in the row, because section
+    4 compares a diagnostic on its code, its line, its column and its severity and
+    deliberately not on its wording.
+    """
+    return _diagnostic_row("OS6021", 0, 0, None)
 
 
 def _unsupported_from(diagnostic: Any) -> Optional[str]:
@@ -154,18 +204,22 @@ def _values_channel(
     return out
 
 
-def _time_input_unreadable(program: Dict[str, Any], instrument: Dict[str, Any]) -> bool:
-    """Whether the program declares a time this engine cannot read in this zone.
+def _unreadable_zone(program: Dict[str, Any], instrument: Dict[str, Any]) -> Optional[str]:
+    """What this program reads in a calendar this engine cannot read, or nothing.
 
     ``stdlib.md`` section 12.1 reads a calendar field in the chart's timezone,
     which the host states; this engine carries a reader for one zone and a host
     with any other supplies its own. A case in another zone whose script takes a
-    time is therefore a case this engine would answer under the wrong calendar,
-    and it says so instead.
+    written time, or asks where a session begins, is therefore a case this engine
+    would answer under the wrong calendar, and it says so instead.
     """
-    if instrument.get("timezone") == _READABLE_ZONE:
-        return False
-    return any(one["kind"] == "time" for one in program["inputs"])
+    if instrument.get("timezone") == READABLE_ZONE:
+        return None
+    if any(one["kind"] == "time" for one in program["inputs"]):
+        return "a time input"
+    if any(one["name"] in SESSION_FACTS for one in program["lib"]["functions"]):
+        return "a session boundary"
+    return None
 
 
 def run_case(case: Case, program_text: str) -> Answer:
@@ -187,10 +241,15 @@ def run_case(case: Case, program_text: str) -> Answer:
         )
     for name in case.secondary:
         answer.cannot(f"{name} (section 3): this engine is handed one series and reads no other")
-    if case.frames is not None:
-        answer.cannot(
-            "frames.csv (section 3): an order frame is folded by a ledger, and this engine has none"
-        )
+    if case.frames is not None and case.bars is not None:
+        beyond = unfoldable(case.frames, len(case.bars))
+        if beyond:
+            answer.cannot(
+                f"frames.csv: {len(beyond)} frame{'' if len(beyond) == 1 else 's'} delivered after "
+                f"bar {beyond[0].after_bar} of {len(case.bars)} (section 3): a frame is delivered "
+                "after a bar and folded before the next execution, and the last bar has none, so "
+                "what becomes of it is not written down anywhere"
+            )
     if "expectedExitCode" in case.declared:
         answer.cannot(
             "case.json's expectedExitCode: section 2 names the field and fixes no shape for it, so "
@@ -200,12 +259,13 @@ def run_case(case: Case, program_text: str) -> Answer:
     if answer.unsupported:
         return answer
 
-    serving = Serving()
+    desk = Desk(case.frames or ())
+    serving = Serving(desk)
     loaded = load_text(
         program_text,
         dict(case.settings),
         serving,
-        capabilities=capabilities(),
+        capabilities=capabilities(ORDERS),
         read_time=utc_time,
     )
     if loaded.diagnostic is not None:
@@ -213,17 +273,19 @@ def run_case(case: Case, program_text: str) -> Answer:
         if feature is not None:
             answer.cannot(feature)
             return answer
-        answer.channels = _empty_but(
-            case, {"diagnostics": [_diagnostic_row(loaded.diagnostic.code, loaded.diagnostic.line, loaded.diagnostic.column, None)]}
+        found = loaded.diagnostic
+        answer.channels = _with_empty(
+            case, {"diagnostics": [_diagnostic_row(found.code, found.line, found.column, None)]}
         )
         return answer
 
     run = loaded.run
     raw = run.program.raw
-    if _time_input_unreadable(raw, case.instrument):
+    unreadable = _unreadable_zone(raw, case.instrument)
+    if unreadable is not None:
         answer.cannot(
-            f"a time input under the timezone {case.instrument.get('timezone')}: this engine reads "
-            f"a written time as {_READABLE_ZONE} and a host with another zone supplies its own reader"
+            f"{unreadable} under the timezone {case.instrument.get('timezone')}: this engine reads "
+            f"a calendar as {READABLE_ZONE} and a host with another zone supplies its own reader"
         )
     if answer.unsupported:
         return answer
@@ -238,7 +300,31 @@ def run_case(case: Case, program_text: str) -> Answer:
         answer.channels = {"diagnostics": []}
         return answer
 
-    rows, diagnostics = _every_bar(run, serving, case)
+    trading = raw["meta"]["kind"] == STRATEGY
+    if not trading and any((one["name"], one["arity"]) in ORDER_ENTRIES for one in raw["lib"]["functions"]):
+        # The ledger is sized by the declaration a strategy carries and a study
+        # has none, so an order sent from one would be an order sized by this
+        # adapter's defaults. The compiler does not emit such a program; a file
+        # that arrives as one is refused rather than run under numbers nobody
+        # wrote.
+        raise Malformed(
+            "the program declares itself a study and calls an order function, which is a program "
+            "with orders to place and no declaration to size them from"
+        )
+    declared = _declaration(run) if trading else {}
+    schedule = None
+    if trading:
+        # Every one of the three arrives before a bar runs, and each from the file
+        # section 3 puts it in: a run under a digit count nobody stated is a run
+        # that agrees with the engine next door by coincidence.
+        desk.begin(options_for(declared, case.instrument))
+        contract = contract_for(case)
+        schedule = schedule_for(case, declared)
+        if schedule is not None and schedule_problem(schedule, contract) is not None:
+            answer.channels = _with_empty(case, {"diagnostics": [_refusal_row()]})
+            return answer
+
+    rows, diagnostics = _every_bar(run, serving, desk, case)
     answered: Dict[str, Any] = {"diagnostics": diagnostics}
     if "values" in case.asserts:
         if not case.expected_columns:
@@ -247,6 +333,18 @@ def run_case(case: Case, program_text: str) -> Answer:
                 "one column per asserted channel and one row per bar are written"
             )
         answered["values"] = _values_channel(case.expected_columns, raw, rows, answer)
+    if "orders" in case.asserts:
+        answered["orders"] = orders_channel(desk.rows(), desk.intents)
+    if "trades" in case.asserts or "performance" in case.asserts:
+        report = report_of(
+            desk.fills.settled(),
+            marks_for(case, case.bars),
+            schedule,
+            contract_for(case),
+            declared.get("capital", 0.0),
+        )
+        answered["trades"] = [trade_row(one) for one in report.trades]
+        answered["performance"] = performance_channel(report.summary)
     answer.channels = _empty_but(case, answered)
     return answer
 
@@ -256,8 +354,47 @@ def _empty_but(case: Case, answered: Dict[str, Any]) -> Dict[str, Any]:
     return {channel: answered[channel] for channel in case.asserts if channel in answered}
 
 
+def _with_empty(case: Case, answered: Dict[str, Any]) -> Dict[str, Any]:
+    """The asserted channels a run that did not happen has nothing for, as empty lists.
+
+    A refusal before the first bar leaves every channel with nothing in it, and
+    nothing is an empty list rather than a channel left out: a case comparing an
+    absent channel and one comparing an empty one are different reports, and the
+    second is the one that says how far the run got.
+    """
+    return {channel: answered.get(channel, []) for channel in case.asserts}
+
+
+def _declaration(run: Any) -> Dict[str, Any]:
+    """The strategy declaration, with every input reference behind it resolved.
+
+    Read field by field through the run's own reader rather than off the program,
+    because ``language.md`` 13 lets a declaration state a quantity, a commission
+    or a capital from an input, and a ledger handed the reference rather than the
+    value would size every order from a shape.
+
+    The eight names below are what this engine reads out of the declaration, and
+    a program of kind strategy that states none of them is refused here rather
+    than part way through a bar: a ledger sizing an order from a field that was
+    not there would be an order nobody wrote.
+    """
+    block = run.program.raw["meta"].get(STRATEGY)
+    if not isinstance(block, dict):
+        raise Malformed(
+            "the program declares itself a strategy and its meta holds no strategy declaration, "
+            "which compiled-program.md 2.3 says every one of them carries"
+        )
+    missing = [name for name in DECLARED if name not in block]
+    if missing:
+        raise Malformed(
+            f"the strategy declaration states no {', '.join(missing)}, which this engine reads to "
+            "size an order and to charge a fill"
+        )
+    return {name: run.declaration(("meta", STRATEGY, name)) for name in block}
+
+
 def _every_bar(
-    run: Any, serving: Serving, case: Case
+    run: Any, serving: Serving, desk: Desk, case: Case
 ) -> Tuple[List[List[Any]], List[Dict[str, Any]]]:
     """Every bar of the file, in order, stopping at the first that fails.
 
@@ -266,14 +403,33 @@ def _every_bar(
     engine's own behaviour and not a decision here, and it is what makes a length
     difference in the values channel the first thing a reader of a failed case
     sees.
+
+    **The fold is before the execution and the orders are after it**, which is
+    ``host-interface.md`` 7.4: a driver that folded after the bar would let a
+    script react within the bar its own order was sent in, and one that folded
+    during it would give two executions of a moving bar two different positions
+    to read. An order call refused stops the run the same way a failed bar does,
+    and takes back every row that bar had appended.
     """
     bars = case.bars or []
     supplied = len(bars)
     when = case.declared.get("now", ABSENT)
+    opens = first_bars([bar.time for bar in bars], session_from(case.instrument))
     rows: List[List[Any]] = []
     for index, bar in enumerate(bars):
+        desk.fold(index, float(bar.time))
         previous = bars[index - 1].close if index > 0 else ABSENT
-        serving.at_bar(bar.high, bar.low, previous, index == 0)
+        serving.at_bar(
+            {
+                "high": bar.high,
+                "low": bar.low,
+                "close": bar.close,
+                "previousClose": previous,
+                "volume": bar.volume,
+                SESSION_FIRST: opens[index],
+            },
+            index == 0,
+        )
         result = run.execute_bar(
             index,
             _engine_bar(bar),
@@ -285,5 +441,9 @@ def _every_bar(
         if result.diagnostic is not None:
             found = result.diagnostic
             return rows, [_diagnostic_row(found.code, found.line, found.column, index)]
+        sent = desk.apply(result.applied, IntentBar(index=index, time=float(bar.time)))
+        if sent is not None:
+            return rows, [_diagnostic_row(sent.code, sent.line, sent.column, index)]
         rows.append(list(result.columns))
+        desk.deliver_after(index)
     return rows, []

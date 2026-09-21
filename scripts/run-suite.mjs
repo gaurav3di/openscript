@@ -40,6 +40,16 @@
  * does not fail the run because it makes no claim about that profile. Finding
  * no case at all is a refusal, for the reason at the top of `lib/files.mjs`.
  *
+ * **In the second mode, a run that compared nothing is a refusal as well.**
+ * There the claimed profile is both engines', so an engine claiming a narrow
+ * one skips every case, and the run reports a pass with no comparison behind
+ * it: the same green line a suite with no cases in it would print. Section 10
+ * is a release gate and the thing it gates is two engines producing the same
+ * numbers, so a build wiring that comparison in has to be able to tell "they
+ * agree" from "neither was asked". The first mode keeps the softer rule,
+ * because there a skipped case is one engine honestly saying which profile it
+ * claims, and reporting that is the whole point of section 8.
+ *
  * ## What it reads out of the page, and what it does not reach
  *
  * The profile order (section 8), the outcome vocabulary (section 9) and the
@@ -279,6 +289,16 @@ if (failing.length > 0) {
     `\nSuite failed: ${counts} of ${rows.length}, ${who}. A case that fails, errors or is ` +
       'unsupported inside the claimed profile is not a passing run (conformance.md sections 8 and 9), ' +
       'and section 10 says the case is never the thing that gets changed.',
+  );
+  process.exit(1);
+}
+
+if (against !== null && summary.pass === 0) {
+  console.error(
+    `\n${nothingFound('case inside the profile both engines claim')}. ${who}, and section 10 is ` +
+      'about two engines producing the same numbers, so a run where neither engine was asked ' +
+      'about a single case is not agreement: it is the same evidence a suite with no cases in it ' +
+      'would produce. Every case here was skipped, which section 9 says is never a pass.',
   );
   process.exit(1);
 }

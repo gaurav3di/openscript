@@ -402,6 +402,47 @@ fails on a byte that differs (`scripts/check-library-vectors.mjs`), so a vector
 is never older than the engine, and a regeneration is a deliberate act committed
 with the change that caused it.
 
+**The second engine runs a strategy, and the build fails when the two engines
+disagree.** `engine/` now holds an engine rather than a home for one: the
+machine of `compiled-program.md` section 5, both halves of the library in the
+accumulation order `stdlib.md` section 20 fixes, the order ledger and the fold
+of section 17, and the money that turns fills into trades and a summary. The
+conformance adapter joins them over a case directory: it reads `frames.csv` and
+`backtest.json`, delivers each frame after the bar it names and folds it before
+the next execution, applies the order calls a decided bar left behind, and
+answers the `orders`, `trades` and `performance` channels beside `diagnostics`
+and `values`.
+
+Both harvested cases pass on it, against the expected files and against the
+first engine. That is four hundred bars, thirteen and twenty one ledger rows,
+their trades and their summaries, reproduced to the last bit by an engine
+written from the pages rather than ported from the other engine's source.
+
+**`npm test` runs the two engines against each other.** `npm run suite:agree`
+hands every case to both adapters with `--actual` and compares what each
+computed, channel by channel, at tolerance zero whatever the case declares. A
+difference of one bit fails the build naming the case, the channel, the column
+and both values. `conformance.md` section 10 calls a disagreement between two
+engines a release blocker; this is the sentence made mechanical, and it is the
+gate the phase is measured by. `npm run suite` and `npm run suite:engine` run
+each engine against the expected files on its own.
+
+One rule belongs to that comparison alone: a run where every case was skipped
+now exits non-zero saying it compared nothing. A skipped case is one engine
+honestly reporting the profile it claims, which is what the first mode is for,
+but in the second mode it means neither engine was asked about a single case,
+and a green line there is the evidence a suite with no cases in it would
+produce.
+
+**The second engine claims the `strategy` profile**, so a strategy case is run
+rather than skipped, and every shortfall is named on the case with the
+`unsupported` outcome: a chart channel it does not draw, a capability it does not
+serve, a library function its manifest does not hold, a `ticks.csv`, a secondary
+series, a calendar in a timezone it cannot read, or a frame delivered after the
+last bar, which no fold boundary reaches. `docs/integrating/running-the-suite.md`
+holds the whole list and says why a cumulative profile table has no word for an
+engine that runs the money and draws nothing.
+
 ---
 
 ## 0.4.0
