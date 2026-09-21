@@ -4147,7 +4147,7 @@ is over everything an engine reads, and the stored hash is a real hash of a
 real program, the one the corpus holds. A change to the stamp's shape is a
 field gained or lost, which the additive check reports.
 
-## 56. (P6) What the library vectors are, and why a gap-reaching case is written and marked
+## 59. (P6) What the library vectors are, and why a gap-reaching case is written and marked
 
 **Question.** `conformance.md` section 8 admits no case whose value reaches a
 gap of `stdlib.md` 20.11, and the harvest refuses a script by that rule. The
@@ -4193,7 +4193,7 @@ is about cases, and a vector is not one.
 
 ---
 
-## 59. How a number becomes text, and the two string rules
+## 60. How a number becomes text, and the two string rules
 
 **Question.** Two engines compare numbers as bits (`conformance.md` section 6)
 and compare text in `expected.csv`, in a case file and in a table cell, so how
@@ -4311,7 +4311,7 @@ in the last place away.
 
 ---
 
-## 60. Where a run's money rounding, charge schedule and report window live in a case
+## 61. Where a run's money rounding, charge schedule and report window live in a case
 
 **Question.** `conformance.md` section 2 gave a case eleven file names and
 `caseFilesFrom` wrote seven of them from a record, and three facts the report

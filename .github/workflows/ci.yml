@@ -84,6 +84,103 @@ jobs:
       - name: Small modules, and no reaching inside one from outside
         run: node scripts/check-modularity.mjs
 
+  number-writer:
+    name: number writer check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Asks the type checker for the type of every operand under src, so it
+      # needs the compiler installed and the catalogue modules generated, which
+      # a fresh checkout does not have. Nothing is built.
+      - name: Install
+        run: npm ci || npm install
+      - name: Generate
+        run: npm run generate
+      - name: A number becomes text in one place
+        run: node scripts/check-number-writer.mjs
+
+  library-vectors:
+    name: library vectors check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Regenerates the vectors through the built engine and the built tests'
+      # fixture and compares the bytes, so both outputs are built first.
+      - name: Install
+        run: npm ci || npm install
+      - name: Build
+        run: npm run build
+      - name: Build the tests
+        run: npm run build:test
+      - name: The library vectors are what this engine still produces
+        run: node scripts/check-library-vectors.mjs
+
+  format-tables:
+    name: format tables check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm ci || npm install
+      - name: Build
+        run: npm run build
+      - name: The instruction and tag tables on the page are the compiler's
+        run: node scripts/check-format-tables.mjs
+
+  format-additive:
+    name: format additive check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm ci || npm install
+      - name: Build
+        run: npm run build
+      - name: Every field, opcode and tag the compiler defines has a version that defined it
+        run: node scripts/check-format-additive.mjs
+
+  format-corpus:
+    name: format corpus check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm ci || npm install
+      - name: Build
+        run: npm run build
+      - name: Every shipped example still compiles to the bytes the corpus holds
+        run: node scripts/check-format-corpus.mjs
+
+  colour-channels:
+    name: colour channels check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm ci || npm install
+      - name: Build
+        run: npm run build
+      - name: The named colours' channel values are the published ones
+        run: node scripts/check-colour-channels.mjs
+
   no-eval:
     name: no eval check
     runs-on: ubuntu-latest

@@ -88,7 +88,7 @@ function namesFromTables(text) {
 
 /** The nineteen colour names, listed in `stdlib.md` 11.1 as a block, not a table. */
 function namesFromColourBlock(text) {
-  const m = text.match(/### 11\.1 Named colours[\s\S]*?```\n([\s\S]*?)```/);
+  const m = text.match(/### 11\.1 Named colours[\s\S]*?```\r?\n([\s\S]*?)```/);
   if (!m) return new Set();
   return new Set(m[1].split(/\s+/).filter((w) => /^[a-z]+$/.test(w)));
 }

@@ -13,13 +13,14 @@ round.
 | [`host-interface.md`](./host-interface.md) | Everything a platform supplies so an engine can run, and everything the engine hands back: the boundary |
 | [`conformance.md`](./conformance.md) | How the suite is run, and what a passing result entitles an implementation to claim |
 
-Six documents, and the list above is the whole of it. Two more files sit beside
+Six documents, and the list above is the whole of it. Three more sit beside
 them and are not the specification:
 
 | File | Holds |
 |---|---|
 | [`decisions.md`](./decisions.md) | The minutes of every settled cross-document question, and the home register that says which document owns each fact |
 | [`feature-matrix.md`](./feature-matrix.md) | One row per feature: whether it is specified, implemented or planned, the section that defines it, and the test that proves it |
+| [`vectors/`](./vectors/) | Bit patterns a second engine holds itself to without reading this repository's source: `number-text.json`, the boundary cases of `language.md` 5.5 as bit patterns, decimals and text, and `library/`, one file per arithmetic function of the manifest with inputs and results as binary64 bit patterns |
 
 `errors.json` is `errors.md` in machine form, generated from the same entries.
 It is not a document of its own, and a change to one is the same change to the

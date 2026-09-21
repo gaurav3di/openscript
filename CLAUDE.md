@@ -6,10 +6,11 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Fifteen checks enforce these, and each one of them is a rule somebody broke once.
-`npm test` runs all of them, and so does every pull request. The count is here to
-be corrected when it changes, not to be trusted: `package.json`'s `test` script
-is the list.
+Twenty four checks enforce these, twenty three `check-*` scripts and the harvest
+run with `--check`, and each one of them is a rule somebody broke once.
+`npm test` runs all of them, and so does every pull request. The count is here
+to be corrected when it changes, not to be trusted: `package.json`'s `test`
+script is the list.
 
 1. **No `eval`, no `Function` constructor, no dynamic code construction.** The
    compiler emits data. This is what lets the language run inside an application

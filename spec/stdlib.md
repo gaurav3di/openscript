@@ -605,11 +605,13 @@ been true. Zero would read as "it happened on this bar".
 
 `text(x, decimals)` writes a positional decimal at every magnitude: a sign where
 the value is negative, at least one digit before the point, and exactly
-`decimals` digits after it. It never switches to an exponent. A reader asked for
-a fixed number of decimal places and an exponent is not one, and a conversion
-that changed shape above a threshold would be a label that read correctly until
-the day a cumulative volume crossed it. A conversion whose result would pass the
-string ceiling is OS5008, measured before the string is built rather than after.
+`decimals` digits after it. The digits it writes are the digits `language.md`
+5.5 gives the rounded, scaled whole number, zero filled. It never switches to an
+exponent. A reader asked for a fixed number of decimal places and an exponent is
+not one, and a conversion that changed shape above a threshold would be a label
+that read correctly until the day a cumulative volume crossed it. A conversion
+whose result would pass the string ceiling is OS5008, measured before the string
+is built rather than after.
 
 **`str.trim` removes, and `toNumber` ignores at either end, exactly these code
 points**, which are the ones with the Unicode White_Space property, and no
@@ -677,8 +679,10 @@ teal     white   yellow
 ```
 
 Each is an ordinary global of type `color` with full opacity. Their exact channel
-values are fixed in the library manifest and are part of the conformance suite,
-so a study looks the same on every engine.
+values are fixed in `spec/colours.json`, the authority for them and part of the
+conformance suite, so a study looks the same on every engine; the compiler's
+table and the engine's are held to that file by
+`scripts/check-colour-channels.mjs`.
 
 ### 11.2 Construction
 

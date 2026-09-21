@@ -88,7 +88,8 @@ threshold = orElse(toNumber(input("2.5", "Threshold")), 2.5)
 `toNumber` returns absence rather than raising because a string that does not
 parse is data, not a defect in the script, and the script is in the best
 position to decide what to do about it. Pair it with `orElse` when a default is
-sensible and with `isNone` when the script should say something.
+sensible and with `isNone` when the script should say something. Whitespace at
+either end, the same set `str.trim` removes, is ignored.
 
 It is spelled `toNumber` and not `number` because `number` is a reserved word,
 so a call could never begin with it. Writing `number(s)` is OS1019, and the fix
@@ -186,7 +187,9 @@ key = str.lower(str.trim(raw))
 
 ### `str.trim(s)`
 
-Leading and trailing spaces removed.
+Leading and trailing whitespace removed: the code points with the Unicode
+White_Space property, which `stdlib.md` section 10 lists, and no other. A byte
+order mark is not one of them and stays.
 Parameters: `s` `string` required.
 Returns `string`.
 

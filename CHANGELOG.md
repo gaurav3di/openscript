@@ -223,7 +223,7 @@ by name. Every field of `BacktestSettings` now has a place in a case,
 `caseFilesFrom` carries the table saying which, and a record whose settings hold
 a field the table does not know is refused by name rather than written into a
 case that ran under something it does not state. Both harvested cases were
-re-harvested and gain the file; nothing else in them changed. Decision 60 has
+re-harvested and gain the file; nothing else in them changed. Decision 61 has
 the reasoning.
 
 **A record past the tolerance cap makes no case.** Section 6 caps a declared
@@ -260,8 +260,7 @@ gave `1152921504606846976` and now gives `1152921504606847000`, the same digits
 no price shaped value moves by a digit. The scale it multiplies by is now the
 binary64 nearest to the power of ten rather than the host's `pow`, which on this
 host is one ulp off at 23 decimals, so `text(3.0627e-8, 23)` no longer ends in a
-stray 1. `round(x, decimals)` follows once its scale is switched the same way,
-and 20.7 prints the measured figures beside the claim.
+stray 1, and 20.7 prints the measured figures beside the claim.
 
 **`str.trim` and `toNumber` use a written whitespace set.** `stdlib.md` section
 10 now lists the twenty five code points with the Unicode White_Space property,
@@ -272,9 +271,19 @@ plane against the table read out of the page.
 
 **Strings sort by code point, as the specification always said.** `sort` on an
 array of strings orders a symbol outside the basic plane after every code point
-of the plane, where the host's own order put it before U+E000 to U+FFFF. The `<`
-family of operators still uses the host's order until the one line change
-decision 59 records is applied.
+of the plane, where the host's own order put it before U+E000 to U+FFFF.
+
+**Two corrections a script can observe, for anybody deciding whether to
+upgrade.** The `<` family of operators on two strings orders by code point, as
+`sort` does and `language.md` 9.3 always said, where it used the host's sixteen
+bit units: a comparison between a symbol outside the basic plane and a code
+point from U+E000 upward changes its answer, and no other pair of strings does.
+`round(x, decimals)` scales by the binary64 nearest to the power of ten, the
+scale `text(x, decimals)` uses, rather than the host's `pow`, so a value rounded
+at 23 decimals can move by one unit in the last place and a value rounded at any
+other count cannot. A stored run that did either reproduces to a different
+number after the upgrade; nothing else changes. Decision 60 has the reasoning
+for both.
 
 **A program at a lower minor of the same format major loads.** The engine
 required every table of its own minor, so a program compiled at format 1.0 was
@@ -294,9 +303,8 @@ goes through `load` so every later refusal applies in the same order.
 `load(object)` is unchanged and is not held to canonicity, because an object
 built beside the engine was never text. Section 13's first checklist line and
 9.4 step 1 now say the same thing (decision 57). The function lives in
-`src/core/engine/load.ts`; until the two export lines through the engine's and
-the package's doors land, it is reached by that path and not through either
-door.
+`src/core/engine/load.ts` and is exported through both doors, the engine's and
+the package's.
 
 **The compiled format is held to its page by four checks.**
 `check-format-tables.mjs` reads the instruction table of 4.13 and the tag table
@@ -314,13 +322,13 @@ program is given the corpus's own `compiler` stamp first, so a package bump
 alone never fails it. A format change is now a deliberate act: record it in the
 history, rewrite the corpus with `--write`, and review the diff.
 
-**The named colours' channel values are published.** `stdlib.md` 11.1 says they
+**The named colours' channel values are published.** `stdlib.md` 11.1 said they
 are fixed in the library manifest and are part of the conformance suite, and
-they lived only in two source files. `spec/colours.json` is that part of the
-manifest in machine form, and `check-colour-channels.mjs` holds the compiler's
-table and the engine's table to it while stating no value of its own. No value
-changed; what changed is that a second engine can now read them from the
-specification.
+they lived only in two source files. `spec/colours.json` now holds them, 11.1
+names that file as the authority, and `check-colour-channels.mjs` holds the
+compiler's table and the engine's table to it while stating no value of its
+own. No value changed; what changed is that a second engine can now read them
+from the specification.
 
 **The library's arithmetic ships as vectors a second engine can load.**
 `spec/vectors/library/` holds one JSON file per arithmetic function of the
@@ -342,7 +350,7 @@ left out.** Twenty functions have such a case (the transcendental calls and what
 is built on them, `hma`, `eom`, and the `ma` and `keltner` cases that select
 `hma` by name), and each case carries the gaps its call reaches, read by the
 gate's own reading of the table, so an implementer knows which numbers they are
-not held to. `spec/decisions.md` 56 records why a vector is written where a
+not held to. `spec/decisions.md` 59 records why a vector is written where a
 conformance case would be refused. `npm test` regenerates the directory and
 fails on a byte that differs (`scripts/check-library-vectors.mjs`), so a vector
 is never older than the engine, and a regeneration is a deliberate act committed
