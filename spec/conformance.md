@@ -53,6 +53,18 @@ whose script is a different revision than the one that produced its expected
 output cannot reproduce that output, and the engine under test would be blamed
 for a disagreement that was in the case all along.
 
+A record also has to carry the instrument record of `host-interface.md` 4.1 as
+the engine was handed it, which is record version 3 and later, because
+`instrument.json` is that record and a run's symbol, tick size and volume flag
+are not this suite's defaults. An earlier record carries the money layer's
+contract, which holds six of the twelve facts, so it replays and reruns and
+cannot become a case either. And the one fact 4.1 requires of every host, the
+volume flag, is the one an engine does not refuse a run without: a record whose
+host never stated it is refused a case rather than handed a value, because a
+file stating the flag would give the engine under test a study the expected
+output did not come from, and a file omitting it is not the record section 2
+names.
+
 A record that cannot make a whole case makes none. A directory missing one file
 fails on an implementation we did not write, and the cost of that lands on its
 author rather than on us.

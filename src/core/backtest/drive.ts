@@ -27,7 +27,7 @@
  * the order it was about is in the ledger at whatever it last said.
  */
 import { reportOf, scheduleFromDeclaration } from '../accounting/index.js';
-import type { ChargeSchedule, RecordedFill } from '../accounting/index.js';
+import type { ChargeSchedule, Contract, RecordedFill } from '../accounting/index.js';
 import type { Diagnostic } from '../diagnostics/index.js';
 import type { CompiledProgram } from '../emit/index.js';
 import { load } from '../engine/index.js';
@@ -62,10 +62,40 @@ export type BacktestResult =
   | { readonly ok: true; readonly record: RunRecord }
   | { readonly ok: false; readonly diagnostic: Diagnostic };
 
+/**
+ * The facts of `host-interface.md` 4.1 that the contract does not hold.
+ *
+ * The contract already states six of the twelve, the ones the money is priced
+ * under, and a fact stated in two places is a fact that can disagree with
+ * itself: a tick size the engine rounds to and a different one the venue
+ * worsens a fill by is a run under two instruments. So the other six are
+ * stated here and the six the contract holds cannot be, which the compiler
+ * enforces rather than a check at run time.
+ */
+export type InstrumentFacts = Omit<
+  Instrument,
+  'symbol' | 'exchange' | 'tickSize' | 'lotSize' | 'pointValue' | 'currency'
+>;
+
 /** The few choices a driver has that are not settings of the run itself. */
 export interface DriveOptions {
   /** Whether the bars travel in the record. Inline is the conformance form. */
   readonly form?: 'inline' | 'referenced';
+  /**
+   * What the host states about the instrument beside the contract, so the
+   * record it produces is a conformance case.
+   *
+   * A case holds `instrument.json`, which `conformance.md` section 2 says is
+   * the record of `host-interface.md` 4.1, and that page requires one fact of
+   * every host: `hasVolume`, because no derivation recovers it (4.2). The
+   * engine reads the record and does not refuse a run without it, so a caller
+   * that leaves this out gets a record that replays and reruns like any other
+   * and cannot become a case, exactly as one without `sourceText` cannot.
+   *
+   * A session stated without a timezone is refused at load, OS6012, by the
+   * same rule that refuses it for any host.
+   */
+  readonly instrument?: InstrumentFacts;
   /**
    * The script's own text, so the record it produces is a conformance case.
    *
@@ -105,9 +135,10 @@ export function backtest(
   // load. The route is wired first and reaches it through this binding, which
   // is what lets one host serve both halves.
   let venue: Simulator | undefined;
+  const instrument = instrumentFor(settings.contract, options.instrument ?? {});
   const loaded = load(program, {
     settings: settings.inputs,
-    host: hostFor(settings, (effect, bar) => venue?.route(effect, bar)),
+    host: hostFor(instrument, settings.now, (effect, bar) => venue?.route(effect, bar)),
   });
   if (!loaded.ok) return { ok: false, diagnostic: loaded.diagnostic };
 
@@ -136,6 +167,7 @@ export function backtest(
       program: engine.program,
       ...(options.sourceText === undefined ? {} : { sourceText: options.sourceText }),
       settings,
+      instrument,
       bars,
       form: options.form ?? 'inline',
       frames: run.frames.map((one) => framedAs(one.frame, one.afterBar, ordinals)),
@@ -351,6 +383,34 @@ function scheduleFor(settings: BacktestSettings, declared: RunDeclaration): Char
 }
 
 /**
+ * The instrument record of `host-interface.md` 4.1 the engine is handed, and
+ * the record carries verbatim.
+ *
+ * Composed once, here, from the contract's six facts and the six stated beside
+ * it, so the engine and the record read one document and there is no second
+ * composition for the two to disagree by. A fact nobody stated is left out
+ * rather than written as undefined: the record travels as JSON, which drops an
+ * undefined member, and a document that changes shape in transit is not the
+ * document the engine read.
+ */
+function instrumentFor(contract: Contract, facts: InstrumentFacts): Instrument {
+  return {
+    ...(contract.symbol === null ? {} : { symbol: contract.symbol }),
+    ...(contract.exchange === null ? {} : { exchange: contract.exchange }),
+    ...(facts.interval === undefined ? {} : { interval: facts.interval }),
+    ...(facts.timezone === undefined ? {} : { timezone: facts.timezone }),
+    ...(contract.tickSize === null ? {} : { tickSize: contract.tickSize }),
+    ...(contract.lotSize === null ? {} : { lotSize: contract.lotSize }),
+    pointValue: contract.pointValue,
+    currency: contract.currency,
+    ...(facts.instrumentType === undefined ? {} : { instrumentType: facts.instrumentType }),
+    ...(facts.hasVolume === undefined ? {} : { hasVolume: facts.hasVolume }),
+    ...(facts.hasOpenInterest === undefined ? {} : { hasOpenInterest: facts.hasOpenInterest }),
+    ...(facts.session === undefined ? {} : { session: facts.session }),
+  };
+}
+
+/**
  * The host a backtest is: an instrument record, a clock and a destination.
  *
  * Duty 3 is not served. A backtest holds the chart's own bars and nothing else,
@@ -359,20 +419,13 @@ function scheduleFor(settings: BacktestSettings, declared: RunDeclaration): Char
  * with nothing in it.
  */
 function hostFor(
-  settings: BacktestSettings,
+  instrument: Instrument,
+  now: number | null,
   route: (effect: RoutedEffect, bar: number) => void,
 ): EngineHost {
-  const instrument: Instrument = {
-    ...(settings.contract.symbol === null ? {} : { symbol: settings.contract.symbol }),
-    ...(settings.contract.exchange === null ? {} : { exchange: settings.contract.exchange }),
-    ...(settings.contract.tickSize === null ? {} : { tickSize: settings.contract.tickSize }),
-    ...(settings.contract.lotSize === null ? {} : { lotSize: settings.contract.lotSize }),
-    pointValue: settings.contract.pointValue,
-    currency: settings.contract.currency,
-  };
   return {
     instrument,
-    ...(settings.now === null ? {} : { now: settings.now }),
+    ...(now === null ? {} : { now }),
     route,
   };
 }

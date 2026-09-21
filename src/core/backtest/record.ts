@@ -28,7 +28,7 @@ import type { RecordedFill, Report } from '../accounting/index.js';
 import type { Diagnostic } from '../diagnostics/index.js';
 import { canonicalise, programHash, sha256, sourceHash } from '../emit/index.js';
 import type { CompiledProgram, SourceStamp } from '../emit/index.js';
-import type { LedgerRow } from '../engine/index.js';
+import type { Instrument, LedgerRow } from '../engine/index.js';
 import { VERSION } from '../version/index.js';
 import type { BacktestSettings } from './settings.js';
 
@@ -139,6 +139,25 @@ export interface RunRecord {
    */
   readonly sourceText: string | null;
   readonly settings: BacktestSettings;
+  /**
+   * The instrument record of `host-interface.md` 4.1, as the engine was handed
+   * it, or null on a record written before version 3.
+   *
+   * **A case holds `instrument.json`, and `conformance.md` section 2 says that
+   * file is this record.** The contract in `settings` is the money layer's
+   * snapshot of the same instrument and holds six of the twelve facts; the
+   * ones a script reads and the money never does, the interval, the timezone,
+   * the session and the volume flag, were handed to the engine and written
+   * down nowhere. A case harvested from such a record either omitted a fact
+   * the page requires or stated one the run never had, and either way the
+   * second engine ran a different study than the one the expected output
+   * came from.
+   *
+   * It is the whole record and not the six facts beside the contract, because
+   * what is recorded is what the engine read at load, verbatim, and a reader
+   * should not have to compose it.
+   */
+  readonly instrument: Instrument | null;
   readonly bars: BarsInRecord;
   /** What the destination answered, in delivery order. */
   readonly frames: readonly RecordedFrame[];
@@ -158,7 +177,17 @@ export interface RunRecord {
  * file alone. It moves when a channel is added or a meaning changes, never when
  * a figure in a report does.
  */
-export const RECORD_VERSION = 2;
+export const RECORD_VERSION = 3;
+
+/**
+ * The revision each later channel arrived in.
+ *
+ * A record written before a channel existed reads with that channel absent,
+ * and this table is what `recordFromJson` reads it from: one row per channel
+ * added since version 1, so the rule for an old record is stated once and
+ * grows by a line when the next channel does.
+ */
+const ADDED_IN = { sourceText: 2, instrument: 3 } as const;
 
 /** What this engine calls itself in a record it wrote. */
 const ENGINE_NAME = 'openscript';
@@ -176,6 +205,8 @@ export interface RecordParts {
    */
   readonly sourceText?: string;
   readonly settings: BacktestSettings;
+  /** The instrument record the engine was handed, `host-interface.md` 4.1. */
+  readonly instrument: Instrument;
   readonly bars: readonly RecordedBar[];
   /**
    * Whether the bars travel in the record or are pointed at.
@@ -212,6 +243,7 @@ export function recordOf(parts: RecordParts): RunRecord {
     source: parts.program.source,
     sourceText: textFor(parts),
     settings: parts.settings,
+    instrument: parts.instrument,
     bars: barsIn(parts.bars, parts.form),
     frames: parts.frames,
     fills: parts.fills,
@@ -338,8 +370,13 @@ export function recordFromJson(text: string): RunRecord | null {
   // earlier one only ever has fewer: every channel it carries means here what
   // it meant there, and the ones added since are absent rather than wrong. So a
   // run stored months ago still reads, which is the whole of what it was stored
-  // for, and the text it never carried reads as absent.
-  return version === RECORD_VERSION ? record : { ...record, sourceText: null };
+  // for, and a channel it never carried reads as absent.
+  if (version === RECORD_VERSION) return record;
+  return {
+    ...record,
+    sourceText: version >= ADDED_IN.sourceText ? record.sourceText : null,
+    instrument: version >= ADDED_IN.instrument ? record.instrument : null,
+  };
 }
 
 /**

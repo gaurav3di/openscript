@@ -36,7 +36,7 @@ import {
 } from '../../src/core/backtest/index.js';
 import type { RunRecord } from '../../src/core/backtest/index.js';
 import { reportOf } from '../../src/core/accounting/index.js';
-import { CONTRACT, inAndOut, probeText, revised, rising, runSettings } from './support.js';
+import { CONTRACT, FACTS, inAndOut, probeText, revised, rising, runSettings } from './support.js';
 import { compile } from '../engine/support.js';
 
 const BARS = rising(8);
@@ -48,6 +48,7 @@ const CHANNELS: readonly string[] = [
   'engine',
   'fills',
   'frames',
+  'instrument',
   'languageVersion',
   'orders',
   'program',
@@ -121,17 +122,85 @@ test('a record written without the text says so rather than guessing', () => {
   assert.equal(record.sourceText, null);
 });
 
-test('a record from before the text existed still reads, with the text absent', () => {
-  // A version bump that made every stored run unreadable would cost the thing
-  // the record is for. An earlier revision only ever has fewer channels.
-  const record = recorded();
-  const older = { ...record, recordVersion: 1 };
-  delete (older as { sourceText?: unknown }).sourceText;
+/**
+ * The record carries the instrument record the engine was handed, whole.
+ *
+ * Catches a driver that records the six facts it was given rather than the
+ * twelve-fact record it composed, which would leave a case reader composing
+ * it again and the two compositions free to disagree; and catches one that
+ * composed the record for the engine and wrote the contract into the channel,
+ * which is what the case projection used to be handed.
+ */
+test('a record carries the instrument record the engine was handed, whole', () => {
+  const out = backtest(inAndOut(), BARS, runSettings(), { instrument: FACTS });
+  assert.equal(out.ok, true);
+  if (!out.ok) return;
+  assert.deepEqual(out.record.instrument, {
+    ...FACTS,
+    symbol: CONTRACT.symbol,
+    exchange: CONTRACT.exchange,
+    tickSize: CONTRACT.tickSize,
+    lotSize: CONTRACT.lotSize,
+    pointValue: CONTRACT.pointValue,
+    currency: CONTRACT.currency,
+  });
+});
 
-  const read = recordFromJson(JSON.stringify(older));
-  assert.notEqual(read, null);
-  assert.equal(read?.sourceText, null);
-  assert.equal(read?.report.trades.length, record.report.trades.length);
+/**
+ * And the engine reads that record, not another one.
+ *
+ * A record can show what the driver composed and say nothing about what the
+ * engine was handed, so the proof is a refusal only the engine makes: a
+ * session with no timezone to read it in is OS6012 at load, `host-interface.md`
+ * 4.3. A driver that wrote the facts into the record and handed the engine the
+ * contract alone would run this without a word.
+ */
+test('the stated facts are the ones the engine reads at load', () => {
+  const out = backtest(inAndOut(), BARS, runSettings(), {
+    instrument: { hasVolume: true, session: { start: '09:00', end: '17:30' } },
+  });
+  assert.equal(out.ok, false);
+  if (out.ok) return;
+  assert.equal(out.diagnostic.code, 'OS6012');
+  assert.equal(out.diagnostic.span.offset, 0);
+  assert.equal(out.diagnostic.span.length, 0);
+});
+
+/**
+ * Each earlier revision reads with the channels it never carried absent, and
+ * with the ones it did carry intact.
+ *
+ * A version bump that made every stored run unreadable would cost the thing
+ * the record is for. Catches a reader that nulls every later channel whatever
+ * the revision, which drops the text out of a version 2 record that carried
+ * it; and one that reads an old record as the current revision, where a
+ * channel it never had comes back undefined rather than absent, and the case
+ * projection then refuses it for the wrong reason.
+ */
+test('a record from an earlier revision reads with only its missing channels absent', () => {
+  const text = probeText();
+  const out = backtest(compile('probe.oscript', text).program, BARS, runSettings(), {
+    sourceText: text,
+    instrument: FACTS,
+  });
+  assert.equal(out.ok, true);
+  if (!out.ok) return;
+  const record = out.record;
+
+  const two = { ...record, recordVersion: 2 };
+  delete (two as { instrument?: unknown }).instrument;
+  const readTwo = recordFromJson(JSON.stringify(two));
+  assert.notEqual(readTwo, null);
+  assert.equal(readTwo?.sourceText, text);
+  assert.equal(readTwo?.instrument, null);
+
+  const one = { ...two, recordVersion: 1 };
+  delete (one as { sourceText?: unknown }).sourceText;
+  const readOne = recordFromJson(JSON.stringify(one));
+  assert.notEqual(readOne, null);
+  assert.equal(readOne?.sourceText, null);
+  assert.equal(readOne?.instrument, null);
+  assert.equal(readOne?.report.trades.length, record.report.trades.length);
 });
 
 /**

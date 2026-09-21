@@ -11,10 +11,10 @@ nothing, fails the build before it can become permanent.
 
 **A run record becomes a conformance case.** `caseFilesFrom(record, identity)`
 returns the files of one case, keyed by the names `conformance.md` section 2
-gives them: `case.json`, `script.os`, `bars.csv`, `expected.json`, and
-`instrument.json` and `settings.json` where the run had them. It returns text
-and writes nothing, because core does no I/O, so the caller decides where a case
-lives and the same call works in a browser.
+gives them: `case.json`, `script.os`, `bars.csv`, `expected.json` and
+`instrument.json`, with `frames.csv` and `settings.json` where the run had
+frames or inputs. It returns text and writes nothing, because core does no I/O,
+so the caller decides where a case lives and the same call works in a browser.
 
 This is what the suite the second engine will be measured against is built from.
 A case written by hand asserts what somebody believed a run does; a harvested one
@@ -35,12 +35,34 @@ artefact other implementations depend on; putting the text there would send a
 script everywhere a program travels and widen the format every engine reads. The
 compiled format is unchanged.
 
-**A record written before this still reads**, with `sourceText` absent. An
+**Record version 3 carries the instrument record**, in a new `instrument`
+channel: the twelve facts of `host-interface.md` 4.1 as the engine read them at
+load. A record carried the money layer's contract, which holds six of them, and
+the interval, the timezone, the session and the volume flag were handed to the
+engine and written down nowhere, so `instrument.json`, which section 2 says is
+that record, was the contract instead: a shape with a rounding digit count no
+instrument record has and without the one fact that page requires of every
+host. `backtest` takes `instrument` in its options, the six facts beside the
+contract; the six the contract holds cannot be stated there, so the two cannot
+disagree. A run whose host states no `hasVolume` still runs and still records,
+and is refused a case rather than handed a value, because no derivation
+recovers that flag and a case stating it would give the engine under test a
+study the expected output did not come from.
+
+**A record written before this still reads**, with the channels it never
+carried absent: `sourceText` before version 2, `instrument` before version 3. An
 earlier revision only ever has fewer channels, and every one it carries means
 here what it meant when it was written. A later revision is still refused, which
 is the asymmetry that matters: a later one may mean something new by a field this
 version thinks it knows. Such a record replays and reruns as before; the one
 thing it cannot do is become a case.
+
+**A harvested case's `expected.json` is the shape section 4 fixes.**
+`performance` is a list of one flat object, the summary statistics. The equity
+curve, the monthly table and the trade markers are no longer written inside it:
+the first two are not conformance channels, and a marker belongs to the
+`markers` channel, which a case about money does not assert. A case now writes
+exactly the channels it declares in `case.json` and no others.
 
 **Specification decisions for the second engine.** Three, all in
 `conformance.md` and `stdlib.md`, and each one was a place two implementations
@@ -85,10 +107,14 @@ rather than by an engine's own id, because a case cannot know the id another
 engine minted.
 
 `caseFilesFrom` and its types are exported from the package root, so an install
-can reach the one function that turns a run into a case.
+can reach the one function that turns a run into a case. `DriveOptions` and
+`InstrumentFacts` are exported beside them, so a host can name what `backtest`
+takes.
 
-`backtest` takes `sourceText` in its options. A caller that has only a compiled
-program leaves it out and loses nothing but the ability to harvest.
+`backtest` takes `sourceText` and `instrument` in its options. A caller that
+has only a compiled program leaves the first out, one that states nothing about
+the instrument beside the contract leaves the second out, and either loses
+nothing but the ability to harvest.
 
 ---
 

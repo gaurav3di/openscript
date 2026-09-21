@@ -24,10 +24,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { canonicalise, programHash } from '../../src/core/index.js';
+import { RECORD_VERSION, canonicalise, programHash } from '../../src/core/index.js';
 import type {
   BacktestSettings,
   BarsInRecord,
+  Instrument,
   RecordedBar,
   RecordedDiagnostic,
   RecordedFrame,
@@ -81,6 +82,30 @@ const SETTINGS: Portable<BacktestSettings> = {
   inputs: { len: 14, smooth: true, label: 'AAA' },
   now: T0 + 2 * DAY,
   tolerance: { abs: 0, rel: 0, reason: null },
+};
+
+/**
+ * The instrument record of `host-interface.md` 4.1, with all twelve facts
+ * stated.
+ *
+ * Every fact on the record is optional, and an optional member nobody builds
+ * is a member that compiles whatever it holds. So the fixture states all of
+ * them, the session included, which is the one fact that is an object rather
+ * than a scalar and the one a portability finding would name.
+ */
+const INSTRUMENT: Portable<Instrument> = {
+  symbol: 'AAA',
+  exchange: 'XX',
+  interval: '60',
+  timezone: 'UTC',
+  tickSize: 0.05,
+  lotSize: 1,
+  pointValue: 1,
+  currency: 'CUR',
+  instrumentType: 'future',
+  hasVolume: true,
+  hasOpenInterest: false,
+  session: { start: '09:00', end: '17:30', days: [1, 2, 3, 4, 5] },
 };
 
 const ROWS: readonly Portable<RecordedBar>[] = [
@@ -181,7 +206,7 @@ const REPORT: Portable<Report> = {
 };
 
 const RECORD: Portable<RunRecord> = {
-  recordVersion: 1,
+  recordVersion: RECORD_VERSION,
   engine: { name: 'reference', version: '0.3.0' },
   languageVersion: '1',
   program: COMPILED.program,
@@ -189,6 +214,7 @@ const RECORD: Portable<RunRecord> = {
   sourceText: null,
   source: COMPILED.program.source,
   settings: SETTINGS,
+  instrument: INSTRUMENT,
   bars: INLINE,
   frames: FRAMES,
   fills: [],
@@ -208,6 +234,7 @@ const COMPARISON: Portable<RunComparison> = {
 /** Every sample above, named as a finding would have to name it. */
 const SAMPLES: readonly (readonly [string, unknown])[] = [
   ['the settings', SETTINGS],
+  ['the instrument', INSTRUMENT],
   ['the inline bars', INLINE],
   ['the referenced bars', REFERENCED],
   ['the record', RECORD],

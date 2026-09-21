@@ -15,9 +15,13 @@
  *
  * **What it refuses, it refuses loudly.** A case with a missing file is worse
  * than no case: it fails on somebody else's engine and the blame lands on them.
- * So a record that cannot make a whole case does not make a partial one.
+ * So a record that cannot make a whole case does not make a partial one, and a
+ * record that cannot make a faithful file does not guess at one: the script it
+ * has no text for and the instrument fact its host never stated are both
+ * refusals, never a hole and never a default.
  */
 import { canonicalise } from '../emit/index.js';
+import type { Instrument } from '../engine/index.js';
 import type { RecordedBar, RecordedFrame, RunRecord } from './record.js';
 
 /** The files of one case, keyed by the name `conformance.md` section 2 gives them. */
@@ -89,6 +93,8 @@ export function caseFilesFrom(record: RunRecord, identity: CaseIdentity): CaseRe
   if (identity.description.trim() === '') {
     return { ok: false, reason: 'a case needs a one-sentence description, which is its failure message' };
   }
+  const instrument = instrumentOf(record);
+  if (!instrument.ok) return instrument;
 
   const files: Record<string, string> = {
     'case.json': json({
@@ -103,13 +109,25 @@ export function caseFilesFrom(record: RunRecord, identity: CaseIdentity): CaseRe
     }),
     'script.os': endsWithNewline(record.sourceText),
     'bars.csv': barsCsv(record.bars.rows),
+    // `conformance.md` section 4: performance is a list of one flat object
+    // holding the summary statistics and nothing nested. The trades are their
+    // own channel and are not repeated inside it, because a figure stated
+    // twice in one case is a figure that can disagree with itself. The equity
+    // curve, the monthly table and the markers are not written at all: the
+    // first two are not conformance channels, being derived from fills and
+    // closes the case already fixes, and a marker is a chart output the
+    // `markers` channel owns, which a case about money does not assert.
     'expected.json': json({
       diagnostics: record.diagnostics,
       orders: record.orders,
       trades: record.report.trades,
-      performance: performanceOf(record),
+      performance: [record.report.summary],
     }),
-    'instrument.json': json(record.settings.contract),
+    // Section 2: the record of `host-interface.md` 4.1, which is what the
+    // engine was handed and not the money layer's contract. The suite's
+    // defaults for an absent file are boring on purpose and are not this run's
+    // instrument, so the file is always written.
+    'instrument.json': json(instrument.value),
   };
 
   // Without this the case is unpassable, on every engine including the one that
@@ -134,17 +152,43 @@ export function caseFilesFrom(record: RunRecord, identity: CaseIdentity): CaseRe
 }
 
 /**
- * The performance summary, which is the report without the lists beside it.
+ * The instrument record a case can state faithfully, or why there is none.
  *
- * The trades are their own asserted channel and are not repeated here: a figure
- * stated twice in one case is a figure that can disagree with itself, and then
- * the case is about our bookkeeping rather than about the engine under test.
+ * Two refusals, and both are the same refusal: the file `conformance.md`
+ * section 2 names is the record of `host-interface.md` 4.1, and a record that
+ * cannot produce that record cannot produce the file.
+ *
+ * A record written before version 3 carries none, because the facts beside
+ * the contract were handed to the engine and written down nowhere. And 4.1
+ * requires one fact of every host, `hasVolume`, which is the one the engine
+ * does not refuse a run without: a run whose host never stated it ran with the
+ * flag absent, so a file stating it would hand a second engine a different
+ * study than the one the expected output came from, and a file omitting it is
+ * not a 4.1 record. The other rules that page states about a record, a session
+ * with no timezone to read it in, are refused at load, so a run that happened
+ * cannot carry one.
  */
-function performanceOf(record: RunRecord): Record<string, unknown> {
-  const { trades: _trades, ...summary } = record.report as unknown as Record<string, unknown> & {
-    trades: unknown;
-  };
-  return summary;
+function instrumentOf(
+  record: RunRecord,
+): { readonly ok: true; readonly value: Instrument } | CaseRefusal {
+  if (record.instrument === null) {
+    return {
+      ok: false,
+      reason:
+        'the record carries no instrument record, so the case would have no instrument.json: ' +
+        'it was written before record version 3, and re-running the script records one',
+    };
+  }
+  if (typeof record.instrument.hasVolume !== 'boolean') {
+    return {
+      ok: false,
+      reason:
+        'the run was handed no hasVolume, which host-interface.md 4.1 requires of every ' +
+        'host, so instrument.json cannot be the record that page defines: run the script ' +
+        'with the instrument facts stated',
+    };
+  }
+  return { ok: true, value: record.instrument };
 }
 
 /**

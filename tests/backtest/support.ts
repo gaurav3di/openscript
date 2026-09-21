@@ -14,7 +14,7 @@
  */
 import type { Contract } from '../../src/core/accounting/index.js';
 import type { CompiledProgram } from '../../src/core/emit/index.js';
-import type { BacktestSettings } from '../../src/core/backtest/index.js';
+import type { BacktestSettings, InstrumentFacts } from '../../src/core/backtest/index.js';
 import { settingsFor } from '../../src/core/backtest/index.js';
 import type { RecordedBar } from '../../src/core/backtest/index.js';
 import { compile } from '../engine/support.js';
@@ -36,6 +36,17 @@ export const CONTRACT: Contract = {
   pointValue: 1,
   digits: 2,
 };
+
+/**
+ * The facts of `host-interface.md` 4.1 the contract does not hold, as a test
+ * host states them.
+ *
+ * `hasVolume` is the one that matters: 4.1 requires it of every host, and a
+ * case cannot be harvested from a run whose host never stated it. The interval
+ * is the hour the bars above are spaced at, and the zone is the one a wall
+ * clock in a test is read in.
+ */
+export const FACTS: InstrumentFacts = { interval: '60', timezone: 'UTC', hasVolume: true };
 
 /**
  * Bars that rise by one a bar, with a range around the close.
