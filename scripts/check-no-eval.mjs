@@ -144,6 +144,7 @@ import { NOT_THE_PROJECT, filesUnder, projectFiles } from './lib/files.mjs';
 import { NO_CODE_FROM_STRINGS, insistOnRefusing } from './lib/runtime.mjs';
 import { selfTest } from './lib/no-eval-selftest.mjs';
 import { findings, shellFindings } from './lib/no-eval-rules.mjs';
+import { findings as pythonFindings, selfTest as pythonSelfTest } from './lib/no-eval-python.mjs';
 
 // Under the setting, or started again under it. Everything below reads files,
 // and this line is why the two names the setting refuses are refused in the
@@ -165,6 +166,13 @@ const BUILD_STEPS = ['.github', '.githooks'];
 /** Anything a runtime would execute, at any of its spellings. */
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
 const DECLARATION = /\.d\.ts$/;
+
+/**
+ * The second engine's language, with a matcher of its own in
+ * `lib/no-eval-python.mjs`. Naming this extension in the data list below instead
+ * would have turned the guarantee off for a whole engine.
+ */
+const PYTHON = /\.py$/;
 
 /**
  * What is deliberately not code, by extension and by name.
@@ -190,6 +198,8 @@ const DATA_EXTENSIONS = new Set([
   'os',
   'yml',
   'yaml',
+  // The second engine's project file, read against its real imports next door.
+  'toml',
   'txt',
   'csv',
   'svg',
@@ -224,6 +234,7 @@ const under = (file, dirs) => dirs.some((dir) => file === dir || file.startsWith
 /** Code, a build step, data, or nothing this check knows how to place. */
 function kindOf(file) {
   if (SOURCE.test(file)) return 'code';
+  if (PYTHON.test(file)) return 'python';
   if (under(file, BUILD_STEPS)) return 'command';
   if (DATA_NAMES.has(basename(file))) return 'data';
   if (DATA_EXTENSIONS.has(extensionOf(file))) return 'data';
@@ -252,7 +263,10 @@ function classifierSelfTest() {
     ['cases/absent/ordering/bars.csv', 'data'],
     ['cases/absent/ordering/case.json', 'data'],
     ['LICENSE', 'data'],
-    ['engine/run.py', 'unknown'],
+    ['engine/openscript/__init__.py', 'python'],
+    ['engine/pyproject.toml', 'data'],
+    // Machine code, which nothing here can read: it stops the build, and should.
+    ['engine/openscript/machine.so', 'unknown'],
   ];
   for (const [file, kind] of expected) {
     const got = kindOf(file);
@@ -286,6 +300,10 @@ const classified = classifierSelfTest();
 // runtime reads it. In `lib/no-eval-selftest.mjs`, with what each half proves.
 const corpus = selfTest();
 
+// The same, for the other language: `lib/no-eval-python-attacks.mjs` through the
+// rules in `lib/no-eval-python.mjs`, each rule the reason some form is caught.
+const python = pythonSelfTest();
+
 // ---------------------------------------------------------------------------
 // The run
 // ---------------------------------------------------------------------------
@@ -307,7 +325,7 @@ function refuse(message) {
 }
 
 /** Every file the project has, placed in one of the three kinds or refused. */
-const inventory = { code: [], command: [], data: [], unknown: [] };
+const inventory = { code: [], python: [], command: [], data: [], unknown: [] };
 for (const file of projectFiles()) inventory[kindOf(file)].push(file);
 
 if (inventory.unknown.length > 0) {
@@ -365,6 +383,20 @@ const options = (file) => ({
 for (const file of [...sourceFiles, ...toolingFiles, ...builtFiles]) {
   report(findings(file, readFileSync(file, 'utf8'), options(file)));
 }
+
+// The second engine, under its own rules. A run that read no Python at all is
+// refused rather than reported clean, for the reason every other count here is
+// stated: the first version of this check inspected two directories and said
+// nothing about anywhere else.
+if (inventory.python.length === 0) {
+  refuse(
+    `No Python file matched, so this check inspected none. The second engine is Python\n` +
+      'and this is the only thing that reads it for a generator, so refusing to report a\n' +
+      'clean tree it never opened.',
+  );
+}
+
+for (const file of inventory.python) report(pythonFindings(file, readFileSync(file, 'utf8')));
 
 // The build steps: the commands themselves, and the programs they feed in.
 const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
@@ -442,19 +474,25 @@ if (hits > 0) {
 const total = sourceFiles.length + builtFiles.length + toolingFiles.length;
 const commands = Object.keys(manifest.scripts ?? {}).length;
 const walked =
-  inventory.code.length + inventory.command.length + inventory.data.length + builtWalked;
+  inventory.code.length + inventory.python.length + inventory.command.length +
+  inventory.data.length + builtWalked;
 console.log(
   `No-eval check passed, over this repository's own text, under ${NO_CODE_FROM_STRINGS}, ` +
     `which refuses two names here and closes no other door. ${corpus.attacks} attack forms ` +
     `caught by its own rules first, every one of ${corpus.rules} rules exercised, ` +
-    `${corpus.settings} environment values read the way the runtime reads them, then ` +
-    `${walked} files walked, of which ${total} were read as code (${sourceFiles.length} source, ` +
-    `${builtFiles.length} built, ${toolingFiles.length} tooling) and ${inventory.data.length} are ` +
+    `${corpus.settings} environment values read the way the runtime reads them, and for the ` +
+    `second engine ${python.attacks} more forms through ${python.rules} rules of its own with ` +
+    `${python.innocent} ordinary lines left alone. Then ${walked} files walked, of which ` +
+    `${total} were read as code (${sourceFiles.length} source, ${builtFiles.length} built, ` +
+    `${toolingFiles.length} tooling), ${inventory.python.length} as Python, and ` +
+    `${inventory.data.length} are ` +
     `data and named as such, plus ${commands} build commands and ${steps.length} build steps, ` +
     `including the programs they feed in. The tree is walked rather than asked about, and the ` +
     `only thing left out of it is ${[...NOT_THE_PROJECT].join(' and ')}. ` +
     `No form this scan knows about was found. What is guaranteed about the package a ` +
     `platform installs is checked next door: scripts/check-layering.mjs refuses every import ` +
     `of a module from the runtime's own namespace under src, so the shipped engine has no ` +
-    `virtual machine, no worker and no child process to reach.`,
+    `virtual machine, no worker and no child process to reach, and scripts/check-python.mjs ` +
+    `holds the second engine to the standard library and to the parts of it a reproducible ` +
+    `run may use.`,
 );

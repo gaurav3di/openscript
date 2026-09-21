@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Twenty four checks enforce these, twenty three `check-*` scripts and the harvest
+Twenty five checks enforce these, twenty four `check-*` scripts and the harvest
 run with `--check`, and each one of them is a rule somebody broke once.
 `npm test` runs all of them, and so does every pull request. The count is here
 to be corrected when it changes, not to be trusted: `package.json`'s `test`
@@ -130,6 +130,29 @@ figure out of the page by pattern so the document is the input, and
 no test reads back. What the check cannot do, and says so, is decide whether the
 sentence beside the figure constrains anything: that stays attention, and 20.1
 says why.
+
+## The second engine, in Python
+
+`engine/` holds it: the package `openscript`, its tests beside it, and the tools
+that run them. Every rule above applies there, in that language's spellings.
+
+**Nothing builds code out of text.** The string evaluator, the statement
+executor, the compiler, the import machinery driven by hand, objects loaded out
+of bytes, a function object built at run time, the namespace of the built-in
+names, a namespace taken as a dictionary, a process, and the modules whose
+purpose is running text handed to them. `ast.literal_eval` is safe and is
+allowed: it reads one literal and runs nothing. `scripts/check-no-eval.mjs`
+reads every Python file here for those forms, with rules and a corpus of its
+own.
+
+**Zero dependencies means the standard library**, and not the parts of it that
+make a run stop being reproducible. `scripts/check-python.mjs` reads every
+import against the module names the running interpreter says are its own, so the
+empty dependency list is measured rather than promised.
+
+`npm test` runs both engines and fails when no interpreter is there.
+`docs/integrating/the-python-engine.md` is the page, including how a host
+installs it and how to run the tests on their own.
 
 ## Every release
 

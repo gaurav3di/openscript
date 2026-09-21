@@ -9,6 +9,52 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The second engine has a home, and the gate covers both engines.** `engine/`
+holds a Python distribution: the package `openscript`, importable as one name,
+its tests beside it, and the tools that run them. It requires an interpreter and
+nothing else, so a clone runs the tests as it stands, with no install and
+nothing fetched from an index. The entry point an adapter will start is
+`python -m openscript`, which works from an installed distribution and from the
+directory unchanged. The interpreter, the library and the adapter are not
+written yet: the modules that will hold them are absent or empty, and
+`__init__.py` says which stage fills which.
+
+`npm test` now runs `scripts/check-python.mjs`, which finds an interpreter,
+refuses one older than the distribution requires, reads every import in the tree
+against the module names that interpreter says are its own, and then runs the
+engine's tests under it. A missing interpreter fails the gate rather than
+skipping half of it, because a suite that quietly checks one engine is how two
+engines drift apart. The empty dependency list is therefore a measured fact
+rather than a claim about a file, and inside the package the network, threads,
+randomness and the locale are refused as well, each with the sentence from the
+specification that refuses it.
+
+**The no-eval check reads Python.** A `.py` file used to land in the check's
+`unknown` pile and stop the build, deliberately, because code that nothing scans
+is the one thing that check will not allow. It now has an arm of its own: a
+masker that removes comments, marks string literals, reads a formatted string's
+substitutions as code and normalises every identifier the way an interpreter
+does, and rules that refuse the string evaluator, the statement executor, the
+compiler underneath them, the import machinery driven by hand, objects loaded
+out of bytes, function and code objects built at run time, the namespace of the
+built-in names, a namespace taken as a dictionary, a process, and the modules
+whose purpose is running text handed to them. `ast.literal_eval` is safe and is
+allowed, and the rules are written so that it and an ordinary pattern builder
+both pass untouched.
+
+The identifier normalisation is the one with no counterpart on the JavaScript
+side. An interpreter normalises a name before resolving it, so a call written in
+mathematical or fullwidth letters is the same call to it and invisible to any
+pattern written against plain letters. Three such spellings are in the attack
+corpus, each one run under an interpreter before it was written down, and every
+form in that corpus goes through the rules before the check opens a file.
+
+**A Python test run leaves nothing behind and refuses to prove nothing.**
+Bytecode caching is off before the first test module is imported, so no cache
+directory appears in the tree, and the test count is a result rather than a line
+of output: a discovery that found no tests, which the standard runner reports as
+a pass, fails instead.
+
 **A run record becomes a conformance case.** `caseFilesFrom(record, identity)`
 returns the files of one case, keyed by the names `conformance.md` section 2
 gives them: `case.json`, `script.os`, `bars.csv`, `expected.json` and

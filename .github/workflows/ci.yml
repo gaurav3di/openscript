@@ -181,6 +181,25 @@ jobs:
       - name: The named colours' channel values are the published ones
         run: node scripts/check-colour-channels.mjs
 
+  python:
+    name: python engine check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # The lowest version the engine supports rather than the newest, because
+      # that is the one that can fail: a newer interpreter runs everything an
+      # older one does, and the first host is where the floor is set. The action
+      # puts both python3 and python on the path, which is what the check looks
+      # for; nothing is installed with pip, because there is nothing to install.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: The second engine brings nothing with it, and its own tests pass
+        run: node scripts/check-python.mjs
+
   no-eval:
     name: no eval check
     runs-on: ubuntu-latest
@@ -211,6 +230,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      # The gate covers both engines, so this job needs both runtimes. A missing
+      # interpreter fails npm test rather than skipping the Python half, which is
+      # the whole point: a suite that quietly checks one engine is how two
+      # engines drift apart.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install
         run: npm ci || npm install
       - name: Test

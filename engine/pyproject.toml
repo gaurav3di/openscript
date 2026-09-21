@@ -1,0 +1,57 @@
+# The second engine, in Python.
+#
+# This file sits here rather than at the repository root on purpose. The root is
+# the JavaScript package's root, and a second project file beside it would leave
+# two answers to "what does an install of this directory ship". Under engine/
+# there is one answer: this directory is the Python distribution, and everything
+# a host installs is inside it.
+#
+# The gate never installs it. `scripts/check-python.mjs` runs the tests from this
+# directory, where the package is importable because it is right there, so a
+# clone needs an interpreter and nothing else. Installing is for a host, and
+# `docs/integrating/the-python-engine.md` says how.
+
+[project]
+name = "openscript"
+version = "0.4.0"
+description = "An open trading language: the engine that runs a compiled program."
+requires-python = ">=3.12"
+license = "Apache-2.0"
+keywords = ["trading", "language", "interpreter", "indicators", "backtesting"]
+classifiers = [
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Office/Business :: Financial :: Investment",
+]
+
+# Empty, and it stays empty. Rule two of CLAUDE.md, and the reason the first
+# host can run this at all: every dependency is something an adopting platform
+# has to accept, audit and upgrade, and a trading engine that drags a numeric
+# stack behind it is refused by the platforms most worth having.
+#
+# `scripts/check-python.mjs` is what holds this line to the truth. An empty list
+# here is a claim; that check reads every import in the package and compares it
+# against the module names the running interpreter says are its own.
+dependencies = []
+
+# The version above is the one fact in this file that is also written elsewhere:
+# `package.json` carries it for the JavaScript package. A distribution has to
+# state a version and no build backend reads JSON, so the two are kept equal by
+# a check rather than by intention: `scripts/check-python.mjs` fails the build
+# when they differ, and names both files.
+
+[project.urls]
+Homepage = "https://github.com/marketcalls/openscript#readme"
+Source = "https://github.com/marketcalls/openscript"
+
+# No console script is declared. The adapter starts the engine as
+# `python -m openscript`, which works from an installed distribution and from
+# this directory unchanged, so nothing depends on an entry point that only
+# exists after an install.
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["openscript"]
