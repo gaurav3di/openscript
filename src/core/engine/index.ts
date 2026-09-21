@@ -72,7 +72,7 @@ export type { Timeframe, TimeframeUnit } from './timeframe.js';
 export { bucketKeyOf, isIntraday, minutesOf, nominalMinutes, parseTimeframe } from './timeframe.js';
 
 export type { ResolvedInput, SettingCheck, TimeResolver } from './inputs.js';
-export { checkSetting, constantValue, utcTime } from './inputs.js';
+export { checkSetting, constantValue, fieldValue, utcTime } from './inputs.js';
 
 export { LANGUAGE_VERSIONS, capabilitiesFor, verify } from './verify.js';
 export type { VerifyOptions, VerifyResult } from './verify.js';

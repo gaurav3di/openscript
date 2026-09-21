@@ -1,0 +1,286 @@
+/**
+ * The record: whether a run can be reproduced from its own document, months
+ * later and by somebody else.
+ *
+ * **This is the phase's gate, written as a check rather than as a promise.** A
+ * record is reproducible when three things hold, and each one has a test below
+ * that fails when it stops holding:
+ *
+ * - **Nothing is missing.** The channels are listed here by name, so a channel
+ *   quietly dropped from the document fails at the moment it is dropped rather
+ *   than the first time somebody needs it.
+ * - **The report is a function of the fills.** `replay` folds the money again
+ *   from the record's own fills and bar closes and has to produce the same
+ *   report. If it does not, the report was reading something the engine happened
+ *   to be holding, and nobody can reproduce it from the document.
+ * - **The run is a function of the record.** `rerun` executes the record's
+ *   program over its bars under its settings, and the two documents are compared
+ *   as bytes. The tolerance on a record is for a second implementation and is
+ *   never this one's excuse: a rerun here is bit-identical or it is a defect.
+ *
+ * And one test that the comparison can fail at all, because a field-for-field
+ * comparison that always passes is the most expensive green there is.
+ */
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  RECORD_VERSION,
+  backtest,
+  barsHash,
+  recordFromJson,
+  recordToJson,
+  replay,
+  rerun,
+  runBytes,
+} from '../../src/core/backtest/index.js';
+import type { RunRecord } from '../../src/core/backtest/index.js';
+import { reportOf } from '../../src/core/accounting/index.js';
+import { CONTRACT, inAndOut, revised, rising, runSettings } from './support.js';
+
+const BARS = rising(8);
+
+/** The channels a record carries, which is what a reader is promised. */
+const CHANNELS: readonly string[] = [
+  'bars',
+  'diagnostics',
+  'engine',
+  'fills',
+  'frames',
+  'languageVersion',
+  'orders',
+  'program',
+  'programHash',
+  'recordVersion',
+  'report',
+  'settings',
+  'source',
+];
+
+function recorded(form: 'inline' | 'referenced' = 'inline'): RunRecord {
+  const out = backtest(inAndOut({ commission: 20, slippage: 1 }), BARS, runSettings(), { form });
+  assert.equal(out.ok, true);
+  if (!out.ok) throw new Error('the probe run was refused');
+  return out.record;
+}
+
+/**
+ * A record carries every channel and none of them is empty for a run that
+ * traded.
+ *
+ * Catches a channel dropped from the document, which is exactly the failure the
+ * gate is about: a record missing its frames replays perfectly on this engine,
+ * because this engine has the program, and is useless to the second engine it
+ * was written for.
+ */
+test('a record carries every channel it promises', () => {
+  const record = recorded();
+  assert.deepEqual(Object.keys(record).sort(), CHANNELS.slice().sort());
+
+  assert.equal(record.recordVersion, RECORD_VERSION);
+  assert.equal(record.engine.name.length > 0, true);
+  assert.equal(record.engine.version.length > 0, true);
+  assert.equal(record.languageVersion, '1');
+  assert.equal(record.programHash.startsWith('sha256:'), true);
+  assert.equal(record.source.hash.length > 0, true);
+  assert.equal(record.source.lines > 0, true);
+  assert.equal(record.bars.form, 'inline');
+  assert.equal(record.bars.count, BARS.length);
+  assert.equal(record.frames.length > 0, true);
+  assert.equal(record.fills.length, 2);
+  assert.equal(record.orders.length, 2);
+  assert.deepEqual(record.diagnostics, []);
+  assert.equal(record.report.trades.length, 1);
+  assert.equal(record.settings.contract.symbol, CONTRACT.symbol);
+});
+
+/**
+ * The report is what the fills fold to, and nothing else.
+ *
+ * `replay` runs no bar and places no order: it takes the record's own fills and
+ * bar closes and folds the money again. Catches a report that depended on
+ * anything the engine was holding at the end of the run, which is a report only
+ * the process that produced it can reproduce.
+ */
+test('replaying a record reproduces its report field for field', () => {
+  const record = recorded();
+  const again = replay(record);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  assert.deepEqual(again.report, record.report);
+});
+
+/**
+ * And the comparison above can fail.
+ *
+ * A record with one fill taken out of it replays to a different report. Without
+ * this, an implementation of `replay` that returned `record.report` unchanged
+ * would pass the test above for ever, and the gate would be a tick beside a
+ * function that compares a value with itself.
+ */
+test('a record missing a fill replays to a different report', () => {
+  const record = recorded();
+  const short: RunRecord = { ...record, fills: record.fills.slice(0, 1) };
+  const again = replay(short);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  assert.notDeepEqual(again.report, record.report);
+  assert.equal(again.report.trades[0]?.isOpen, true);
+});
+
+/**
+ * The report is folded from the fills by the same call anybody else would use.
+ *
+ * The money layer is handed the record's own channels directly here, with no
+ * driver and no engine in the way, and it comes to the same report. That is
+ * what makes the document readable by something that is not this driver.
+ */
+test('the money layer folds the record into the same report', () => {
+  const record = recorded();
+  const again = replay(record);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  const direct = reportOf(
+    record.fills,
+    record.report.equity.map((point) => ({
+      barIndex: point.barIndex,
+      time: point.time,
+      close: BARS[point.barIndex]?.close ?? null,
+      inReport: true,
+    })),
+    null,
+    record.settings.contract,
+    record.report.summary.capital,
+  );
+  // The schedule is left out of this one, so the charges differ and the gross
+  // does not: the fills are the same fills and the trade is the same trade.
+  assert.equal(direct.trades[0]?.grossProfit, record.report.trades[0]?.grossProfit);
+  assert.equal(direct.summary.charges, 0);
+});
+
+/**
+ * Running the record again produces the same bytes.
+ *
+ * Catches every way float determinism is lost: a collection re-summed in
+ * another order, a map iterated, a rounding applied twice, a clock or a random
+ * number anywhere in the fold. Each of those is right to eleven digits and
+ * fails here, which is the point of comparing bytes rather than figures.
+ */
+test('rerunning a record produces the same run, byte for byte', () => {
+  const record = recorded();
+  const again = rerun(record);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  assert.equal(runBytes(again.record), runBytes(record));
+});
+
+/**
+ * The comparison survives the engine being upgraded, because that is the whole
+ * claim: a run stored today reproduces months later, on a later release.
+ *
+ * `engine` is a version stamp inside the document, so comparing whole bytes
+ * made the test pass for exactly as long as nothing was released and then fail
+ * for the one reason that is not a defect. Catches a comparison that went back
+ * to whole bytes, and catches one that dropped so much it compares nothing.
+ */
+test('a rerun under a later engine version is still the same run', () => {
+  const record = recorded();
+  const upgraded: RunRecord = { ...record, engine: { name: 'openscript', version: '99.0.0' } };
+  assert.equal(runBytes(upgraded), runBytes(record), 'the stamp is not part of the run');
+  assert.notEqual(recordToJson(upgraded), recordToJson(record), 'and it is still in the document');
+});
+
+test('the run bytes still carry everything the run did', () => {
+  // The other direction: a comparison that dropped the report, or the fills,
+  // would pass every test above and prove nothing at all.
+  const record = recorded();
+  const moved: RunRecord = {
+    ...record,
+    report: {
+      ...record.report,
+      summary: { ...record.report.summary, netProfit: record.report.summary.netProfit + 1 },
+    },
+  };
+  assert.notEqual(runBytes(moved), runBytes(record));
+});
+
+/**
+ * A replay over revised bars is refused.
+ *
+ * Bars are revised: a feed corrects a print, a session is extended, a split is
+ * applied to history. Catches an implementation that replays whatever it is
+ * handed, which reports the original figures over different data and is the
+ * most convincing wrong answer this system can produce.
+ */
+test('bars that are not the bars the record was made from are refused', () => {
+  const record = recorded();
+  const wrong = replay(record, revised(BARS, 3, 199));
+  assert.equal(wrong.ok, false);
+  if (wrong.ok) return;
+  assert.equal(wrong.diagnostic.code, 'OS6022');
+  assert.equal(wrong.diagnostic.span.offset, 0);
+  assert.equal(wrong.diagnostic.span.length, 0);
+  assert.equal(wrong.diagnostic.span.line, 0);
+  assert.equal(wrong.diagnostic.span.column, 0);
+
+  const right = replay(record, BARS);
+  assert.equal(right.ok, true);
+});
+
+/**
+ * A referenced record names its bars and does not carry them.
+ *
+ * The operational form, because nothing that grows with history may travel in a
+ * request body. Catches an implementation whose two forms hash differently,
+ * which would make every referenced record unreplayable, and one that replays a
+ * referenced record without being given the bars at all, which is a report over
+ * whatever the caller had lying about.
+ */
+test('a referenced record hashes the same bars and refuses to replay without them', () => {
+  const referenced = recorded('referenced');
+  assert.equal(referenced.bars.form, 'referenced');
+  assert.equal('rows' in referenced.bars, false);
+  assert.equal(referenced.bars.hash, barsHash(BARS));
+  assert.equal(referenced.bars.count, BARS.length);
+
+  const blind = replay(referenced);
+  assert.equal(blind.ok, false);
+  if (!blind.ok) assert.equal(blind.diagnostic.code, 'OS6022');
+
+  const held = replay(referenced, BARS);
+  assert.equal(held.ok, true);
+  if (held.ok) assert.deepEqual(held.report, referenced.report);
+});
+
+/**
+ * The hash is over the bars and over their order.
+ *
+ * Catches a hash taken over the count, or over the first and last time, or over
+ * a set rather than a sequence: each of them would call two different studies
+ * the same run.
+ */
+test('the bars hash follows every field and the order they are in', () => {
+  assert.equal(barsHash(BARS), barsHash(rising(8)));
+  assert.notEqual(barsHash(BARS), barsHash(revised(BARS, 3, 199)));
+  assert.notEqual(barsHash(BARS), barsHash(BARS.slice().reverse()));
+  assert.notEqual(barsHash(BARS), barsHash(BARS.slice(0, 7)));
+});
+
+/**
+ * The document reads back as itself, and a document of another revision does
+ * not read back at all.
+ *
+ * Catches a reader that takes any JSON object as a record, which is how a later
+ * revision's fields get read under this revision's rules and a run silently
+ * becomes a different run.
+ */
+test('a record survives the round trip and a foreign revision does not', () => {
+  const record = recorded();
+  const text = recordToJson(record);
+  const read = recordFromJson(text);
+  assert.notEqual(read, null);
+  assert.equal(recordToJson(read as RunRecord), text);
+
+  const later = JSON.stringify({ ...record, recordVersion: RECORD_VERSION + 1 });
+  assert.equal(recordFromJson(later), null);
+});

@@ -78,17 +78,19 @@ function fixtureBars(count) {
  * host in this repository written from the interface document rather than
  * against the engine.
  */
-export function harnessWith(core, emitter, hosts) {
-  const bars = fixtureBars(BAR_COUNT);
-
-  /**
-   * Source text through the whole front end, to the program a host is handed.
-   *
-   * The stages are called one at a time rather than through one door, so that a
-   * block the emitter refused is distinguishable from one the checker refused,
-   * and a block that never reached the emitter from one it could not carry.
-   */
-  function compile(name, text) {
+/**
+ * Source text through the whole front end, to the program a host is handed.
+ *
+ * The stages are called one at a time rather than through one door, so that a
+ * block the emitter refused is distinguishable from one the checker refused,
+ * and a block that never reached the emitter from one it could not carry.
+ *
+ * Exported because two checks compile source now, and the pipeline is a fact
+ * about the compiler rather than about either of them. Written out twice, it
+ * would be the second one that stopped matching the front end.
+ */
+export function frontEndWith(core, emitter) {
+  return function compile(name, text) {
     const file = core.sourceFile(name, text);
     const bag = new core.DiagnosticBag();
     const tokens = core.lex(file, bag);
@@ -96,7 +98,12 @@ export function harnessWith(core, emitter, hosts) {
     const checked = core.check(file, script, bag);
     const result = emitter.emit(file, checked, bag, {});
     return { file, diagnostics: bag.ordered(), program: result.program };
-  }
+  };
+}
+
+export function harnessWith(core, emitter, hosts) {
+  const bars = fixtureBars(BAR_COUNT);
+  const compile = frontEndWith(core, emitter);
 
   /**
    * Every code one program raised on one venue: at load, or on a bar.

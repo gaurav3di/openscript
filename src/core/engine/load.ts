@@ -18,7 +18,7 @@ import { Engine } from './engine.js';
 import { NO_POSITION, failure, malformed } from './errors.js';
 import type { EngineHost } from './host.js';
 import { resolveInputs, utcTime } from './inputs.js';
-import type { TimeResolver } from './inputs.js';
+import type { ResolvedInput, TimeResolver } from './inputs.js';
 import { planRequests } from './request-plan.js';
 import { recordProblem } from './session/index.js';
 import { capabilitiesFor, verify } from './verify.js';
@@ -36,8 +36,21 @@ export interface LoadOptions {
   readonly time?: TimeResolver;
 }
 
+/**
+ * A loaded program, and the settings it was loaded under.
+ *
+ * The resolved inputs come back beside the engine because a declaration field
+ * may be written by an input (`compiled-program.md` 2.3), and a caller outside
+ * the engine reads some of those fields: what a run was carried out with is the
+ * declaration's capital, its commission and the bar a fill is priced at, and
+ * the backtest driver is what reports them. Resolving an input a second time
+ * out there would be the same rule written in two files, and the first host
+ * setting either of them read differently would be a report nobody could
+ * explain. So the resolution happens once, here, and what it produced is handed
+ * over rather than kept.
+ */
 export type LoadResult =
-  | { readonly ok: true; readonly engine: Engine }
+  | { readonly ok: true; readonly engine: Engine; readonly inputs: readonly ResolvedInput[] }
   | { readonly ok: false; readonly diagnostic: Diagnostic };
 
 /**
@@ -100,5 +113,6 @@ export function load(program: unknown, options: LoadOptions = {}): LoadResult {
   return {
     ok: true,
     engine: new Engine(checked.program, resolved.inputs, options, limits, planned.plans),
+    inputs: resolved.inputs,
   };
 }

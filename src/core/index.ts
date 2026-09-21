@@ -282,3 +282,72 @@ export { isAbsent } from './engine/index.js';
 export type { Value } from './engine/index.js';
 export { LANGUAGE_VERSIONS, capabilitiesFor, verify } from './engine/index.js';
 export type { VerifyOptions, VerifyResult } from './engine/index.js';
+
+/**
+ * The money, and the run it is folded from (`stdlib.md` 17.1, 17.7).
+ *
+ * Two modules rather than one, and the line between them is the design. The
+ * accounting shapes are arithmetic over portable data and know nothing about an
+ * engine, so a stored record can be reported again with no engine present and
+ * the engine can one day call the same arithmetic with no second implementation
+ * to disagree with. The backtest shapes are what one run was carried out under
+ * and what it produced, and a record of one is a conformance case a second
+ * engine can be handed whole.
+ *
+ * They are here rather than behind an entry point of their own because they are
+ * the same layer: a host that compiles and runs a program is the host that
+ * reports what it did.
+ */
+export type {
+  BarMark,
+  ChargeBase,
+  ChargeBreakdown,
+  ChargeLine,
+  ChargeSchedule,
+  ChargeSide,
+  Contract,
+  EquityPoint,
+  Money,
+  MonthlyReturn,
+  RecordedFill,
+  Report,
+  Summary,
+  Trade,
+  TradeMarker,
+} from './accounting/index.js';
+export { chargeFor, scheduleFromDeclaration, scheduleProblem } from './accounting/index.js';
+export { markersOf, monthlyOver, reportOf } from './accounting/index.js';
+export { tradesOf } from './accounting/index.js';
+export { equityOver, summaryOf } from './accounting/index.js';
+export {
+  DEFAULT_FILL,
+  EXACT,
+  WHOLE_RANGE,
+  RECORD_VERSION,
+  backtest,
+  barsHash,
+  checkSettings,
+  compareRuns,
+  recordFromJson,
+  recordToJson,
+  recordOf,
+  replay,
+  rerun,
+  runBytes,
+  settingsFor,
+  windowFor,
+} from './backtest/index.js';
+export type { BacktestResult, ReplayResult, ReportWindow } from './backtest/index.js';
+export type {
+  BacktestSettings,
+  BarsInRecord,
+  DateRange,
+  FillPolicy,
+  RecordedBar,
+  RecordedDiagnostic,
+  RecordedFrame,
+  RecordedOrder,
+  RunComparison,
+  RunRecord,
+  Tolerance,
+} from './backtest/index.js';

@@ -2606,6 +2606,99 @@
       "test": "tests/engine/verify.test.ts"
     },
     {
+      "code": "OS6020",
+      "title": "The report window holds no bars",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "The window from {from} to {to} holds none of the {count} bars supplied.",
+      "placeholders": {
+        "from": "the first moment the window covers, or the first bar supplied where the host named none",
+        "to": "the last moment it covers",
+        "count": "how many bars were supplied"
+      },
+      "cause": "A report is about the bars inside the window the host chose, and a window holding none of them has nothing to report: no equity point, no trade and no summary. The bars outside it are warmup, which execute and whose orders are real, so an empty window is not an empty run, and reporting one as a flat curve would tell a reader that nothing happened when something did.",
+      "fix": "Widen the window until it covers bars, or supply the bars it covers. Both bounds are inclusive and are compared against the times of the bars supplied rather than against a calendar, so a window that falls inside a gap in the data is empty however wide it looks.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "bars supplied: 1240, first day 1, last day 1240\nreport window: day 1300 to day 1400, bars inside 0",
+        "after": "bars supplied: 1240, first day 1, last day 1240\nreport window: day 1100 to day 1240, bars inside 141"
+      },
+      "spec": "language.md 7.1",
+      "refines": null,
+      "test": "tests/backtest/range.test.ts"
+    },
+    {
+      "code": "OS6021",
+      "title": "A run setting cannot be applied as stated",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "{setting} cannot be applied: {problem}.",
+      "placeholders": {
+        "setting": "the setting that cannot be applied, such as the charge schedule or the comparison tolerance",
+        "problem": "what makes it unusable, such as a charge line levied on a line declared after it"
+      },
+      "cause": "A run states the settings it is carried out under before its first bar, and a setting that cannot be carried out is refused there rather than quietly producing a figure. A charge line levied on lines not declared before it has no single evaluation order, so two engines would charge two different amounts and both would be defensible. A slippage stated in ticks with no tick size to measure a tick in would charge nothing at all, which is a backtest that lies in the strategy's favour. A comparison tolerance carrying a bound and no reason is a failed comparison somebody switched off.",
+      "fix": "State the setting so it can be carried out: declare a charge line after every line it is levied on, supply the tick size a slippage in ticks is measured in, or write down the reason a tolerance needs a bound. Nothing has been computed at the point this is refused, so correcting the setting and running again costs one run.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "charge lines: tax on levy, levy\nslippage: 2 ticks, tick size not supplied",
+        "after": "charge lines: levy, tax on levy\nslippage: 2 ticks, tick size 0.05"
+      },
+      "spec": "stdlib.md 17.1",
+      "refines": null,
+      "test": "tests/accounting/schedules.test.ts"
+    },
+    {
+      "code": "OS6022",
+      "title": "The bars are not the bars the record was made from",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "The bars supplied hash to {found}, and the record was made from {expected}.",
+      "placeholders": {
+        "found": "the hash of the bars supplied now",
+        "expected": "the hash the record names"
+      },
+      "cause": "A record names the bars it was made from by a hash over their canonical form, so a replay can prove it is replaying the same run rather than producing a different study under the same name. Bars are revised: a feed corrects a print, a session is extended, a split is applied to history. A replay over revised bars that reported the original figures would be the most convincing wrong answer this system can produce.",
+      "fix": "Replay against the bars the record names. Where the revision is the point, make a second record over the revised bars and compare the two runs, rather than overwriting one run with the other under one name.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "record: bars 1240, hash 9f2c4e...\nsupplied: bars 1240, hash 4ab70d...",
+        "after": "record: bars 1240, hash 9f2c4e...\nsupplied: bars 1240, hash 9f2c4e..."
+      },
+      "spec": "conformance.md 3",
+      "refines": null,
+      "test": "tests/backtest/record.test.ts"
+    },
+    {
+      "code": "OS6023",
+      "title": "Two cost models are stated at once",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "A charge schedule was supplied, and the declaration states a commission of {commission} in {commissionType}.",
+      "placeholders": {
+        "commission": "the commission the declaration states",
+        "commissionType": "the unit that commission is stated in"
+      },
+      "cause": "The declaration's commission is the script's own statement of what trading costs and a supplied schedule is the platform's, and the two describe the same money. Applied together they charge it twice; applied one at a time they charge whichever an engine happened to prefer, which is a rule nobody wrote down and a figure nobody can explain afterwards. So exactly one of the two is stated for a run, and stating both is refused before the first bar rather than reconciled behind the reader.",
+      "fix": "Supply the schedule and leave the declaration's commission at its default of zero, or state the commission in the declaration and supply no schedule. A schedule is the one of the two that can carry a floor, a cap, a charge levied on a charge, and a cost that falls on one side of the trade only.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "declaration: commission 20, per trade\nhost: charge schedule supplied, 4 lines",
+        "after": "declaration: commission 0, per trade\nhost: charge schedule supplied, 4 lines"
+      },
+      "spec": "language.md 13.3; stdlib.md 17.1",
+      "refines": null,
+      "test": "tests/backtest/settings.test.ts"
+    },
+    {
       "code": "OS7001",
       "title": "Only a strategy can do that",
       "severity": "error",
@@ -2983,6 +3076,53 @@
       "spec": "stdlib.md 17.1, 17.2",
       "refines": null,
       "test": "tests/engine/closing.test.ts"
+    },
+    {
+      "code": "OS7018",
+      "title": "A frame names an order this strategy did not place",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "The frame names intent {intent}, and this strategy holds no such order.",
+      "placeholders": {
+        "intent": "the intent id the frame named"
+      },
+      "cause": "Step 1 of the fold locates the row a frame is about, and a frame naming no row cannot be folded into anything. It is a fact about the host rather than about the strategy: a destination answering for an order another strategy placed, or answering for a run that has already ended. The frame changes nothing and is reported, because a fold that passed over it in silence would leave a host's mistake invisible to the only party who can correct it.",
+      "fix": "Answer with the intent id the engine sent. A destination's own reference is carried in the frame's reference field, where the engine records it and never parses it, and it is not what an answer is addressed by.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "engine sent: intent 7, intent 8\nframe: intent 11, status filled, filled qty 1",
+        "after": "engine sent: intent 7, intent 8\nframe: intent 8, status filled, filled qty 1"
+      },
+      "spec": "stdlib.md 17.8, 17.14",
+      "refines": null,
+      "test": null,
+      "deferred": "Nothing raises this yet. The fold refuses the frame and records the refusal as a word on the outcome it hands back, and a word is not a catalogue code, so nothing reports it against the run and a host answering for orders it was never handed stays invisible. Raised when the outcome of a fold carries a code and a bar carries a channel for a diagnostic that does not stop it, stdlib.md 17.8."
+    },
+    {
+      "code": "OS7019",
+      "title": "A fill was reported with no price",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "The frame reports {qty} filled for intent {intent}, and no average fill price.",
+      "placeholders": {
+        "qty": "the cumulative filled quantity the frame reports",
+        "intent": "the intent id the frame named"
+      },
+      "cause": "Step 3 of the fold takes the destination's own average over the cumulative quantity, because the engine never averages two averages of its own. A frame reporting more filled than the row holds and no price to take is a fill that can be marked against nothing: no position average, no realised profit, no equity point. It is refused whole rather than folded for its quantity alone, because a position holding a size and no price is worse than no position at all.",
+      "fix": "Report the average fill price the destination computed over the cumulative quantity, on every frame that reports a quantity greater than the last one. A frame carrying no new quantity needs no price.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "frame: intent 8, status filled, filled qty 3, average fill price absent",
+        "after": "frame: intent 8, status filled, filled qty 3, average fill price 104.25"
+      },
+      "spec": "stdlib.md 17.8, 17.14",
+      "refines": null,
+      "test": null,
+      "deferred": "Nothing raises this yet. The fold refuses the frame and records the refusal as a word on the outcome it hands back, and a word is not a catalogue code, so a destination reporting a fill that can be marked against nothing is refused in silence. Raised when the outcome of a fold carries a code and a bar carries a channel for a diagnostic that does not stop it, stdlib.md 17.8."
     },
     {
       "code": "OS8001",

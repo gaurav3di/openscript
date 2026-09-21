@@ -185,10 +185,10 @@ up is not renumbered.
 | OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 24 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
-| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 19 |
-| OS7xxx | Orders | An order could not be placed as written. | error | 17 |
+| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 23 |
+| OS7xxx | Orders | An order could not be placed as written. | error | 19 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **151** |
+| | | | **Total** | **157** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -3582,6 +3582,123 @@ input len: min 1, max 500
 host setting: len = 14
 ```
 
+### OS6020 The report window holds no bars
+
+Severity error. Stage host. Since language version 1. Reference language.md 7.1. Test `tests/backtest/range.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `The window from {from} to {to} holds none of the {count} bars supplied.`
+
+- `{from}` is the first moment the window covers, or the first bar supplied where the host named none.
+- `{to}` is the last moment it covers.
+- `{count}` is how many bars were supplied.
+
+**Cause.** A report is about the bars inside the window the host chose, and a window holding none of them has nothing to report: no equity point, no trade and no summary. The bars outside it are warmup, which execute and whose orders are real, so an empty window is not an empty run, and reporting one as a flat curve would tell a reader that nothing happened when something did.
+
+**Fix.** Widen the window until it covers bars, or supply the bars it covers. Both bounds are inclusive and are compared against the times of the bars supplied rather than against a calendar, so a window that falls inside a gap in the data is empty however wide it looks.
+
+Before:
+
+```
+bars supplied: 1240, first day 1, last day 1240
+report window: day 1300 to day 1400, bars inside 0
+```
+
+After:
+
+```
+bars supplied: 1240, first day 1, last day 1240
+report window: day 1100 to day 1240, bars inside 141
+```
+
+### OS6021 A run setting cannot be applied as stated
+
+Severity error. Stage host. Since language version 1. Reference stdlib.md 17.1. Test `tests/accounting/schedules.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `{setting} cannot be applied: {problem}.`
+
+- `{setting}` is the setting that cannot be applied, such as the charge schedule or the comparison tolerance.
+- `{problem}` is what makes it unusable, such as a charge line levied on a line declared after it.
+
+**Cause.** A run states the settings it is carried out under before its first bar, and a setting that cannot be carried out is refused there rather than quietly producing a figure. A charge line levied on lines not declared before it has no single evaluation order, so two engines would charge two different amounts and both would be defensible. A slippage stated in ticks with no tick size to measure a tick in would charge nothing at all, which is a backtest that lies in the strategy's favour. A comparison tolerance carrying a bound and no reason is a failed comparison somebody switched off.
+
+**Fix.** State the setting so it can be carried out: declare a charge line after every line it is levied on, supply the tick size a slippage in ticks is measured in, or write down the reason a tolerance needs a bound. Nothing has been computed at the point this is refused, so correcting the setting and running again costs one run.
+
+Before:
+
+```
+charge lines: tax on levy, levy
+slippage: 2 ticks, tick size not supplied
+```
+
+After:
+
+```
+charge lines: levy, tax on levy
+slippage: 2 ticks, tick size 0.05
+```
+
+### OS6022 The bars are not the bars the record was made from
+
+Severity error. Stage host. Since language version 1. Reference conformance.md 3. Test `tests/backtest/record.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `The bars supplied hash to {found}, and the record was made from {expected}.`
+
+- `{found}` is the hash of the bars supplied now.
+- `{expected}` is the hash the record names.
+
+**Cause.** A record names the bars it was made from by a hash over their canonical form, so a replay can prove it is replaying the same run rather than producing a different study under the same name. Bars are revised: a feed corrects a print, a session is extended, a split is applied to history. A replay over revised bars that reported the original figures would be the most convincing wrong answer this system can produce.
+
+**Fix.** Replay against the bars the record names. Where the revision is the point, make a second record over the revised bars and compare the two runs, rather than overwriting one run with the other under one name.
+
+Before:
+
+```
+record: bars 1240, hash 9f2c4e...
+supplied: bars 1240, hash 4ab70d...
+```
+
+After:
+
+```
+record: bars 1240, hash 9f2c4e...
+supplied: bars 1240, hash 9f2c4e...
+```
+
+### OS6023 Two cost models are stated at once
+
+Severity error. Stage host. Since language version 1. Reference language.md 13.3; stdlib.md 17.1. Test `tests/backtest/settings.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `A charge schedule was supplied, and the declaration states a commission of {commission} in {commissionType}.`
+
+- `{commission}` is the commission the declaration states.
+- `{commissionType}` is the unit that commission is stated in.
+
+**Cause.** The declaration's commission is the script's own statement of what trading costs and a supplied schedule is the platform's, and the two describe the same money. Applied together they charge it twice; applied one at a time they charge whichever an engine happened to prefer, which is a rule nobody wrote down and a figure nobody can explain afterwards. So exactly one of the two is stated for a run, and stating both is refused before the first bar rather than reconciled behind the reader.
+
+**Fix.** Supply the schedule and leave the declaration's commission at its default of zero, or state the commission in the declaration and supply no schedule. A schedule is the one of the two that can carry a floor, a cap, a charge levied on a charge, and a cost that falls on one side of the trade only.
+
+Before:
+
+```
+declaration: commission 20, per trade
+host: charge schedule supplied, 4 lines
+```
+
+After:
+
+```
+declaration: commission 0, per trade
+host: charge schedule supplied, 4 lines
+```
+
 ---
 
 ## 8.7 OS7xxx Orders
@@ -4074,6 +4191,65 @@ if pos.isFlat
     buy(qty = 1)
 else
     close()
+```
+
+### OS7018 A frame names an order this strategy did not place
+
+Severity error. Stage host. Since language version 1. Reference stdlib.md 17.8, 17.14. No test in this repository names this code.
+
+**Deferred.** Nothing raises this yet. The fold refuses the frame and records the refusal as a word on the outcome it hands back, and a word is not a catalogue code, so nothing reports it against the run and a host answering for orders it was never handed stays invisible. Raised when the outcome of a fold carries a code and a bar carries a channel for a diagnostic that does not stop it, stdlib.md 17.8.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `The frame names intent {intent}, and this strategy holds no such order.`
+
+- `{intent}` is the intent id the frame named.
+
+**Cause.** Step 1 of the fold locates the row a frame is about, and a frame naming no row cannot be folded into anything. It is a fact about the host rather than about the strategy: a destination answering for an order another strategy placed, or answering for a run that has already ended. The frame changes nothing and is reported, because a fold that passed over it in silence would leave a host's mistake invisible to the only party who can correct it.
+
+**Fix.** Answer with the intent id the engine sent. A destination's own reference is carried in the frame's reference field, where the engine records it and never parses it, and it is not what an answer is addressed by.
+
+Before:
+
+```
+engine sent: intent 7, intent 8
+frame: intent 11, status filled, filled qty 1
+```
+
+After:
+
+```
+engine sent: intent 7, intent 8
+frame: intent 8, status filled, filled qty 1
+```
+
+### OS7019 A fill was reported with no price
+
+Severity error. Stage host. Since language version 1. Reference stdlib.md 17.8, 17.14. No test in this repository names this code.
+
+**Deferred.** Nothing raises this yet. The fold refuses the frame and records the refusal as a word on the outcome it hands back, and a word is not a catalogue code, so a destination reporting a fill that can be marked against nothing is refused in silence. Raised when the outcome of a fold carries a code and a bar carries a channel for a diagnostic that does not stop it, stdlib.md 17.8.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `The frame reports {qty} filled for intent {intent}, and no average fill price.`
+
+- `{qty}` is the cumulative filled quantity the frame reports.
+- `{intent}` is the intent id the frame named.
+
+**Cause.** Step 3 of the fold takes the destination's own average over the cumulative quantity, because the engine never averages two averages of its own. A frame reporting more filled than the row holds and no price to take is a fill that can be marked against nothing: no position average, no realised profit, no equity point. It is refused whole rather than folded for its quantity alone, because a position holding a size and no price is worse than no position at all.
+
+**Fix.** Report the average fill price the destination computed over the cumulative quantity, on every frame that reports a quantity greater than the last one. A frame carrying no new quantity needs no price.
+
+Before:
+
+```
+frame: intent 8, status filled, filled qty 3, average fill price absent
+```
+
+After:
+
+```
+frame: intent 8, status filled, filled qty 3, average fill price 104.25
 ```
 
 ---

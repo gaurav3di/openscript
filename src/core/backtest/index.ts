@@ -1,0 +1,52 @@
+/**
+ * The backtest: a program, some bars, and a record of what happened.
+ *
+ * **A run produces a record, and the record is the product.** Not a number
+ * printed at the end and not a chart: a document that carries the program, the
+ * bars, the settings the host chose, every frame the destination answered,
+ * every fill the engine folded, the ledger at the end and the report. A second
+ * engine is handed that document as a conformance case, and this engine is
+ * handed it again months later to prove that an upgrade did not change a result.
+ *
+ * **The cost model lives in this module and not in the engine.** `stdlib.md`
+ * 17.1 puts slippage and commission on the destination, and the engine folds the
+ * price it is told; a backtest is a destination, so this is where a price is
+ * worsened by a tick and a fill is charged. The engine never adjusts a price and
+ * this module never folds one.
+ *
+ * `backtest` drives one, `replay` folds a stored one's money again from its own
+ * fills, and `rerun` executes a stored one again and is held to producing the
+ * same bytes. `recordToJson` and `recordFromJson` are the document itself.
+ * `compareRuns` puts two records beside each other and says whether the gap
+ * between them clears the noise. `caseFilesFrom` is named by the design and is
+ * not here yet: it will return text and write nothing, because core does no
+ * I/O, and it needs a channel the record does not carry today. `conformance.md`
+ * section 2 requires a case to hold `script.os`, the source text, and a record
+ * carries only the source's hash, its line count and its file name.
+ */
+export { backtest } from './drive.js';
+export type { BacktestResult, DriveOptions } from './drive.js';
+export { declarationOf } from './declaration.js';
+export type { RunDeclaration } from './declaration.js';
+export { marksFor, windowFor } from './range.js';
+export type { ReportWindow, WindowResult } from './range.js';
+export { replay, rerun } from './replay.js';
+export type { ReplayResult } from './replay.js';
+export { testResting } from './resting.js';
+export type { RestOutcome, RestingOrder } from './resting.js';
+export { Simulator } from './simulate.js';
+export type { SimulatorOptions } from './simulate.js';
+export { DEFAULT_FILL, EXACT, WHOLE_RANGE, checkSettings, settingsFor } from './settings.js';
+export { RECORD_VERSION, barsHash, recordFromJson, recordOf, recordToJson, runBytes } from './record.js';
+export type { RecordParts } from './record.js';
+export type { BacktestSettings, DateRange, FillPolicy, Tolerance } from './settings.js';
+export type {
+  BarsInRecord,
+  RecordedBar,
+  RecordedDiagnostic,
+  RecordedFrame,
+  RecordedOrder,
+  RunRecord,
+} from './record.js';
+export { compareRuns } from './compare.js';
+export type { RunComparison } from './compare.js';

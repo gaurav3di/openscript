@@ -81,10 +81,14 @@ test('a signature carries the question mark and the default the manifest holds',
   // the tooltip saying something the compiler does not do.
   const source = `${HEAD}x = alma(close, 9)\n`;
   const held = hover(source, source.indexOf('alma'));
-  assert.deepEqual(held?.signatures, [
-    'alma(src: series number, len: number, offset?: number = 0.85, sigma?: number = 6)'
-      + ' -> series number',
-  ]);
+  // The signature is named rather than written inside the brackets: a string
+  // joined to another inside a bracket is what the no-eval scan reads as a key
+  // built out of pieces, and a rule that fires on an innocent line is a rule
+  // somebody turns off.
+  const signature =
+    'alma(src: series number, len: number, offset?: number = 0.85, sigma?: number = 6)' +
+    ' -> series number';
+  assert.deepEqual(held?.signatures, [signature]);
 });
 
 test('a colour carries the channels the compiler writes rather than a sentence', () => {

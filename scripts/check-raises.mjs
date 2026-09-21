@@ -114,9 +114,13 @@ const SOURCE_ROOTS = ['src'];
  * with no directory here would silently match nothing, so the run below refuses
  * a stage the catalogue declares and this map does not.
  *
- * `runtime` and `host` are one directory because they are one program: the
- * engine is what executes a bar and it is also what the host answers, and no
- * line of it belongs to only one of the two. `check` is the checker alone, and
+ * `runtime` and `host` share the engine because it is one program: the engine is
+ * what executes a bar and it is also what the host answers, and no line of it
+ * belongs to only one of the two. `host` reaches two more directories, because
+ * what a host states about a run is no longer only bars and frames: a run is
+ * carried out under settings, a charge schedule among them, and the money layer
+ * is where a schedule that cannot be carried out is refused. `check` is the
+ * checker alone, and
  * not the emitter behind it: the emitter has refusals of its own and a code only
  * it can raise is a code the catalogue is describing to the wrong reader.
  */
@@ -125,7 +129,7 @@ const STAGE_SOURCE = {
   parse: ['src/core/parse'],
   check: ['src/core/check'],
   runtime: ['src/core/engine'],
-  host: ['src/core/engine'],
+  host: ['src/core/engine', 'src/core/accounting', 'src/core/backtest'],
 };
 
 /** Shorter than this is a flag rather than a reason, whatever it says. */
