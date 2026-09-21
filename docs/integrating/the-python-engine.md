@@ -29,9 +29,12 @@ somebody outside this repository, and everything it says applies here.
 engine/
   pyproject.toml     the distribution: its name, the version, and an empty
                      dependency list
+  adapter.mjs        the file the suite's runner starts, which starts the
+                     adapter below and relays what it writes
   openscript/        the package, importable as one name
     __init__.py      the door
-    __main__.py      the entry point an adapter starts
+    __main__.py      the conformance adapter's command line
+    adapter/         what it answers: a case read, run and compared
   tests/             the engine's own tests
   tools/             programs about the engine rather than part of it
 ```
@@ -63,8 +66,18 @@ its own tooling, or put the directory on the path and import it. Either way the
 entry point is the same, which is the reason no console script is declared:
 
 ```
-python -m openscript
+python -m openscript --describe
 ```
+
+That entry point is the conformance adapter of `spec/conformance.md` section 9,
+and [`running-the-suite.md`](./running-the-suite.md) is how it is driven, what it
+claims and what it reports unsupported. One thing about it belongs here rather
+than there, because it is a fact about this engine and not about the suite: **it
+is handed a compiled program and never a script.** There is no compiler in this
+directory and there is not meant to be one. The program arrives as the canonical
+text a host sends, so the check that the text is the encoding a recorded hash was
+taken over runs on every case rather than being skipped by handing the engine an
+object it built itself.
 
 The version the distribution carries is the version the package manifest
 carries. They are one fact written in two files, because a build backend cannot

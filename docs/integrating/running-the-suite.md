@@ -5,7 +5,7 @@ produces the numbers every other engine produces.
 
 By the end of this page you will know how to run the suite against an engine,
 how to run two engines against each other, what the result document says, and
-what this repository's own adapter does not yet reach.
+what each of this repository's two adapters does not yet reach.
 
 ---
 
@@ -46,6 +46,68 @@ shapes. The runner starts every adapter with the runtime it runs on itself, so
 an adapter is a JavaScript file; an engine in another language is started by a
 small JavaScript file that starts it and relays its output, which is that
 engine's to write.
+
+## The second engine's adapter
+
+`engine/adapter.mjs` is that file for the engine in
+[`engine/`](./the-python-engine.md), and it answers the same three invocations:
+
+```
+npm run build
+node engine/adapter.mjs --describe
+node engine/adapter.mjs cases/order/buy
+node engine/adapter.mjs --actual cases/order/buy
+```
+
+It is the one adapter here that does something on the way. The second engine
+implements no compiler, so the relay compiles `script.os` with this repository's
+compiler and hands the engine the compiled program as the canonical text a host
+would send it, on standard input; the engine loads that text, runs the bars and
+answers. Section 1 of the specification provides for exactly that: an
+implementation that only has an engine reads compiled programs produced
+elsewhere, runs the engine half, and says so. What a result means, therefore, is
+that the second engine ran the program the first one emitted, which is also the
+production arrangement: a container with no runtime for this language is handed
+a compiled program as data.
+
+Everything the engine answers goes through `python -m openscript`, which is the
+adapter proper and can be driven on its own:
+
+```
+echo '{"program":"<the canonical program text>"}' | python -m openscript <case-directory>
+```
+
+**What it claims.** The lowest profile the specification's table names, and the
+identity it writes carries `engineOnly` beside it, because section 8's word for
+an implementation with no compiler is not one of the three profiles a runner
+accepts. Everything it cannot do is named on the case with the `unsupported`
+outcome, and the engine is what names it: a program needing a capability it does
+not serve, or a library function its manifest does not hold, is refused at load
+with that tag or that function in the refusal, and the refusal becomes the
+feature the case reports.
+
+**What it does not reach.** Said here so a reader does not discover it as a
+surprise, and each is `unsupported` or `error` on the case, never a pass.
+
+- **Every channel but two.** It answers `diagnostics` and `values`. The
+  first adapter above answers `diagnostics`, `orders`, `trades` and
+  `performance`, so today the two engines can be compared directly on
+  `diagnostics` and on nothing else. That is a hole in the coverage of the whole
+  suite rather than of either adapter, and it is the reason a run of the two
+  against each other over `cases/` compares nothing: both cases there are
+  strategy cases, which this engine reports unsupported by name.
+- **A compiler case.** A case whose assertion is a diagnostic raised by
+  compiling is `unsupported`: the compiler here is the first engine's, and its
+  diagnostics are not the second engine's to claim.
+- **`ticks.csv` and a secondary series.** The machine re-executes a bar and
+  rolls its state back, and how a tick row becomes the newest bar's four prices
+  is written down nowhere, so a replay would be the adapter's invention.
+- **`frames.csv`.** An order frame is folded by a ledger, and this engine has
+  none yet.
+- **`expectedExitCode`.** Section 2 names the field and fixes no shape for it,
+  so no shape is read.
+- **A time input outside the one timezone this engine reads.** A host with a
+  zone supplies its own reader; this engine has been given none.
 
 ## Running it
 
@@ -91,10 +153,11 @@ for the suite as a whole.
 The document's `suiteRevision` is the package version the cases shipped with,
 because the page fixes no other place for a revision yet.
 
-## What this adapter does not reach
+## What the reference adapter does not reach
 
 Said here so a reader does not discover it as a surprise. Each is reported as
-`unsupported` or `error` on the case, never as a pass.
+`unsupported` or `error` on the case, never as a pass. The second engine's own
+list is in its section above.
 
 - **Frames the destination did not answer itself.** This engine's backtest
   answers its own frames from a simulated destination and takes none from a
