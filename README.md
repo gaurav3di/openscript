@@ -15,6 +15,15 @@ can write their own engine for it.
 
 ---
 
+## Architecture at a glance
+
+[![OpenScript connects a trading idea to charts, backtests and planned live trading, using the platform's editor, market data and broker connection.](https://raw.githubusercontent.com/marketcalls/openscript/main/docs/architecture-overview.png)](https://raw.githubusercontent.com/marketcalls/openscript/main/docs/architecture-overview.png)
+
+Write an indicator or a strategy once, then use it on a chart or test it against
+historical data. Your platform supplies the editor, saved scripts, market data
+and connections. The live runner is planned, with sandbox testing before live
+execution; see [Phase 6](./ROADMAP.md#phase-6-the-second-engine-and-live-running).
+
 ## Status
 
 **`0.4.0` runs studies, backtests strategies, and ships the language
@@ -116,8 +125,8 @@ OpenScript is the opposite of that:
   timeout, and nothing you drew silently dropped to make room for the next one.
 - **Honest.** A higher timeframe read has to say whether it repaints. The
   compiler warns when a script would.
-- **Connected.** The same script places real orders through your own broker
-  connection, on paper by default.
+- **Connected.** Designed to route orders through your own broker connection,
+  with sandbox testing before live execution. The live runner is planned.
 - **Open.** Apache-2.0, a written specification, and a conformance suite anyone
   can run against their own implementation.
 
@@ -146,14 +155,49 @@ own, with their fixes taken from the error catalogue. A host supplies the text
 component and the panel around it, and keeps its own design. The editor is not a
 second implementation of the language to be kept in step.
 
-```
-source text
-   -> tokens
-   -> tree
-   -> checked tree        (errors carry a code, a line and a fix)
-   -> compiled program    (plain data, versioned schema)
-   -> any engine          (browser, server, yours)
-```
+[![OpenScript compiler and runtime: source passes through lexing, parsing, checking and emission into a portable data program, then verification, loading and bar-by-bar interpretation produce outputs for the host.](https://raw.githubusercontent.com/marketcalls/openscript/main/docs/architecture-compiler.png)](https://raw.githubusercontent.com/marketcalls/openscript/main/docs/architecture-compiler.png)
+
+### From source to a compiled program
+
+| Stage | What happens | Implementation |
+|---|---|---|
+| Lex | Turns text into tokens with source positions. Newlines, indentation and dedentation become explicit tokens, so later stages do not reinterpret whitespace. | [`src/core/lex`](./src/core/lex/index.ts) |
+| Parse | Builds the abstract syntax tree (AST). It recovers around malformed statements so an editor can still work with a partially typed file. | [`src/core/parse`](./src/core/parse/index.ts) |
+| Check | Resolves names, checks types and calls, determines storage and tracks when a value becomes available. `CheckedScript` keeps those answers beside the original tree. | [`src/core/check`](./src/core/check/index.ts) |
+| Emit | Allocates registers and persistent state, lowers statements into instructions, links calls and requests, and checks stack depths and limits. | [`src/core/emit`](./src/core/emit/emit.ts) |
+
+The result is a [`CompiledProgram`](./src/core/emit/program.ts), not executable
+code in the host's language. Alongside its instructions it carries the constants,
+inputs, output declarations, storage layout and source mapping the engine needs.
+Its [canonical encoding](./src/core/emit/canonical.ts) makes the program portable
+and gives it stable bytes for hashing. The language and compiled format have
+separate versions, defined by the [compiled program specification](./spec/compiled-program.md).
+
+Every compiler stage reports through the same diagnostic system. Codes, messages
+and fixes come from the [error catalogue](./spec/errors.json); the
+[headless editor](./src/editor/index.ts) reuses the compiler and its language
+tables for highlighting, completion, diagnostics, hover, signatures and formatting.
+
+### From a compiled program to results
+
+Before the first bar, [`load`](./src/core/engine/load.ts) verifies the program's
+format, capabilities, tables and instructions, including stack and address
+bounds. It checks the host's limits, resolves inputs and plans requested series.
+A rejected program returns a diagnostic before execution starts.
+
+The [engine](./src/core/engine/engine.ts) then advances one bar at a time. Its
+[interpreter](./src/core/engine/machine.ts) walks the instruction list using
+registers, persistent memory and the standard library, with instruction, memory
+and time budgets. Updating the newest bar restores its checkpoint before
+recomputing it; explicitly live state is retained. Drawing values are published
+on updates, while signals, alerts and orders follow the confirmation policy.
+
+The [chart adapter](./src/adapters/charts/index.ts) maps study outputs into the
+host's chart. The [backtest driver](./src/core/backtest/drive.ts) supplies a
+simulated order destination and records frames, fills, orders and the report.
+[Replay and rerun](./src/core/backtest/replay.ts) let a stored result be checked
+again. The host owns data access, rendering, persistence and order routing;
+the language core does not reach into those systems itself.
 
 ## The pieces, and which way they point
 
