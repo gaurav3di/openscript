@@ -26,7 +26,7 @@
  */
 import type { RecordedFill, Report } from '../accounting/index.js';
 import type { Diagnostic } from '../diagnostics/index.js';
-import { canonicalise, programHash, sha256, sourceHash } from '../emit/index.js';
+import { canonicalNumber, canonicalise, programHash, sha256, sourceHash } from '../emit/index.js';
 import type { CompiledProgram, SourceStamp } from '../emit/index.js';
 import type { Instrument, LedgerRow } from '../engine/index.js';
 import { VERSION } from '../version/index.js';
@@ -237,7 +237,7 @@ export function recordOf(parts: RecordParts): RunRecord {
   return {
     recordVersion: RECORD_VERSION,
     engine: { name: ENGINE_NAME, version: VERSION },
-    languageVersion: String(parts.program.openscript.language),
+    languageVersion: canonicalNumber(parts.program.openscript.language),
     program: parts.program,
     programHash: programHash(parts.program),
     source: parts.program.source,

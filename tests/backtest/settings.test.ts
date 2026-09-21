@@ -17,18 +17,9 @@ import { backtest, checkSettings } from '../../src/core/backtest/index.js';
 import { declarationOf } from '../../src/core/backtest/index.js';
 import type { RunDeclaration } from '../../src/core/backtest/index.js';
 import type { ChargeSchedule } from '../../src/core/accounting/index.js';
-import { CONTRACT, inAndOut, rising, runSettings } from './support.js';
+import { SUPPLIED, inAndOut, rising, runSettings } from './support.js';
 
 const BARS = rising(8);
-
-/** A schedule a platform supplies: one flat charge per fill. */
-const SUPPLIED: ChargeSchedule = {
-  currency: CONTRACT.currency,
-  digits: CONTRACT.digits,
-  slippageTicks: 0,
-  lines: [{ name: 'brokerage', base: 'order', side: 'both', rate: 15, min: null, max: null, of: [] }],
-  source: 'supplied',
-};
 
 /** The declaration a program states, read the way the driver reads one. */
 function declared(commission: number): RunDeclaration {

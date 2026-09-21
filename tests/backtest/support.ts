@@ -12,7 +12,7 @@
  * should be is arithmetic a reader can do in their head, and so that a wrong
  * answer names its own cause rather than being an indicator disagreement.
  */
-import type { Contract } from '../../src/core/accounting/index.js';
+import type { ChargeSchedule, Contract } from '../../src/core/accounting/index.js';
 import type { CompiledProgram } from '../../src/core/emit/index.js';
 import type { BacktestSettings, InstrumentFacts } from '../../src/core/backtest/index.js';
 import { settingsFor } from '../../src/core/backtest/index.js';
@@ -35,6 +35,15 @@ export const CONTRACT: Contract = {
   lotSize: 1,
   pointValue: 1,
   digits: 2,
+};
+
+/** A schedule a platform supplies: one flat charge per fill. */
+export const SUPPLIED: ChargeSchedule = {
+  currency: CONTRACT.currency,
+  digits: CONTRACT.digits,
+  slippageTicks: 0,
+  lines: [{ name: 'brokerage', base: 'order', side: 'both', rate: 15, min: null, max: null, of: [] }],
+  source: 'supplied',
 };
 
 /**

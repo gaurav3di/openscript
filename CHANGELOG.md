@@ -202,12 +202,151 @@ the case's `frames.csv` byte for byte and a case whose frames the destination
 did not answer is `unsupported`; every harvested case runs. A per-bar or chart
 channel, a warning case, `ticks.csv` and a secondary series are `unsupported`
 by name. A per-column tolerance is not read, because section 6 fixes no shape
-for one. Two facts the page owes a place: the money rounding digit count, which
-no case file carries and which the adapter takes from the fixture every
-harvested case ran under, and a currency for section 3's default instrument,
-without which the money layer refuses a strategy case that states no
-`instrument.json`. The suite revision has no fixed place either, and the
-document carries the package version until it does.
+for one. Two facts the page owed a place when the adapter was written: the
+money rounding digit count, which `backtest.json` below now carries and which
+the adapter still takes from the fixture every harvested case ran under until
+it reads that file, and a currency for section 3's default instrument, without
+which the money layer refuses a strategy case that states no `instrument.json`.
+The suite revision has no fixed place either, and the document carries the
+package version until it does.
+
+**A case carries what its report was folded under.** `backtest.json` is a new
+file of a strategy case, `conformance.md` sections 2 and 3: the money rounding
+digit count, the charge schedule the host supplied or `null` for the
+declaration's own, and the report window with `null` for an unstated bound. A
+run under a supplied schedule or a narrowed window harvested to a case that said
+nothing about either, so a second engine ran under other values and took the
+blame, and no case file carried the digit count at all. The count is not in
+`instrument.json` because `host-interface.md` 4.1 has no such fact, and the
+three are not in `settings.json` because that file is the script's inputs keyed
+by name. Every field of `BacktestSettings` now has a place in a case,
+`caseFilesFrom` carries the table saying which, and a record whose settings hold
+a field the table does not know is refused by name rather than written into a
+case that ran under something it does not state. Both harvested cases were
+re-harvested and gain the file; nothing else in them changed. Decision 60 has
+the reasoning.
+
+**A record past the tolerance cap makes no case.** Section 6 caps a declared
+tolerance at `rel = 1e-9` and `abs = 1e-12`, and the runner refused a case past
+it while nothing refused a record past it, so a harvest could write a directory
+every runner errors on. `caseFilesFrom` now refuses such a record with OS6021,
+the code the run refuses a setting with, and writes no file. The cap's two
+figures are read out of the page by a test and held to the constants in core,
+which cannot read the page itself. `CaseRefusal` gains `code`: the catalogue
+code a refusal is filed under, or `null` for a refusal about what the record
+holds, which no catalogue entry is about. `reason` is unchanged.
+
+**How a number becomes text is one written rule, and one function.**
+`language.md` 5.5 states it completely: the shortest round trip digits, written
+positionally from ten to the minus seventh exclusive up to ten to the twenty
+first exclusive and with an exponent outside that range, spelled `1e21` and
+`1.5e-7` with never a plus, `0` for both zeros, and no spelling for a value that
+is not finite. `canonicalNumber` from the emit module is the writer every number
+goes through: `text(x)`, `text(x, decimals)`, the canonical encoding, and a
+harvested case's csv files. `spec/vectors/number-text.json` carries fifty one
+boundary cases as binary64 bit patterns, decimals and text, so an engine in
+another language can hold its own writer to the rule without parsing this
+repository's source. A new check, `scripts/check-number-writer.mjs`, asks the
+type checker for the type of every operand under `src` and refuses a number
+turned into text by the host anywhere else; the files that still format a
+number for a human are recorded in `spec/number-text-exceptions.json` with an
+exact count each.
+
+**`text(x, decimals)` writes the shortest digits at every magnitude.** It used
+to write the exact binary expansion of the rounded whole number inside the
+scaling range and the shortest form past it, so `text(1152921504606846976, 0)`
+gave `1152921504606846976` and now gives `1152921504606847000`, the same digits
+`text(x)` gives the value. Only a scaled whole at or above 2 ** 53 is affected;
+no price shaped value moves by a digit. The scale it multiplies by is now the
+binary64 nearest to the power of ten rather than the host's `pow`, which on this
+host is one ulp off at 23 decimals, so `text(3.0627e-8, 23)` no longer ends in a
+stray 1. `round(x, decimals)` follows once its scale is switched the same way,
+and 20.7 prints the measured figures beside the claim.
+
+**`str.trim` and `toNumber` use a written whitespace set.** `stdlib.md` section
+10 now lists the twenty five code points with the Unicode White_Space property,
+and both calls are implemented from the list rather than from the host's trim.
+The one visible change: the byte order mark U+FEFF is no longer removed, and the
+next line character U+0085 now is. A test walks every code point of the basic
+plane against the table read out of the page.
+
+**Strings sort by code point, as the specification always said.** `sort` on an
+array of strings orders a symbol outside the basic plane after every code point
+of the plane, where the host's own order put it before U+E000 to U+FFFF. The `<`
+family of operators still uses the host's order until the one line change
+decision 59 records is applied.
+
+**A program at a lower minor of the same format major loads.** The engine
+required every table of its own minor, so a program compiled at format 1.0 was
+refused by the 1.1 engine at load, at `requests`, with a message about a
+malformed program. `compiled-program.md` 9.4 step 3 now says what 9.5 always
+promised: a table a later minor added and an earlier program lacks reads as
+empty, never as a refusal. A program at the engine's own minor or a later one
+that omits a table is still refused, because section 2 says an empty table is
+written and never omitted, and the version is what tells an older program from
+a malformed one. Decision 56 has the reasoning.
+
+**`loadText(text, options)` is the engine's text boundary.** A program that
+arrives from outside the process as text is parsed, written out again through
+the one canonical writer, and refused with OS6018 naming the character where
+the two part if the text is not the canonical encoding of 2.14; the object then
+goes through `load` so every later refusal applies in the same order.
+`load(object)` is unchanged and is not held to canonicity, because an object
+built beside the engine was never text. Section 13's first checklist line and
+9.4 step 1 now say the same thing (decision 57). The function lives in
+`src/core/engine/load.ts`; until the two export lines through the engine's and
+the package's doors land, it is reached by that path and not through either
+door.
+
+**The compiled format is held to its page by four checks.**
+`check-format-tables.mjs` reads the instruction table of 4.13 and the tag table
+of 2.2 out of the page and compares them with the compiler's opcode table and
+tag list, probing a formula depth with several counts rather than reading it as
+arithmetic. `spec/format-history.json` records, per released format version,
+the field paths, opcodes and capability tags it defined and the sentence of
+section 9 that justified the bump, and `check-format-additive.mjs` fails on a
+field, opcode or tag the compiler gained that no version records and on one a
+version records that the compiler lost, naming the path. `spec/corpus/` holds
+the canonical encoding and `programHash` of every shipped example, and
+`check-format-corpus.mjs` recompiles each one and compares the bytes, reporting
+the first differing byte offset and the field path at it; the recompiled
+program is given the corpus's own `compiler` stamp first, so a package bump
+alone never fails it. A format change is now a deliberate act: record it in the
+history, rewrite the corpus with `--write`, and review the diff.
+
+**The named colours' channel values are published.** `stdlib.md` 11.1 says they
+are fixed in the library manifest and are part of the conformance suite, and
+they lived only in two source files. `spec/colours.json` is that part of the
+manifest in machine form, and `check-colour-channels.mjs` holds the compiler's
+table and the engine's table to it while stating no value of its own. No value
+changed; what changed is that a second engine can now read them from the
+specification.
+
+**The library's arithmetic ships as vectors a second engine can load.**
+`spec/vectors/library/` holds one JSON file per arithmetic function of the
+manifest, keyed by name and argument count, with inputs and results as binary64
+bit patterns (sixteen hex digits, sign bit first) rather than decimals, so
+nothing about this repository's number formatting sits between another
+implementation's arithmetic and this one's. Each function gets several cases:
+the full 80-bar fixture the gate tests already use, the same with holes in every
+series, a history shorter than any length, every constant argument absent, an
+edge table for the stateless calls, and a bar with no volume, no session or no
+tick where the function reads one; every case records the bar facts the
+function read and the warmup index of every output. `index.json` names every
+file and the 135 manifest entries in six groups that hold no arithmetic, each
+with the reason. `docs/integrating/library-vectors.md` says how to decode, drive
+and compare a file from another language, in under a page.
+
+**A case that reaches a gap of `stdlib.md` 20.11 is written and marked, not
+left out.** Twenty functions have such a case (the transcendental calls and what
+is built on them, `hma`, `eom`, and the `ma` and `keltner` cases that select
+`hma` by name), and each case carries the gaps its call reaches, read by the
+gate's own reading of the table, so an implementer knows which numbers they are
+not held to. `spec/decisions.md` 56 records why a vector is written where a
+conformance case would be refused. `npm test` regenerates the directory and
+fails on a byte that differs (`scripts/check-library-vectors.mjs`), so a vector
+is never older than the engine, and a regeneration is a deliberate act committed
+with the change that caused it.
 
 ---
 

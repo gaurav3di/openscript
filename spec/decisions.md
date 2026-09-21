@@ -4308,3 +4308,77 @@ in the last place away.
   the exceptions file goes with them), `src/core/engine/arithmetic.ts`,
   `src/core/stdlib/maths/rounding.ts`, and one sentence in `stdlib.md`
   section 10.
+
+---
+
+## 60. Where a run's money rounding, charge schedule and report window live in a case
+
+**Question.** `conformance.md` section 2 gave a case eleven file names and
+`caseFilesFrom` wrote seven of them from a record, and three facts the report
+was folded under had no file at all: the contract's rounding digit count, a
+charge schedule the host supplied in place of the declaration's, and a narrowed
+report window. A run under any of them harvested to a case that stated none,
+and a second engine handed that case ran under other values (the fixture's two
+digits, the declaration's commission, the whole of the bars) and took the blame
+for a disagreement that was in the case all along. Does the digit count belong
+in `instrument.json`, and where do the other two go?
+
+**Decision.** None of the three goes in `instrument.json` or `settings.json`.
+All three go in one new file, `backtest.json`, required of a strategy case and
+always written by the projection.
+
+- `host-interface.md` 4.1 defines the instrument record as twelve facts and a
+  rounding digit count is not among them, so a file carrying one would not be
+  the record section 2 says `instrument.json` is. The previous stage's test
+  that the file holds no `digits` stands.
+- `settings.json` is the script's inputs, keyed by input name, and the language
+  calls those settings (decision 43). A digit count or a window beside them
+  would be a key an input could also be named, and giving the file two shapes
+  would make every reader decide which it was holding.
+- One file rather than three because the three are one thing: what the host
+  decided about the run that the script does not state and the instrument is
+  not. `BacktestSettings` has seven fields and every one now has a place in a
+  case: the contract in `instrument.json` (its six instrument facts) and
+  `backtest.json` (`digits`); `costs` and `range` in `backtest.json`; `inputs`
+  in `settings.json`; `now` and `tolerance` in `case.json`; and `fill` as the
+  frames in `frames.csv`, because the fill policy is the simulated destination's
+  and what it decided is input.
+- The file is always written. Every run rounds to some digit count, `costs` is
+  `null` for the declaration's own schedule and `range` carries `null` for a
+  bound nobody stated, so the file says what the run ran under in every case
+  rather than leaving a default to a runner. A supplied schedule's currency and
+  digits are the contract's because the run refuses a disagreeing pair before
+  its first bar (OS6021), so the file states each once.
+
+**The refusal that stays.** `case.ts` carries a table naming the file each
+settings field is carried in, typed over `keyof BacktestSettings` so a field the
+type gains without a row does not compile, and `caseFilesFrom` refuses a record
+whose settings carry a field the table does not know, naming the field. That is
+the defect this minute closes made into a check: a setting with no place in a
+case is a refusal, never a case that silently ran under something else.
+
+**The tolerance cap.** Section 6 caps a declared tolerance at `rel = 1e-9` and
+`abs = 1e-12`, and a runner refused a case past it while nothing refused a
+record past it, so a harvest could write a directory that failed every runner.
+`caseFilesFrom` refuses such a record with OS6021, the code the run itself
+refuses a setting with, and makes no file. OS6021 rather than a new code because
+the refusal is the same kind, a run setting that cannot be applied as stated;
+the entry's cause sentence does not yet name the cap, and its owner should add
+the clause. The two figures are in `case.ts` because core reads no page, and
+`tests/backtest/case-settings.test.ts` reads them out of section 6 and holds the
+constants to the page, as section 20's figures are held. `CaseRefusal` gains
+`code`, the catalogue code a refusal is filed under or `null` for the refusals
+about what a record holds, which no entry is about.
+
+**What this does not settle.** This engine's adapter
+(`scripts/lib/adapter-case.mjs`) does not read `backtest.json` yet: it takes the
+digit count from the fixture, no schedule and the whole window, which is what
+every harvested case ran under, so the suite passes by that coincidence and not
+by reading the file. Its owner reads the file next, and until then a hand
+written strategy case under other values would be answered wrongly by this
+adapter rather than by the page. `docs/integrating/running-the-suite.md`'s last
+bullet says no case file carries the digit count, which is no longer so.
+
+**Edits.** `conformance.md` sections 2, 3, 4 and 6; `src/core/backtest/case.ts`;
+`tests/backtest/case-settings.test.ts`; the two harvested cases gain
+`backtest.json` by re-harvest and nothing else in them changes.

@@ -75,7 +75,15 @@ test('a case carries every file conformance.md requires of it', () => {
   // quietly dropped: a case missing one fails on somebody else's engine and the
   // blame lands on them.
   const files = filesOf();
-  for (const name of ['case.json', 'script.os', 'bars.csv', 'expected.json', 'frames.csv']) {
+  for (const name of [
+    'case.json',
+    'script.os',
+    'bars.csv',
+    'expected.json',
+    'instrument.json',
+    'backtest.json',
+    'frames.csv',
+  ]) {
     assert.equal(typeof files[name], 'string', `${name} is missing`);
   }
 });

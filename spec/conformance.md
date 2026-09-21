@@ -99,6 +99,7 @@ cases/
 | `expected.json` | for a non-columnar assertion | Diagnostics, drawings, table contents, orders, trades, log lines |
 | `instrument.json` | no | Instrument facts: the record of `host-interface.md` 4.1. Defaults in section 3 |
 | `settings.json` | no | Values for the script's inputs. Absent means every input takes its declared default |
+| `backtest.json` | for a strategy case | What the report was folded under and the script never states: the money rounding digits, the charge schedule the host supplied and the report window. Section 3 |
 | `bars.<name>.csv` | no | A secondary bar series, for a higher timeframe or other instrument read |
 | `ticks.csv` | no | Intrabar updates, for a case that tests the moving bar |
 | `frames.csv` | no | Order frames delivered between bars, for a strategy case that asserts the fold |
@@ -268,6 +269,51 @@ frame whose cumulative quantity rose after the row had gone terminal. A case
 asserts what came of them through the `orders` channel of `expected.json`, and a
 case with no `frames.csv` is handed no frames at all.
 
+### `backtest.json`
+
+What a strategy run's report was folded under, and the script never states.
+`instrument.json` is what the engine read about the instrument and
+`settings.json` is what the script's inputs were set to; this file is the rest of
+what the host decided, the part the money and the report depend on:
+
+```json
+{
+  "digits": 2,
+  "costs": null,
+  "range": { "from": null, "to": null }
+}
+```
+
+- `digits` is the number of decimal places every money figure is rounded to,
+  half to even, once per fill total. It is a fact of the run and not of the
+  instrument: `host-interface.md` 4.1 defines the instrument record as twelve
+  facts and a rounding digit count is not among them, so it is not in
+  `instrument.json`, and a file that put it there would not be the record
+  section 2 says that file is. It is always stated, because every run rounds to
+  some count, and a case that left it out would be run under whatever count a
+  runner assumed.
+- `costs` is the charge schedule the host supplied, whole and as the host stated
+  it, or `null` when the host supplied none and the run was charged under the
+  schedule the declaration states (`strategy(...)`'s commission, commission type
+  and slippage), which an engine derives from `script.os` the same way. A
+  supplied schedule's own currency and digit count are the contract's, because
+  a run under a schedule that disagrees with its contract is refused before its
+  first bar (OS6021), so the two cannot differ inside one case.
+- `range` is the window the report is about: both bounds inclusive, in UTC
+  milliseconds, and `null` for a bound the host did not state. Every bar in
+  `bars.csv` executes, and a bar outside the window is warmup: its orders are
+  real, a position opened on it is carried into the window, and it gets no point
+  of the report's own. The window is compared against the bars' own times and
+  never against a calendar, and a window holding no bar is refused (OS6020)
+  rather than reported as a flat curve.
+
+The file is required of a strategy case, and a harvested case always carries
+it. A strategy case without it is malformed and a runner reports it `error`
+(section 9), never a case run under a default: a digit count nobody stated is a
+figure two engines round differently. The three are not in `settings.json`
+because that file is the script's inputs keyed by name, and a digit count or a
+window beside them would be a key an input could also be named.
+
 ### Where bars come from
 
 Synthetic bars are preferred, and most cases use a short hand-written series
@@ -327,7 +373,11 @@ compared on the fields the case names and no others.
 
 **`performance` is a list of one flat object**, holding the run's summary
 statistics and nothing nested. The channel is a list for the same reason every
-other one here is, so a reader and a runner need one shape rather than two.
+other one here is, so a reader and a runner need one shape rather than two. The
+summary is folded from the fills the `orders` and `trades` channels fix, under
+the digit count, the schedule and the window `backtest.json` states (section 3)
+and the capital `script.os` declares, so nothing the figures came from is
+outside the case.
 
 **A trade marker belongs to the `markers` channel, not to `performance`.**
 Section 2's vocabulary already has `markers`, and a marker is a chart output that
@@ -471,6 +521,14 @@ A case that needs slack declares it and says why:
 - The suite caps a declared tolerance at `rel = 1e-9` and `abs = 1e-12`. Anything
   looser is not a conformance case. It may still be a useful comparison, and it
   belongs in the separate golden-port corpus, which is not part of the badge.
+
+The cap is enforced at both ends. A runner meeting a `case.json` past it
+reports the case `error` (section 9), and `caseFilesFrom` refuses a record whose
+run declared a tolerance past it with OS6021, the code the run itself refuses a
+setting with, and writes no file at all: a directory the suite will not accept
+fails every runner it meets, and the blame lands on the engine under test. The
+two figures are read out of this section by a test and held to the constants
+the projection carries, because the engine reads no page.
 
 ### Everything that is not a number
 
