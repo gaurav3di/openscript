@@ -291,8 +291,18 @@ for (const example of shippedExamples()) {
     continue;
   }
 
+  // A strategy nobody has chosen a case id for is refused by name, as the
+  // header promises. The alternative, a fallback identity built from the file
+  // name, is not a case: the id is not under any area the matrix lists, it has
+  // no reason for existing, and the notes writer fell over on the absence with
+  // a stack trace where a sentence belonged.
   const identity = IDENTITIES.find((one) => one.example === name);
-  const first = harvestOnce(example, identity ?? { id: name, description: name });
+  if (identity === undefined) {
+    refused.push(`${path}: no case identity chosen for it in scripts/lib/case-identities.mjs`);
+    outcome.set(name, 'no case identity chosen');
+    continue;
+  }
+  const first = harvestOnce(example, identity);
   if (!first.ok && first.diagnostic !== undefined) {
     const capability = missingCapability(first.diagnostic);
     if (capability !== null) {

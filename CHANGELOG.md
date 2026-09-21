@@ -138,6 +138,8 @@ written. A script that reaches a gap of `stdlib.md` section 20.11 is refused by
 name with the call that reached it, by the gate's own reading of that table,
 which now lives in one module the gate's test and the harvest share; and a
 strategy this driver cannot run is named and counted rather than passed over.
+The short premium example reads a second instrument, which a backtest over one
+series of bars cannot supply, so it is not a case yet and the report says so.
 
 **The feature matrix is checked against the tests and the pages it cites.**
 `scripts/check-matrix.mjs` enforces the preamble of `spec/feature-matrix.md`,
@@ -160,8 +162,6 @@ It prints the row count, the count per status and the implemented ratio, which
 is the number the page says nobody types. The preamble now names the checker,
 says `none` is written in backticks, says what makes a unit test or a case
 exist, and no longer says every row is unimplemented.
-The short premium example reads a second instrument, which a backtest over one
-series of bars cannot supply, so it is not a case yet and the report says so.
 
 **This engine has a conformance adapter, and the suite has a runner.**
 `scripts/adapter.mjs` is the program `conformance.md` section 9 says an
