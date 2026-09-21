@@ -138,6 +138,28 @@ written. A script that reaches a gap of `stdlib.md` section 20.11 is refused by
 name with the call that reached it, by the gate's own reading of that table,
 which now lives in one module the gate's test and the harvest share; and a
 strategy this driver cannot run is named and counted rather than passed over.
+
+**The feature matrix is checked against the tests and the pages it cites.**
+`scripts/check-matrix.mjs` enforces the preamble of `spec/feature-matrix.md`,
+which described a checker nobody had written, and `npm test` runs it. Every
+feature row has five cells and a status the page lists; every citation resolves
+to a Markdown document under `spec/` and, where it carries a locator, to a
+heading matching the shape the preamble gives; every test identifier is well
+formed under a listed area and no two rows share one; an `implemented` row
+names a test that exists, a `unit:` identifier written by a file under `tests/`
+or a case directory holding its `case.json`; and a case directory no row names
+fails the build. Existence is what it proves, and the unit runner and the suite
+prove passing. A `specified` or `planned` row naming a case that is not written
+is not a failure, which is the direction the preamble's paragraph on
+`conformance.md` settles: such rows reserve an identifier, and they are counted
+and printed rather than failed. The status words, the column names, the heading
+shapes and the areas are read out of the page rather than retyped, every rule
+is attacked with a row it must refuse and one it must accept over a fabricated
+document and tree before a row is read, and a run that reads no row refuses.
+It prints the row count, the count per status and the implemented ratio, which
+is the number the page says nobody types. The preamble now names the checker,
+says `none` is written in backticks, says what makes a unit test or a case
+exist, and no longer says every row is unimplemented.
 The short premium example reads a second instrument, which a backtest over one
 series of bars cannot supply, so it is not a case yet and the report says so.
 

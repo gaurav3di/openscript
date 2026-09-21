@@ -14,24 +14,25 @@ nobody can be optimistic about one.
 
 ## The rule continuous integration enforces
 
-The checker reads this file and takes every table row that sits under a numbered
-`##` section heading below the horizontal rule after this preamble. Each such row
-is a feature row with five cells, in order: Feature, What it is, Status, Section,
-Test. Tables above that rule are prose and are not read.
+The checker, `scripts/check-matrix.mjs`, reads this file and takes every table
+row that sits under a numbered `##` section heading below the horizontal rule
+after this preamble. Each such row is a feature row with five cells, in order:
+Feature, What it is, Status, Section, Test. Tables above that rule are prose and
+are not read.
 
 **A row is valid when all six of these hold.**
 
 1. **Status** is exactly one of `specified`, `implemented`, `planned`,
    `deferred`, in backticks.
-2. **Section** is either the literal `none` or a comma-separated list of one or
-   more citations. A citation is a document name in backticks, optionally followed
-   by one space and a locator. The document must be a Markdown file that exists in
-   `spec/`. The locator is either a section number, digits separated by dots, or
-   an error code matching `OS[0-9]{4}`, and it must exist as a heading in that
-   document: a section number matches the regular expression
-   `^#{2,4} <locator>[. ]` and an error code matches `^### <code> `. A citation
-   with no locator names the document as a whole and resolves when the file
-   exists.
+2. **Section** is either the literal `none`, in backticks, or a comma-separated
+   list of one or more citations. A citation is a document name in backticks,
+   optionally followed by one space and a locator. The document must be a
+   Markdown file that exists in `spec/`. The locator is either a section number,
+   digits separated by dots, or an error code matching `OS[0-9]{4}`, and it must
+   exist as a heading in that document: a section number matches the regular
+   expression `^#{2,4} <locator>[. ]` and an error code matches `^### <code> `.
+   A citation with no locator names the document as a whole and resolves when
+   the file exists.
 3. A row whose Status is `specified`, `implemented` or `deferred` has a Section
    that is not `none`. A row whose Status is `planned` may have either, and cites
    a section only when that section names the feature without defining it.
@@ -41,7 +42,10 @@ Test. Tables above that rule are prose and are not read.
    carry the same identifier.
 5. A row whose Status is `implemented` names a test that exists and passed in this
    run: a `unit:` identifier is a compiler unit test, and any other is the
-   directory `cases/<identifier>` of the conformance suite.
+   directory `cases/<identifier>` of the conformance suite. A unit test exists
+   when a file under `tests/` writes the identifier, and a case exists when its
+   directory holds the `case.json` that `conformance.md` section 2 requires; the
+   checker proves existence, and the unit runner and the suite prove passing.
 6. A row whose Feature or What it is cell names an error code that
    `spec/errors.json` defers has Status `deferred`, and a `deferred` row names
    such a code. `scripts/check-raises.mjs` enforces both halves on every run, so
@@ -83,9 +87,9 @@ feature claims, is untouched.
 | `planned` | Agreed as in scope for language version 1, and not yet defined completely by any section. |
 | `deferred` | Specified completely, and the implementation deliberately does not do it yet. The row names an error code that `spec/errors.json` defers, and that entry says in a sentence what happens instead today and what has to exist before the code is raised. |
 
-Every row in this matrix is currently `specified`, `planned` or `deferred`,
-because the compiler is not written yet. The first `implemented` row appears when
-a compiler stage passes the test that row names, and not before.
+An `implemented` row appears when a compiler stage passes the test that row
+names, and not before. How many there are is what the checker prints on every
+run, never a number typed here.
 
 `deferred` exists because `specified` was doing two jobs and only saying one of
 them. It is true of a refusal that no code path can produce, and nearly every row
