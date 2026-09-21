@@ -163,6 +163,52 @@ exist, and no longer says every row is unimplemented.
 The short premium example reads a second instrument, which a backtest over one
 series of bars cannot supply, so it is not a case yet and the report says so.
 
+**This engine has a conformance adapter, and the suite has a runner.**
+`scripts/adapter.mjs` is the program `conformance.md` section 9 says an
+implementation ships, answering the three invocations that page gives:
+`--describe` for the engine's identity, a case directory for one case result,
+and `--actual` for what the engine computed with no comparison made. It loads
+the built package by its door and nothing behind it, reads a case directory by
+the file names section 2's table gives and refuses a file the table does not
+name, compiles `script.os`, runs it over `bars.csv` under `instrument.json` and
+`settings.json`, and answers the channels the case asserts in the encoding
+section 4 gives them. The channels are read out of the same projection the
+harvest writes a case with, so what this engine can be held to is stated once.
+
+`scripts/run-suite.mjs` walks `cases/`, invokes an adapter once per case in a
+child process with a timeout, turns a crash, a hang, a timeout or an answer
+that is not one JSON object into the `error` outcome with the reason in the
+row, and writes the result document of section 9. Both modes of section 10 are
+there: against the expected files, and `--against` a second adapter, where each
+is asked for `--actual` and the runner compares the two channel by channel with
+tolerance zero, whatever the case declares. A case outside the claimed profile
+is skipped and never counted as a pass; any failing, erroring or unsupported
+case exits non-zero. Both harvested cases pass on this adapter, alone and
+against itself. `docs/integrating/running-the-suite.md` is the page.
+
+**The comparison of section 6 is written once**, in `scripts/lib/compare.mjs`,
+and the adapter and the runner both call it: absence first and never inside a
+tolerance, a non-finite value as its own `nonFinite` outcome, signed zero
+normalised, equality over the binary64 bits rather than a decimal rendering,
+exact by default, and the `max` form of the two bounds with the bound that was
+broken named. A declared tolerance is refused, not clamped, past the cap the
+page prints or without a reason. Every step has a test written against the
+implementation that would get it wrong, and each was run against that mutant.
+
+**What the adapter says it does not reach**, reported on the case rather than
+passed over. This engine's backtest answers its own frames from a simulated
+destination and takes none from a file, so the frames it answered are held to
+the case's `frames.csv` byte for byte and a case whose frames the destination
+did not answer is `unsupported`; every harvested case runs. A per-bar or chart
+channel, a warning case, `ticks.csv` and a secondary series are `unsupported`
+by name. A per-column tolerance is not read, because section 6 fixes no shape
+for one. Two facts the page owes a place: the money rounding digit count, which
+no case file carries and which the adapter takes from the fixture every
+harvested case ran under, and a currency for section 3's default instrument,
+without which the money layer refuses a strategy case that states no
+`instrument.json`. The suite revision has no fixed place either, and the
+document carries the package version until it does.
+
 ---
 
 ## 0.4.0
