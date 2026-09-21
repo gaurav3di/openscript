@@ -14,25 +14,27 @@
  * worsened by a tick and a fill is charged. The engine never adjusts a price and
  * this module never folds one.
  *
- * `backtest` drives one, `replay` folds a stored one's money again from its own
- * fills, and `rerun` executes a stored one again and is held to producing the
- * same bytes. `recordToJson` and `recordFromJson` are the document itself.
- * `compareRuns` puts two records beside each other and says whether the gap
- * between them clears the noise. `caseFilesFrom` turns a record into the files
- * of a conformance case, returning text and writing nothing because core does
- * no I/O. It needed three channels the record did not carry. `conformance.md`
- * section 2 requires a case to hold `script.os`, the source text, and a record
- * carried only the source's hash, its line count and its file name: record
- * version 2 carries the text, checked against that hash. The same section says
- * `instrument.json` is the record of `host-interface.md` 4.1, and a record
- * carried the money layer's contract, which holds six of its twelve facts:
- * record version 3 carries the record the engine was handed, whole. And a case
- * is handed frames, which `stdlib.md` 17.7 folds one ledger field from an
- * instant of: a record carried a frame without the instant it arrived at, so a
- * case projected from it asserted a field its own input could not reproduce.
- * Record version 4 carries a frame's time.
+ * `backtest` drives one against a simulated destination and `backtestSupplied`
+ * drives one over frames somebody else supplied, which is what `conformance.md`
+ * section 3 asks of an engine running a case. `replay` folds a stored one's
+ * money again from its own fills, and `rerun` executes a stored one again and
+ * is held to producing the same bytes. `recordToJson` and `recordFromJson` are
+ * the document itself. `compareRuns` puts two records beside each other and
+ * says whether the gap between them clears the noise. `caseFilesFrom` turns a
+ * record into the files of a conformance case, returning text and writing
+ * nothing because core does no I/O. It needed three channels the record did not
+ * carry. `conformance.md` section 2 requires a case to hold `script.os`, the
+ * source text, and a record carried only the source's hash, its line count and
+ * its file name: record version 2 carries the text, checked against that hash.
+ * The same section says `instrument.json` is the record of `host-interface.md`
+ * 4.1, and a record carried the money layer's contract, which holds six of its
+ * twelve facts: record version 3 carries the record the engine was handed,
+ * whole. And a case is handed frames, which `stdlib.md` 17.7 folds one ledger
+ * field from an instant of: a record carried a frame without the instant it
+ * arrived at, so a case projected from it asserted a field its own input could
+ * not reproduce. Record version 4 carries a frame's time.
  */
-export { backtest } from './drive.js';
+export { backtest, backtestSupplied } from './drive.js';
 export type { BacktestResult, DriveOptions, InstrumentFacts } from './drive.js';
 export { declarationOf } from './declaration.js';
 export type { RunDeclaration } from './declaration.js';
@@ -43,7 +45,7 @@ export type { ReplayResult } from './replay.js';
 export { testResting } from './resting.js';
 export type { RestOutcome, RestingOrder } from './resting.js';
 export { Simulator } from './simulate.js';
-export type { SimulatorOptions } from './simulate.js';
+export type { SimulatorOptions, VenueAct, VenueDoes, VenuePolicy } from './simulate.js';
 export { DEFAULT_FILL, EXACT, WHOLE_RANGE, checkSettings, settingsFor } from './settings.js';
 export { caseFilesFrom } from './case.js';
 export type { CaseFiles, CaseIdentity, CaseResult } from './case.js';

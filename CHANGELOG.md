@@ -9,6 +9,52 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A case supplies the frames, and this engine folds them.** `conformance.md`
+section 3 has said since it was written that `frames.csv` supplies order frames
+the way `bars.csv` supplies bars, so that a case asserts the fold against input
+the engine did not choose. This engine's adapter did something else: it re-ran
+the case on its own simulated destination and held the frames that run answered
+to the case's file byte for byte, reporting the case `unsupported` when the two
+differed. So the suite could hold only cases whose frames this engine would have
+produced anyway, which is why all 204 frames in it are an order working and then
+filling whole, and why a partial fill, a rejection, a cancellation, an expiry
+and a fill after a terminal status were all shapes the page provides for and no
+case could carry. Two engines agreeing on that suite agreed about the half of a
+destination's day that costs nobody anything.
+
+`backtest` now has a second driver beside it, `backtestSupplied`, which delivers
+the rows a case supplies and answers none of its own: no fill priced off a bar,
+no order resting and no schedule read, so an order the frames say nothing about
+stays where its placement left it. A case with no `frames.csv` still runs
+against the simulated destination, because section 3 ends that such a case is
+handed no frames at all. The two are one function underneath, so the window, the
+refusals before the first bar, the boundary a frame is folded at and the record
+are the same for both. A row naming an order the run never placed is delivered
+and refused by the fold rather than dropped on the way in, which is what section
+3 hands an engine such a row for, and a row no boundary of the run delivers, one
+after the last bar or one naming no bar, makes the case `unsupported` naming the
+row rather than run with part of its own input passed over. `spec/decisions.md`
+63 is the minute, and section 3 now says where a frame naming no row is
+answered.
+
+The backtest module's door also exports `VenueAct`, `VenueDoes` and
+`VenuePolicy` beside `Simulator` and `SimulatorOptions`. A host writing a
+schedule for the simulated destination had to reach them structurally, through
+`SimulatorOptions['fill']`, and a module's index is its only door.
+
+**What this does not close.** The second engine reads a frame's instant out of
+the file and does not put it on the frame it hands its ledger, so a case whose
+destination answered later than the bar that placed the order is answered
+differently by the two engines, by `updatedAt` and by nothing else: every other
+field of the ledger, the trades and the whole performance summary agree exactly
+on a case harvested and measured here. That line belongs to the file that owns
+that delivery. `BacktestSettings` still states no schedule of its own, because
+the field needs a row in a projection this stage does not own, and
+`docs/integrating/running-the-suite.md` still describes the reading this change
+replaces. None of this is a change to what an engine computes for a case that
+supplies the frames its own destination would have answered: the five cases in
+the suite pass in both modes, exactly, as they did.
+
 **A frame carries the instant it arrived at.** `frames.csv` gains a `time`
 column: the destination's own instant for that frame, UTC milliseconds, absent
 as `none`, last in the row and optional in the way `orderRef` and `text` are.
@@ -31,17 +77,15 @@ required to state one, and why. `spec/decisions.md` 62 is the minute.
 
 **What this does not close.** The five cases in the suite were harvested before
 the column existed and carry the seven columns of the day, so they are stale
-rather than wrong, and until they are harvested again `npm test` stops on them:
-seven tests under `tests/suite/` drive this engine's adapter over them, that
-adapter holds the frames its own run answered to the case file byte for byte,
-and it answers `unsupported`. `scripts/harvest-cases.mjs --check` names the same
-five, and `frames.csv` is the only file it names. Measured with the five
-harvested again and nothing else changed: 1843 of 1843 unit tests, the harvest
-check passes, and the two engines agree on 5 of 5, exactly. The second engine
-reads the instant and does not yet carry it onto the frame it hands its ledger,
-which is one line in the file that owns that boundary. None of this is a change
-to what an engine computes: the ledgers, the trades and the money of every case
-are what they were.
+rather than wrong, and until they are harvested again `npm test` stops on them
+at `scripts/harvest-cases.mjs --check`, which projects each run again and finds
+eight columns where the file on disk has seven. `frames.csv` is the only file it
+names. Measured with the five harvested again and nothing else changed: 1843 of
+1843 unit tests, the harvest check passes, and the two engines agree on 5 of 5,
+exactly. The second engine reads the instant and does not yet carry it onto the
+frame it hands its ledger, which is one line in the file that owns that
+boundary. None of this is a change to what an engine computes: the ledgers, the
+trades and the money of every case are what they were.
 
 **The destination can be told to behave badly, on a schedule stated before the
 run.** `SimulatorOptions.fill` now carries one: a list of acts, each naming the

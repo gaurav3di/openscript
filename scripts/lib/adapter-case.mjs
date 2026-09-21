@@ -20,19 +20,33 @@
  * would write are the channels this engine answers. A channel the case asserts
  * and that file does not hold is reported `unsupported`, by name.
  *
- * ## The frames, and the one thing this engine cannot be handed
+ * ## The frames are the case's, and this engine folds them
  *
- * Section 3 says `frames.csv` supplies order frames the way `bars.csv`
- * supplies bars, so a case asserts the fold against input the engine did not
- * choose. This engine's backtest answers its own frames from a simulated
- * destination and takes none from a file. So the frames its destination
- * answered are projected through the same call and held to `frames.csv` byte
- * for byte: when they are the same frames, the fold was over the case's input
- * and the answer stands; when they are not, the engine was not handed the
- * case's frames, and the case is reported `unsupported` with that said, rather
- * than as a pass over frames of the engine's own choosing or as a failure of a
- * fold that never saw the file. A case with no `frames.csv` whose run answered
- * frames is the same shortfall the other way round.
+ * Section 3 says `frames.csv` supplies order frames the way `bars.csv` supplies
+ * bars, so a case asserts the fold against input the engine did not choose. So
+ * a case that holds the file is run through `backtestSupplied`, which delivers
+ * those rows and answers none of its own, and a case that holds no file is run
+ * through `backtest` against a simulated destination, because section 3 ends
+ * that a case with no `frames.csv` is handed no frames at all.
+ *
+ * This once re-ran the case on that simulated destination whatever the file
+ * said and held the frames its own run answered to `frames.csv` byte for byte,
+ * reporting the case `unsupported` when the two differed. It could therefore
+ * only ever answer a case whose frames this engine would have produced anyway:
+ * a partial fill, a rejection, a cancellation, an expiry and a fill after a
+ * terminal status are all shapes section 3 provides for and that reading
+ * refused, so the suite could hold none of them and the agreement between two
+ * engines was about the half of a destination's day that costs nobody
+ * anything. Section 8 is the other half of the cost: an unsupported case inside
+ * the claimed profile is not a passing run.
+ *
+ * **What it still cannot be handed is a frame no boundary of the run delivers.**
+ * Section 3 puts a frame's delivery after the bar it names and its fold before
+ * the next execution, so a row naming the last bar has no fold left and a row
+ * naming no bar at all has no delivery: what becomes of either is not written
+ * down anywhere, and the case is reported `unsupported` naming the row rather
+ * than run with part of its own input passed over. The second engine says the
+ * same of the first of the two.
  *
  * ## The settings a strategy case runs under are the case's, never a default
  *
@@ -129,6 +143,8 @@ export function caseAnswer(directory, engine) {
   for (const name of read.secondary) {
     unsupported.push(`${name} (section 3): this backtest holds its own bars and serves no other series`);
   }
+  const undelivered = undeliverable(read.frameRows, read.bars);
+  if (undelivered !== null) unsupported.push(undelivered);
   if (unsupported.length > 0) return answer({}, unsupported);
 
   const compiled = engine.compile(SCRIPT_NAME, read.script);
@@ -163,10 +179,14 @@ export function caseAnswer(directory, engine) {
     range: folded.value.range,
     ...(declared.now === undefined ? {} : { now: declared.now }),
   });
-  const run = engine.core.backtest(compiled.program, read.bars, settings, {
-    sourceText: read.script,
-    instrument: facts,
-  });
+  const driving = { sourceText: read.script, instrument: facts };
+  // Section 3: the file supplies the frames, and a case that holds none is
+  // handed none. The second driver delivers what it is given and answers
+  // nothing of its own, which is the whole difference between the two.
+  const run =
+    read.frameRows === null
+      ? engine.core.backtest(compiled.program, read.bars, settings, driving)
+      : engine.core.backtestSupplied(compiled.program, read.bars, settings, read.frameRows, driving);
   if (!run.ok) {
     const capability = missingCapability(run.diagnostic);
     if (capability !== null) {
@@ -179,13 +199,8 @@ export function caseAnswer(directory, engine) {
   if (!made.ok) return { id, error: `this engine's record could not be projected to a case: ${made.reason}` };
   const produced = JSON.parse(made.files[EXPECTED]);
 
-  const answered = made.files[FRAMES] ?? null;
-  if (answered !== read.frames) {
-    unsupported.push(
-      'frames.csv (section 3): this engine folds only the frames its own destination answers, ' +
-        `and they are not the case's (${read.frames === null ? 'the case supplies none' : answered === null ? 'the run answered none' : 'they differ'})`,
-    );
-  }
+  const columns = columnProblem(read.frames, made.files[FRAMES] ?? null);
+  if (columns !== null) return { id, error: columns };
   const channels = {};
   for (const channel of declared.asserts) {
     if (channel in produced) channels[channel] = produced[channel];
@@ -215,6 +230,52 @@ export function caseResult(directory, engine) {
     }
   }
   return { id: answer.id, ...compareChannels(answer.declared.asserts, answer.channels, answer.expected, tolerance) };
+}
+
+/**
+ * The frames of a case that no boundary of its run delivers, or nothing.
+ *
+ * Section 3 delivers a frame after the bar it names and folds it before the
+ * next execution, so the last bar has no fold after it and a row naming no bar
+ * of the run has nothing to be delivered at. Neither is written down anywhere,
+ * so a case carrying one is named rather than run with part of its own input
+ * passed over, which would be a pass over frames the engine never saw.
+ */
+function undeliverable(rows, bars) {
+  if (rows === null) return null;
+  const count = bars === null ? 0 : bars.length;
+  const beyond = rows.filter((row) => row.afterBar < 0 || row.afterBar >= count - 1);
+  if (beyond.length === 0) return null;
+  const one = beyond[0];
+  return (
+    `${FRAMES} (section 3): ${String(beyond.length)} frame${beyond.length === 1 ? '' : 's'} ` +
+    `delivered after bar ${String(one.afterBar)} of ${String(count)}, which is a boundary this ` +
+    'run has no execution after'
+  );
+}
+
+/**
+ * The columns a case names, held to the ones this engine writes.
+ *
+ * Section 3 reads the fields by position and drops the optional ones from the
+ * right, so a case's header is a prefix of the whole list and any other header
+ * names its fields in an order nothing reads. The list is not written out here:
+ * it is the header the projection writes, which is where this engine states the
+ * columns once, and the byte comparison that used to catch a bad header caught
+ * it as a difference in the frames rather than as the malformed case it is.
+ */
+function columnProblem(supplied, written) {
+  if (supplied === null || written === null) return null;
+  const named = headerOf(supplied);
+  const whole = headerOf(written);
+  if (named === whole || whole.startsWith(`${named},`)) return null;
+  return `${FRAMES}: its columns are ${named}, and section 3 gives ${whole}, dropped from the right`;
+}
+
+/** The first line of a file, which is the header row of a case's own CSV. */
+function headerOf(text) {
+  const at = text.indexOf('\n');
+  return at === -1 ? text : text.slice(0, at);
 }
 
 /** The asserted channels a run that did not happen has nothing for, as empty lists. */

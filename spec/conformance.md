@@ -256,7 +256,10 @@ afterBar,intent,status,filledQty,avgFillPrice,orderRef,text,time
   second. A case cannot know the id an engine minted and must not depend on its
   spelling, so the runner maps the ordinal to the engine's own `intentId`. An
   ordinal greater than the number of intents the run placed is how a case hands an
-  engine a frame naming an order its ledger does not hold.
+  engine a frame naming an order its ledger does not hold, and what becomes of one
+  is the fold's own first step (`stdlib.md` section 17.8): it is delivered like
+  any other row and refused there, rather than passed over by whatever reads the
+  file.
 - `status` is one word a host may send, from the vocabulary of `stdlib.md` section
   17.7.
 - `filledQty` is cumulative. `avgFillPrice` is absent as `none`, written the way

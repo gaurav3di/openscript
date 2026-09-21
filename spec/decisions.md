@@ -4445,3 +4445,83 @@ column list and the prose under it; `src/core/backtest/record.ts` (record
 version 4 and a frame's `time`), `drive.ts` and `case.ts`;
 `scripts/lib/case-reading.mjs`; `engine/openscript/adapter/page.py` and
 `reading.py`.
+
+---
+
+## 63. Whether an engine folds the frames a case supplies or answers its own
+
+**Question.** `conformance.md` section 3 says `frames.csv` supplies order frames
+the way `bars.csv` supplies bars, so that a case asserts the fold against input
+the engine did not choose. This engine's adapter re-ran every case on its own
+simulated destination and held the frames that run answered to `frames.csv` byte
+for byte, reporting the case `unsupported` when the two differed. Two documents
+answered one question two ways: the page said the file is input, and the adapter
+said it is an assertion about what this engine's destination would have done. It
+could therefore only ever answer a case whose frames this engine would have
+produced anyway, which is why the suite held 204 frames of which every one was
+an order working and then filling whole. Which reading is right, and what
+becomes of a row naming an order the run never placed?
+
+**Decision.** The page. A second driver, `backtestSupplied`, delivers the rows a
+case supplies and answers none of its own, and the adapter runs a case that
+holds the file through it. A case that holds no file runs through `backtest`
+against the simulated destination, because section 3 ends that a case with no
+`frames.csv` is handed no frames at all.
+
+- **A destination is chosen once, before the first bar, and the loop never
+  learns which it got.** The two drivers are one function: the same window, the
+  same load, the same refusals, the same walk of the bars and the same record.
+  What differs is one call that returns a destination, so a rule about delivery
+  or about a boundary cannot come to mean one thing for a case and another for a
+  study, which is the failure a second loop would have invited.
+- **The record carries the rows it was handed, not a second spelling of them.**
+  The frames of a run over supplied input are that input, so the record repeats
+  it rather than writing back what the fold made of it. A driver that wrote them
+  back out would spell a row naming no intent of the run as ordinal zero, and
+  the record of the run would then name a different order than the case the run
+  came from.
+- **A row naming an ordinal the run never placed is delivered and refused, never
+  dropped.** Section 3 hands an engine that row on purpose, and `stdlib.md` 17.8
+  step 1 is where a frame naming no row of the ledger is refused. A destination
+  that dropped it would leave the engine with nothing to refuse, and two engines
+  would then agree about a frame neither of them ever saw. The row travels under
+  an id no ledger mints, which is what makes step 1 the one that answers it.
+- **A row no boundary of the run delivers is named rather than passed over.** A
+  frame is delivered after the bar it names and folded before the next
+  execution, so a row naming the last bar has no fold left and a row naming no
+  bar of the run has no delivery. Neither is written down anywhere, so the
+  adapter reports the case `unsupported` naming the row, which is what the
+  second engine already did for the first of the two. Running the case anyway
+  would be a pass over a ledger that never saw part of its own input.
+- **What the byte comparison did that is still worth doing is the header.**
+  Section 3 reads the fields by position and drops the optional ones from the
+  right, so a case whose header is not a prefix of the whole list names its
+  fields in an order nothing reads. That is now held against the header the
+  projection writes, which is where this engine states the columns once, and it
+  is reported `error` as the malformed case it is rather than as a difference in
+  the frames.
+
+**What this does not settle.** Four things, each measured rather than supposed.
+
+- The second engine reads the `time` column and folds `updatedAt` from a frame
+  that carries one, and the driver between them, `Desk.fold` in
+  `engine/openscript/adapter/ordering.py`, builds the frame it delivers without
+  that field. So a case whose destination answered later than the bar that
+  placed the order is answered differently by the two engines, by that one
+  field, which is the gap decision 62 left to the file that owns the delivery.
+  Measured on a case harvested here: every other field of the ledger, the
+  trades and the whole performance summary agree exactly.
+- `BacktestSettings` still states no schedule of its own: the simulated
+  destination's schedule rides on the fill policy as `VenuePolicy`, which is
+  structural rather than declared. The field cannot be added without a row in
+  `case.ts`'s `CARRIED`, whose type requires one per setting, and that file
+  belongs to another stage.
+- `docs/integrating/running-the-suite.md` still describes the reading this
+  minute replaces, under what the reference adapter does not reach.
+- The three cases a destination behaving badly was built to harvest are not
+  landed here. `cases/` and the harvest are not this stage's, and the suite's
+  five cases carry the seven columns they were harvested with.
+
+**Edits.** `spec/conformance.md` section 3; `src/core/backtest/deliver.ts` (new),
+`drive.ts` and `index.ts`; `src/core/index.ts`; `scripts/lib/adapter-case.mjs`;
+`tests/backtest/deliver.test.ts` and `tests/suite/supplied-frames.test.ts`.

@@ -25,6 +25,13 @@
  * is reported on bar k + 1. A frame answered after the last bar has no boundary
  * left to fold at: it is not delivered, it is not recorded as delivered, and
  * the order it was about is in the ledger at whatever it last said.
+ *
+ * **Two drivers, and the only difference between them is where the frames come
+ * from.** `backtest` runs against the simulated destination, which decides a
+ * fill from the bars and answers frames of its own; `backtestSupplied` is
+ * handed the frames and delivers those. Everything else about the two is one
+ * function below: the same window, the same load, the same refusals, the same
+ * loop and the same record.
  */
 import { reportOf, scheduleFromDeclaration } from '../accounting/index.js';
 import type { ChargeSchedule, Contract, RecordedFill } from '../accounting/index.js';
@@ -37,12 +44,13 @@ import type {
   EngineHost,
   Instrument,
   LedgerRow,
-  OrderFrame,
   OrderIntent,
   RoutedEffect,
 } from '../engine/index.js';
 import { declarationOf } from './declaration.js';
 import type { RunDeclaration } from './declaration.js';
+import { Delivery, framedAs, ordinalsOf } from './deliver.js';
+import type { Delivered, Destination } from './deliver.js';
 import { marksFor, windowFor } from './range.js';
 import type { ReportWindow } from './range.js';
 import { diagnosticIn, orderIn, recordOf } from './record.js';
@@ -112,14 +120,11 @@ export interface DriveOptions {
 }
 
 /**
- * One run, from a compiled program to a record of it.
+ * One run against a simulated destination, from a compiled program to a record.
  *
- * A refusal before the first bar comes back as a refusal and not as a record:
- * a program that would not load, a setting that cannot be applied and a window
- * holding no bars are all runs that did not happen, and a record of one would
- * be a document asserting figures nothing computed. A failure during a bar is
- * the other way round: the run happened, it stopped, and the record carries
- * both what it did and the diagnostic that stopped it.
+ * The frames are the destination's own: it is handed the orders, it reads the
+ * bars, and what it answers is what the engine folds. A run whose frames
+ * somebody else is supplying is `backtestSupplied` below.
  */
 export function backtest(
   program: CompiledProgram,
@@ -127,18 +132,81 @@ export function backtest(
   settings: BacktestSettings,
   options: DriveOptions = {},
 ): BacktestResult {
+  return drive(program, bars, settings, options, (declared, schedule) =>
+    simulated(
+      new Simulator({
+        bars,
+        contract: settings.contract,
+        fill: settings.fill,
+        slippageTicks: schedule.slippageTicks,
+        fillOn: declared.fillOn,
+        qtyType: declared.qtyType,
+      }),
+    ),
+  );
+}
+
+/**
+ * One run over the frames somebody else supplied, which this engine does not
+ * choose and does not add to.
+ *
+ * `conformance.md` section 3 gives a case a `frames.csv` that supplies order
+ * frames the way `bars.csv` supplies bars, so that a case asserts the fold
+ * against input the engine did not choose. Every other argument is `backtest`'s
+ * and means there what it means here. A row is delivered at the boundary it
+ * names and folded before the next bar, and the record carries the rows it was
+ * handed rather than a second spelling of them.
+ *
+ * **Nothing is invented.** No fill is priced off a bar, no order rests and no
+ * schedule is read, so an order the frames say nothing about stays where its
+ * placement left it, which is what a case saying nothing about it means.
+ *
+ * **A record made here is a record of this run and not of a simulated one.**
+ * `rerun` puts a record's program back on a simulated destination, because a
+ * record does not say which of the two answered it, so a rerun of one of these
+ * reproduces it only where that destination would answer these same frames.
+ */
+export function backtestSupplied(
+  program: CompiledProgram,
+  bars: readonly RecordedBar[],
+  settings: BacktestSettings,
+  frames: readonly RecordedFrame[],
+  options: DriveOptions = {},
+): BacktestResult {
+  return drive(program, bars, settings, options, () => new Delivery(frames));
+}
+
+/**
+ * The run both drivers are, and the one place a record is made.
+ *
+ * A refusal before the first bar comes back as a refusal and not as a record:
+ * a program that would not load, a setting that cannot be applied and a window
+ * holding no bars are all runs that did not happen, and a record of one would
+ * be a document asserting figures nothing computed. A failure during a bar is
+ * the other way round: the run happened, it stopped, and the record carries
+ * both what it did and the diagnostic that stopped it.
+ *
+ * **The destination is chosen after the program is loaded**, which is why it
+ * arrives as a function of the declaration and the schedule: the bar a market
+ * order is priced at is the declaration's, and the declaration is resolved at
+ * load. The route is wired first and reaches whatever is chosen through the
+ * binding below, which is what lets one host serve both halves.
+ */
+function drive(
+  program: CompiledProgram,
+  bars: readonly RecordedBar[],
+  settings: BacktestSettings,
+  options: DriveOptions,
+  choose: (declared: RunDeclaration, schedule: ChargeSchedule) => Destination,
+): BacktestResult {
   const framed = windowFor(bars, settings.range);
   if (!framed.ok) return { ok: false, diagnostic: framed.diagnostic };
 
-  // The venue is built after the program is loaded, because the bar a market
-  // order is priced at is the declaration's and the declaration is resolved at
-  // load. The route is wired first and reaches it through this binding, which
-  // is what lets one host serve both halves.
-  let venue: Simulator | undefined;
+  let sending: Destination | undefined;
   const instrument = instrumentFor(settings.contract, options.instrument ?? {});
   const loaded = load(program, {
     settings: settings.inputs,
-    host: hostFor(instrument, settings.now, (effect, bar) => venue?.route(effect, bar)),
+    host: hostFor(instrument, settings.now, (effect, bar) => sending?.route(effect, bar)),
   });
   if (!loaded.ok) return { ok: false, diagnostic: loaded.diagnostic };
 
@@ -148,17 +216,11 @@ export function backtest(
   if (problem !== null) return { ok: false, diagnostic: problem };
 
   const schedule = scheduleFor(settings, declared);
-  venue = new Simulator({
-    bars,
-    contract: settings.contract,
-    fill: settings.fill,
-    slippageTicks: schedule.slippageTicks,
-    fillOn: declared.fillOn,
-    qtyType: declared.qtyType,
-  });
+  const destination = choose(declared, schedule);
+  sending = destination;
 
-  const run = walk(engine, venue, bars, framed.covered);
-  const ordinals = ordinalsOf(venue.intents);
+  const run = walk(engine, destination, bars, framed.covered);
+  const ordinals = ordinalsOf(destination.intents);
   const marks = marksFor(bars, framed.covered);
 
   return {
@@ -170,19 +232,26 @@ export function backtest(
       instrument,
       bars,
       form: options.form ?? 'inline',
-      frames: run.frames.map((one) => framedAs(one.frame, one.afterBar, ordinals)),
+      // The row where a case supplied one, because that row is the input and a
+      // record of a run over it says what it was given rather than what it
+      // would have written down had it decided the frame itself.
+      frames: run.frames.map((one) => one.row ?? framedAs(one.frame, one.afterBar, ordinals)),
       fills: run.fills,
-      orders: ordersOf(engine.orders(), venue.intents, ordinals),
+      orders: ordersOf(engine.orders(), destination.intents, ordinals),
       diagnostics: run.diagnostics,
       report: reportOf(run.fills, marks, schedule, settings.contract, declared.capital),
     }),
   };
 }
 
-/** A frame, and the boundary it was handed over at. */
-interface Delivered {
-  readonly frame: OrderFrame;
-  readonly afterBar: number;
+/** The simulated destination, as a destination the loop below can drive. */
+function simulated(venue: Simulator): Destination {
+  return {
+    route: (effect, barIndex) => venue.route(effect, barIndex),
+    answers: (barIndex) =>
+      venue.framesFor(barIndex).map((frame) => ({ frame, afterBar: barIndex, row: null })),
+    intents: venue.intents,
+  };
 }
 
 /** What one walk of the bars produced. */
@@ -201,7 +270,7 @@ interface Walked {
  */
 function walk(
   engine: Engine,
-  venue: Simulator,
+  destination: Destination,
   bars: readonly RecordedBar[],
   covered: ReportWindow,
 ): Walked {
@@ -242,7 +311,7 @@ function walk(
       break;
     }
 
-    pending = venue.framesFor(index).map((frame) => ({ frame, afterBar: index }));
+    pending = destination.answers(index);
   }
 
   return { fills, frames, diagnostics };
@@ -317,46 +386,6 @@ function intentsIn(result: BarResult): readonly OrderIntent[] {
   const out: OrderIntent[] = [];
   for (const effect of result.effects) for (const intent of effect.intents) out.push(intent);
   return out;
-}
-
-/**
- * The ordinal of every intent, which is how a case names one.
- *
- * One, two, three in the order the run placed them, because no engine can know
- * the id another minted and a case that named one would only ever be readable
- * by the engine that wrote it.
- */
-function ordinalsOf(intents: readonly OrderIntent[]): ReadonlyMap<number, number> {
-  const out = new Map<number, number>();
-  for (const intent of intents) {
-    if (!out.has(intent.intentId)) out.set(intent.intentId, out.size + 1);
-  }
-  return out;
-}
-
-/**
- * One delivered frame, in the columns a case file prints.
- *
- * The instant travels with it. `stdlib.md` 17.7 folds `updatedAt` from a
- * frame's `time`, so a driver that dropped the field here wrote a record whose
- * ledger no engine could fold from the record's own frames: it would have
- * nothing to move that field to and would leave it at `placedAt`.
- */
-function framedAs(
-  frame: OrderFrame,
-  afterBar: number,
-  ordinals: ReadonlyMap<number, number>,
-): RecordedFrame {
-  return {
-    afterBar,
-    intent: ordinals.get(frame.intentId) ?? 0,
-    status: frame.status,
-    filledQty: frame.filledQty,
-    avgFillPrice: frame.avgFillPrice ?? null,
-    orderRef: frame.orderRef ?? null,
-    text: frame.text ?? null,
-    time: frame.time ?? null,
-  };
 }
 
 /** The ledger at the end, copied out of the engine's own array. */

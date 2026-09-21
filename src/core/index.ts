@@ -330,6 +330,7 @@ export {
   WHOLE_RANGE,
   RECORD_VERSION,
   backtest,
+  backtestSupplied,
   barsHash,
   caseFilesFrom,
   checkSettings,
