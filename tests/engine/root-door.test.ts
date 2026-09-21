@@ -56,6 +56,15 @@ test('the built root the manifest names exports the same door, and it refuses no
     exports: Record<string, { import?: string }>;
   };
   assert.equal(manifest.exports['.']?.import, BUILT_ROOT, 'the probe imports the file the root entry names');
+  // And the probe actually imports it. Comparing the manifest with a constant
+  // says nothing about the file that runs: a probe pointed at a deeper door
+  // passes this test while the root lacks the export it exists to find, which
+  // is the one failure it is here to catch.
+  assert.equal(
+    readFileSync(PROBE, 'utf8').includes(BUILT_ROOT.replace('./', '')),
+    true,
+    `the probe does not import ${BUILT_ROOT}, so it proves nothing about the root door`,
+  );
   assert.equal(
     existsSync(new URL(BUILT_ROOT, ROOT)),
     true,

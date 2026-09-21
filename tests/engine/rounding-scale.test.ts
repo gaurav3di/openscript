@@ -70,12 +70,23 @@ test('20.7: the host power misses the nearest binary64 at the count the page pri
 // the value the literal reads as. The guard first: a host whose power is the
 // nearest binary64 here would make the two answers agree and prove nothing.
 test('round(x, decimals) scales by the nearest binary64, not the host power', () => {
+  // The count comes from the page, not from here. 20.7 names the one count of
+  // the 309 where the host's power is not the nearest binary64, and this is a
+  // witness at that count: a literal would go on demonstrating a count the
+  // page had stopped naming, which is the drift section 20's own checker
+  // exists to stop. The value stays a literal because it is a witness rather
+  // than a figure, and the first assertion proves it witnesses anything.
+  const [, , at] = figuresIn(
+    /returns a value an ulp from it for (\d+) of the (\d+) counts from 0 to 308, at (\d+),/,
+    3,
+  );
+  const count = at ?? 0;
   const x = 3.0627e-8;
-  const host = roundWith(x, Math.pow(10, 23));
+  const host = roundWith(x, Math.pow(10, count));
   assert.equal(Object.is(host, x), false, 'the host power agrees at this value, so this proves nothing');
-  assert.equal(Object.is(roundTo(x, 23), x), true, 'round(3.0627e-8, 23) is the value itself');
-  assert.equal(Object.is(roundTo(x, 23), host), false, 'and not the host power\'s answer');
-  assert.equal(Object.is(scaleOf(23), 1e23), true, 'the scale is what the literal 1e23 reads as');
+  assert.equal(Object.is(roundTo(x, count), x), true, 'the rounding at that count is the value itself');
+  assert.equal(Object.is(roundTo(x, count), host), false, 'and not the host power\'s answer');
+  assert.equal(Object.is(scaleOf(count), nearestPowerOfTen(count)), true, 'the scale is the nearest binary64');
   assert.equal(Object.is(scaleOf(0), 1), true);
   assert.equal(scaleOf(309), Infinity, 'past the last finite power, what the power would have been');
 });

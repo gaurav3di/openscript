@@ -24,7 +24,7 @@
  *   leaves a file behind that describes a function no engine can call.
  *
  * A change to the vectors is a change to what a second engine is held to, and
- * `spec/decisions.md` 56 says what a regeneration has to be accompanied by.
+ * `spec/decisions.md` 59 says what a regeneration has to be accompanied by.
  *
  * ## An output no engine may produce
  *

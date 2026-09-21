@@ -121,6 +121,28 @@ test('a case run under a digit count, a schedule or a window the fixture does no
   }
 });
 
+test('a negative digit count is the error outcome, not a case run under it', () => {
+  // Written into the adapter and held by nothing until now. A digit count is a
+  // number of decimal places; below zero it is not a rounding rule a case can
+  // be run under, and passing it through would round money by a scale nobody
+  // stated.
+  const suite = temporarySuite();
+  try {
+    const one = made('settings/digits', ODD, {}, 0.075);
+    suite.write(one.id, one.files);
+    suite.rewrite(one.id, FILE, (held: Record<string, unknown>) => {
+      held['digits'] = -1;
+    });
+    const run = runSuite(['--cases', suite.root]);
+    assert.equal(run.status, 1);
+    const row = rowOf(run.document?.cases ?? [], one.id);
+    assert.equal(row.outcome, 'error');
+    assert.equal(/digits/.test(row.reason ?? ''), true, row.reason);
+  } finally {
+    suite.remove();
+  }
+});
+
 test('a strategy case without backtest.json is the error outcome, never a run under a default', () => {
   const suite = temporarySuite();
   try {
