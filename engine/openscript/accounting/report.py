@@ -33,6 +33,7 @@ from typing import Optional, Sequence, Tuple
 from .charges import ChargeSchedule, charge_for
 from .equity import EquityPoint, equity_over
 from .shapes import BarMark, Contract, RecordedFill
+from .analysis import TradeAnalysis, analysis_of
 from .statistics import Summary, summary_of
 from .trades import Trade, trades_of
 
@@ -42,6 +43,8 @@ class Report:
     """Everything a run is reported as, and nothing a chart has to compute."""
 
     summary: Summary
+    #: The trades by direction, by extreme and by run.
+    analysis: TradeAnalysis
     trades: Tuple[Trade, ...]
     equity: Tuple[EquityPoint, ...]
 
@@ -71,4 +74,9 @@ def report_of(
     equity = equity_over(trades, marks, contract, capital)
     summary = summary_of(trades, equity, contract, capital)
 
-    return Report(summary=summary, trades=trades, equity=equity)
+    return Report(
+        summary=summary,
+        analysis=analysis_of(trades),
+        trades=trades,
+        equity=equity,
+    )

@@ -38,6 +38,8 @@ function point(barIndex: number, time: number, equity: number): EquityPoint {
     exposure: 0,
     drawdown: 0,
     drawdownPercent: 0,
+    runUp: 0,
+    runUpPercent: 0,
   };
 }
 

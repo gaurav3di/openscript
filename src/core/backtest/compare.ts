@@ -70,6 +70,8 @@ const COMPARED: readonly string[] = [
   'maxDrawdown',
   'maxDrawdownPercent',
   'longestDrawdownBars',
+  'maxRunUp',
+  'maxRunUpPercent',
   'averageBarsHeld',
   'barsInMarket',
   'barCount',

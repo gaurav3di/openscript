@@ -9,6 +9,57 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A report says how far the run climbed, and which side made the money.** The
+summary answered twenty six figures and could not answer three questions a
+reader decides on. A run that made ten and gave back nine reports the same net
+profit as one that made one and kept it, and no figure separated them. A run
+whose long trades paid for its short ones reported a healthy net, because every
+figure in the summary is folded over both sides at once. And how many times in a
+row a strategy was wrong, which is the number that actually stops somebody, was
+not derivable from the win rate, the drawdown or the trade count.
+
+`maxRunUp`, `maxRunUpPercent` and `maxRunUpAt` join the summary, and `runUp` and
+`runUpPercent` join every point of the equity curve. Run-up is measured from a
+running trough anchored at the run's capital, which is the running peak's rule
+rather than its mirror image: a trough anchored at the first reported point
+would report the gain a run arrived with as having come from nowhere. The
+fraction is **zero wherever that trough is not above zero**, and that asymmetry
+with `maxDrawdownPercent` is deliberate. A peak only rises and stays above zero
+throughout any funded run; a trough only falls, and an open position can lose
+more than the account holds, so it reaches zero and passes it. Against a
+negative basis a positive climb divides to a negative fraction, which is the
+shape that once reported a profit factor of minus a half. `maxRunUp` itself is
+unaffected and is the figure to read on such a run. The height and the depth
+name different bars, and the earliest bar reaching either wins the tie.
+
+`analysisOf` and the report's new `analysis` are the trades taken apart: the
+closed trades split long against short with each side's own net and win rate,
+the largest win and the largest loss as nets after charges, and the longest run
+of wins and of losses. The sides partition the closed trades, so their counts
+sum to `tradeCount` and their nets to `netProfit`. A streak is counted **in the
+order the trades closed**, which differs from the order they opened whenever a
+trade is held across another one's whole life, which is every strategy that
+scales in; two trades closing on one bar are ordered by the order they opened,
+so the answer does not depend on the order the list arrived in. A trade whose
+net is exactly zero breaks a streak and extends neither half.
+
+**What is proved, and what is not.** Run-up is in the `performance` channel, so
+all five conformance cases compare it between the two engines exactly; that was
+checked by removing it from one engine and watching every case fail. The trade
+analysis is **not** in that channel, because the channel holds one flat object
+and the side split is nested, so it is proved by unit tests on each engine and
+by nothing that compares them. Whether it is flattened into `performance` or
+becomes a channel of its own is left open rather than answered in passing.
+
+**And a gap that was invisible is now written down.** The other twenty six
+summary figures have no formula stated in any specification document. The two
+engines agree on them because one was translated from the other, not because a
+sentence says what they are, so a third engine has nothing to be written
+against. `conformance.md` section 4 now says so, and it is the reason the trade
+list, equity curve, drawdown and win rate rows of `feature-matrix.md` section 30
+read `planned` while the code that computes them ships. `spec/decisions.md` 64
+is the minute.
+
 **A case supplies the frames, and this engine folds them.** `conformance.md`
 section 3 has said since it was written that `frames.csv` supplies order frames
 the way `bars.csv` supplies bars, so that a case asserts the fold against input

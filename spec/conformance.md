@@ -411,6 +411,66 @@ the digit count, the schedule and the window `backtest.json` states (section 3)
 and the capital `script.os` declares, so nothing the figures came from is
 outside the case.
 
+#### What the summary's figures are, and what is not written down yet
+
+The channel's shape is fixed above. The **formula** behind each field is a
+separate promise, and most of them are not made here yet: `netProfit`,
+`winRate`, `expectancy`, `profitFactor`, the drawdown trio and the rest are
+computed by both engines and agree, but they agree because one was translated
+from the other, not because a sentence here says what they are. That is a real
+gap and it is why the trade list, the equity curve, the drawdown and the win
+rate rows of `feature-matrix.md` section 30 still read `planned` while the code
+that computes them ships. A figure two engines agree on is not a figure a third
+engine can be written against.
+
+Two of the fields are defined, and they are defined here because they were added
+after that was understood.
+
+**Run-up: `maxRunUp`, `maxRunUpPercent`, `maxRunUpAt`.** Drawdown measures the
+distance below a running peak; run-up measures the distance above a running
+trough, and the two are read together. A run that made ten and gave back nine
+reports the same net profit as one that made one and never gave any of it back,
+and neither figure separates them on its own.
+
+- The running trough starts at the run's capital, not at the first reported
+  point, exactly as the running peak does. A run that is ahead at its first
+  reported bar has run up from the money it was given; anchoring at the first
+  point would report that gain as having come from nowhere.
+- `maxRunUp` is the greatest such distance over the reported bars, zero where
+  the curve never rose above the trough, and never negative.
+- `maxRunUpAt` is the bar **time** of the first reported bar that reached it,
+  never a bar index, and it is not in general the bar `maxDrawdownAt` names. The
+  earliest bar wins a tie, which is the rule the drawdown trio is picked by; two
+  figures in one summary picked by opposite tie rules cannot be checked against
+  each other.
+- `maxRunUpPercent` is that distance over the trough it was measured from, as a
+  fraction and not a figure times a hundred, and it is **zero wherever that
+  trough is not above zero**. This is deliberately not symmetrical with
+  `maxDrawdownPercent`. A peak starts at the capital and only rises, so it is
+  above zero throughout any run that was given money; a trough starts there and
+  only falls, and an open position can lose more than the account holds, so the
+  trough reaches zero and goes past it. A fraction against a negative basis
+  turns a positive climb into a negative number, which is worse than reporting
+  nothing. `maxRunUp` itself is unaffected and is the figure to read on such a
+  run.
+
+**The trade analysis is not in this channel.** The closed trades split long
+against short, the largest win and loss, and the longest run of each are
+computed by both engines and are not compared by the suite, because the channel
+holds one flat object and the side split is nested. Whether they are flattened
+into `performance` or become a channel of their own is open, and until it is
+settled they are proved by unit tests on each engine rather than by a case.
+
+The streaks carry one rule worth fixing now, because it is the one an engine
+gets wrong silently: **a streak is counted over the closed trades in the order
+they closed**, not the order they opened. Those orders differ whenever a trade
+is held across another one's whole life, which is every strategy that scales in.
+Two trades closing on one bar are ordered by the order they opened, so the
+answer does not depend on the order the list arrived in. A trade whose net is
+exactly zero is a scratch: it **breaks** a streak and extends neither, because a
+run that went right, flat, right was not right twice, and counting the flat
+trade as either would make the figure depend on a rounding at the last digit.
+
 **A trade marker belongs to the `markers` channel, not to `performance`.**
 Section 2's vocabulary already has `markers`, and a marker is a chart output that
 a study can produce as readily as a strategy, so folding it inside a performance

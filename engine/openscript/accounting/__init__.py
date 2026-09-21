@@ -28,6 +28,7 @@ and it is recorded where a reader of this package will meet it rather than only 
 a report nobody keeps.
 """
 
+from .analysis import SideAnalysis, TradeAnalysis, analysis_of
 from .charges import (
     ChargeBreakdown,
     ChargeLine,
@@ -52,8 +53,11 @@ __all__ = [
     "EquityPoint",
     "RecordedFill",
     "Report",
+    "SideAnalysis",
     "Summary",
     "Trade",
+    "TradeAnalysis",
+    "analysis_of",
     "bars_in_market_over",
     "charge_for",
     "closed_by",

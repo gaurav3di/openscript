@@ -19,6 +19,8 @@
  * structural half of keeping that decision open: when it is taken, the engine
  * calls this, and there is no second implementation to disagree with.
  */
+import { analysisOf } from './analysis.js';
+import type { TradeAnalysis } from './analysis.js';
 import { chargeFor } from './charges.js';
 import type { ChargeSchedule } from './charges.js';
 import { equityOver } from './equity.js';
@@ -36,6 +38,8 @@ import type { Trade } from './trades.js';
 /** Everything a run is reported as, and nothing a chart has to compute. */
 export interface Report {
   readonly summary: Summary;
+  /** The trades by direction, by extreme and by run. */
+  readonly analysis: TradeAnalysis;
   readonly trades: readonly Trade[];
   readonly equity: readonly EquityPoint[];
   readonly monthly: readonly MonthlyReturn[];
@@ -81,6 +85,7 @@ export function reportOf(
 
   return {
     summary,
+    analysis: analysisOf(trades),
     trades,
     equity,
     monthly: monthlyOver(equity, trades),

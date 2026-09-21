@@ -316,14 +316,16 @@ export type {
   MonthlyReturn,
   RecordedFill,
   Report,
+  SideAnalysis,
   Summary,
   Trade,
+  TradeAnalysis,
   TradeMarker,
 } from './accounting/index.js';
 export { chargeFor, scheduleFromDeclaration, scheduleProblem } from './accounting/index.js';
 export { markersOf, monthlyOver, reportOf } from './accounting/index.js';
 export { tradesOf } from './accounting/index.js';
-export { equityOver, summaryOf } from './accounting/index.js';
+export { analysisOf, equityOver, summaryOf } from './accounting/index.js';
 export {
   DEFAULT_FILL,
   EXACT,

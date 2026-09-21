@@ -36,6 +36,7 @@ import type {
   Report,
   Summary,
   Trade,
+  TradeAnalysis,
   TradeMarker,
 } from '../../src/core/index.js';
 import { portabilityProblems } from './support.js';
@@ -194,6 +195,8 @@ const EQUITY: readonly Portable<EquityPoint>[] = [
     exposure: 0,
     drawdown: 0,
     drawdownPercent: 0,
+    runUp: 14.9,
+    runUpPercent: 0.000149,
   },
   {
     barIndex: 6,
@@ -206,6 +209,8 @@ const EQUITY: readonly Portable<EquityPoint>[] = [
     exposure: 207,
     drawdown: -1.55,
     drawdownPercent: -0.0000154977,
+    runUp: 13.35,
+    runUpPercent: 0.0001335,
   },
 ];
 
@@ -265,13 +270,32 @@ const SUMMARY: Portable<Summary> = {
   maxDrawdownPercent: -0.0000154977,
   maxDrawdownAt: T0 + 6 * DAY,
   longestDrawdownBars: 1,
+  maxRunUp: 14.9,
+  maxRunUpPercent: 0.000149,
+  maxRunUpAt: T0 + 5 * DAY,
   averageBarsHeld: 3,
   barsInMarket: 4,
   barCount: 7,
 };
 
+/**
+ * The run's one closed trade taken apart, which is the long side alone: the
+ * short trade is open, so it is in neither side, in no extreme and in no
+ * streak. The short side's win rate is null for the same reason the summary's
+ * profit factor is: nothing decided it.
+ */
+const ANALYSIS: Portable<TradeAnalysis> = {
+  long: { count: 1, wins: 1, losses: 0, scratches: 0, netProfit: 14.9, winRate: 1 },
+  short: { count: 0, wins: 0, losses: 0, scratches: 0, netProfit: 0, winRate: null },
+  largestWin: 14.9,
+  largestLoss: 0,
+  maxConsecutiveWins: 1,
+  maxConsecutiveLosses: 0,
+};
+
 const REPORT: Portable<Report> = {
   summary: SUMMARY,
+  analysis: ANALYSIS,
   trades: TRADES,
   equity: EQUITY,
   monthly: MONTHLY,

@@ -4525,3 +4525,78 @@ against the simulated destination, because section 3 ends that a case with no
 **Edits.** `spec/conformance.md` section 3; `src/core/backtest/deliver.ts` (new),
 `drive.ts` and `index.ts`; `src/core/index.ts`; `scripts/lib/adapter-case.mjs`;
 `tests/backtest/deliver.test.ts` and `tests/suite/supplied-frames.test.ts`.
+
+---
+
+## 64. What a report says about the run's best stretch, and where a streak's order comes from
+
+**Question.** The summary answers what a run did in twenty six figures, and a
+reader deciding whether to trade a strategy cannot get three things out of any
+of them. How much the run climbed before it gave anything back, which separates
+a strategy that made ten and returned nine from one that made one and kept it,
+and which reports the same net either way. Which side made the money, which no
+figure can show because every one of them is folded over long and short at once.
+And how many times in a row the strategy was wrong, which is the number that
+actually stops somebody and which is not derivable from the win rate, the
+drawdown or the trade count. What is added, and what is each figure measured
+against?
+
+**Decision.** Run-up beside drawdown on the curve and in the summary, and a
+trade analysis beside the summary rather than inside it.
+
+- **Run-up is measured from a running trough anchored at the capital**, which is
+  the peak's rule and not its mirror image. A trough anchored at the first
+  reported point would call that bar the bottom, so a run already ahead at its
+  first bar would report the gain it arrived with as having come from nowhere.
+- **The fraction is guarded differently from the drawdown fraction, and the
+  asymmetry is the point.** A peak starts at the capital and only rises, so it
+  is above zero throughout any run that was given money. A trough starts there
+  and only falls, and an open position can lose more than the account holds, so
+  it reaches zero and goes past it. Against a negative basis a positive climb
+  divides to a negative fraction, which is the shape that once reported a profit
+  factor of minus a half: a number nobody can act on is worse than no number. So
+  the fraction is zero wherever the trough is not above zero, which is the wrong
+  answer for a run that recovered, and is reported anyway because the money
+  figure beside it is unaffected and is the one to read on such a run.
+- **The height and the depth name different bars, each the first to reach it.**
+  The earliest bar wins a tie on both, because two figures in one summary picked
+  by opposite tie rules cannot be checked against each other by the reader who
+  notices they disagree.
+- **A streak is counted over the closed trades in the order they closed.** Not
+  the order they opened, which is the order the list arrives in and the order
+  the equity fold needs: the two differ whenever a trade is held across another
+  one's whole life, which is every strategy that scales in. The account
+  experienced the closes, so the closes are what a streak is a fact about. Two
+  trades closing on one bar are ordered by the order they opened, so the answer
+  does not depend on the order the list arrived in; both engines sort stably, so
+  without that tie-break the streak would silently have become a fact about the
+  input rather than about the run, which is a disagreement no assertion in a
+  single fold would have caught.
+- **A scratch breaks a streak and extends neither half.** A run that went right,
+  flat, right was not right twice. Skipping the flat trade instead would join
+  the wins either side of it, making the reported best run depend on a rounding
+  at the last digit of a trade that made nothing.
+- **The analysis is not in the `performance` channel, and is therefore not
+  compared by the suite.** The channel holds one flat object and the side split
+  is nested. Flattening it or giving it a channel of its own is a question left
+  open rather than answered in passing, so the analysis is proved by unit tests
+  on each engine and the matrix rows say so. Run-up is in the channel, so all
+  five cases compare it between the two engines, which was checked by removing
+  it from one engine and watching every case fail.
+
+**What this does not settle.** The other twenty six summary figures still have
+no formula written down anywhere: the two engines agree on them because one was
+translated from the other, not because a sentence says what they are, and a
+third engine has nothing to be written against. That is now stated in
+`conformance.md` section 4 instead of being invisible, and it is the reason the
+trade list, equity curve, drawdown and win rate rows of `feature-matrix.md`
+section 30 read `planned` while the code that computes them ships.
+
+**Edits.** `spec/conformance.md` section 4; `spec/feature-matrix.md` section 30;
+`src/core/accounting/analysis.ts` (new), `equity.ts`, `statistics.ts`,
+`report.ts` and `index.ts`; `src/core/index.ts`; `src/core/backtest/compare.ts`;
+`engine/openscript/accounting/analysis.py` (new), `equity.py`, `statistics.py`,
+`report.py` and `__init__.py`; `engine/openscript/adapter/channels.py`;
+`tests/accounting/analysis.test.ts` and `drawdown.test.ts`;
+`engine/tests/test_analysis_and_runup.py`; `engine/tests/replaying.py`, whose
+copy of the channel encoder became the encoder itself.

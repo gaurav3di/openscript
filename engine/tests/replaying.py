@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from tests.recorded import Case, RecordedBar
 
+from openscript.adapter.channels import summary_row
 from openscript.adapter.reporting import schedule_lines
 from openscript.accounting import BarMark, Contract, ChargeSchedule, schedule_from_declaration
 from openscript.diagnostics import Position
@@ -326,34 +327,16 @@ def recorded_trade(trade) -> Dict[str, Any]:
 
 
 def recorded_summary(summary) -> Dict[str, Any]:
-    """The summary as ``expected.json``'s ``performance`` channel writes it."""
-    return {
-        "averageBarsHeld": summary.average_bars_held,
-        "averageLoss": summary.average_loss,
-        "averageWin": summary.average_win,
-        "barCount": summary.bar_count,
-        "barsInMarket": summary.bars_in_market,
-        "capital": summary.capital,
-        "charges": summary.charges,
-        "currency": summary.currency,
-        "expectancy": summary.expectancy,
-        "expectancyStandardError": summary.expectancy_standard_error,
-        "grossLoss": summary.gross_loss,
-        "grossProfit": summary.gross_profit,
-        "longestDrawdownBars": summary.longest_drawdown_bars,
-        "losses": summary.losses,
-        "maxDrawdown": summary.max_drawdown,
-        "maxDrawdownAt": summary.max_drawdown_at,
-        "maxDrawdownPercent": summary.max_drawdown_percent,
-        "netProfit": summary.net_profit,
-        "openTradeCount": summary.open_trade_count,
-        "profitFactor": summary.profit_factor,
-        "returnPercent": summary.return_percent,
-        "scratches": summary.scratches,
-        "tradeCount": summary.trade_count,
-        "winRate": summary.win_rate,
-        "wins": summary.wins,
-    }
+    """The summary as ``expected.json``'s ``performance`` channel writes it.
+
+    The channel's own encoder and not a copy of it. It was a copy, written out
+    key by key beside the one in ``adapter/channels.py``, and the two were one
+    fact in two files: the day the summary grew a field, the encoder gained it
+    and this did not, and five cases failed with the engine and the page both
+    correct. A test fixture that restates what it is checking can only ever
+    check that somebody edited two files together.
+    """
+    return summary_row(summary)
 
 
 def capital_of(case: Case) -> float:

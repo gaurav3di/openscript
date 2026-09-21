@@ -101,6 +101,14 @@ class Summary:
     #: A bar time, never an index.
     max_drawdown_at: Optional[float]
     longest_drawdown_bars: int
+    #: Zero or positive, the mirror of ``max_drawdown`` and read against it. A
+    #: run that made ten and gave back nine is a different strategy from one
+    #: that made one and kept it, and the two report the same net.
+    max_run_up: float
+    #: The highest point's own fraction, not the best fraction of any point.
+    max_run_up_percent: float
+    #: A bar time, never an index, and not the bar ``max_drawdown_at`` names.
+    max_run_up_at: Optional[float]
     average_bars_held: Optional[float]
     bars_in_market: int
     bar_count: int
@@ -133,6 +141,9 @@ class _Depth:
     max_drawdown_percent: float = 0.0
     max_drawdown_at: Optional[float] = None
     longest_drawdown_bars: int = 0
+    max_run_up: float = 0.0
+    max_run_up_percent: float = 0.0
+    max_run_up_at: Optional[float] = None
 
 
 def _tally_of(trades: Sequence[Trade]) -> _Tally:
@@ -197,6 +208,13 @@ def _depth_of(equity: Sequence[EquityPoint]) -> _Depth:
                 depth.longest_drawdown_bars = under
         else:
             under = 0
+        # Strictly greater, so the earliest bar reaching the height wins the
+        # tie, which is the rule the depth above is picked by. The two figures
+        # name different bars and each names the first that reached it.
+        if point.run_up > depth.max_run_up:
+            depth.max_run_up = point.run_up
+            depth.max_run_up_percent = point.run_up_percent
+            depth.max_run_up_at = point.time
     return depth
 
 
@@ -271,6 +289,9 @@ def summary_of(
         max_drawdown_percent=depth.max_drawdown_percent,
         max_drawdown_at=depth.max_drawdown_at,
         longest_drawdown_bars=depth.longest_drawdown_bars,
+        max_run_up=depth.max_run_up,
+        max_run_up_percent=depth.max_run_up_percent,
+        max_run_up_at=depth.max_run_up_at,
         average_bars_held=(
             None if tally.held_count == 0 else tally.held_total / tally.held_count
         ),

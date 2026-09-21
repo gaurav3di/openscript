@@ -357,6 +357,7 @@ function plainly(
 ): readonly EquityPoint[] {
   const points: EquityPoint[] = [];
   let peak = capital;
+  let trough = capital;
   let mark: number | null = null;
 
   for (const bar of marks) {
@@ -382,6 +383,7 @@ function plainly(
     const cash = capital + realised - charges;
     const equity = cash + openProfit;
     if (equity > peak) peak = equity;
+    if (equity < trough) trough = equity;
     points.push({
       barIndex: bar.barIndex,
       time: bar.time,
@@ -393,6 +395,8 @@ function plainly(
       exposure,
       drawdown: equity - peak,
       drawdownPercent: peak > 0 ? (equity - peak) / peak : 0,
+      runUp: equity - trough,
+      runUpPercent: trough > 0 ? (equity - trough) / trough : 0,
     });
   }
 

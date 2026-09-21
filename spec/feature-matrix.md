@@ -945,6 +945,8 @@ from a `study()` file is OS7001.
 | Trade list | One row per closed trade: entry, exit, size, cost, profit | `planned` | `none` | `perf/trade-list` |
 | Equity curve | Equity per bar, including open profit | `planned` | `none` | `perf/equity-curve` |
 | Drawdown | Peak-to-trough decline, on a stated basis | `planned` | `none` | `perf/drawdown` |
+| Run-up | The distance above the running trough, per bar and at its deepest, which is drawdown's mirror and is read against it: a run that made ten and gave back nine reports the same net as one that made one and kept it | `implemented` | `conformance.md` 4 | `unit:perf/run-up` |
+| Trades by side, extreme and streak | The closed trades split long against short, the largest win and loss, and the longest run of each: three questions the summary cannot answer because it folds both sides, every trade and their order together | `implemented` | `conformance.md` 4 | `unit:perf/trade-analysis` |
 | Win rate and expectancy | The two headline statistics, each with its formula written down | `planned` | `none` | `perf/win-rate-expectancy` |
 | Monthly return table | Returns grouped by calendar month | `planned` | `none` | `perf/monthly-table` |
 | Trade markers | Every trade marked on the chart at its fill bar | `planned` | `none` | `perf/trade-markers` |

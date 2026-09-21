@@ -121,6 +121,18 @@ export interface Summary {
   /** A bar time, never an index. */
   readonly maxDrawdownAt: number | null;
   readonly longestDrawdownBars: number;
+  /**
+   * Zero or positive, the mirror of `maxDrawdown` and read against it.
+   *
+   * The pair is the point of it. A run that made ten and gave back nine is a
+   * different strategy from one that made one and never gave any of it back,
+   * and the two report the same net. Neither figure says that on its own.
+   */
+  readonly maxRunUp: Money;
+  /** The highest point's own fraction, not the best fraction of any point. */
+  readonly maxRunUpPercent: number;
+  /** A bar time, never an index, and not the bar `maxDrawdownAt` addresses. */
+  readonly maxRunUpAt: number | null;
   readonly averageBarsHeld: number | null;
   readonly barsInMarket: number;
   readonly barCount: number;
@@ -149,6 +161,9 @@ interface Depth {
   readonly maxDrawdownPercent: number;
   readonly maxDrawdownAt: number | null;
   readonly longestDrawdownBars: number;
+  readonly maxRunUp: Money;
+  readonly maxRunUpPercent: number;
+  readonly maxRunUpAt: number | null;
 }
 
 /**
@@ -199,6 +214,9 @@ export function summaryOf(
     maxDrawdownPercent: depth.maxDrawdownPercent,
     maxDrawdownAt: depth.maxDrawdownAt,
     longestDrawdownBars: depth.longestDrawdownBars,
+    maxRunUp: depth.maxRunUp,
+    maxRunUpPercent: depth.maxRunUpPercent,
+    maxRunUpAt: depth.maxRunUpAt,
     averageBarsHeld: tally.heldCount === 0 ? null : tally.heldTotal / tally.heldCount,
     barsInMarket: barsInMarketOver(trades, equity),
     barCount: equity.length,
@@ -303,6 +321,9 @@ function depthOf(equity: readonly EquityPoint[]): Depth {
   let maxDrawdownAt: number | null = null;
   let longestDrawdownBars = 0;
   let under = 0;
+  let maxRunUp = 0;
+  let maxRunUpPercent = 0;
+  let maxRunUpAt: number | null = null;
 
   for (const point of equity) {
     if (point.drawdown < maxDrawdown) {
@@ -316,9 +337,25 @@ function depthOf(equity: readonly EquityPoint[]): Depth {
     } else {
       under = 0;
     }
+    // Strictly greater, so the earliest bar reaching the height wins the tie,
+    // which is the rule the depth above is picked by. The two figures address
+    // different bars and each addresses the first bar that reached it.
+    if (point.runUp > maxRunUp) {
+      maxRunUp = point.runUp;
+      maxRunUpPercent = point.runUpPercent;
+      maxRunUpAt = point.time;
+    }
   }
 
-  return { maxDrawdown, maxDrawdownPercent, maxDrawdownAt, longestDrawdownBars };
+  return {
+    maxDrawdown,
+    maxDrawdownPercent,
+    maxDrawdownAt,
+    longestDrawdownBars,
+    maxRunUp,
+    maxRunUpPercent,
+    maxRunUpAt,
+  };
 }
 
 /**

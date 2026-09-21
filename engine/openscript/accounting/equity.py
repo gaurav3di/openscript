@@ -64,6 +64,18 @@ class EquityPoint:
     drawdown: float
     #: That distance against the peak, a fraction.
     drawdown_percent: float
+    #: equity less the running trough, zero or positive: drawdown's mirror, so
+    #: the run's best stretch is measured the same way its worst one is.
+    run_up: float
+    #: That distance against the trough, a fraction, and zero where the trough
+    #: is not above zero. Not the same guard drawdown gets, because the two
+    #: bases are not the same kind of number: a peak starts at the capital and
+    #: only rises, a trough starts there and only falls, so an account that lost
+    #: everything has a trough at or below zero and reports zero here from that
+    #: bar on. Zero is the wrong answer for a run that recovered and is reported
+    #: anyway, because a percentage against a negative basis turns a positive
+    #: climb into a negative fraction. ``run_up`` itself is unaffected.
+    run_up_percent: float
 
 
 def open_on_bar(trade: Trade, bar_index: int) -> bool:
@@ -124,6 +136,7 @@ def equity_over(
     realised = 0.0
     charges = 0.0
     peak = capital
+    trough = capital
     mark: Optional[float] = None
 
     for bar in marks:
@@ -166,7 +179,10 @@ def equity_over(
         equity = cash + open_profit
         if equity > peak:
             peak = equity
+        if equity < trough:
+            trough = equity
         drawdown = equity - peak
+        run_up = equity - trough
         points.append(
             EquityPoint(
                 bar_index=bar.bar_index,
@@ -179,6 +195,8 @@ def equity_over(
                 exposure=exposure,
                 drawdown=drawdown,
                 drawdown_percent=ratio_of(drawdown, peak),
+                run_up=run_up,
+                run_up_percent=ratio_of(run_up, trough),
             )
         )
 

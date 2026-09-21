@@ -105,6 +105,33 @@ export interface EquityPoint {
   readonly drawdown: Money;
   /** `drawdown / runningPeak`, a fraction and not a figure times a hundred. */
   readonly drawdownPercent: number;
+  /**
+   * The distance above the running trough, zero or positive.
+   *
+   * Drawdown's mirror, and carried for the same reason drawdown is: it is the
+   * run's best stretch measured the same way its worst one is, so the two can
+   * be read against each other. A reader handed only the depth learns how bad
+   * it got and nothing about whether the run ever climbed far enough for that
+   * depth to be a giving back rather than a steady bleed.
+   */
+  readonly runUp: Money;
+  /**
+   * `runUp / runningTrough`, a fraction and not a figure times a hundred, and
+   * zero where the trough is not above zero.
+   *
+   * Not the same guard drawdown gets, because the two bases are not the same
+   * kind of number. The running peak starts at the capital and only ever rises,
+   * so a run with capital above zero has a peak above zero at every point. The
+   * running trough starts there and only ever falls, so an account that lost
+   * everything has a trough at or below zero, and from that bar on this figure
+   * is zero rather than a fraction. Zero is the wrong answer for a run that
+   * recovered, and it is reported anyway, because the alternative is a
+   * percentage against a negative basis: a positive climb reported as a
+   * negative fraction, which is the shape that once gave a profit factor of
+   * minus a half. `runUp` itself is unaffected and stays the figure to read on
+   * such a run.
+   */
+  readonly runUpPercent: number;
 }
 
 /**
@@ -150,6 +177,12 @@ export function ratioOf(value: number, basis: number): number {
  * The running peak starts at the capital rather than at the first point, so a
  * run that is down from its first bar is in drawdown at its first bar. Starting
  * it at the first point would report every run as having begun at its high.
+ *
+ * The running trough starts at the capital for the same reason and not for a
+ * symmetrical one: a run that is up from its first bar has run up from the
+ * money it was given, which is the figure a reader is measuring against. Anchor
+ * it at the first point instead and a run that gapped up on bar zero reports
+ * that gain as having come from nowhere.
  */
 export function equityOver(
   trades: readonly Trade[],
@@ -163,6 +196,7 @@ export function equityOver(
   let realised = 0;
   let charges = 0;
   let peak = capital;
+  let trough = capital;
   let mark: number | null = null;
 
   for (const bar of marks) {
@@ -208,7 +242,9 @@ export function equityOver(
     const cash = capital + realised - charges;
     const equity = cash + openProfit;
     if (equity > peak) peak = equity;
+    if (equity < trough) trough = equity;
     const drawdown = equity - peak;
+    const runUp = equity - trough;
     points.push({
       barIndex: bar.barIndex,
       time: bar.time,
@@ -220,6 +256,8 @@ export function equityOver(
       exposure,
       drawdown,
       drawdownPercent: ratioOf(drawdown, peak),
+      runUp,
+      runUpPercent: ratioOf(runUp, trough),
     });
   }
 

@@ -43,6 +43,8 @@ export { monthlyOver } from './monthly.js';
 export type { MonthlyReturn } from './monthly.js';
 export { markersOf } from './markers.js';
 export type { TradeMarker } from './markers.js';
+export { analysisOf } from './analysis.js';
+export type { SideAnalysis, TradeAnalysis } from './analysis.js';
 export { summaryOf } from './statistics.js';
 export type { Summary } from './statistics.js';
 export { reportOf } from './report.js';
