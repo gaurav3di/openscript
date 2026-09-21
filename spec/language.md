@@ -725,6 +725,64 @@ if size(zones) > 20
     shift(zones)
 ```
 
+### 5.5 How a number becomes text
+
+One rule, wherever a number is written as text: `text(x)`, a table cell, an
+alert's message, the constants of a compiled program (`compiled-program.md`
+2.14), a case file and an expected column (`conformance.md` sections 2 and 4).
+Two engines compare numbers as bits and text as text, so a number that two
+rules could spell two ways is a disagreement with no number wrong anywhere.
+
+**The digits.** The shortest string of decimal digits that reads back, under
+round to nearest with ties to even, as the same binary64 value. Where two
+strings of that length both read back, the one closer to the value; where both
+are equally close, the one whose last digit is even. This is the shortest round
+trip conversion every current host produces natively, and two hosts have been
+measured to agree on it. Where they part company is the layout.
+
+**The layout.** Let the digits be `d1 d2 ... dk`, the last of them not a zero,
+and `n` the position of the decimal point, so that the value is `0.d1d2...dk`
+times ten to the `n`. For `100`, the digits are `1` and `n` is 3; for `0.05`,
+the digits are `5` and `n` is -1.
+
+- `k <= n <= 21`: the digits followed by `n - k` zeros. A whole number below
+  ten to the twenty first is written out in full: `100`, `4294967296`,
+  `100000000000000000000`.
+- `0 < n <= 21`: the digits with a point after the first `n` of them:
+  `1234.5678`.
+- `-6 < n <= 0`: `0.`, then `-n` zeros, then the digits: `0.05`, `0.000001`.
+- Otherwise an exponent: `d1`, then `.` and the remaining digits when `k > 1`,
+  then `e`, then `-` when `n - 1` is negative, then `n - 1` in decimal digits
+  with no leading zeros and no sign otherwise: `1e21`, `1.5e-7`,
+  `1.7976931348623157e308`, `5e-324`.
+
+So the positional range runs from ten to the minus seventh, exclusive, to ten
+to the twenty first, exclusive: `0.000001` and `100000000000000000000` are
+positional, and `1e-7` and `1e21` are the first values on either side written
+with an exponent. There is never a `+` on an exponent, never a `.0` on a whole
+number, and never a leading zero before a digit other than in `0.x`.
+
+**Zero** is `0`. A negative zero is also `0`: the language holds one zero
+(`compiled-program.md` 3.1), and a rule that could spell `-0` would let the
+sign of a zero reach a string. **A negative** value is `-` followed by the text
+of its magnitude. A number is always finite (5.1), so there is no spelling for
+anything else, and an engine handed one has a defect to report rather than a
+string to write.
+
+A host whose own conversion turns to an exponent at sixteen digits or at four
+decimal places, writes `1e+21` or `1e-05`, or writes `100.0` for a whole
+number, follows this rule and not its own. `spec/vectors/number-text.json`
+holds the boundary cases as bit patterns, as decimals and as text, in both
+directions, so that an engine in any language can hold its writer to the rule
+without reading this repository's source; `tests/emit/number-text.test.ts`
+holds this engine to the same file.
+
+`text(x, decimals)` (`stdlib.md` section 10) rounds first and then writes a
+positional decimal at every magnitude, never an exponent, and the digits it
+writes are the digits this rule gives the rounded and scaled whole number, zero
+filled: one rule for which digits a value has, and one call where the layout is
+always positional.
+
 ---
 
 ## 6. The absent value

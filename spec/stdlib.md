@@ -587,7 +587,7 @@ been true. Zero would read as "it happened on this bar".
 | `str.length(s)` | `number` | Count of Unicode code points |
 | `str.upper(s)` | `string` | Upper case, invariant, not locale dependent |
 | `str.lower(s)` | `string` | Lower case, on the same terms |
-| `str.trim(s)` | `string` | Leading and trailing spaces removed |
+| `str.trim(s)` | `string` | Leading and trailing whitespace removed: the code points listed below |
 | `str.contains(s, part)` | `bool` | Whether one string appears in another |
 | `str.startsWith(s, part)` | `bool` | Prefix test |
 | `str.endsWith(s, part)` | `bool` | Suffix test |
@@ -610,6 +610,43 @@ a fixed number of decimal places and an exponent is not one, and a conversion
 that changed shape above a threshold would be a label that read correctly until
 the day a cumulative volume crossed it. A conversion whose result would pass the
 string ceiling is OS5008, measured before the string is built rather than after.
+
+**`str.trim` removes, and `toNumber` ignores at either end, exactly these code
+points**, which are the ones with the Unicode White_Space property, and no
+other:
+
+| Code point | Name |
+|---|---|
+| `U+0009` | character tabulation |
+| `U+000A` | line feed |
+| `U+000B` | line tabulation |
+| `U+000C` | form feed |
+| `U+000D` | carriage return |
+| `U+0020` | space |
+| `U+0085` | next line |
+| `U+00A0` | no-break space |
+| `U+1680` | ogham space mark |
+| `U+2000` to `U+200A` | the en quad through the hair space |
+| `U+2028` | line separator |
+| `U+2029` | paragraph separator |
+| `U+202F` | narrow no-break space |
+| `U+205F` | medium mathematical space |
+| `U+3000` | ideographic space |
+
+The byte order mark `U+FEFF` is not in the set, and neither are the four
+information separators `U+001C` to `U+001F` or the zero width space `U+200B`.
+Each of those is in one host's own trim and not another's, which is why the set
+is written down here rather than taken from a host, and why an engine
+implements it from this table. `tests/engine/strings.test.ts` walks every code
+point of the basic plane against the table read out of this page.
+
+**Two strings are ordered by code point**: compared from the front, the first
+code point that differs deciding, and a string that ends first ordering first.
+It is the one order in the language: `<` and its three companions
+(`language.md` 9.3) and `sort` over an array of strings (`language.md` 14.1)
+agree, and an engine whose strings are sixteen bit units compares code points
+and not units, or a symbol outside the basic plane sorts below the last
+thousands of the plane on that engine and above them on every other.
 
 None of these has a warmup: a string operation on a present string produces a
 value on bar 0.
@@ -3247,11 +3284,21 @@ value, where `floor` has already produced the downward answer.
 scale, round and scale back, with one rounding in the middle:
 
 ```text
-scale              = pow(10, decimals)
+scale              = the binary64 nearest to 10 ^ decimals
 round(x, decimals) = round(x * scale) / scale
 roundToStep(x, s)  = round(x / s) * s
 roundToTick(p)     = roundToStep(p, the instrument's tick size)
 ```
+
+**The scale is the binary64 nearest to the power of ten**, the value the
+literal `1e23` reads as, and not what a floating point power returns for it.
+The two are not one function: on this engine's host `pow(10, d)` returns a
+value an ulp from it for 1 of the 309 counts from 0 to 308, at 23, and over
+the 5000 bars of a price walk and those counts `round(x, d)` differs on 814 of
+the 1545000 pairs, every one of them at that count. A second engine builds the
+scale from its own decimal reader or from an exact integer power converted
+once, and never from a floating point power; the display conversion
+`text(x, decimals)` of section 10 scales by the same value.
 
 **`math.toDegrees(x)`** is `(x * 180) / pi` and **`math.toRadians(x)`** is
 `(x * pi) / 180`: multiply first, divide second. The other association, folding
@@ -3432,11 +3479,10 @@ reached three of the gaps and the sentence still read as a fact.
    implementation is correct to within about an ulp and differs between
    platforms in the last bit. No such algorithm is written down anywhere in this
    specification, so there is nothing to implement against and the requirement
-   cannot be met today. `sqrt` is exempt, for the reason 20.10 gives. The only
-   use of `pow` in the library's own arithmetic is `pow(10, decimals)` in 20.7,
-   whose true value is exactly representable for every decimal count from 0 to
-   22, so an implementation that returns the representable value agrees; a
-   script's own `pow` call carries the full risk. The hyperbolic functions
+   cannot be met today. `sqrt` is exempt, for the reason 20.10 gives. The
+   library's own arithmetic uses no `pow` at all: the scale of 20.7 is the
+   binary64 nearest to a power of ten, built without one; a script's own `pow`
+   call carries the full risk. The hyperbolic functions
    section 8.2 lists as planned join the row above on the day they arrive.
 
    **Decided: scoped out of conformance, not solved.** A reference algorithm for

@@ -37,6 +37,12 @@ import { TREND_ENTRIES } from './trend.js';
 import { VOLUME_ENTRIES } from './volume.js';
 import type { ManifestEntry } from './binding.js';
 
+/**
+ * The two string rules, for the operators outside this module and the tests:
+ * `code-points.ts` says why neither is the host's own.
+ */
+export { compareStrings, isWhitespace, trimmed } from './code-points.js';
+
 const ENTRIES: readonly ManifestEntry[] = [
   ...COLOUR_ENTRIES,
   ...MATHS_ENTRIES,

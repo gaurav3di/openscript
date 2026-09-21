@@ -4190,3 +4190,121 @@ harvest refuses by.
 `docs/integrating/library-vectors.md`, and the link from
 `docs/integrating/README.md`. `conformance.md` section 8 stands as written: it
 is about cases, and a vector is not one.
+
+---
+
+## 59. How a number becomes text, and the two string rules
+
+**Question.** Two engines compare numbers as bits (`conformance.md` section 6)
+and compare text in `expected.csv`, in a case file and in a table cell, so how
+a number becomes text has to be one rule both implement. Three pages each said
+part of one: `compiled-program.md` 2.14 that a number in the canonical form is
+the shortest decimal that reads back, with an exponent written as `e` and an
+optional `-`; `conformance.md` section 4 the same shortest form for an expected
+column; `stdlib.md` section 10 that `text(x)` turns any value into a string.
+None said when an exponent is used instead of positional notation or how zero
+is written, and the implementation was the host's own conversion in four
+places, one of them removing the `+` the host writes on a positive exponent and
+three not. Beside it, three smaller questions the same survey turned up:
+`str.trim` was documented as removing spaces and implemented as the host's
+trim; strings were documented as ordered by code point (`language.md` 9.3,
+`compiled-program.md` 3.1 and 4.6) and ordered by the host's sixteen bit unit;
+and 20.7 fixed the scale of `round(x, decimals)` as `pow(10, decimals)`, which
+on this engine's host is an ulp from the nearest binary64 at one count.
+
+**Decision, part one: the layout is written down, and it is the first host's
+layout minus the plus.** `language.md` 5.5 now states the whole rule: the
+shortest round trip digits, positional from ten to the minus seventh exclusive
+up to ten to the twenty first exclusive, an exponent outside that range spelled
+`d.ddde-N` with never a `+`, `0` for both zeros, and no spelling for a value
+that is not finite. Chosen over the second engine's host's thresholds (sixteen
+digits, four places) because neither pair is better than the other and one of
+the two engines gets this pair natively, so a defect in the first engine's
+writer shows on the first run rather than hiding behind a host that agrees by
+accident. `spec/vectors/number-text.json` holds fifty one boundary cases as bit
+patterns, decimals and text, in both directions, so a second engine checks its
+writer against the file rather than against this source.
+
+**Part two: one writer, and a check that it is the only one.**
+`canonicalNumber` in `src/core/emit/canonical.ts` writes every number:
+`text(x)`, `text(x, d)` and the canonical encoding go through it, and it takes
+only the digits from the host, laying them out itself from the page.
+`scripts/check-number-writer.mjs` reads every file under `src` through the
+type checker and refuses `String(n)`, `n.toString()`, the three digit count
+methods, `${n}`, `s + n`, and `JSON.stringify` or `join` over anything holding
+a number, outside that module. It asks the compiler for types because a text
+scan cannot tell `${count}` from `${name}`, and it says what that leaves: an
+operand typed `unknown` is counted and printed, not refused.
+`spec/number-text-exceptions.json` records the forty four files that still
+convert outside the writer, each with the exact count found and the reason: a
+diagnostic printing a value for a human, a colour byte in hex, an internal key,
+the chart's own CSS, and the files the wire stage switches. The count is
+exact, not a ceiling, and the list only shrinks.
+
+**Part three: `text(x, decimals)` writes the shortest digits at every
+magnitude.** It wrote the exact binary expansion of the rounded whole inside
+the scaling range and the shortest form past it, so `text(1152921504606846976,
+0)` gave `1152921504606846976` while `text(1e21, 0)` gave a one and twenty one
+zeros: two rules for which digits a value has, with a threshold between them.
+There is one now, the writer's, zero filled. Observable only for a scaled whole
+at or above 2 ** 53, so no price shaped value moves by a digit. `stdlib.md`
+section 10's paragraph on `text(x, decimals)` was outside this stage's remit
+and still does not say which digits; `language.md` 5.5 does, and the wire stage
+adds one sentence to section 10 pointing at it.
+
+**Part four: the trimmed set is written down.** The twenty five code points
+with the Unicode White_Space property, listed in `stdlib.md` section 10 and
+implemented from the list in `src/core/engine/library/code-points.ts`, with
+`toNumber` ignoring the same set at either end. Neither host's trim is that
+set: this engine's host also removes the byte order mark, and the second
+engine's host also removes the four information separators and keeps the next
+line character. `tests/engine/strings.test.ts` reads the list out of the page
+and walks every code point of the basic plane against the engine.
+
+**Part five: strings order by code point, and `<` does not yet.**
+`compareStrings` in the same file orders by code point, `sort` uses it, and a
+symbol above the basic plane is proved to sort after U+FFFF through the whole
+pipeline. `compare` in `src/core/engine/arithmetic.ts`, which implements `<`
+and its companions on two strings, still uses the host's `<` and was outside
+this stage's ownership. **The wire stage** imports `compareStrings` from
+`./library/index.js` there and, for two strings, returns the sign of
+`compareStrings(a, b)` tested against zero in place of the four host
+operators, with a pipeline test that `"！" < "\u{1F600}"` is `true` in a
+script. Until then `<` and `sort` disagree on a pair of strings holding a
+symbol above the plane and a code point from U+E000 upward, which is the
+disagreement that existed before between both of them and the page.
+
+**Part six: the scale of 20.7 is the nearest binary64 to the power of ten.**
+Measured on this engine's host: `pow(10, d)` misses it for 1 of the 309 counts
+from 0 to 308, at 23, and over the 5000 bars of section 20's price walk and
+those counts `round(x, d)` differs on 814 of the 1545000 pairs. 20.7 prints
+both figures and `tests/engine/rounding-scale.test.ts` reads them back.
+`text(x, d)` now scales by a table of the 309 powers built from exact integer
+arithmetic. `roundTo` in `src/core/stdlib/maths/rounding.ts` still multiplies
+by `Math.pow(10, decimals)` and was outside this stage's ownership: **the wire
+stage** moves `POWERS_OF_TEN` and `scaleOf` from `text.ts` into
+`src/core/stdlib/maths/rounding.ts`, exports `scaleOf` through the stdlib
+index, uses it in `roundTo`, and has `text.ts` import it rather than hold a
+copy; a test then asserts that `round(3.0627e-8, 23)` is the value the nearest
+binary64 scale gives and not the one the host power gives, which is one unit
+in the last place away.
+
+**Changes required.**
+
+- `spec/language.md`: 5.5, new.
+- `spec/stdlib.md`: section 10's `str.trim` row, the whitespace table and the
+  ordering paragraph; 20.7's scale and its two figures; 20.11's sentence about
+  `pow`.
+- `spec/vectors/number-text.json` and `spec/number-text-exceptions.json`: new.
+- `src/core/emit/canonical.ts`: the writer lays the digits out itself.
+- `src/core/engine/library/code-points.ts`: new; `text.ts`, `arrays.ts` and
+  the library index use it.
+- `scripts/check-number-writer.mjs`: new, to be wired into `npm test`.
+- `tests/emit/number-text.test.ts`, `tests/engine/strings.test.ts` and
+  `tests/engine/rounding-scale.test.ts`: new; `tests/emit/canonical.test.ts`
+  no longer states the number facts a second time.
+- Left to the wire stage, as above: `src/core/backtest/case.ts` (`shortest`
+  and the three frame cells become `canonicalNumber`, and the file's row in
+  the exceptions file goes with them), `src/core/engine/arithmetic.ts`,
+  `src/core/stdlib/maths/rounding.ts`, and one sentence in `stdlib.md`
+  section 10.

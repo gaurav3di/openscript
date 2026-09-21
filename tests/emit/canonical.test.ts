@@ -15,7 +15,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  canonicalNumber,
   canonicalString,
   canonicalise,
   programHash,
@@ -67,24 +66,10 @@ test('the hash is taken over UTF-8 bytes, including outside the basic plane', ()
   );
 });
 
-/**
- * Catches the one spelling a host's own shortest form gets wrong.
- *
- * 2.14 allows `e` and an optional `-`, and nothing else; a leading `+` on the
- * exponent is two encoders disagreeing about the same number.
- */
-test('a number is the shortest decimal that reads back the same, with no leading plus', () => {
-  assert.equal(canonicalNumber(0), '0');
-  assert.equal(canonicalNumber(-0), '0');
-  assert.equal(canonicalNumber(1), '1');
-  assert.equal(canonicalNumber(-1), '-1');
-  assert.equal(canonicalNumber(1.5), '1.5');
-  assert.equal(canonicalNumber(0.1 + 0.2), '0.30000000000000004');
-  assert.equal(canonicalNumber(1e21), '1e21');
-  assert.equal(canonicalNumber(1e-7), '1e-7');
-  assert.equal(canonicalNumber(128 / 255), '0.5019607843137255');
-  assert.ok(!canonicalNumber(1e21).includes('+'));
-});
+// How a number is written is `language.md` 5.5, and `number-text.test.ts`
+// holds the writer to `spec/vectors/number-text.json` in both directions. It
+// is not asserted a second time here, because two lists of the same facts
+// drift.
 
 test('a string escapes what it must and nothing else', () => {
   assert.equal(canonicalString('plain'), '"plain"');

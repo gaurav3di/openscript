@@ -8,32 +8,65 @@
  * one element, or two engines will disagree about the length of a string
  * holding a symbol outside the basic plane and about every substring taken
  * after one. That is what the spread into an array is doing everywhere below:
- * it costs a pass over the string and buys agreement.
+ * it costs a pass over the string and buys agreement. The trimmed set and the
+ * order of two strings are in `code-points.ts`, written from the page.
  *
  * **Number to string is specified, not the host's default.** `text(x)` is the
- * shortest decimal string that reads back as the same binary64 value, which is
- * what this language's own conversion already produces. `text(x, d)` rounds to
- * `d` decimals with halves away from zero and always emits exactly `d` digits
- * after the point, because this is a display conversion and half up is what a
- * reader of a price expects.
+ * rule of `language.md` 5.5 and goes through the one writer that implements
+ * it, `canonicalNumber`, as does every digit this file writes: a host's own
+ * conversion is never asked. `text(x, d)` rounds to `d` decimals with halves
+ * away from zero and always emits exactly `d` digits after the point, because
+ * this is a display conversion and half up is what a reader of a price expects.
  */
+import { canonicalNumber } from '../../emit/index.js';
 import { roundHalfAway } from '../../stdlib/index.js';
 import type { Value } from '../values/index.js';
 import { isColour, reference } from '../values/index.js';
 import { entry, numberAt, refAt, stringAt, valueAt, wholeAt } from './binding.js';
 import type { CallContext, ManifestEntry } from './binding.js';
+import { points, trimmed } from './code-points.js';
 
 /** A value as `text(x)` spells it. */
 export function spell(ctx: CallContext, value: Value): string {
   if (value === null) return 'none';
-  if (typeof value === 'number') return String(value);
-  if (typeof value === 'boolean') return String(value);
+  if (typeof value === 'number') return canonicalNumber(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
   if (typeof value === 'string') return value;
   if (isColour(value)) {
-    const byte = (x: number): string => x.toString(16).padStart(2, '0');
-    return `#${byte(value.r)}${byte(value.g)}${byte(value.b)}${byte(roundHalfAway(value.a * 255))}`;
+    const alpha = roundHalfAway(value.a * 255);
+    return `#${hexByte(value.r)}${hexByte(value.g)}${hexByte(value.b)}${hexByte(alpha)}`;
   }
   return ctx.heap.get(value.id)?.kind ?? 'none';
+}
+
+/**
+ * A whole number from 0 to 255 as two hex digits, from a table.
+ *
+ * A colour's channels are whole numbers (`compiled-program.md` 3.1), so this
+ * is not the decimal rendering rule and asks no host conversion: each nibble
+ * indexes a string of sixteen characters.
+ */
+const HEX_DIGITS = '0123456789abcdef';
+
+function hexByte(channel: number): string {
+  return `${HEX_DIGITS[channel >> 4] ?? '0'}${HEX_DIGITS[channel & 15] ?? '0'}`;
+}
+
+/**
+ * Ten to a whole power, as the binary64 nearest to it.
+ *
+ * `stdlib.md` 20.7: the scale a fixed decimal conversion multiplies by is the
+ * nearest binary64 to the power of ten and not what a floating point power
+ * returns, which is an ulp away from it for one count on this engine's host.
+ * Built once from exact integer arithmetic, and past the last finite power the
+ * scale is infinite, which is what the power would have been.
+ */
+const POWERS_OF_TEN: readonly number[] = Array.from({ length: 309 }, (_, count) =>
+  Number(10n ** BigInt(count)),
+);
+
+function scaleOf(decimals: number): number {
+  return POWERS_OF_TEN[decimals] ?? Infinity;
 }
 
 /** A magnitude as decimal digits, and how many of them fall before the point. */
@@ -108,24 +141,26 @@ function written(of: Spread): string {
  * least one digit, and exactly `d` digits after the point. `spread` is what
  * makes that true of every magnitude rather than of the ones below a threshold.
  *
- * **Past the scaling range the digits are the shortest form's, zero filled.**
- * Scaling by `10 ** d` leaves binary64 altogether for a large enough magnitude
- * or a large enough `d`, and there is nothing to round out there: a binary64 at
- * or above 2 ** 53 is a whole number already, and a decimal place that far from
- * the leading digit is past every digit the value carries. Two engines write
- * the same digits, because the shortest decimal form is what each one's own
- * conversion produces. Inside the range the scaling is what it was, so no value
- * that had an answer has a different one.
+ * **The digits are the shortest form's, zero filled, at every magnitude.**
+ * Below 2 ** 53 a rounded whole number has no digits but its own, so nothing
+ * ordinary changes; at or above it the shortest form is what both engines
+ * write, and it is what this uses inside the scaling range as well as past it,
+ * where scaling by ten to the `d` leaves binary64 altogether and there is
+ * nothing to round: a binary64 that large is a whole number already, and a
+ * decimal place that far from the leading digit is past every digit the value
+ * carries. One rule for the digits at every magnitude, rather than the exact
+ * binary expansion below a threshold and the shortest form above it.
  */
 function fixed(x: number, decimals: number): string {
-  const scaled = roundHalfAway(x * Math.pow(10, decimals));
+  const scaled = roundHalfAway(x * scaleOf(decimals));
   const usable = Number.isFinite(scaled);
   const sign = (usable ? scaled < 0 : x < 0) ? '-' : '';
-  // Within the scaling range the whole number's own digits are asked for and
-  // not its shortest form, which drops the low digits of a large one.
+  // The digits are the shortest form's at every magnitude, through the one
+  // writer: a rounded whole below 2 ** 53 has no other digits, and above it
+  // the shortest form is the one rule both engines write (language.md 5.5).
   const magnitude = usable
-    ? spread(Math.abs(scaled).toFixed(0), 0)
-    : spread(Math.abs(x).toString(), decimals);
+    ? spread(canonicalNumber(Math.abs(scaled)), 0)
+    : spread(canonicalNumber(Math.abs(x)), decimals);
   const digits = written(magnitude).padStart(decimals + 1, '0');
   if (decimals === 0) return sign + digits;
   const whole = digits.slice(0, digits.length - decimals);
@@ -143,7 +178,7 @@ function fixed(x: number, decimals: number): string {
  * have. `str.repeat` measures first for the same reason.
  */
 function lengthOf(x: number, decimals: number): number {
-  const before = Math.max(1, spread(Math.abs(x).toString(), 0).point);
+  const before = Math.max(1, spread(canonicalNumber(Math.abs(x)), 0).point);
   return before + decimals + (decimals > 0 ? 1 : 0);
 }
 
@@ -154,20 +189,15 @@ function lengthOf(x: number, decimals: number): number {
  * which accepts hexadecimal, infinities and a bare leading point in some
  * languages and not others. Absence rather than zero for text that is not a
  * number, so a script can tell text that is not a number apart from the number
- * zero.
+ * zero. The whitespace ignored at either end is `str.trim`'s set and no other.
  */
 const NUMERIC = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
 
 function parseNumber(text: string): Value {
-  const trimmed = text.trim();
-  if (!NUMERIC.test(trimmed)) return null;
-  const parsed = Number(trimmed);
+  const bare = trimmed(text);
+  if (!NUMERIC.test(bare)) return null;
+  const parsed = Number(bare);
   return Number.isFinite(parsed) ? (parsed === 0 ? 0 : parsed) : null;
-}
-
-/** Code points, which is what every index in this file counts. */
-function points(text: string): string[] {
-  return [...text];
 }
 
 function makeArray(ctx: CallContext, items: Value[]): Value {
@@ -198,7 +228,7 @@ export const TEXT_ENTRIES: readonly ManifestEntry[] = [
 
   entry('str.upper', 's', (ctx, args) => map(ctx, args, (s) => s.toUpperCase())),
   entry('str.lower', 's', (ctx, args) => map(ctx, args, (s) => s.toLowerCase())),
-  entry('str.trim', 's', (ctx, args) => map(ctx, args, (s) => s.trim())),
+  entry('str.trim', 's', (ctx, args) => map(ctx, args, trimmed)),
 
   entry('str.contains', 's part', (_ctx, args) => pair(args, (s, part) => s.includes(part))),
   entry('str.startsWith', 's part', (_ctx, args) => pair(args, (s, part) => s.startsWith(part))),

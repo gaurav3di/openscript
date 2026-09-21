@@ -1,5 +1,5 @@
 /**
- * The canonical encoding, `compiled-program.md` 2.14.
+ * The canonical encoding, `compiled-program.md` 2.14, and the one number writer.
  *
  * It exists so that a hash of a program means something: two compilers, in two
  * languages, handed the same source, produce the same bytes. So none of the
@@ -9,8 +9,8 @@
  * - Object keys sorted ascending by Unicode code point. Sorted rather than in
  *   the specification's listed order, because a sort is a rule an emitter in any
  *   language can follow without a table.
- * - A number is the shortest decimal string that reads back as the same
- *   binary64 value, with an exponent written as `e` and an optional `-`.
+ * - A number is written by the rule of `language.md` 5.5, which is the same
+ *   rule for every number that becomes text anywhere in the language.
  * - A string escapes only the quote, the backslash and the code points below
  *   0x20, the last as `\u00XX` except for `\n`, `\r` and `\t`.
  */
@@ -18,16 +18,74 @@ import type { CompiledProgram } from './program.js';
 import { sha256 } from './sha256.js';
 
 /**
- * A number, shortest round trip.
+ * A number as text: the one writer.
  *
- * The host's own shortest form is already the shortest that reads back
- * identically. What it is not is the spelling the specification asks for: a
- * positive exponent is written with a `+` that the format does not allow, so
- * that one sign is removed and nothing else is touched.
+ * Two engines compare numbers as bits, but they compare text in a case file, an
+ * expected column, a table cell and `text(x)`, so how a number becomes text has
+ * to be one rule that both implement, and in this repository it has to be one
+ * function. This is that function. `scripts/check-number-writer.mjs` reads
+ * every file under `src` and refuses a conversion outside this module, so a
+ * number cannot reach text by a host's default somewhere else and disagree with
+ * this one by a plus sign.
+ *
+ * **The digits are the host's and the layout is not.** The shortest decimal
+ * digit string that reads back as the same binary64 is what every host this
+ * engine runs on produces, and what a second engine's host produces too; that
+ * part is taken from the host's own shortest form. Where the two hosts part
+ * company is the layout, when a value is written positionally and when with an
+ * exponent, and how the exponent is spelled, so that half is written here from
+ * the rule in `language.md` 5.5 and not left to the host. The rule is the one
+ * the first host follows natively, minus the `+` it writes on a positive
+ * exponent, and `spec/vectors/number-text.json` holds the boundary cases a
+ * second engine checks itself against.
  */
 export function canonicalNumber(value: number): string {
   if (!Number.isFinite(value)) throw new Error('a compiled program holds finite numbers only');
-  return String(value === 0 ? 0 : value).replace('e+', 'e');
+  // Zero and negative zero are one value to the language (compiled-program.md
+  // 3.1) and one spelling here.
+  if (value === 0) return '0';
+  const { digits, point } = shortestDigits(Math.abs(value));
+  return (value < 0 ? '-' : '') + layout(digits, point);
+}
+
+/**
+ * The shortest round trip digits of a positive finite magnitude, and where the
+ * decimal point falls: the value is `0.d1d2...dk` times ten to the `point`.
+ *
+ * Read out of the host's own shortest form rather than computed here, because
+ * the search for the shortest digit string is the one part of the conversion
+ * every host already agrees on. Whatever layout the host chose is undone: the
+ * digits and the point are all that is kept.
+ */
+function shortestDigits(magnitude: number): { readonly digits: string; readonly point: number } {
+  const shown = String(magnitude);
+  const e = shown.indexOf('e');
+  const mantissa = e < 0 ? shown : shown.slice(0, e);
+  const exponent = e < 0 ? 0 : Number(shown.slice(e + 1));
+  const dot = mantissa.indexOf('.');
+  const whole = dot < 0 ? mantissa : mantissa.slice(0, dot);
+  const fraction = dot < 0 ? '' : mantissa.slice(dot + 1);
+  let digits = whole + fraction;
+  let point = whole.length + exponent;
+  // A positional form below one carries leading zeros that are not digits of
+  // the value, and a whole number carries trailing zeros that are its layout.
+  while (digits.startsWith('0')) {
+    digits = digits.slice(1);
+    point -= 1;
+  }
+  while (digits.endsWith('0')) digits = digits.slice(0, -1);
+  return { digits, point };
+}
+
+/** `language.md` 5.5: positional between the two thresholds, an exponent outside them. */
+function layout(digits: string, point: number): string {
+  const count = digits.length;
+  if (count <= point && point <= 21) return digits + '0'.repeat(point - count);
+  if (0 < point && point <= 21) return `${digits.slice(0, point)}.${digits.slice(point)}`;
+  if (-6 < point && point <= 0) return `0.${'0'.repeat(-point)}${digits}`;
+  const exponent = point - 1;
+  const lead = count === 1 ? digits : `${digits[0]}.${digits.slice(1)}`;
+  return `${lead}e${exponent < 0 ? '-' : ''}${String(Math.abs(exponent))}`;
 }
 
 export function canonicalString(value: string): string {

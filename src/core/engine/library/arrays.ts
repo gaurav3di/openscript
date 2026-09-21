@@ -22,6 +22,7 @@ import type { Value } from '../values/index.js';
 import { isNumber, reference, valuesEqual } from '../values/index.js';
 import { entry, refAt, stringAt, valueAt, wholeAt } from './binding.js';
 import type { CallContext, ManifestEntry } from './binding.js';
+import { compareStrings } from './code-points.js';
 import { result } from '../../stdlib/index.js';
 
 /** The array a handle names, or nothing when the handle is absent or stale. */
@@ -68,12 +69,17 @@ function within(
   return index;
 }
 
-/** The order `sort` uses, written down so two engines cannot differ. */
+/**
+ * The order `sort` uses, written down so two engines cannot differ.
+ *
+ * Two strings order by code point (`language.md` 9.3), which is not the order
+ * the host's `<` gives once a string holds a symbol outside the basic plane.
+ */
 function rank(a: Value, b: Value): number {
   if (a === null) return b === null ? 0 : 1;
   if (b === null) return -1;
   if (typeof a === 'number' && typeof b === 'number') return a < b ? -1 : a > b ? 1 : 0;
-  if (typeof a === 'string' && typeof b === 'string') return a < b ? -1 : a > b ? 1 : 0;
+  if (typeof a === 'string' && typeof b === 'string') return compareStrings(a, b);
   if (typeof a === 'boolean' && typeof b === 'boolean') return a === b ? 0 : a ? 1 : -1;
   return 0;
 }
