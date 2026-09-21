@@ -130,6 +130,10 @@ class Library:
             return f"no function called {name}"
         return f"{name} with {held.arity} arguments"
 
+    def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
+        """Nothing is measured in advance here: a test's body builds what it builds."""
+        return None
+
     def call(self, name: str, arguments: Sequence[Any], state: Any, context: Any) -> Any:
         self.calls.append((name, list(arguments)))
         body = self.bodies.get(name)

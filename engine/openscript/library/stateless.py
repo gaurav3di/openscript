@@ -24,11 +24,11 @@ from an interpreter, and it is written as six members rather than as an engine
 object so that the interpreter stage can satisfy it with whatever it already has.
 """
 
-from typing import Callable, NamedTuple, Protocol, Sequence
+from typing import Callable, Dict, NamedTuple, Optional, Protocol, Sequence, Tuple
 
 from . import arithmetic, colour, elementary, rounding, strings
 from .bars import true_range
-from .number_text import spell, text_of, to_number
+from .number_text import spell, text_length, text_of, to_number
 from .values import Value
 
 
@@ -194,6 +194,22 @@ _TEXT: tuple[Entry, ...] = (
     _three("str.padRight", strings.pad_right),
     _two("str.repeat", strings.repeat),
 )
+
+#: The two calls whose string can be measured before it is built, and the
+#: function that measures each.
+#:
+#: The string ceiling is the interpreter's to spend and nothing in this package
+#: raises, so this is how the two meet: the interpreter asks how long the string
+#: will be and refuses the call rather than the result. Every other call that
+#: builds a string is measured after it is built, because its length is not known
+#: until the work is done, and that costs nothing: the length of a replaced or a
+#: padded string is within a constant factor of what it was handed. These two are
+#: not, and a count a script computed can ask either of them for a string no
+#: engine could hold.
+MEASURED: Dict[Tuple[str, int], Callable[..., Optional[int]]] = {
+    ("text", 2): text_length,
+    ("str.repeat", 2): strings.repeat_length,
+}
 
 # `stdlib.md` section 11, the nineteen names and the calls that compute a colour.
 _COLOUR: tuple[Entry, ...] = tuple(_named_colour(name) for name in colour.NAMES) + (

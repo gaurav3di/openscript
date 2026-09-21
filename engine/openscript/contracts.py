@@ -95,12 +95,22 @@ class Library(Protocol):
     it belongs to. It is ``None`` for a pure function, which is what the ``-1``
     on a ``CALL_LIB`` means, and a function whose manifest entry says it holds no
     state is never handed one to write into by accident.
+
+    ``length_of`` is the string ceiling asked before the string exists. The
+    ceiling is the engine's to spend and the library raises nothing, so the two
+    meet here: the machine asks how long the string a call is about to build will
+    be, and refuses the call rather than the result where the answer is past the
+    ceiling. ``None`` is the honest answer for every call whose length is not
+    known until the work is done, which is all but two of them.
     """
 
     def entry(self, name: str, arity: int) -> Optional[LibraryEntry]:
         ...
 
     def describe(self, name: str) -> str:
+        ...
+
+    def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
         ...
 
     def call(
@@ -128,6 +138,9 @@ class NoLibrary:
 
     def describe(self, name: str) -> str:
         return f"no function called {name}"
+
+    def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
+        return None
 
     def call(
         self,

@@ -27,8 +27,12 @@ fails here on the first value that lands between the two.
 
 import struct
 import unittest
+from pathlib import Path
 
-from openscript.library.number_text import canonical, fixed, fixed_length, to_number
+import openscript
+from openscript.canonical import canonical_number
+from openscript.library import number_text
+from openscript.library.number_text import fixed, fixed_length, to_number
 from openscript.library.rounding import round_half_away, scale_of
 from tests import vectors
 
@@ -74,7 +78,7 @@ class NumberText(unittest.TestCase):
         wrong = []
         for row in self.rows:
             value = vectors.number_of(row["bits"])
-            got = canonical(value)
+            got = canonical_number(value)
             if got != row["text"]:
                 wrong.append(f"{row['bits']}: this engine {got!r}, the file {row['text']!r}")
         self.assertEqual(wrong, [])
@@ -127,7 +131,7 @@ class NumberText(unittest.TestCase):
     def test_the_writer_round_trips_over_the_whole_range(self):
         wrong = []
         for value in sweep():
-            written = canonical(value)
+            written = canonical_number(value)
             if bits_of(float(written)) != bits_of(value if value != 0 else 0.0):
                 wrong.append(f"{bits_of(value)} was written {written!r}")
                 break
@@ -138,7 +142,7 @@ class NumberText(unittest.TestCase):
         wrong = []
         for value in sweep():
             magnitude = abs(value)
-            written = canonical(value)
+            written = canonical_number(value)
             positional = LOWEST_POSITIONAL <= magnitude < FIRST_EXPONENT
             if ("e" in written) == positional:
                 wrong.append(f"{bits_of(value)} was written {written!r}")
@@ -147,11 +151,47 @@ class NumberText(unittest.TestCase):
 
     def test_nothing_written_carries_a_sign_or_a_point_it_should_not(self):
         for value in sweep():
-            written = canonical(value)
+            written = canonical_number(value)
             self.assertNotIn("+", written)
             self.assertNotIn("E", written)
             self.assertFalse(written.endswith(".0"), written)
             self.assertFalse(written.startswith("."), written)
+
+
+class OneWriter(unittest.TestCase):
+    """5.5 is one rule, and in this engine it is one function rather than two.
+
+    It was two for a stage: the layout was written out in ``canonical.py`` and
+    again in the library, with the two thresholds typed into each. Both passed
+    the vectors, so the copy cost nothing on the day it was made. What it cost
+    was the day one of the two moved, when a label a script writes and the text
+    a recorded hash is taken over would have parted with nothing failing
+    anywhere.
+
+    Two checks, because one of them is narrow. The first holds both roads to the
+    same rows and catches a second implementation the row after it drifts; it
+    does not catch one that still agrees. The second catches the copy itself and
+    is narrower still: it reads the package for the two threshold names, so a
+    copy spelling them something else is caught by the first check and not by
+    this one.
+    """
+
+    #: The package this engine is, read as text for the check below.
+    PACKAGE = Path(openscript.__file__).parent
+
+    def test_the_text_a_script_asks_for_is_the_encoder_own_writing(self):
+        for row in vectors.read(vectors.NUMBER_TEXT)["vectors"]:
+            value = vectors.number_of(row["bits"])
+            self.assertEqual(number_text.spell(value), canonical_number(value), row["note"])
+
+    def test_the_layout_thresholds_are_stated_in_one_file(self):
+        for name in ("_HIGHEST_POSITIONAL", "_LOWEST_POSITIONAL"):
+            stating = sorted(
+                str(path.relative_to(self.PACKAGE)).replace("\\", "/")
+                for path in self.PACKAGE.rglob("*.py")
+                if f"{name} = " in path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(stating, ["canonical.py"], name)
 
 
 class FixedDecimals(unittest.TestCase):

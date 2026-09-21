@@ -28,8 +28,9 @@ digit string that reads back as the same binary64 is what every host worth
 shipping on produces, so that half is taken from this one. Where two hosts part
 company is the layout: when a value is written positionally and when with an
 exponent, and how the exponent is spelled. That half is written out here from
-the rule, and ``spec/vectors/number-text.json`` holds the boundary cases every
-engine checks itself against.
+the rule, once: the library's ``number_text`` calls this writer rather than
+restating it, and ``spec/vectors/number-text.json`` holds the boundary cases
+every engine checks itself against.
 """
 
 import json
@@ -43,15 +44,20 @@ _HIGHEST_POSITIONAL = 21
 _LOWEST_POSITIONAL = -6
 
 
-def _shortest_digits(magnitude: float) -> Tuple[str, int]:
-    """The digits of a positive finite magnitude, and where the point falls.
+def spread(shown: str, places: int = 0) -> Tuple[str, int]:
+    """A written magnitude as digits, and where the point falls.
 
-    The value is ``0.d1d2...dk`` times ten to the returned power. Whatever layout
-    the interpreter chose is undone here: the digits and the point are all that
-    is kept, so the layout below is free to be the language's rather than the
-    host's.
+    The value is ``0.d1d2...dk`` times ten to the returned power, which is the
+    shape 5.5 states the rule in. Whatever layout the writing arrived in is
+    undone here: the digits and the point are all that is kept, so the layout
+    below is free to be the language's rather than the host's. ``places`` moves
+    the point right, which is how the fixed decimal conversion scales without
+    multiplying a second time.
+
+    It takes the writing rather than the number because the two callers need two
+    different ones: which digits a magnitude has is the host's question, and
+    where they sit is this one's.
     """
-    shown = repr(magnitude)
     marker = shown.find("e")
     mantissa = shown if marker < 0 else shown[:marker]
     exponent = 0 if marker < 0 else int(shown[marker + 1 :])
@@ -59,7 +65,7 @@ def _shortest_digits(magnitude: float) -> Tuple[str, int]:
     whole = mantissa if dot < 0 else mantissa[:dot]
     fraction = "" if dot < 0 else mantissa[dot + 1 :]
     digits = whole + fraction
-    point = len(whole) + exponent
+    point = len(whole) + exponent + places
     # A positional form below one carries leading zeros that are not digits of
     # the value, and a whole number carries trailing zeros that are its layout.
     while digits.startswith("0"):
@@ -90,6 +96,14 @@ def canonical_number(value: float) -> str:
     Two engines compare numbers as bits, and they compare text in a case file,
     an expected column, a table cell and ``text(x)``, so how a number becomes
     text has to be one rule both implement and, here, one function both call.
+
+    The two callers are ``canonicalise`` below, which writes a constant into the
+    text a recorded hash is taken over, and ``library/number_text.py``, which is
+    ``text(x)`` and the digits of ``text(x, decimals)``. The sentence above was
+    a claim rather than a fact for one stage: the rule was implemented twice,
+    with the two layout thresholds typed out in each, and the vectors held both
+    to the same answers, so nothing failed. What would have failed is the day
+    one of the two moved and a label stopped agreeing with a recorded hash.
     """
     number = float(value)
     if not math.isfinite(number):
@@ -97,7 +111,7 @@ def canonical_number(value: float) -> str:
     # Zero and negative zero are one value to the language and one spelling here.
     if number == 0:
         return "0"
-    digits, point = _shortest_digits(abs(number))
+    digits, point = spread(repr(abs(number)))
     return ("-" if number < 0 else "") + _layout(digits, point)
 
 

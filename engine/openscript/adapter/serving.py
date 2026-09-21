@@ -46,7 +46,7 @@ seam that converted quietly would hide the one place a test can see it.
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..contracts import CallContext, LibraryEntry
-from ..library import stateful_table, table
+from ..library import MEASURED, stateful_table, table
 from ..library.stateless import Entry
 from ..values import ABSENT, ArrayValue, Reference, tag
 from .facts import FACT_NAMES, POSITION_FACTS, Book, fact_value
@@ -120,6 +120,22 @@ class Serving:
         if name in self._facts():
             found.add(0)
         return sorted(found)
+
+    def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
+        """How long the string this call will build is, before it is built.
+
+        The library says which of its calls can answer that and how, and the
+        machine spends the ceiling: a string no engine could hold is reported
+        rather than allocated. Absence for every other name, which is the honest
+        answer and not a refusal to look: a padded or a replaced string's length
+        is not known until it is built, and building it costs what it costs.
+
+        Neither namespace is here. A ``chart`` fact is the instrument record the
+        host stated and a ``pos`` fact is a number, so neither is a string this
+        bar grew.
+        """
+        measure = MEASURED.get((name, len(arguments)))
+        return None if measure is None else measure(*arguments)
 
     def describe(self, name: str) -> str:
         """What this engine's manifest holds for a name, in OS6004's own words."""

@@ -17,12 +17,24 @@ that the fold reads it rather than recomputing it.
 
 from typing import Any, Dict, Optional, Sequence
 
-from ..accounting import BarMark, ChargeLine, ChargeSchedule, Contract, schedule_from_declaration
+from ..accounting import (
+    BarMark,
+    ChargeLine,
+    ChargeSchedule,
+    Contract,
+    schedule_from_declaration,
+    schedule_problem,
+)
+from ..diagnostics import Diagnostic, failure
 from .reading import Bar, Case
 from .spellings import Malformed
 
 #: Section 3: the file a strategy case is required to carry, and what it holds.
 BACKTEST = "backtest.json"
+
+#: What a schedule the host stated is marked with, which is the one of the two
+#: sources that cannot stand beside a commission the declaration states.
+SUPPLIED = "supplied"
 
 
 def backtest_of(case: Case) -> Dict[str, Any]:
@@ -111,7 +123,7 @@ def schedule_for(case: Case, declared: Dict[str, Any]) -> Optional[ChargeSchedul
             digits=supplied["digits"],
             slippage_ticks=supplied.get("slippageTicks", 0.0),
             lines=schedule_lines(supplied),
-            source="supplied",
+            source=SUPPLIED,
         )
     return schedule_from_declaration(
         declared["commission"],
@@ -120,6 +132,49 @@ def schedule_for(case: Case, declared: Dict[str, Any]) -> Optional[ChargeSchedul
         contract.currency,
         contract.digits,
     )
+
+
+def settings_problem(
+    schedule: Optional[ChargeSchedule], declared: Dict[str, Any], contract: Contract
+) -> Optional[Diagnostic]:
+    """What this run cannot be carried out under, asked before its first bar.
+
+    Two questions, in this order, and each of them is a figure nobody could
+    explain afterwards rather than a tidiness rule.
+
+    **Two cost models at once, OS6023.** The declaration's commission is the
+    script's own statement of what trading costs and a supplied schedule is the
+    platform's, and the two describe the same money. Applied together they charge
+    it twice; applied one at a time they charge whichever an engine happened to
+    prefer, which is a rule nobody wrote down and a figure nobody can explain
+    afterwards. So exactly one of the two is stated for a run, and stating both
+    is refused here rather than reconciled behind the reader. Asked first,
+    because a schedule that is also unusable in some second way would otherwise
+    be reported as that, and the reader would correct the wrong half.
+
+    **A schedule that cannot be evaluated, OS6021**, which ``schedule_problem``
+    decides, because the schedule is the money layer's and the rule for it is
+    written once, there. Whichever schedule the run will be charged under, the
+    declaration's own included: asking only about a supplied one would leave
+    every refusal in the money layer unreachable on the path almost every run
+    takes.
+
+    Nothing has been computed when this is asked, so a refusal costs one run
+    rather than a report a reader has to be told to distrust.
+    """
+    if schedule is None:
+        return None
+    if schedule.source == SUPPLIED and declared["commission"] != 0:
+        return failure(
+            "OS6023",
+            commission=declared["commission"],
+            commissionType=declared["commissionType"],
+        )
+    problem = schedule_problem(schedule, contract)
+    if problem is None:
+        return None
+    setting, reason = problem
+    return failure("OS6021", setting=setting, problem=reason)
 
 
 def marks_for(case: Case, bars: Sequence[Bar]) -> tuple:

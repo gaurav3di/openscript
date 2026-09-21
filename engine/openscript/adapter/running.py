@@ -41,7 +41,7 @@ is here is the order the three are asked in.
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from ..accounting import report_of, schedule_problem
+from ..accounting import report_of
 from ..contracts import Bar as EngineBar, BarState
 from ..inputs import utc_time
 from ..run import load_text
@@ -51,7 +51,7 @@ from ..verify import capabilities
 from .channels import orders_channel, performance_channel, trade_row
 from .ordering import ORDER_ENTRIES, Desk, options_for, unfoldable
 from .reading import Bar, Case
-from .reporting import contract_for, marks_for, schedule_for
+from .reporting import contract_for, marks_for, schedule_for, settings_problem
 from .serving import Serving, is_reference
 from .sessions import (
     READABLE_ZONE,
@@ -121,17 +121,16 @@ def _diagnostic_row(code: str, line: int, column: int, bar: Optional[int]) -> Di
     return {"code": code, "line": line, "column": column, "severity": "error", "barIndex": bar}
 
 
-def _refusal_row() -> Dict[str, Any]:
-    """OS6021, as a run refused before its first bar records it.
+def _refusal_row(refused: Any) -> Dict[str, Any]:
+    """A setting refusal, as a run refused before its first bar records it.
 
     A setting the run cannot be carried out under is refused while nothing has
     been computed, so it carries no position in the source: the defect is in what
-    the host stated rather than in a line of the script. The setting and the
-    problem are the message's own values and are not in the row, because section
-    4 compares a diagnostic on its code, its line, its column and its severity and
-    deliberately not on its wording.
+    the host stated rather than in a line of the script. The message's own values
+    are not in the row, because section 4 compares a diagnostic on its code, its
+    line, its column and its severity and deliberately not on its wording.
     """
-    return _diagnostic_row("OS6021", 0, 0, None)
+    return _diagnostic_row(refused.code, refused.line, refused.column, None)
 
 
 def _unsupported_from(diagnostic: Any) -> Optional[str]:
@@ -320,8 +319,9 @@ def run_case(case: Case, program_text: str) -> Answer:
         desk.begin(options_for(declared, case.instrument))
         contract = contract_for(case)
         schedule = schedule_for(case, declared)
-        if schedule is not None and schedule_problem(schedule, contract) is not None:
-            answer.channels = _with_empty(case, {"diagnostics": [_refusal_row()]})
+        refused = settings_problem(schedule, declared, contract)
+        if refused is not None:
+            answer.channels = _with_empty(case, {"diagnostics": [_refusal_row(refused)]})
             return answer
 
     rows, diagnostics = _every_bar(run, serving, desk, case)

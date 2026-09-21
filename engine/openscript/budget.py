@@ -40,6 +40,17 @@ class EngineLimits:
 
     #: Call frames, OS5005 at load.
     frames: int = 64
+    #: Code points one string may hold, OS5008.
+    #:
+    #: No document fixes this number: ``errors.md`` OS5008 states that there is a
+    #: ceiling and carries it in the message, and a host that sets one accepts
+    #: that a script refused here runs elsewhere. What a number left open does
+    #: not excuse is two engines choosing differently, because a case that
+    #: reaches the ceiling would then be refused by one of them and run by the
+    #: other, and section 10 calls a difference on a channel both answer a
+    #: release blocker. So this is the first engine's number, and the day either
+    #: moves the other moves with it.
+    string_length: int = 100_000
     #: The most a program's own ``limits(loops = ...)`` may ask for, OS5003.
     loops: Optional[int] = None
     #: The most a program's own ``limits(history = ...)`` may ask for, OS5003.
@@ -243,9 +254,10 @@ class Budget:
     itself a reason to fail.
     """
 
-    def __init__(self, step_ceiling: int, loop_ceiling: int) -> None:
+    def __init__(self, step_ceiling: int, loop_ceiling: int, string_ceiling: int) -> None:
         self._step_ceiling = step_ceiling
         self._loop_ceiling = loop_ceiling
+        self._string_ceiling = string_ceiling
         self._loops = 0
         self._steps = 0
 
@@ -271,6 +283,37 @@ class Budget:
         self._loops += 1
         if self._loops > self._loop_ceiling:
             self.spent(position, line)
+
+    def text(self, position: Position, built: str) -> str:
+        """A string the bar built, against the ceiling, counted in code points.
+
+        `stdlib.md` section 10 counts a string in code points and not in the
+        storage unit of the language an engine happens to be written in, which on
+        this host is what a string already is, so the length is the count.
+
+        Answers the string so that a caller applies the ceiling in the expression
+        that produces the value, rather than in a line above it that is easy to
+        move away from the thing it guards.
+        """
+        self.measured(position, len(built))
+        return built
+
+    def measured(self, position: Position, length: Optional[int]) -> None:
+        """The same ceiling against a length nothing has built yet.
+
+        ``None`` is a call the library cannot measure in advance, which is every
+        call but the two that can be asked for a string no engine could hold:
+        a repeat is a length times a count, and a fixed decimal conversion is one
+        character per decimal place asked for. Measuring those first is the
+        difference between reporting that a string is too long and running out of
+        memory finding out (`stdlib.md` section 10, on ``text(x, decimals)``).
+
+        The refusal is the run's and not the library's: nothing in that package
+        raises, because a wrong argument there is absence and a ceiling is the
+        engine's to spend.
+        """
+        if length is not None and length > self._string_ceiling:
+            raise_at("OS5008", position, max=self._string_ceiling, found=length)
 
     def spent(self, position: Position, line: Optional[int]) -> None:
         """The refusal, whichever of the two counters ran out.

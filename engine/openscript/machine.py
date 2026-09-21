@@ -265,7 +265,9 @@ class Machine:
             frame.stack.append(finite(left + right))
             return
         if isinstance(left, str) and isinstance(right, str):
-            frame.stack.append(left + right)
+            # The one operator that grows a string, and so the one that meets
+            # the ceiling: a log appended to on every bar is what OS5008 is for.
+            frame.stack.append(self.budget.text(self.here(), left + right))
             return
         # Any other combination is a program the checker should have rejected,
         # and an engine that invented a conversion here would become the only
@@ -449,9 +451,15 @@ class Machine:
             frame.stack.append(ABSENT)
             return
         region = None if state < 0 else self.states.region(frame.state_base + state)
-        frame.stack.append(
-            stored(self.library.call(entry.name, list(arguments), region, self.context))
-        )
+        # The string ceiling, both halves: the length a call can be asked for
+        # before a character of it exists, and the string it did build. A call of
+        # no arguments answers a fact the host stated rather than a string this
+        # bar grew, and the ceiling is on what a script grows.
+        self.budget.measured(self.here(), self.library.length_of(entry.name, arguments))
+        answer = self.library.call(entry.name, list(arguments), region, self.context)
+        if arguments and isinstance(answer, str):
+            self.budget.text(self.here(), answer)
+        frame.stack.append(stored(answer))
 
     def _call_function(self, frame: Frame, instruction: Sequence[Any]) -> None:
         site = self.program.call_sites[instruction[1]]

@@ -38,7 +38,10 @@ What is here, by the page it is written from:
 **One thing this package will not do.** It raises nothing: a wrong argument is a
 diagnostic with a code and a span, produced by the checker or the interpreter
 before a call arrives, and every backstop here answers with absence instead
-(`stdlib.md` section 2.4).
+(`stdlib.md` section 2.4). The memory ceilings are the interpreter's for the same
+reason, and ``MEASURED`` below is what it asks this package before it spends one:
+the two calls that can be asked for a string no engine could hold, and how long
+each of them will be before a character of it exists.
 
 **What a stateful call is handed that a stateless one is not** is the call site's
 own region, a plain mapping the engine created and owns, because
@@ -58,12 +61,13 @@ guarantee. ``elementary`` says it again where an implementer will be standing.
 from .stateful import ENTRIES as STATEFUL_ENTRIES
 from .stateful import Entry as StatefulEntry
 from .stateful import table as stateful_table
-from .stateless import ENTRIES, Context, Entry, table
+from .stateless import ENTRIES, MEASURED, Context, Entry, table
 
 __all__ = [
     "ENTRIES",
     "Context",
     "Entry",
+    "MEASURED",
     "STATEFUL_ENTRIES",
     "StatefulEntry",
     "stateful_table",

@@ -111,7 +111,7 @@ class Run:
         self.states = States(len(raw["states"]))
         self.registers = [Register() for _ in raw["series"]]
         self.channels = Channels(len(raw["channels"]))
-        self.budget = Budget(step_bound(raw), program.loop_budget)
+        self.budget = Budget(step_bound(raw), program.loop_budget, limits.string_length)
         self.machine = Machine(
             program, self.cells, self.states, self.registers, self.channels, self.budget, library
         )
