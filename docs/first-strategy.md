@@ -233,8 +233,8 @@ than reconciled: any rule for combining them would surprise somebody, and this i
 not a place to be surprised.
 
 A trailing stop is not one of these arguments: it is `leg.trail(name, distance,
-arm)`, the one spelling in the language, and what it follows and when it arms are
-`stdlib.md` section 17.9.
+activateAt)`, the one spelling in the language, and what it follows and when it
+starts following are `stdlib.md` section 17.9.
 
 The two `var` names are doing real work. They hold the levels **as they were
 sent**, so the lines you plot are the orders that exist:

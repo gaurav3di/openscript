@@ -261,7 +261,7 @@ summary number carries.
 | A large share end in `exitTimeSquareOff` or `sessionEndSquareOff` | The idea has no exit of its own and the clock is doing the work |
 | `dailyLossHit` appears at all | Read those days separately. The limit fired, so the rest of each of those days is not evidence about the rules |
 | `combinedStopHit` with no `legStopHit` anywhere | Correct for a strategy that enters as a unit: the book rule takes the position off before the leg rules are reached |
-| `trailArmed` far more often than `trailAdvanced` | The trail arms and the trade turns. The arming distance is too small for the instrument |
+| `trailActivated` far more often than `trailAdvanced` | The trail starts following and the trade turns. The activation distance is too small for the instrument |
 | `lockProfitTriggered` on the best days | The floor is taking trades off while they are still working. Widen the step, or the advance |
 
 Two cautions about reading it.

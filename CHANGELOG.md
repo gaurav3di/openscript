@@ -41,9 +41,13 @@ thing that is still true, which is that no engine anybody else wrote has run the
 suite. The trading-mode sense of "paper" is gone from the documentation, the
 specification and the error catalogue, and `docs/running/paper-and-live.md` is now
 `docs/running/sandbox-and-live.md`: this platform maintains sandbox mode and
-analyzer mode and now says so everywhere. The trading sense of "arm" is gone from
-the prose. A `switch` arm and a ternary arm are language vocabulary and are
-untouched.
+analyzer mode and now says so everywhere. The trading sense of "arm" is gone from the language itself, not
+only from the prose: `leg.trail`'s and `book.lockProfit`'s `arm` parameter is
+now `activateAt`, and the events `trailArmed` and `lockProfitArmed` are now
+`trailActivated` and `lockProfitActivated`, which is the word the event table
+already used in `trailToEntryActivated`. Both names are marked planned, so no
+script running today is affected. A `switch` arm and a ternary arm are language
+vocabulary and are untouched.
 
 **Three cases where the destination behaves badly.** Every one of the 204 frames
 the suite held was an order working and then filling whole: no partial fill, no
@@ -158,14 +162,23 @@ and the side split is nested, so it is proved by unit tests on each engine and
 by nothing that compares them. Whether it is flattened into `performance` or
 becomes a channel of its own is left open rather than answered in passing.
 
-**And a gap that was invisible is now written down.** The other twenty six
-summary figures have no formula stated in any specification document. The two
-engines agree on them because one was translated from the other, not because a
-sentence says what they are, so a third engine has nothing to be written
-against. `conformance.md` section 4 now says so, and it is the reason the trade
-list, equity curve, drawdown and win rate rows of `feature-matrix.md` section 30
-read `planned` while the code that computes them ships. `spec/decisions.md` 64
-is the minute.
+**And the gap that was invisible is now closed.** Until this release the
+summary's figures had no formula stated in any specification document: the two
+engines agreed on them because one was translated from the other, not because a
+sentence said what they are, so a third engine had nothing to be written
+against. `conformance.md` section 4 now defines every field of the summary: the
+words the formulas are written in, which trades each figure is counted over, the
+equity basis the curve figures are folded from, which figures are absent rather
+than zero and why, and the tie rules. The equity curve, drawdown and win rate
+rows of `feature-matrix.md` section 30 move from `planned` to `specified` on the
+strength of it.
+
+The trade list does **not** move, and the section says why in its own text: how a
+run folds the `trades` channel out of its fills is still unspecified, so that
+channel is the boundary of what these formulas promise. An engine checking itself
+against a case is handed every value they need; an engine folding a report out of
+fills alone still has that earlier fold to agree on. `spec/decisions.md` 64 is the
+minute.
 
 **A case supplies the frames, and this engine folds them.** `conformance.md`
 section 3 has said since it was written that `frames.csv` supplies order frames

@@ -413,8 +413,8 @@ that". Work the log in this order:
 2. **Read upwards to the last `entryRefused`.** If entries stopped before the loss,
    the direction filter, the entry window or an earlier daily loss was the cause,
    and the event says which.
-3. **Check for `trailArmed` with no `trailAdvanced`.** The trade went your way by
-   the arming distance and came straight back.
+3. **Check for `trailActivated` with no `trailAdvanced`.** The trade went your
+   way by the activation distance and came straight back.
 4. **Only then read your own lines**, which say what the script was thinking when
    it entered.
 

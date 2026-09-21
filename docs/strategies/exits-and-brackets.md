@@ -1,10 +1,10 @@
 # Exits, stops and the risk levels
 
 By the end of this page you will be able to attach a stop and a target to a leg,
-trail one behind a move with an arming trigger, put a combined stop across a whole
-multi-leg position, square off on the clock, on the session's end or before an
-expiry, cap a day's loss, and read a log after a bad day to find out which rule
-fired.
+trail one behind a move with an activation trigger, put a combined stop across a
+whole multi-leg position, square off on the clock, on the session's end or before
+an expiry, cap a day's loss, and read a log after a bad day to find out which
+rule fired.
 
 > **Much of this page is marked planned.** A strategy's ledger, its legs and its
 > book are what the marked calls are folded from, and no engine holds one in this
@@ -42,8 +42,8 @@ most of knowing what it does.
 
 | Level | Rules |
 |---|---|
-| Per leg | A stop, a target, a trailing stop with its arming trigger |
-| Per strategy | A combined stop, a combined target, a lock profit that arms then advances a floor, and trail every stop to entry |
+| Per leg | A stop, a target, a trailing stop with its activation trigger |
+| Per strategy | A combined stop, a combined target, a lock profit that activates then advances a floor, and trail every stop to entry |
 | Per session | An entry window, an exit time, the end of day square off, an expiry square off, and a daily loss limit |
 
 Each call sets a level that stays in force until it is replaced or removed, and
@@ -57,7 +57,7 @@ stop is a thing a script means to do and there is no order to refuse.
 |---|---|
 | `leg.stop(name, price)` (planned) | Close the leg when its price reaches `price` against the position |
 | `leg.target(name, price)` (planned) | Close the leg when its price reaches `price` in favour of the position |
-| `leg.trail(name, distance, arm = none)` (planned) | Follow the best price the leg has seen, `distance` behind it |
+| `leg.trail(name, distance, activateAt = none)` (planned) | Follow the best price the leg has seen, `distance` behind it |
 | `exit(tag = "", qty = none, limit = none, stop = none, profit = none, loss = none, leg = ...)` | The same stop and target, set from a call site |
 | `order.bracket(tag = "", profit = none, loss = none, leg = ...)` | The same pair, given as distances from the entry |
 
@@ -140,9 +140,9 @@ hiding it by recomputing the stop from the fill.
 ### The trail, exactly
 
 A trailing stop is `leg.trail` of `stdlib.md` section 17.9. That section is where
-`distance` and `arm` are defined, where the arming and the ratchet are stated, and
-where a leg carrying both a stop and an armed trail is settled. Read it before you
-write one.
+`distance` and `activateAt` are defined, where the activation and the ratchet
+are stated, and where a leg carrying both a stop and an active trail is settled.
+Read it before you write one.
 
 There is no `trail` argument on `exit`, because a trail is a rule evaluated on
 every bar rather than a price an order can rest at, and one rule with one spelling
@@ -161,10 +161,10 @@ version 1
 strategy("Trail behind a swing", overlay = true, precision = 2,
          capital = 500000, qty = 1, qtyType = "lots", pyramiding = 1)
 
-symbolName = input("AAA", "Contract")
-stopMult   = input(2.0,   "Initial stop, in ATR", min = 0.2, max = 20)
-trailAtr   = input(3.0,   "Trail this far behind, in ATR", min = 0.2, max = 20)
-armAtr     = input(1.0,   "Arm the trail after this much profit, in ATR", min = 0.1, max = 20)
+symbolName  = input("AAA", "Contract")
+stopMult    = input(2.0,   "Initial stop, in ATR", min = 0.2, max = 20)
+trailAtr    = input(3.0,   "Trail this far behind, in ATR", min = 0.2, max = 20)
+activateAtr = input(1.0,   "Start the trail after this much profit, in ATR", min = 0.1, max = 20)
 
 // One leg, declared so that the standing levels below have a name to key on.
 leg.fixed("main", symbolName)
@@ -180,9 +180,9 @@ ready    = not isNone(atrValue)
 if crossUp(fast, slow) and not leg.isOpen("main") and ready
     buy(qty = 1, tag = "entry")
     leg.stop("main", roundToTick(close - stopMult * atrValue))
-    leg.trail("main", trailAtr * atrValue, arm = armAtr * atrValue)
+    leg.trail("main", trailAtr * atrValue, activateAt = activateAtr * atrValue)
 
-// The readback, not the variable: while the trail is armed this is the trail's
+// The readback, not the variable: while the trail is active this is the trail's
 // level, and before that it is the initial stop, because the more protective of
 // the two is the one in force.
 plot(leg.stopPrice("main"), "Stop in force", red, width = 2, style = "step")
@@ -200,7 +200,7 @@ strategy realised since the book was last flat.
 |---|---|
 | `book.stop(amount)` (planned) | Square off every leg when the book's profit falls to `-amount` |
 | `book.target(amount)` (planned) | Square off every leg when the book's profit reaches `amount` |
-| `book.lockProfit(arm, lock, step = none, advance = none)` (planned) | Arm a floor at a profit, then advance it as profit grows |
+| `book.lockProfit(activateAt, lock, step = none, advance = none)` (planned) | Activate a floor at a profit, then advance it as profit grows |
 | `book.trailStopsToEntry(at)` (planned) | Move every leg's stop to its own entry once the book is `at` in profit |
 | `book.direction(filter)` (planned) | `"long"`, `"short"` or `"both"`: which sides an entry may take |
 
@@ -215,20 +215,20 @@ sold together, hedging each other, are meaningless to manage separately: stoppin
 each leg on its own is the classic way to take two losses on a day the two legs
 were doing their job. **Measure the stop on the sum, never on a leg.**
 
-**The lock profit, exactly.** `book.lockProfit(arm, lock, step, advance)` does
-nothing until the book's profit first reaches `arm`; at that moment a floor exists
-at `lock`. When `step` and `advance` are given, the floor stands at
-`lock + n * advance`, where `n` is the largest whole number for which the book's
-profit has reached `arm + n * step`. The floor never moves down. When the book's
-profit falls to the floor or below while a floor exists, every leg is squared off.
-`step` and `advance` are given together or not at all; one without the other is
-OS3009.
+**The lock profit, exactly.** `book.lockProfit(activateAt, lock, step, advance)`
+does nothing until the book's profit first reaches `activateAt`; at that moment
+a floor exists at `lock`. When `step` and `advance` are given, the floor stands
+at `lock + n * advance`, where `n` is the largest whole number for which the
+book's profit has reached `activateAt + n * step`. The floor never moves down.
+When the book's profit falls to the floor or below while a floor exists, every
+leg is squared off. `step` and `advance` are given together or not at all; one
+without the other is OS3009.
 
 Read that as a sentence: "once I am four thousand up, I am not giving back more
 than two thousand of it, and for every two thousand further I go, I raise that
-line by fifteen hundred". The arming is what stops the floor from acting on a trade
-that never got going, and the floor never moving down is what stops it from
-becoming a second, looser stop halfway through a good day.
+line by fifteen hundred". The activation is what stops the floor from acting on
+a trade that never got going, and the floor never moving down is what stops it
+from becoming a second, looser stop halfway through a good day.
 
 ## Per session: windows, times and the day's limit
 
@@ -308,10 +308,10 @@ leg stop would close different positions from the same script on the same bar.
 1. The daily loss limit.
 2. The exit time, then the end of day square off, then the expiry square off.
 3. The combined stop, then the combined target.
-4. The lock profit: arm the floor, then advance it, then test it.
+4. The lock profit: activate the floor, then advance it, then test it.
 5. The trail to entry.
 6. Each leg in declaration order: its stop, then its target, then its trail, which
-   is armed, then advanced, then tested.
+   is activated, then advanced, then tested.
 
 **A rule that squares the book off ends the sequence for that bar.** The rules
 below it have nothing left to act on and emit nothing. The book rules are tested
@@ -353,11 +353,11 @@ position closed" is not an answer.
 |---|---|
 | `legStopHit` | A leg's stop was reached and the leg was closed |
 | `legTargetHit` | A leg's target was reached and the leg was closed |
-| `trailArmed` | A leg's trailing stop armed, because profit reached `arm` |
+| `trailActivated` | A leg's trailing stop was activated, because profit reached `activateAt` |
 | `trailAdvanced` | A leg's trailing stop moved in the leg's favour |
 | `combinedStopHit` | The book's profit fell to the combined stop and the book was squared off |
 | `combinedTargetHit` | The book's profit reached the combined target and the book was squared off |
-| `lockProfitArmed` | The book's profit first reached `arm` and a floor exists |
+| `lockProfitActivated` | The book's profit first reached `activateAt` and a floor exists |
 | `lockProfitFloorAdvanced` | The floor moved up a step |
 | `lockProfitTriggered` | The book's profit fell to the floor and the book was squared off |
 | `trailToEntryActivated` | Every leg's stop was moved to its own entry |
@@ -380,10 +380,10 @@ decided that, and was the rule the one I wrote". Work the log in this order:
 2. **Read upwards to the last `entryRefused`.** If entries stopped before the loss,
    the direction filter, the entry window or an earlier daily loss was the cause,
    and the event says which of the three.
-3. **Check for `trailArmed` without `trailAdvanced`.** A trail that armed and never
-   advanced means the trade went your way by `arm` and then straight back. That is
-   a sign the arming distance is too small for the instrument, not a sign the trail
-   is broken.
+3. **Check for `trailActivated` without `trailAdvanced`.** A trail that activated
+   and never advanced means the trade went your way by `activateAt` and then
+   straight back. That is a sign the activation distance is too small for the
+   instrument, not a sign the trail is broken.
 4. **Check the order of the events against the evaluation order above.** A
    `combinedStopHit` with no `legStopHit` on the same bar is exactly right: the
    book rule took the position off and the leg rules had nothing left to act on.
@@ -521,7 +521,7 @@ by then the close has happened.
 | Every trade closes instantly at a loss | A stop on the wrong side of the entry (OS7010) | Stop below a long, target above it |
 | The plotted stop is not the stop that filled | The script's own variable was plotted, not the level in force | Plot `leg.stopPrice(name)` |
 | The trailing stop drifts back down | Expecting `leg.trail` to behave like a variable you update | It cannot: the level only ever moves in the leg's favour |
-| The trail never arms | `arm` is larger than the trade ever gets | Lower it, or leave it absent to arm on the first fill |
+| The trail never activates | `activateAt` is larger than the trade ever gets | Lower it, or leave it absent to start on the first fill |
 | Two losses on a day the two legs hedged each other | A stop per leg where the position is one unit | `book.stop`, with `book.enter` |
 | The file will not compile after adding `book.stop` | A combined rule in a file with no book entry | Use `leg.stop` and `leg.target`, or enter as a unit |
 | The day's limit fires on day one of a long backtest | Reading `book.dailyLoss` as a run-wide limit | It tests `book.dayProfit`, measured from this session's open |

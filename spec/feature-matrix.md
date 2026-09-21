@@ -945,11 +945,11 @@ from a `study()` file is OS7001.
 | `pos.winRate`, `pos.profitFactor`, `pos.maxDrawdown` | Named and not defined; each needs its formula written down before an engine computes it | `planned` | `stdlib.md` 17.4 | `pos/planned-statistics` |
 | Long, short and flat transitions | The exact state machine, including partial closes | `planned` | `none` | `pos/transitions` |
 | Trade list | One row per closed trade: entry, exit, size, cost, profit | `planned` | `none` | `perf/trade-list` |
-| Equity curve | Equity per bar, including open profit | `planned` | `none` | `perf/equity-curve` |
-| Drawdown | Peak-to-trough decline, on a stated basis | `planned` | `none` | `perf/drawdown` |
+| Equity curve | Equity per bar, including open profit: the basis the curve figures are folded from, marked to each reported bar's close | `specified` | `conformance.md` 4 | `perf/equity-curve` |
+| Drawdown | Peak-to-trough decline, on a stated basis, with the running peak anchored at the capital and the deepest point naming the first bar that reached it | `specified` | `conformance.md` 4 | `perf/drawdown` |
 | Run-up | The distance above the running trough, per bar and at its deepest, which is drawdown's mirror and is read against it: a run that made ten and gave back nine reports the same net as one that made one and kept it | `implemented` | `conformance.md` 4 | `unit:perf/run-up` |
 | Trades by side, extreme and streak | The closed trades split long against short, the largest win and loss, and the longest run of each: three questions the summary cannot answer because it folds both sides, every trade and their order together | `implemented` | `conformance.md` 4 | `unit:perf/trade-analysis` |
-| Win rate and expectancy | The two headline statistics, each with its formula written down | `planned` | `none` | `perf/win-rate-expectancy` |
+| Win rate and expectancy | The two headline statistics, each with its formula written down, including which trades each counts over and where each is absent rather than zero | `specified` | `conformance.md` 4 | `perf/win-rate-expectancy` |
 | Monthly return table | Returns grouped by calendar month | `planned` | `none` | `perf/monthly-table` |
 | Trade markers | Every trade marked on the chart at its fill bar | `planned` | `none` | `perf/trade-markers` |
 | The report window | Which of the bars supplied a run is reported over: every bar executes, a bar outside the window is warmup whose orders are real and whose position is carried in, and only a bar inside it gets a point of the report | `implemented` | `conformance.md` 3 | `perf/report-window` |

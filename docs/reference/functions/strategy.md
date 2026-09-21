@@ -258,19 +258,19 @@ Returns nothing.
 order.bracket(profit = atr(14) * 3, loss = atr(14))
 ```
 
-### `leg.trail(name, distance, arm = none)` (planned)
+### `leg.trail(name, distance, activateAt = none)` (planned)
 
 The one trailing stop in the language: there is no `trail` argument on `exit` or
 on `order.bracket`.
 Parameters: `name` `string` default the only leg; `distance` `number` required;
-`arm` `number` default `none`.
+`activateAt` `number` default `none`.
 Returns nothing.
 
 ```
 leg.trail(distance = atr(14) * 2)
 ```
 
-What it follows, when it arms and how it ratchets are `stdlib.md` section 17.9,
+What it follows, when it activates and how it ratchets are `stdlib.md` section 17.9,
 and when it is tested against a bar is section 17.10.
 
 ### `order.working(tag)` (planned)

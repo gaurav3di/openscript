@@ -2124,7 +2124,7 @@ refuse.
 |---|---|---|---|
 | `leg.stop(name, price)` (planned) | nothing | the leg's stop, replacing any in force | Close the leg when its price reaches `price` against the position |
 | `leg.target(name, price)` (planned) | nothing | the leg's target | Close the leg when its price reaches `price` in favour of the position |
-| `leg.trail(name, distance, arm = none)` (planned) | nothing | the leg's trailing stop | Follow the best price the leg has seen, `distance` behind it |
+| `leg.trail(name, distance, activateAt = none)` (planned) | nothing | the leg's trailing stop | Follow the best price the leg has seen, `distance` behind it |
 
 **Per strategy.** `book` is the strategy's own book: every leg it has declared,
 taken together. Its profit is the sum, in money, of every leg's open profit and
@@ -2136,7 +2136,7 @@ the two shapes and not the other.
 |---|---|---|---|
 | `book.stop(amount)` (planned) | nothing | the combined stop | Square off every leg when the book's profit falls to `-amount` |
 | `book.target(amount)` (planned) | nothing | the combined target | Square off every leg when the book's profit reaches `amount` |
-| `book.lockProfit(arm, lock, step = none, advance = none)` (planned) | nothing | the profit floor | Arm a floor at a profit, then advance it as profit grows |
+| `book.lockProfit(activateAt, lock, step = none, advance = none)` (planned) | nothing | the profit floor | Activate a floor at a profit, then advance it as profit grows |
 | `book.trailStopsToEntry(at)` (planned) | nothing | every leg's stop | Move every leg's stop to its own entry once the book is `at` in profit |
 | `book.direction(filter)` (planned) | nothing | the entry filter | `"long"`, `"short"` or `"both"`, which sides an entry may take |
 | `book.entryWindow(spec)` (planned) | nothing | the entry gate | New entries only inside this window, written as section 12.5 writes one |
@@ -2162,30 +2162,30 @@ The end of day square off is not a call here. It is the declaration's
 and it is named in section 17.11 for the event it emits. One spelling of one rule.
 
 **The trail, exactly.** `distance` is in the leg's own price units and is
-positive. The trail is armed when the leg's profit per unit first reaches `arm`,
-measured as the last price minus the average entry price for a long leg and the
-reverse for a short one; with `arm` absent the trail is armed by the leg's first
-settled fill. Once armed the engine keeps the best price the leg has seen since
-arming: the highest price for a long leg, the lowest for a short one, taken from
-the bar's high or low on a confirmed bar and from the last price on a bar that is
-still moving. The trail's level is the best price less `distance` for a long leg
-and plus `distance` for a short one. **The level only ever moves in the leg's
-favour.** It never retreats, and it is never recomputed from a price worse than
-the best one seen, which is what the word ratchet means here and what a vector
-has to prove.
+positive. The trail is activated when the leg's profit per unit first reaches
+`activateAt`, measured as the last price minus the average entry price for a
+long leg and the reverse for a short one; with `activateAt` absent the trail is
+activated by the leg's first settled fill. Once active the engine keeps the best
+price the leg has seen since activation: the highest price for a long leg, the
+lowest for a short one, taken from the bar's high or low on a confirmed bar and
+from the last price on a bar that is still moving. The trail's level is the best
+price less `distance` for a long leg and plus `distance` for a short one. **The
+level only ever moves in the leg's favour.** It never retreats, and it is never
+recomputed from a price worse than the best one seen, which is what the word
+ratchet means here and what a vector has to prove.
 
-Where a leg carries both a stop and an armed trail, the level in force is the
+Where a leg carries both a stop and an active trail, the level in force is the
 more protective of the two: the higher for a long leg, the lower for a short one.
 `leg.stopPrice()` returns that level, not the one the script last wrote.
 
-**The lock profit, exactly.** `book.lockProfit(arm, lock, step, advance)` does
-nothing until the book's profit first reaches `arm`; at that moment a floor
-exists at `lock`. When `step` and `advance` are given, the floor stands at
+**The lock profit, exactly.** `book.lockProfit(activateAt, lock, step, advance)`
+does nothing until the book's profit first reaches `activateAt`; at that moment a
+floor exists at `lock`. When `step` and `advance` are given, the floor stands at
 `lock + n * advance` where `n` is the largest whole number for which the book's
-profit has reached `arm + n * step`. The floor never moves down. When the book's
-profit falls to the floor or below while a floor exists, every leg is squared
-off. `step` and `advance` are given together or not at all; one without the other
-is OS3009.
+profit has reached `activateAt + n * step`. The floor never moves down. When the
+book's profit falls to the floor or below while a floor exists, every leg is
+squared off. `step` and `advance` are given together or not at all; one without
+the other is OS3009.
 
 ### 17.10 When a level is tested, and in what order
 
@@ -2198,10 +2198,10 @@ the same bar.
 1. The daily loss limit.
 2. The exit time, then the end of day square off, then the expiry square off.
 3. The combined stop, then the combined target.
-4. The lock profit: arm the floor, then advance it, then test it.
+4. The lock profit: activate the floor, then advance it, then test it.
 5. The trail to entry.
 6. Each leg in declaration order: its stop, then its target, then its trail,
-   which is armed, then advanced, then tested.
+   which is activated, then advanced, then tested.
 
 A rule that squares the book off ends the sequence for that bar. The rules below
 it have nothing left to act on and emit nothing. The book rules are tested before
@@ -2245,11 +2245,11 @@ fired, and "the position closed" is not an answer.
 |---|---|
 | `legStopHit` | A leg's stop was reached and the leg was closed |
 | `legTargetHit` | A leg's target was reached and the leg was closed |
-| `trailArmed` | A leg's trailing stop armed, because profit reached `arm` |
+| `trailActivated` | A leg's trailing stop was activated, because profit reached `activateAt` |
 | `trailAdvanced` | A leg's trailing stop moved in the leg's favour |
 | `combinedStopHit` | The book's profit fell to the combined stop and the book was squared off |
 | `combinedTargetHit` | The book's profit reached the combined target and the book was squared off |
-| `lockProfitArmed` | The book's profit first reached `arm` and a floor exists |
+| `lockProfitActivated` | The book's profit first reached `activateAt` and a floor exists |
 | `lockProfitFloorAdvanced` | The floor moved up a step |
 | `lockProfitTriggered` | The book's profit fell to the floor and the book was squared off |
 | `trailToEntryActivated` | Every leg's stop was moved to its own entry |

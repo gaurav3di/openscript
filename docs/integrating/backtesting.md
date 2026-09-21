@@ -13,7 +13,7 @@ Everything that produces a number:
   still working as the next signal arrives
 - Fills, the ledger, and the cumulative frame fold
 - Position, average price, open and realised profit and loss
-- Stops, targets, trailing stops and their arming, per leg and combined across a
+- Stops, targets, trailing stops and when they start following, per leg and combined across a
   strategy
 - The report arithmetic: equity curve, drawdown, trade list, win rate,
   expectancy

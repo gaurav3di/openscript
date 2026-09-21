@@ -1655,7 +1655,7 @@ other places give `trail` and `trailOffset` as bracket arguments and one gives a
 trail as a field of a bracket intent.
 
 **Decision.** **There is one trailing stop in the language and it is
-`leg.trail(name, distance, arm = none)` of `stdlib.md` 17.9.** `trail` and
+`leg.trail(name, distance, activateAt = none)` of `stdlib.md` 17.9.** `trail` and
 `trailOffset` are deleted from `exit()` and from `order.bracket()`, and a trail
 is not a field of an order intent.
 

@@ -411,48 +411,325 @@ the digit count, the schedule and the window `backtest.json` states (section 3)
 and the capital `script.os` declares, so nothing the figures came from is
 outside the case.
 
-#### What the summary's figures are, and what is not written down yet
+#### What the summary's figures are
 
-The channel's shape is fixed above. The **formula** behind each field is a
-separate promise, and most of them are not made here yet: `netProfit`,
-`winRate`, `expectancy`, `profitFactor`, the drawdown trio and the rest are
-computed by both engines and agree, but they agree because one was translated
-from the other, not because a sentence here says what they are. That is a real
-gap and it is why the trade list, the equity curve, the drawdown and the win
-rate rows of `feature-matrix.md` section 30 still read `planned` while the code
-that computes them ships. A figure two engines agree on is not a figure a third
-engine can be written against.
+The channel's shape is fixed above. What follows is the formula behind every
+field of it, written so that an engine with no access to this one computes the
+same number on the same case, including at the edges where the honest answer is
+not a number at all. A figure two engines agree on because one was translated
+from the other is not a figure a third engine can be written against, so none of
+this is a description of an implementation: it is the definition, and an
+implementation that disagrees with it is wrong.
 
-Two of the fields are defined, and they are defined here because they were added
-after that was understood.
+**Every figure is a function of three things the case already fixes**: the rows
+of the `trades` channel, the closes of `bars.csv`, and the capital, the point
+value, the currency, the money digit count and the report window the run was
+carried out under (section 3, and the capital `script.os` declares). Nothing
+below reads a fill. The only prices read are a bar's close and the entry and exit
+prices the `trades` channel already carries, which is what an open position is
+marked with.
 
-**Run-up: `maxRunUp`, `maxRunUpPercent`, `maxRunUpAt`.** Drawdown measures the
-distance below a running peak; run-up measures the distance above a running
-trough, and the two are read together. A run that made ten and gave back nine
-reports the same net profit as one that made one and never gave any of it back,
-and neither figure separates them on its own.
+Two conventions hold throughout. **A percentage is a fraction of its basis**: a
+hundredth of a percent is `0.0001` and not `0.01`, and the multiplication by a
+hundred belongs to whatever prints the figure. **A figure that addresses a bar
+carries that bar's time and never its index**, because loading more history
+shifts every index, and a report whose worst moment moves when the warmup
+changes is a report about the warmup.
 
-- The running trough starts at the run's capital, not at the first reported
-  point, exactly as the running peak does. A run that is ahead at its first
-  reported bar has run up from the money it was given; anchoring at the first
-  point would report that gain as having come from nowhere.
-- `maxRunUp` is the greatest such distance over the reported bars, zero where
-  the curve never rose above the trough, and never negative.
-- `maxRunUpAt` is the bar **time** of the first reported bar that reached it,
-  never a bar index, and it is not in general the bar `maxDrawdownAt` names. The
-  earliest bar wins a tie, which is the rule the drawdown trio is picked by; two
-  figures in one summary picked by opposite tie rules cannot be checked against
-  each other.
-- `maxRunUpPercent` is that distance over the trough it was measured from, as a
-  fraction and not a figure times a hundred, and it is **zero wherever that
-  trough is not above zero**. This is deliberately not symmetrical with
-  `maxDrawdownPercent`. A peak starts at the capital and only rises, so it is
-  above zero throughout any run that was given money; a trough starts there and
-  only falls, and an open position can lose more than the account holds, so the
-  trough reaches zero and goes past it. A fraction against a negative basis
-  turns a positive climb into a negative number, which is worse than reporting
-  nothing. `maxRunUp` itself is unaffected and is the figure to read on such a
-  run.
+**Where this section stops.** The formulas below read a row of the `trades`
+channel by its own columns, and how a run folds those columns out of its fills
+is not written down here. A case fixes the channel, so an engine checking itself
+against a case is handed every value the formulas need and they are complete as
+they stand. An engine folding a report out of fills alone still has that earlier
+fold to agree on, and until it is specified the `trades` channel is the boundary
+of what this section promises. The columns the formulas read are `grossProfit`,
+`charges` and `netProfit` for the money, `isOpen` for whether a trade closed,
+`openedOnBar` with `closedOnBar` for the bars it lived between, `barsHeld` for
+how long it was held, and `side` with `units` and `entryPrice` for marking it to
+a close.
+
+**The words the formulas are written in.** For a row `t` of the `trades`
+channel, write `gross(t)` for its `grossProfit`, `charges(t)` for its `charges`
+and `net(t)` for its `netProfit`, which is `gross(t) - charges(t)`. A row is
+open when its `isOpen` is true and closed otherwise.
+
+- The **closed trades** are the rows that are not open, in the order they
+  opened, which is the order the channel is in.
+- A closed trade is a **winner** when `net(t)` is above zero, a **loser** when
+  `net(t)` is below zero, and a **scratch** when `net(t)` is exactly zero. The
+  test is on the net after charges and never on the gross, and a scratch is
+  counted in neither half. Charges are exactly what turns a winning strategy
+  into a losing account, so the figure that decides has to be the one after
+  them, and a trade that gave its whole gross back to its costs did not win.
+- The **curve** is the equity basis defined next. It is one point per reported
+  bar, and it is not a count of trades at all.
+
+**The equity basis the curve figures are folded from.** Nine of the summary's
+fields are counted over the curve rather than over the trade list, so the basis
+has to be defined even though it is not itself a channel (the paragraph on the equity
+curve further down says why it is not one). It is one point per bar, over the
+bars in the order `bars.csv` gives them, and only a bar inside the report window
+contributes a point. A bar outside the window is swept and not reported: its
+orders were real, so a trade opened during the warmup is already in the fold at
+the first point, with its charges already paid and its position already marked.
+The trades are swept in the order they opened, alongside the bars, and at each
+bar in this order:
+
+1. Every trade whose `openedOnBar` is at or before this bar index and has not
+   yet been taken on is taken on, and `charges(t)` is added to a running charges
+   total. A trade's charges land whole on the bar it opened. The channel does
+   not carry the timing of the fills underneath a trade, so the cost has to land
+   somewhere, and the open is the one place that is never later than the truth:
+   an entry charge is paid the moment the trade is taken on, and an exit charge
+   cannot be paid before it.
+2. Every trade taken on whose `closedOnBar` is at or before this bar index is
+   given up, and `gross(t)` is added to a running realised total. A trade's
+   gross lands on the bar it closed, because that is the bar it stopped being an
+   opinion and became a number.
+3. If this bar's close is stated, it becomes the mark. A bar whose close is
+   absent leaves the previous mark standing, and the mark is carried across the
+   warmup boundary, so the first reported bar of a run whose close is absent is
+   marked at the last price there was.
+4. A bar outside the report window contributes no point, and the fold moves on
+   to the next bar.
+5. The open profit is the sum, over the trades still held, of
+   `way * (mark - entryPrice) * units * pointValue`, where `way` is 1 for a long
+   trade and -1 for a short one. Before the first close there has ever been, a
+   held trade is marked at its own `entryPrice`, which is no profit.
+6. The cash is `capital + realised - charges`, and the equity is
+   `cash + openProfit`.
+7. The running **peak** is raised to the equity where the equity is above it,
+   and the running **trough** is lowered to the equity where the equity is below
+   it. Both start at the run's capital and not at the first reported point. A
+   run that is down from its first bar is in drawdown at its first bar, and a
+   run that is ahead at its first bar has run up from the money it was given;
+   anchoring either at the first point would report every run as having begun at
+   its own high, or report an arriving gain as having come from nowhere.
+8. The point carries a drawdown of `equity - peak`, which is zero or negative,
+   and a drawdown fraction of `drawdown / peak` where the peak is above zero and
+   zero where it is not. It carries a run-up of `equity - trough`, which is zero
+   or positive, and a run-up fraction of `runUp / trough` where the trough is
+   above zero and **zero where it is not**. It carries the bar's own time.
+
+A trade that opened and closed inside one bar is taken on and given up at that
+bar in that order, so its cost and its gross are both in that point and its
+position is in none. And a trade is **held at a bar's close** when its
+`openedOnBar` is at or before that bar and its `closedOnBar` is either absent or
+strictly after it: held from the close of the bar it opened on, because a bar
+that ended holding a position ended holding it, and not held at the close of the
+bar it closed on, because that bar ended flat.
+
+Step 8 states the same guard for both fractions, and that is deliberate rather
+than a copied line: what differs is not the guard but how often it fires. A peak
+starts at the capital and only rises, so on any funded run it is above zero at
+every point and the drawdown guard never fires. A trough starts there and only
+falls, and an open position can lose more than the account holds, so the run-up
+guard is reachable and a real run can report a zero fraction beside a non-zero
+`runUp`. An implementer who finds that surprising has found the intended
+behaviour, not a defect. Decision 64 in `decisions.md` has the reasoning, and it is not repeated
+here.
+
+**Every field, and what it is counted over.** The middle column says what each
+of the twenty eight fields is counted over: the closed trades, every trade, the
+curve, or nothing at all, because two of them are facts of the run carried
+through rather than figures folded from anything.
+
+| Field | Counted over | What it is |
+|---|---|---|
+| `capital` | The run | The capital the run was given, as `script.os` declares it, carried through unchanged |
+| `currency` | The run | The currency of the contract the run was carried out under, carried through unchanged |
+| `netProfit` | Closed trades | The sum of `net(t)` over the closed trades, added in the order they opened. Zero where none closed, which is the sum of nothing rather than a claim about a run |
+| `grossProfit` | Closed trades | The sum of `gross(t)` over the winners, and over no other trade |
+| `grossLoss` | Closed trades | The sum of `0 - gross(t)` over the losers, meant as a magnitude. It can come out at or below zero, and the part below says why and what follows from it |
+| `charges` | Every trade | The sum of `charges(t)` over the whole channel, open trades included, added in the order the trades opened. The money left the account whether or not the position came back. This is **not** in general the figure the curve's last point carries: the curve stops at the last reported bar, so a trade that opens after it is in this total and in no point of the curve. The shipped case `perf/report-window` is exactly that shape |
+| `returnPercent` | Closed trades | `netProfit / capital` where the capital is above zero, and zero where it is not |
+| `tradeCount` | Closed trades | How many trades closed |
+| `openTradeCount` | Every trade | How many trades are still open |
+| `wins` | Closed trades | How many closed trades are winners |
+| `losses` | Closed trades | How many are losers |
+| `scratches` | Closed trades | How many are scratches |
+| `winRate` | Closed trades | `wins / (wins + losses)`, and absent where that denominator is zero |
+| `averageWin` | Closed trades | The sum of `net(t)` over the winners divided by `wins`, and zero where `wins` is zero |
+| `averageLoss` | Closed trades | The sum of `net(t)` over the losers, negated, divided by `losses`, so it is a positive magnitude; zero where `losses` is zero |
+| `expectancy` | Closed trades | `netProfit / tradeCount`, and zero where `tradeCount` is zero. Money per closed trade, and the part below fixes the second spelling it has to agree with |
+| `expectancyStandardError` | Closed trades | The sample deviation of the closed trades' nets over the root of their count, spelled out below. Zero where fewer than two trades closed |
+| `profitFactor` | Closed trades | `grossProfit / grossLoss` where `grossLoss` is above zero, and absent where it is not |
+| `maxDrawdown` | The curve | The most negative drawdown any point of the curve carries, or zero where no point carries one below zero. Zero or negative, which is the sign the curve states it with |
+| `maxDrawdownPercent` | The curve | The drawdown fraction of that same point, and zero where there is no such point. The deepest point's own fraction, and never the worst fraction of any point |
+| `maxDrawdownAt` | The curve | The time of that same point, and absent where there is no such point |
+| `longestDrawdownBars` | The curve | The greatest number of consecutive points whose drawdown is below zero |
+| `maxRunUp` | The curve | The greatest run-up any point of the curve carries, or zero where no point carries one above zero. Zero or positive |
+| `maxRunUpPercent` | The curve | The run-up fraction of that same point, and zero where there is no such point. The highest point's own fraction, and never the best fraction of any point |
+| `maxRunUpAt` | The curve | The time of that same point, and absent where there is no such point. Not in general the bar `maxDrawdownAt` addresses |
+| `averageBarsHeld` | Closed trades | The sum of `barsHeld` over the closed trades that state one, divided by how many state one, and absent where none does |
+| `barsInMarket` | The curve | How many points of the curve had at least one trade held at their bar's close |
+| `barCount` | The curve | How many points the curve has, which is how many bars the report window held |
+
+An open trade's net is its charges so far with no gross against them, which is
+why every money figure in that table but one is counted over the closed trades
+alone: fold the open trades into the net and a run holding a winner is reported
+as having lost money. `charges` is the one counted the other way, because the
+money left the account whether or not the position came back, and
+`openTradeCount` is a count of the open trades by what it is. And the three
+drawdown figures are read off **one point**, as the three run-up
+figures are. Taking the worst fraction from one bar and the worst money from
+another would describe a moment the run never had, and a reader comparing the
+two against the curve they were drawn from would find them inconsistent with
+every point in it.
+
+**Which figures are absent rather than zero, and why.** Absence is `null` in
+`expected.json`, and section 6 compares it as absence rather than as a number.
+Five fields use it, and every one of them is a division with a case where there
+is nothing to divide by:
+
+- `winRate` where no trade has decided anything. Zero is the claim that nothing
+  won, which a reader compares against and acts on, and "nothing has closed yet"
+  is not a losing run. Two arrangements reach it: no trade closed at all, and
+  every closed trade a scratch. Both leave the denominator at zero.
+- `profitFactor` where the gross loss is not above zero. A run with no losing
+  trade has nothing to divide by, and the part below gives the other way that
+  denominator fails. A profit factor is a non-negative ratio everywhere it is
+  used, so an infinity or a negative one is not a surprising value, it is a
+  number nobody can act on.
+- `averageBarsHeld` where no closed trade states a bars-held figure, which for
+  trades folded the way this specification folds them is the same thing as no
+  trade having closed.
+- `maxDrawdownAt` where no point of the curve carries a drawdown below zero. A
+  time on a run that never fell is a date a reader would go and look at.
+- `maxRunUpAt` where no point carries a run-up above zero.
+
+Everything else is a number even where it has nothing to say, and each of those
+is a decision rather than an accident:
+
+- `expectancy` and `expectancyStandardError` are zero where nothing closed,
+  because their type is money and money is not absent in this channel.
+  `tradeCount` beside them is the field that says whether they mean anything.
+- `expectancyStandardError` is zero where exactly one trade closed. A sample of
+  one has no spread, and zero here means not measurable rather than measured:
+  anything dividing by it reads `tradeCount` first.
+- `averageWin` is zero where nothing won and `averageLoss` is zero where nothing
+  lost. A run that lost everything therefore reports a profit factor of zero, a
+  win rate of zero, an average win of zero and a negative expectancy, and none
+  of those four is a division by zero.
+- `returnPercent` is zero where the capital is not above zero.
+- The drawdown fraction and the run-up fraction are zero where their basis is
+  not above zero, and the money figures beside them are unaffected and are what
+  a reader is left with.
+
+**The gross loss can come out at or below zero.** A trade wins or loses on its
+net after charges and contributes its **gross** to the gross figures, so a trade
+whose gross was positive and whose charges took it under lands in the losers
+carrying a positive gross, which lowers `grossLoss`. With few enough trades
+beside it, that takes the figure to zero or past it. A run of two closed trades,
+one with a gross of a hundred charged a hundred and one, and one with a gross of
+fifty charged nothing, reports one winner, one loser and a gross loss of minus a
+hundred.
+
+That much is on purpose. The alternative is a trade counted as a loser in one
+figure and a winner in another, and a profit factor whose two halves are counted
+over different sets is worse than one whose magnitude is odd on a trade that
+barely moved.
+
+What is not on purpose is the consequence, and it is the reason `profitFactor`
+is absent rather than negative wherever the gross loss is not above zero.
+Dividing by that denominator once reported a profit factor of minus a half on a
+run somebody was about to judge. An engine that reports a negative profit factor
+here has not disagreed with this specification about a sign, it has failed it.
+
+**Ties, anchors and the bar a figure addresses.**
+
+- The deepest point is the one lowest in money, and the earliest bar that
+  reached that depth wins a tie. The highest point is the one highest in money,
+  and the earliest bar that reached that height wins a tie. Both are found by
+  sweeping the curve in bar order and replacing the held extreme only on a
+  **strictly** better point, which is the same rule stated as an operation.
+- `maxDrawdownAt` and `maxRunUpAt` are bar **times**, in the units `bars.csv`
+  states them in, and never bar indices. Two figures in one summary picked by
+  opposite tie rules cannot be checked against each other by the reader who
+  notices they disagree, which is why the height and the depth are picked by the
+  same rule.
+- Both running extremes start at the run's **capital**, not at the first
+  reported point, which is step 7 of the fold above.
+- `longestDrawdownBars` is the longest run of consecutive points under a peak,
+  and not the total number of points under one, which is a different and much
+  larger number. The run starts at the first point below a peak and ends at the
+  point before the recovery, so a run still under water at the last point counts
+  to the end of the curve. It is often the figure that actually stops a trader.
+- A bar of a case always states a time: section 3 allows an absent field in
+  `volume` and in the price columns and nowhere else. So inside this suite an
+  absent moment means no point reached the extreme, and nothing else. A host
+  that supplied a bar with no time would produce absence there for a second
+  reason, and a case cannot.
+
+**Expectancy has two spellings, and they have to agree.** `expectancy` is the
+net profit over the **closed** trade count. The spelling a reader knows from
+every treatment of the subject is the win rate against the average win and the
+average loss, and it is called `spelled` below:
+
+```
+winRate * averageWin - (1 - winRate) * averageLoss
+```
+
+The first is the computation and the second is the check, in that direction and
+not the other. The two are the same number exactly when no trade scratched,
+because the win rate divides by the trades that **decided** and the expectancy
+divides by the trades that **closed**, and a scratch closed while deciding
+nothing. Where a run has scratches and at least one trade decided, what still holds on
+both sides is that the two spellings share a numerator:
+
+```
+spelled * (wins + losses) == expectancy * tradeCount
+```
+
+Where **every** closed trade scratched, `wins + losses` is zero and the win rate
+is absent, so `spelled` cannot be formed at all and the identity says nothing. A
+runner checking it must skip the check there rather than compute it: both sides
+are zero by inspection, and forming `spelled` from an absent win rate is how a
+conformance runner reports `error` on a case that is perfectly correct.
+
+They are not required to agree bit for bit. They are two different sequences of
+divisions over the same binary64 values, and insisting on the last bit would be
+insisting on an accident of the order the divisions happen to be written in.
+Section 6 is where a comparison decides what a last-bit difference is worth.
+
+**The standard error uses the sample deviation.** `expectancyStandardError` is
+the sample standard deviation of the closed trades' nets, divided by the square
+root of how many there were. Written as the sequence of operations:
+
+1. Take `net(t) - expectancy` for each closed trade, in the order the trades
+   opened, and sum the squares of those differences.
+2. Divide that sum by `tradeCount - 1`.
+3. Divide the result by `tradeCount`.
+4. Take the square root.
+
+The count **less one**, and not the count. The trades a run took are a sample of
+the trades the strategy would take, which is the whole reason the figure is
+here, and the population spelling understates the spread by exactly the amount
+that matters on the short runs where the question is asked. Steps 2 and 3
+together are the variance over the count, so the figure is the deviation over
+the root of the count and not the deviation itself, which is a different
+statistic and a larger one.
+
+Fewer than two closed trades has no spread to measure, and the figure is zero
+with no division attempted. The single trade run is not an edge case: it is the
+first thing anybody sees when they backtest a new script over a short window.
+
+**What is rounded, and what is not. No field of this channel is rounded.** Every
+one of them is a sum, difference, product or quotient in binary64 of the values
+above, taken in the order stated, and written to `expected.json` in the shortest
+decimal form that reads back to the exact value.
+
+The run's money digit count (section 3) rounds **one thing**: the total of a
+single fill's charges, once, half to even. That rounding has already happened
+before the `trades` channel exists, so `charges(t)` is a sum of per-fill totals
+each of which was rounded once, and it is not rounded a second time. `gross(t)`
+is not rounded at all, at any point, and neither is anything folded from it.
+
+Two consequences a reader meets. Adding the printed figures up by hand can land
+a fraction of the last digit away from a printed total, and that is the honest
+way round: the total is the figure the report accumulated. And two engines that
+round in a second place, however sensibly, differ in the last bit on a long run,
+which is the failure section 6 exists to catch and this part exists to prevent.
 
 **The trade analysis is not in this channel.** The closed trades split long
 against short, the largest win and loss, and the longest run of each are

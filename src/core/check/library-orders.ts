@@ -240,7 +240,7 @@ const legs: readonly LibraryEntry[] = [
   }),
   entry('leg.stop(name: string, price: number) -> nothing', { ...strategyOnly, planned: true }),
   entry('leg.target(name: string, price: number) -> nothing', { ...strategyOnly, planned: true }),
-  entry('leg.trail(name: string, distance: number, arm?: number = none) -> nothing', {
+  entry('leg.trail(name: string, distance: number, activateAt?: number = none) -> nothing', {
     ...strategyOnly,
     planned: true,
   }),
@@ -258,7 +258,7 @@ const book: readonly LibraryEntry[] = [
   entry('book.stop(amount: number) -> nothing', { ...strategyOnly, planned: true }),
   entry('book.target(amount: number) -> nothing', { ...strategyOnly, planned: true }),
   entry(
-    'book.lockProfit(arm: number, lock: number, step?: number = none, advance?: number = none) -> nothing',
+    'book.lockProfit(activateAt: number, lock: number, step?: number = none, advance?: number = none) -> nothing',
     { ...strategyOnly, planned: true },
   ),
   entry('book.trailStopsToEntry(at: number) -> nothing', { ...strategyOnly, planned: true }),
