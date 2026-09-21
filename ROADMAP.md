@@ -185,6 +185,30 @@ against is a by-product of the phase before it rather than something invented
 here. Invented here, it would test what somebody imagined a run does instead of
 what runs actually did.
 
+**Alerts stay on the chart for now, and that is a decision rather than an
+omission.** An alert is evaluated by the chart that is open: it is armed on a
+price, a study plot, a drawing level or a candle condition, it fires while
+somebody is watching, and it stops when the tab does. The alternative is
+server-side evaluation, where an alert outlives the session and fires with
+nothing open, which is what a hosted platform sells and what a trader eventually
+wants.
+
+It is not being built yet, and the reason is cost rather than doubt. Evaluating
+alerts server side means a second evaluator running continuously per user, a
+delivery path with retries and deduplication, a store with its own migration, a
+quota, and a decision about what an alert means when the instrument it watches
+has no subscriber. That is a phase of its own, not a feature inside one, and
+none of it is needed to make the language or the backtest correct.
+
+So the chart-triggered form ships and the server-side form is left open. Nothing
+above depends on which is chosen: an alert's definition is already portable data
+in the same shape everything else here travels in, so a server-side evaluator
+reads the same records rather than a second format invented for it. **This is
+the paragraph to revisit while implementing the next phases**, because the
+engine that runs a strategy without a browser is the same engine that would
+evaluate an alert without one, and the moment that exists the cost above is
+mostly already paid.
+
 **Gate:** the two engines agree on every conformance case. A disagreement is a
 release blocker, because a backtest that disagrees with the chart is worthless.
 
