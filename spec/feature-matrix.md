@@ -845,8 +845,8 @@ from a `study()` file is OS7001.
 | A description the host cannot resolve | OS6007 before the first bar, and the strategy does not start | `specified` | `stdlib.md` 17.6, `errors.md` OS6007 | `unit:order/leg-unresolvable` |
 | The account's own position | A strategy folds its position from its own settled fills, and no call returns the account's quantity as a number | `specified` | `stdlib.md` 17.1 | `order/account-position` |
 | An order in a study file | OS7001, with the fix naming the declaration to change | `specified` | `stdlib.md` 17.1, `errors.md` OS7001 | `unit:order/study-file` |
-| `buy(...)` | Enter or add to a long position | `specified` | `stdlib.md` 17.2 | `order/buy` |
-| `sell(...)` | Enter or add to a short position | `specified` | `stdlib.md` 17.2 | `order/sell` |
+| `buy(...)` | Enter or add to a long position | `implemented` | `stdlib.md` 17.2 | `order/buy` |
+| `sell(...)` | Enter or add to a short position | `implemented` | `stdlib.md` 17.2 | `order/sell` |
 | `close(...)` | Flatten the position, or the part carrying one tag | `specified` | `stdlib.md` 17.2 | `order/close` |
 | What a tag argument means | A tag that defaults to the empty string is a label the destination carries; a tag that is required, or defaults to absence, is a reference to something that has to exist | `specified` | `stdlib.md` 17.2 | `order/tag-label-or-reference` |
 | A close naming a tag nothing places | OS7016 at the call, before any bar runs: the call could only send nothing on every bar and say nothing, and the file can prove it where the run cannot | `specified` | `stdlib.md` 17.2, `errors.md` OS7016 | `unit:order/close-unplaceable-tag` |

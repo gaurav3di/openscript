@@ -58,13 +58,19 @@
  * Needs `npm run build` first: it runs the compiler and the engine, not a
  * reading of their source.
  */
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
 import { CORE_MODULE, EMITTER_MODULE, fromRoot } from './lib/built.mjs';
 import { frontEndWith } from './lib/example-run.mjs';
+import {
+  BAR_COUNT,
+  CONTRACT,
+  EXAMPLES,
+  formulaBars,
+  isStrategy,
+  missingCapability,
+  shippedExamples,
+} from './lib/strategy-drive.mjs';
 
 const CORE = fromRoot(CORE_MODULE);
-const EXAMPLES = 'examples';
 
 const core = await import(CORE_MODULE);
 const emitter = await import(EMITTER_MODULE);
@@ -74,57 +80,10 @@ const compile = frontEndWith(core, emitter);
 const { backtest, canonicalise, compareRuns, recordFromJson, recordToJson, replay, rerun, runBytes, settingsFor } =
   core;
 
-/**
- * A placeholder instrument, priced in a currency nobody issues.
- *
- * The examples name no symbol and the gate is about the fold, not about a
- * market. What matters is that every machine uses these same facts.
- */
-const CONTRACT = {
-  symbol: 'AAA',
-  exchange: 'XX',
-  currency: 'CUR',
-  tickSize: 0.05,
-  lotSize: 1,
-  pointValue: 1,
-  digits: 2,
-};
-
-const HOUR = 3_600_000;
-const START = 1_748_736_000_000;
-
-/**
- * Bars from a fixed formula, not from a market.
- *
- * A wave with a trend under it and a range around each close: enough shape for
- * a crossing strategy to take trades on both sides, and identical on every
- * machine that runs this, which is the only property the gate needs of them.
- * No random number generator anywhere, because a gate that runs over different
- * bars each time is a gate that fails for a different reason each time.
- */
-function bars(count) {
-  const out = [];
-  for (let index = 0; index < count; index += 1) {
-    const close = 100 + index * 0.05 + Math.sin(index / 7) * 6 + Math.sin(index / 23) * 11;
-    out.push({
-      time: START + index * HOUR,
-      open: round(close - 0.3),
-      high: round(close + 1.1),
-      low: round(close - 1.2),
-      close: round(close),
-      volume: 1000 + (index % 17) * 25,
-      oi: null,
-    });
-  }
-  return out;
-}
-
-/** Two digits, so the input is a price and not a float nobody can read back. */
-function round(value) {
-  return Math.round(value * 100) / 100;
-}
-
-const BARS = bars(400);
+// The contract and the bars are the fixture the harvest writes cases from, so
+// what this gate reproduces is what the suite holds: `lib/strategy-drive.mjs`
+// says why they are one fixture and not two.
+const BARS = formulaBars(BAR_COUNT);
 /** The same history with one close revised, which is what a feed does. */
 const REVISED = BARS.map((bar, index) => (index === 137 ? { ...bar, close: bar.close + 9 } : bar));
 
@@ -143,13 +102,7 @@ const unsupported = [];
 let checked = 0;
 let skipped = 0;
 
-const files = readdirSync(EXAMPLES)
-  .filter((name) => name.endsWith('.oscript'))
-  .sort();
-
-for (const name of files) {
-  const path = join(EXAMPLES, name);
-  const text = readFileSync(path, 'utf8');
+for (const { name, path, text } of shippedExamples()) {
   const compiled = compile(name, text);
   if (compiled.diagnostics.some((one) => one.severity === 'error')) {
     problems.push(`${path}: does not compile, so the gate cannot be run over it`);
@@ -158,19 +111,18 @@ for (const name of files) {
   // A study places no orders, so it has no run to reproduce. Counted and named
   // rather than passed over: a suite that silently skipped every file would
   // report a green gate over nothing at all.
-  if (compiled.program.meta?.kind !== 'strategy') {
+  if (!isStrategy(compiled.program)) {
     skipped += 1;
     continue;
   }
 
   const first = backtest(compiled.program, BARS, settingsFor(CONTRACT));
   if (!first.ok) {
-    // OS6006 is the program asking for a capability this engine does not offer,
-    // which is a fact about the driver's host and not about reproducibility. A
-    // strategy that reads another instrument needs a provider a backtest over
-    // one series of bars does not have.
-    if (first.diagnostic.code === 'OS6006') {
-      unsupported.push(`${path}: ${String(first.diagnostic.values?.tag ?? first.diagnostic.code)}`);
+    // A capability this driver's host does not offer is a fact about the host
+    // and not about reproducibility, and is named rather than passed over.
+    const capability = missingCapability(first.diagnostic);
+    if (capability !== null) {
+      unsupported.push(`${path}: ${capability}`);
       continue;
     }
     problems.push(`${path}: the run could not start: ${first.diagnostic.code}`);

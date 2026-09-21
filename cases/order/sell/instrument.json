@@ -1,0 +1,1 @@
+{"currency":"CUR","exchange":"XX","hasVolume":true,"interval":"60","lotSize":1,"pointValue":1,"session":{"days":[1,2,3,4,5,6,7],"end":"24:00","start":"00:00"},"symbol":"AAA","tickSize":0.05,"timezone":"UTC"}

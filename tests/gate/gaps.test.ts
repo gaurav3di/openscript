@@ -20,14 +20,11 @@
  * gap is cannot be asserted once and left, because it changes every time a study
  * is added. So it is derived here, on every run.
  *
- * ## What counts as reaching a gap
- *
- * A call to one of the names in the row, and a string equal to one of them. The
- * string matters because an average selected by name through a type argument is
- * the same arithmetic as a call to it, and a check that read only the brackets
- * would miss it. Comments are masked before anything is read, because a name in
- * a comment reaches nothing: two of the gate's studies discuss a gap at length
- * in their header and neither one computes it.
+ * The reading of the table and of a script is `gaps-derivation.ts`, beside this
+ * file, because the harvest that writes conformance cases refuses a script by
+ * the same reading: `conformance.md` section 8 admits no case that reaches a
+ * gap, and a second reading there could disagree with this one about what
+ * reaching means. What is here is the holding of the reading to the tree.
  *
  * ## What this refuses
  *
@@ -53,13 +50,12 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
+import { GAPS_HEADING, gapEntries, gapRows, gapsSection, readScript, reaching } from './gaps-derivation.js';
+import type { ReadScript } from './gaps-derivation.js';
 import { GATE_ROOT } from './support.js';
 
 /** The document whose claim this derives. */
 const SPEC = 'spec/stdlib.md';
-
-/** The section the table lives in, found by its heading rather than by line. */
-const HEADING = '### 20.11 ';
 
 /** Both halves of the gate, because a gap reached by either is reached. */
 const SCRIPTS = ['tests/gate/scripts/', 'tests/gate/studies/scripts/'] as const;
@@ -70,31 +66,8 @@ const SUITES = ['tests/gate/', 'tests/gate/studies/'] as const;
 const SCRIPT = '.oscript';
 const SOURCE = '.ts';
 
-/** A name in a table cell, which is how this document writes one. */
-const SPAN = /`([^`\n]+)`/g;
-
-/** A called name, the dotted namespaces of section 8.2 included. */
-const CALL = /([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?)\s*\(/g;
-
-/** A numbered entry of the section, which every row must answer and vice versa. */
-const ENTRY = /^(\d+)\. \*\*/gm;
-
 /** A colour written out as channels: the thing the gate must never transcribe. */
 const CHANNELS = /#[0-9a-fA-F]{6}\b|\brgba?\(\s*\d/;
-
-/** One row of the table: a gap, what reaches it, and what the tree should hold. */
-interface Row {
-  readonly gap: number;
-  readonly names: readonly string[];
-  readonly studies: readonly string[];
-}
-
-/** One gate script, read as code and as the strings it holds. */
-interface Script {
-  readonly name: string;
-  readonly calls: ReadonlySet<string>;
-  readonly strings: ReadonlySet<string>;
-}
 
 function read(path: string): string {
   return readFileSync(new URL(path, GATE_ROOT), 'utf8');
@@ -107,104 +80,21 @@ function filesIn(directory: string, suffix: string): readonly string[] {
     .sort();
 }
 
-/** Every name written as a code span in one cell. */
-function spans(cell: string): readonly string[] {
-  const out: string[] = [];
-  SPAN.lastIndex = 0;
-  let found;
-  while ((found = SPAN.exec(cell)) !== null) out.push(found[1] as string);
-  return out;
-}
-
-/** The section, from its heading to the next one. */
+/** The section, or a failure naming the heading that went missing. */
 function section(document: string): string {
-  const at = document.indexOf(HEADING);
+  const text = gapsSection(document);
   assert.notEqual(
-    at,
-    -1,
-    `${SPEC} holds no section headed "${HEADING.trim()}". The section was renumbered or ` +
+    text,
+    null,
+    `${SPEC} holds no section headed "${GAPS_HEADING.trim()}". The section was renumbered or ` +
       `renamed and this check was left behind, so nothing has derived its claim since.`,
   );
-  const rest = document.slice(at + HEADING.length);
-  const next = rest.search(/\n#{1,3} /);
-  return next === -1 ? rest : rest.slice(0, next);
-}
-
-/** The table, one row per gap. */
-function rowsOf(text: string): readonly Row[] {
-  const out: Row[] = [];
-  for (const line of text.split('\n')) {
-    if (!line.startsWith('|')) continue;
-    const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
-    if (cells.length !== 3) continue;
-    const gap = Number(cells[0]);
-    if (!Number.isInteger(gap)) continue;
-    const studies = cells[2] as string;
-    out.push({
-      gap,
-      names: spans(cells[1] as string),
-      studies: /^none$/i.test(studies) ? [] : [...spans(studies)].sort(),
-    });
-  }
-  return out;
-}
-
-/** The numbered entries the table has to answer. */
-function entriesOf(text: string): readonly number[] {
-  const out: number[] = [];
-  ENTRY.lastIndex = 0;
-  let found;
-  while ((found = ENTRY.exec(text)) !== null) out.push(Number(found[1]));
-  return out;
-}
-
-/**
- * One script, with its comments gone.
- *
- * Strings are collected rather than discarded, because selecting an average by
- * name reaches that average's arithmetic and a name in brackets is not the only
- * way to write a call.
- */
-function scriptOf(name: string, text: string): Script {
-  const calls = new Set<string>();
-  const strings = new Set<string>();
-  let code = '';
-  let i = 0;
-  while (i < text.length) {
-    const ch = text[i] as string;
-    if (ch === '/' && text[i + 1] === '/') {
-      while (i < text.length && text[i] !== '\n') i += 1;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      let value = '';
-      i += 1;
-      while (i < text.length && text[i] !== ch && text[i] !== '\n') {
-        if (text[i] === '\\') {
-          value += text[i + 1] ?? '';
-          i += 2;
-          continue;
-        }
-        value += text[i];
-        i += 1;
-      }
-      if (text[i] === ch) i += 1;
-      strings.add(value);
-      code += ' ';
-      continue;
-    }
-    code += ch;
-    i += 1;
-  }
-  CALL.lastIndex = 0;
-  let found;
-  while ((found = CALL.exec(code)) !== null) calls.add(found[1] as string);
-  return { name, calls, strings };
+  return text as string;
 }
 
 /** Every script the gate holds, from both halves, by the name the gate calls it. */
-function gateScripts(): readonly Script[] {
-  const out: Script[] = [];
+function gateScripts(): readonly ReadScript[] {
+  const out: ReadScript[] = [];
   for (const directory of SCRIPTS) {
     const files = filesIn(directory, SCRIPT);
     assert.notEqual(
@@ -214,32 +104,24 @@ function gateScripts(): readonly Script[] {
         `an empty directory and agreed with itself.`,
     );
     for (const file of files) {
-      out.push(scriptOf(file.slice(0, -SCRIPT.length), read(directory + file)));
+      out.push(readScript(file.slice(0, -SCRIPT.length), read(directory + file)));
     }
   }
   return out;
 }
 
-/** The studies that reach one gap, which is the column the table has to match. */
-function reaching(row: Row, scripts: readonly Script[]): readonly string[] {
-  return scripts
-    .filter((script) => row.names.some((name) => script.calls.has(name) || script.strings.has(name)))
-    .map((script) => script.name)
-    .sort();
-}
-
 test('section 20.11 records exactly the gaps the gate reaches', () => {
   const document = read(SPEC);
   const text = section(document);
-  const rows = rowsOf(text);
-  const entries = entriesOf(text);
+  const rows = gapRows(text);
+  const entries = gapEntries(text);
 
   assert.notEqual(
     rows.length,
     0,
-    `the section headed "${HEADING.trim()}" holds no table this check can read. Its shape is a ` +
-      `gap number, the calls that reach it and the gate studies that make one, and without it ` +
-      `the section is back to asserting what nothing measures.`,
+    `the section headed "${GAPS_HEADING.trim()}" holds no table this check can read. Its shape ` +
+      `is a gap number, the calls that reach it and the gate studies that make one, and without ` +
+      `it the section is back to asserting what nothing measures.`,
   );
   assert.deepEqual(
     rows.map((row) => row.gap),

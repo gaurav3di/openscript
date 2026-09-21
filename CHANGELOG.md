@@ -116,6 +116,31 @@ has only a compiled program leaves the first out, one that states nothing about
 the instrument beside the contract leaves the second out, and either loses
 nothing but the ability to harvest.
 
+**The first conformance cases are in the tree, harvested rather than written.**
+`scripts/harvest-cases.mjs` runs the shipped strategy examples over the Phase 5
+gate's fixture, the placeholder contract and four hundred formula bars, under
+the instrument facts `conformance.md` section 3 assumes of a case that states
+none, read from that page, and writes each run into `cases/<id>/` through
+`caseFilesFrom`, with a `notes.md` saying why the case exists and what it
+defends against. Two cases: `order/buy`, from the crossing strategy, and
+`order/sell`, from the opening range strategy. The two rows of
+`feature-matrix.md` that name them are the first marked `implemented`, and the
+gate's contract and bars now live in one module the reproducibility check and
+the harvest share, so what the gate reproduces is what the suite holds.
+
+**The harvest is a check as well as a writer.** Run with `--check`, which
+`npm test` does, it writes nothing and fails the build when a case on disk is
+not what this engine produces, byte for byte; when a case it wrote names a row
+that does not say `implemented`; when an `implemented` row names a case
+directory that is not there; or when a case directory exists that no row names.
+Every script is harvested twice and the two compared before anything is
+written. A script that reaches a gap of `stdlib.md` section 20.11 is refused by
+name with the call that reached it, by the gate's own reading of that table,
+which now lives in one module the gate's test and the harvest share; and a
+strategy this driver cannot run is named and counted rather than passed over.
+The short premium example reads a second instrument, which a backtest over one
+series of bars cannot supply, so it is not a case yet and the report says so.
+
 ---
 
 ## 0.4.0

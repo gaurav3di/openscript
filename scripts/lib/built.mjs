@@ -52,6 +52,18 @@ export const COLOURS_MODULE = '../dist/core/emit/colours.js';
 export const TEST_HOSTS_MODULE = '../dist-test/tests/hosts/index.js';
 
 /**
+ * The gate's reading of `stdlib.md` section 20.11, from the built test tree.
+ *
+ * Which calls reach which gap is derived once, in the module the gate's test
+ * holds the section to the tree with, and the harvest refuses a script by that
+ * same reading: `conformance.md` section 8 admits no case that reaches a gap,
+ * and a second reading of the table would be the drift the test exists to
+ * stop, one directory over. From the test build for the reason the host above
+ * is: the one reading of that page written from the page is the suite's.
+ */
+export const GAPS_MODULE = '../dist-test/tests/gate/gaps-derivation.js';
+
+/**
  * The same path as the working directory sees it, for a message or an existence
  * check, derived from the loader spelling rather than written beside it.
  */

@@ -51,7 +51,13 @@ export function prosePages(text) {
  * the feature is called and what it does. The fourth cites the sections that
  * define it. A code named in the promise is a claim about behaviour; a code
  * cited in the fourth is a reference, which is why only the first two are read
- * here. A row can point at a refusal it deliberately does not raise.
+ * for codes. A row can point at a refusal it deliberately does not raise.
+ *
+ * The fifth is the test identifier the matrix's rule 4 describes, or null
+ * where the cell is not one identifier in backticks. It is read here rather
+ * than by a second parser in the harvest, because the shape of a row is one
+ * fact and the harvest's question, which row names this case, is asked of the
+ * same rows the deferral rule reads.
  */
 export function matrixRows(text) {
   const lines = text.split('\n');
@@ -68,12 +74,15 @@ export function matrixRows(text) {
     const status = /^`([a-z]+)`$/.exec(cells[2]);
     if (status === null) continue;
 
+    const test = /^`([^`]+)`$/.exec(cells[4]);
+
     rows.push({
       line: i + 1,
       section,
       feature: cells[0],
       status: status[1],
       promised: namedIn(`${cells[0]} ${cells[1]}`),
+      test: test === null ? null : test[1],
     });
   }
 

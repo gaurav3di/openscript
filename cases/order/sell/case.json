@@ -1,0 +1,1 @@
+{"asserts":["diagnostics","orders","trades","performance"],"category":"strategy","description":"A strategy that enters long with buy above an opening range and short with sell below it, sized in lots, and flattens by the clock produces the recorded ledger, trades and summary.","id":"order/sell","languageVersion":1,"profile":"strategy","tolerance":{"abs":0,"reason":null,"rel":0}}

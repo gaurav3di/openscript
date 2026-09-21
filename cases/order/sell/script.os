@@ -1,0 +1,73 @@
+// The opening range of the fifth example, traded once per session, with the
+// other side of the range as the stop and a hard exit by the clock.
+//
+// Exercises: intraday product and closeOnSessionEnd, one entry per session held
+// in var, a bracket whose stop is a level the market drew rather than a
+// multiple, and a flattening on elapsed session time rather than on a signal.
+
+version 1
+
+strategy("Opening range breakout", overlay = true, precision = 2,
+         capital = 500000, qtyType = "lots", qty = 1,
+         product = "intraday", pyramiding = 1, closeOnSessionEnd = true,
+         fillOn = "nextOpen", slippage = 1,
+         commissionType = "perTrade", commission = 20)
+
+rangeMinutes = input(15,  "Opening range, in minutes", min = 1, max = 240)
+holdMinutes  = input(300, "Flat this many minutes after the open", min = 5, max = 1440)
+targetMult   = input(2.0, "Target, in range widths", min = 0.2, max = 10)
+lots         = input(1,   "Lots", min = 1, max = 100)
+
+var openTime  = none
+var rangeHigh = none
+var rangeLow  = none
+var traded    = false
+
+if session.isFirstBar
+    openTime  = time
+    rangeHigh = high
+    rangeLow  = low
+    traded    = false
+
+elapsed = isNone(openTime) ? none : time - openTime
+forming = not isNone(elapsed) and elapsed < rangeMinutes * 60000
+
+if forming and not session.isFirstBar
+    rangeHigh = max(rangeHigh, high)
+    rangeLow  = min(rangeLow, low)
+
+rangeWidth = isNone(rangeHigh) ? none : rangeHigh - rangeLow
+
+// One entry per session, and only after the range has finished forming. traded
+// is set at the entry rather than cleared at the exit, so a trade that is
+// stopped out at ten past the open does not re-enter at quarter past.
+ready = not forming and not traded and pos.size == 0
+ok    = not isNone(rangeWidth) and rangeWidth > 0
+
+if ready and ok and close > rangeHigh
+    traded = true
+    buy(qty = lots, tag = "entry")
+    // The far side of the range is the stop because that is the level that says
+    // the breakout was wrong. A multiple of volatility would be a second opinion
+    // about a level the market has already drawn. Both levels are absolute
+    // prices, which is what exit takes; order.bracket takes distances from the
+    // entry instead (stdlib 17.2 and 17.3), and stating the same level two ways
+    // is OS3010.
+    exit(tag = "entry", stop = rangeLow, limit = rangeHigh + rangeWidth * targetMult)
+
+if ready and ok and close < rangeLow
+    traded = true
+    sell(qty = lots, tag = "entry")
+    exit(tag = "entry", stop = rangeHigh, limit = rangeLow - rangeWidth * targetMult)
+
+// The clock exit. It is not a stop and not a target: it is the admission that a
+// position that has not worked in five hours is not going to, and that carrying
+// an intraday position to the closing auction costs more than it gains.
+// closeOnSessionEnd is still set, because this cap can be longer than a session.
+if pos.size != 0 and not isNone(elapsed) and elapsed >= holdMinutes * 60000
+    close()
+
+highPlot = plot(rangeHigh, "Range high", aqua,   width = 2, style = "step")
+lowPlot  = plot(rangeLow,  "Range low",  orange, width = 2, style = "step")
+fill(highPlot, lowPlot, fade(aqua, 93))
+background(forming ? fade(silver, 92) : none)
