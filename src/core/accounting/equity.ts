@@ -38,13 +38,32 @@
  * ## What a trade list cannot say, said here rather than discovered later
  *
  * A trade holds one entry price weighted over its entry fills and one exit
- * price weighted over its exit fills, so a partial close is not visible in it:
- * the size a trade held between its open and its close is the size it entered.
- * A curve folded from fills could mark the reduced size from the bar the
- * reduction settled on; this one cannot, and the difference is in the open
- * profit of the part already closed, never in the realised total. It is
- * written here because a limitation nobody wrote down is a limitation somebody
- * finds inside a report they had already believed.
+ * price weighted over its exit fills, so a trade whose size changed while it
+ * was open is not visible in it: the size a trade held between its open and its
+ * close is the size it ended up entering, at the average price it ended up
+ * entering at. Both directions are wrong and they are wrong differently.
+ *
+ * - **A partial close** is marked at the full size from the bar the reduction
+ *   settled on, so the open profit of the part already closed is counted twice
+ *   over, once here and once in the realised total.
+ * - **A scale-in is the worse of the two**, because it is wrong from the
+ *   beginning rather than from the middle. A trade that buys a hundred at ten
+ *   and another hundred at twenty is marked, from the bar it first opened, as
+ *   two hundred units bought at fifteen. On the bars before the second entry it
+ *   is therefore marked five points under water on units it did not hold, and
+ *   the curve reports a drawdown the account never had. The summary's
+ *   `maxDrawdown` and `maxDrawdownPercent` are folded from this curve, so a
+ *   pyramiding strategy is reported as having risked more than it did.
+ *
+ * Neither reaches the realised total, which is folded from the fills: what is
+ * affected is `openProfit`, `exposure`, `equity` and every drawdown figure
+ * taken off the curve, on the bars a trade's size was not what it ended as.
+ *
+ * A curve folded from the fills rather than from the trades would have neither,
+ * and that is what fixes it: it needs each entry, exit and charge to land on
+ * the bar it settled on, which is a different fold from this one rather than a
+ * correction to it. It is written here because a limitation nobody wrote down
+ * is a limitation somebody finds inside a report they had already believed.
  *
  * ## Two preconditions, both of them the caller's
  *

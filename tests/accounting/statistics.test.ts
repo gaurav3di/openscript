@@ -226,6 +226,30 @@ test('a run that lost everything states a profit factor of zero and an average w
   assert.equal(summary.expectancy, -6);
 });
 
+test('a gross loss driven under zero by charges states no profit factor', () => {
+  // A trade wins or loses on its net after charges and contributes its gross to
+  // the gross figures, so a trade whose gross was positive and whose charges
+  // took it under lands in the losses carrying a positive gross. Enough of
+  // those and the gross loss goes under zero, and dividing by it reported a
+  // profit factor of minus a half: a ratio every use of which is non-negative,
+  // handed back negative, on a run somebody was about to judge.
+  const summary = summaryFor([
+    tradeOf({ index: 1, closedOnBar: 1, grossProfit: 100, charges: 101 }),
+    tradeOf({ index: 2, closedOnBar: 2, grossProfit: 50 }),
+  ]);
+
+  assert.equal(summary.wins, 1, 'the second trade won');
+  assert.equal(summary.losses, 1, 'and the first lost on its net, which is the rule');
+  assert.equal(summary.grossLoss, -100, 'the gross loss is below zero, as it says it can be');
+  assert.equal(summary.profitFactor, null, 'so there is no ratio to state');
+});
+
+test('a run whose only trade was charged into a loss states no profit factor either', () => {
+  const summary = summaryFor([tradeOf({ index: 1, closedOnBar: 1, grossProfit: 100, charges: 101 })]);
+  assert.equal(summary.grossLoss, -100);
+  assert.equal(summary.profitFactor, null, 'rather than minus zero');
+});
+
 test('a run that lost nothing states no profit factor at all', () => {
   // Catches an infinity. Dividing by a gross loss of zero gives one, and an
   // infinity is a value JSON writes as null, so the report would come back from

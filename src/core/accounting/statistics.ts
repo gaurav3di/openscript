@@ -70,7 +70,19 @@ export interface Summary {
   readonly netProfit: Money;
   /** Sum of winning trades, before charges. */
   readonly grossProfit: Money;
-  /** Positive magnitude. */
+  /**
+   * The losing trades' gross, as a magnitude, and it can come out at or below
+   * zero.
+   *
+   * A trade wins or loses on its net after charges and contributes its gross
+   * here, so a trade whose gross was positive and whose charges took it under
+   * lands in the losses carrying a positive gross, which lowers this figure and
+   * with few enough trades beside it takes it to zero or past it. `tallyOf`
+   * says why that is preferred to counting one trade as a loser in one figure
+   * and a winner in another. It is written here because it was documented as a
+   * positive magnitude and is not one, and a reader dividing by it was handed a
+   * negative profit factor with nothing saying that could happen.
+   */
   readonly grossLoss: Money;
   readonly charges: Money;
   /** `netProfit / capital`, a fraction and not a figure times a hundred. */
@@ -90,7 +102,17 @@ export interface Summary {
   /** Money per closed trade. */
   readonly expectancy: Money;
   readonly expectancyStandardError: Money;
-  /** Null when grossLoss is 0. */
+  /**
+   * Gross profit over gross loss, or null where there is no ratio to take.
+   *
+   * Null when the gross loss is not above zero: a run with no losing trade has
+   * nothing to divide by, and one whose losses cost less in gross than their
+   * charges has a denominator at or below zero. A profit factor is a
+   * non-negative ratio everywhere it is used, so a negative one is not a
+   * surprising value, it is a number nobody can act on. It used to be
+   * reported: two trades, one charged into a loss on a positive gross, gave a
+   * profit factor of -0.5.
+   */
   readonly profitFactor: number | null;
   /** Zero or negative, the same sign the curve states it with. */
   readonly maxDrawdown: Money;
@@ -172,7 +194,7 @@ export function summaryOf(
     averageLoss: tally.losses === 0 ? 0 : -tally.lossTotal / tally.losses,
     expectancy,
     expectancyStandardError: standardErrorOf(trades, expectancy, tally.tradeCount),
-    profitFactor: tally.grossLoss === 0 ? null : tally.grossProfit / tally.grossLoss,
+    profitFactor: tally.grossLoss > 0 ? tally.grossProfit / tally.grossLoss : null,
     maxDrawdown: depth.maxDrawdown,
     maxDrawdownPercent: depth.maxDrawdownPercent,
     maxDrawdownAt: depth.maxDrawdownAt,
@@ -195,6 +217,13 @@ export function summaryOf(
  * counted as a loser in one figure and a winner in another, and a profit factor
  * whose two halves are counted over different sets is worse than one whose
  * magnitude is odd on a trade that barely moved.
+ *
+ * What is not on purpose, and is why `profitFactor` is null rather than a ratio
+ * whenever this figure is not above zero: enough of those trades and the gross
+ * loss reaches zero or goes under, and dividing by it reported a profit factor
+ * of minus a half. A statistic being odd is a thing a reader can weigh. A
+ * statistic being negative where every use of it is a non-negative ratio is a
+ * number nobody can act on.
  */
 function tallyOf(trades: readonly Trade[]): Tally {
   let netProfit = 0;

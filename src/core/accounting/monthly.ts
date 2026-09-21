@@ -61,7 +61,19 @@ export function monthlyOver(
   for (const point of equity) {
     const at = monthOf(point.time);
     if (at !== null && (current === undefined || current.year !== at.year || current.month !== at.month)) {
-      current = { year: at.year, month: at.month, netProfit: 0, basis: point.equity, trades: 0 };
+      // The equity this month started from, which is where the previous month
+      // left the account and not where this one's first bar closed. Taking the
+      // opening point's own equity put the month's first move into the
+      // numerator and into the denominator at once: a February that doubled a
+      // thousand pounds reported fifty percent, because the gain was divided by
+      // the two thousand it had already produced.
+      current = {
+        year: at.year,
+        month: at.month,
+        netProfit: 0,
+        basis: previous === undefined ? point.equity : previous.equity,
+        trades: 0,
+      };
       buckets.push(current);
     }
     if (previous !== undefined && current !== undefined) {
@@ -104,7 +116,22 @@ interface Bucket {
  * ever runs on.
  */
 function monthOf(time: number | null): { readonly year: number; readonly month: number } | null {
-  if (time === null || !Number.isFinite(time)) return null;
+  if (time === null || !Number.isFinite(time) || Math.abs(time) > LATEST_INSTANT) return null;
   const at = new Date(time);
   return { year: at.getUTCFullYear(), month: at.getUTCMonth() + 1 };
 }
+
+/**
+ * The furthest either way an instant can be and still name a month.
+ *
+ * A finite number outside it decomposes to NaN rather than throwing, and a NaN
+ * year never equals the next one, so every point opened a bucket of its own and
+ * a fifty thousand bar run produced fifty thousand rows of NaN. The canonical
+ * writer then threw a bare error with no code on them, out of core, on a path a
+ * host could not tell from an internal fault. The mistake that gets here is
+ * ordinary: bar times supplied in nanoseconds rather than milliseconds.
+ *
+ * A point whose time names no month contributes to no month, which is what an
+ * absent time already did.
+ */
+const LATEST_INSTANT = 8.64e15;
