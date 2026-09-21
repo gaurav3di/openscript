@@ -29,3 +29,7 @@ src/core/version/*.generated.ts
 # every build. Checked in, it would be a second place a function's description
 # lives, and the one an editor shows.
 src/core/check/*.generated.ts
+
+# The interpreter's own bytecode for the second engine, written on import.
+__pycache__/
+*.pyc

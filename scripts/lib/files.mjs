@@ -52,8 +52,18 @@ import { readdirSync } from 'node:fs';
  * about how this project is written, and version control's own store is not
  * source at all. Both are enormous, and reading either would make every check
  * too slow to run, which is its own way of turning a check off.
+ *
+ * `__pycache__` is the third for a different reason, and the reason matters
+ * because the rule these checks enforce is that nothing goes unread. It holds
+ * the interpreter's own bytecode for the Python files beside it, written the
+ * moment the engine is imported and derived from source this walk does read.
+ * Reading it would add nothing: it is binary, it is generated, and every rule
+ * that could apply to it applies to the `.py` file it came from. Leaving it in
+ * was worse than useless: the second engine's own documented command wrote 40
+ * of them and the next `npm test` refused the tree, so the gate failed for
+ * having been used.
  */
-export const NOT_THE_PROJECT = new Set(['.git', 'node_modules']);
+export const NOT_THE_PROJECT = new Set(['.git', 'node_modules', '__pycache__']);
 
 /**
  * Built output, which is the project's but is built rather than written.

@@ -60,7 +60,10 @@ const MAX_LINES = 500;
 const ALLOW_PATH = 'spec/modularity-exceptions.json';
 
 const INDEX = /(^|\/)index\.[tj]s$/;
-const SOURCE = /\.(ts|tsx|js|mjs)$/;
+// The second engine counts too. CLAUDE.md's rule is "no code file over 500
+// lines, wherever it sits", and a rule enforced on one language and not the
+// other is a rule the next long file is written in the other language.
+const SOURCE = /\.(ts|tsx|js|mjs|py)$/;
 
 const IMPORT =
   /(?:^|\n)\s*(?:import|export)[\s\S]*?from\s+['"]([^'"]+)['"]|\brequire\(\s*['"]([^'"]+)['"]\s*\)|\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
