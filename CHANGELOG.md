@@ -9,6 +9,59 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The destination can be told to behave badly, on a schedule stated before the
+run.** `SimulatorOptions.fill` now carries one: a list of acts, each naming the
+nth order this destination took, how many boundaries after the one that took it
+the act falls, and what it does. Four verbs, and between them they reach every
+status of `stdlib.md` 17.7 a host may send. A fill carries a cumulative
+quantity, so one verb covers the acknowledgement before anything has traded, a
+fill of part of the order and a fill of the whole of it, and the other three are
+the three ways an order ends carrying less than it asked for: refused, cancelled
+and expired. An order the schedule names is answered by the schedule and by
+nothing else, and a run that states no schedule is answered exactly as before,
+which is what keeps every case already harvested the bytes it was harvested as.
+
+There is no random number in it and there will not be one. `stdlib.md` 8.2 keeps
+a script that answers differently on a second run out of a conformance suite,
+and a venue that rolled a die would make every case harvested from it
+unreproducible in the same breath. The venue works out the average over the
+cumulative quantity itself, because that is the figure `stdlib.md` 17.8 step 3
+says the row takes whole, and a destination reporting the last piece's price as
+an average hands the engine a number that is not one, which the engine may not
+correct because it is forbidden to average two averages of its own.
+
+**What the suite had never been handed, measured rather than guessed.** Across
+the five cases in this suite there are 204 frames: 102 that say `working` with
+nothing filled and 102 that say `filled` with the whole order, and nothing else.
+No frame reports part of an order, none arrives at a boundary later than the one
+that took the order, and the words a host may send for a refusal, a cancellation
+and an expiry appear no times at all. So the two engines are held to each other
+over a destination that behaves perfectly, which is not the half of a day that
+costs a trader money. The venue above is the half of the fix that could ship
+here; the cases it can now produce cannot be added to the suite yet, for two
+reasons that this release records rather than hides.
+
+The first is this engine's own adapter. `conformance.md` section 3 says
+`frames.csv` supplies frames the way `bars.csv` supplies bars, so a case can
+assert the fold against input the engine did not choose, and a backtest here
+answers its own frames from its own destination and can be handed none. The
+adapter says so honestly, comparing the frames its run answered with the file
+and reporting `unsupported` when they differ, so every case in the suite today
+is one whose frames this engine's destination would have produced anyway. A case
+about a destination that behaves badly is by definition not one of those.
+
+The second is in the file. A frame carries a `time` under `host-interface.md`
+7.2 and `stdlib.md` 17.7 folds `updatedAt` from it, and `frames.csv` has no
+column for one, so an engine folding a case's frames leaves that field at
+`placedAt` where an engine answering its own frames carries the instant it
+spoke. Every ledger row in the suite today has the two equal, because every
+frame in it arrives after the bar that placed its own order, so no case can tell
+the two readings apart. Section 3 now says this, and says what would close it.
+The two engines were driven over three harvested cases carrying a partial fill,
+an order filled over more than one bar, a refusal with the destination's own
+text, an expiry, a cancellation and a fill arriving after a terminal status, and
+they agreed on every figure of all three except that one field.
+
 **The second engine has a home, and the gate covers both engines.** `engine/`
 holds a Python distribution: the package `openscript`, importable as one name,
 its tests beside it, and the tools that run them. It requires an interpreter and

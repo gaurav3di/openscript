@@ -30,6 +30,21 @@
  * intent no row holds and the fold would refuse it. The row a bracket wants is
  * decision 55 and it is not in this release, so a stop cannot fill here and a
  * page that says it can is ahead of the engine.
+ *
+ * **A destination that behaves badly does it on a schedule, stated before the
+ * run and never by chance.** Every case harvested before this one ran against a
+ * venue that filled every order whole and on time, so two engines were proved
+ * to agree about the half of a day that costs nobody anything. The other half
+ * is a partial fill, an order arriving in pieces, a rejection, a cancellation,
+ * an expiry and a fill that turns up after the order has ended, and
+ * `SimulatorOptions.fill` carries the schedule saying which order each of those
+ * happens to and at which boundary. There is no random number here and there
+ * will not be one: `stdlib.md` 8.2 keeps a script that answers differently on a
+ * second run out of a conformance suite, and a venue rolling a die would make
+ * every case it wrote unreproducible in the same breath. **An order the
+ * schedule names is answered by the schedule and by nothing else**, so a run
+ * stating none is the run the cases before this one were harvested from, to the
+ * bit, which is what lets this exist at all.
  */
 import type { Contract } from '../accounting/index.js';
 import type { OrderFrame, OrderIntent, OrderSide, RoutedEffect } from '../engine/index.js';
@@ -38,11 +53,70 @@ import { testResting } from './resting.js';
 import type { RestingOrder } from './resting.js';
 import type { FillPolicy } from './settings.js';
 
+/**
+ * What this destination does to one order, at one boundary.
+ *
+ * Four words reaching every status of `stdlib.md` 17.7 a host may send. `fill`
+ * carries the cumulative quantity, so one word covers the acknowledgement
+ * before anything has traded, a fill of part of the order and a fill of the
+ * whole of it: `working` and `filled` are that quantity read against the
+ * order's own rather than two instructions. The other three are the three ways
+ * an order ends carrying less than it asked for, and an engine never handed
+ * one has never been asked what it does with the quantity still working.
+ */
+export type VenueDoes = 'fill' | 'reject' | 'cancel' | 'expire';
+
+/** One act of the schedule: what the destination does, to which order, when. */
+export interface VenueAct {
+  /**
+   * The nth order this destination took, counting from one.
+   *
+   * Orders and not intents: a bracket is never taken and a cancellation is
+   * answered without being held, so neither is counted and neither can be named
+   * here. An ordinal for the reason `conformance.md` section 3 gives a case's
+   * own frames: nobody writing a schedule knows the id an engine will mint.
+   */
+  readonly order: number;
+  /**
+   * Boundaries after the one the order arrived at, `0` being that boundary.
+   *
+   * Counted from the order rather than stated as a bar index, because the bar
+   * a strategy decides an order on moves the moment anything else about the run
+   * does, and a schedule in bar indices is one nobody can read back.
+   */
+  readonly afterBars: number;
+  readonly does: VenueDoes;
+  /**
+   * The cumulative quantity a fill reports, in units, or absent for all of it.
+   *
+   * Cumulative because a frame is (`stdlib.md` 17.8): `0` is the
+   * acknowledgement a venue sends before anything has traded, a number below
+   * the order's own is a partial fill, and one at or above it completes the
+   * order. A quantity below what this venue has already reported is a stale
+   * frame, which a venue really sends and the fold has to swallow, so it is
+   * stated here rather than refused.
+   */
+  readonly units?: number | null;
+  /** The destination's own text, which the ledger records against the row. */
+  readonly text?: string;
+}
+
+/**
+ * The fill policy, and what this destination does to the orders it names.
+ *
+ * The schedule sits on the policy because it is the same kind of fact: how this
+ * destination decides a fill, chosen before the first bar and carried in the
+ * record beside the policy's own version, so a stored run replays as it ran.
+ */
+export interface VenuePolicy extends FillPolicy {
+  readonly schedule?: readonly VenueAct[];
+}
+
 /** What the venue prices against and how it decides a fill. */
 export interface SimulatorOptions {
   readonly bars: readonly RecordedBar[];
   readonly contract: Contract;
-  readonly fill: FillPolicy;
+  readonly fill: VenuePolicy;
   /** Adverse always, in ticks, applied to a market fill and to a stop. */
   readonly slippageTicks: number;
   /** The declaration's own fill rule: where a market order is priced. */
@@ -64,7 +138,11 @@ interface Order {
   readonly placedOn: number;
   /** Absent on a market order, which rests on nothing. */
   readonly rest: RestingOrder | null;
+  /** The acts the schedule states about this order, in the order they were stated. */
+  readonly acts: readonly VenueAct[];
   filledQty: number;
+  /** This venue's average over `filledQty`, absent while nothing has filled. */
+  avgPrice: number | null;
   live: boolean;
   /** Whether a stop limit has reached its trigger and is now a limit. */
   triggered: boolean;
@@ -72,6 +150,20 @@ interface Order {
 
 /** `language.md` 13.3: a market order priced at the close of its own bar. */
 const AT_CLOSE = 'close';
+
+/**
+ * The word this venue reports each ending under.
+ *
+ * A destination with words of its own maps them onto the vocabulary in its
+ * adapter, which is where `stdlib.md` 17.7 puts the mapping because a status
+ * vocabulary differs per destination. This is this one's, and the whole of what
+ * a schedule's verb means.
+ */
+const ENDED: Readonly<Record<Exclude<VenueDoes, 'fill'>, string>> = {
+  reject: 'rejected',
+  cancel: 'cancelled',
+  expire: 'expired',
+};
 
 /**
  * A venue, for one run.
@@ -123,6 +215,13 @@ export class Simulator {
     const bar = this.options.bars[barIndex];
     if (bar !== undefined) {
       for (const order of this.orders) {
+        // An order the schedule names is answered by the schedule, whether or
+        // not it is still live: a fill after a cancellation is the one thing
+        // this exists for and the order is dead by then.
+        if (order.acts.length > 0) {
+          if (order.placedOn < barIndex) this.perform(order, bar, barIndex);
+          continue;
+        }
         if (!order.live || order.rest === null || order.placedOn >= barIndex) continue;
         this.decide(order, bar, barIndex);
       }
@@ -145,12 +244,17 @@ export class Simulator {
   /** An order the strategy sent, which this venue now holds. */
   private accept(intent: OrderIntent, barIndex: number): void {
     this.refs += 1;
+    // The ordinal of this order among the orders taken, which is what an act
+    // names. Read before the order joins them, so the first is one.
+    const ordinal = this.orders.length + 1;
     const order: Order = {
       intent,
       ref: refOf(this.refs),
       placedOn: barIndex,
       rest: restingFor(intent),
+      acts: (this.options.fill.schedule ?? []).filter((act) => act.order === ordinal),
       filledQty: 0,
+      avgPrice: null,
       live: true,
       triggered: false,
     };
@@ -188,6 +292,15 @@ export class Simulator {
    * where it does not.
    */
   private open(order: Order, barIndex: number): void {
+    // A scheduled order is answered by its schedule from its first breath. The
+    // acknowledgement below is a thing this venue chooses to say, so a schedule
+    // that wants one states it, and one that wants the destination to sit on an
+    // order and say nothing gets that instead.
+    if (order.acts.length > 0) {
+      const bar = this.options.bars[barIndex];
+      if (bar !== undefined) this.perform(order, bar, barIndex);
+      return;
+    }
     this.say(order.intent, order.ref, 'working', 0, null, barIndex);
     if (order.rest !== null) return;
 
@@ -227,13 +340,94 @@ export class Simulator {
    * than guessed at here, so by this point the unit is one of two.
    */
   private complete(order: Order, price: number, barIndex: number): void {
-    const stated = order.intent.qty ?? 0;
-    const lot = this.options.contract.lotSize;
-    const qty =
-      this.options.qtyType === 'lots' && lot !== null && lot > 0 ? stated * lot : stated;
+    const qty = this.unitsOf(order.intent);
     order.filledQty = qty;
+    order.avgPrice = price;
     order.live = false;
     this.say(order.intent, order.ref, 'filled', qty, price, barIndex);
+  }
+
+  /**
+   * The acts due at this boundary, in the order the schedule stated them.
+   *
+   * Due is counted from the bar that sent the order, so an act names a moment
+   * in the life of its own order rather than a bar of the run. Two acts due
+   * together are answered as written, which is how a schedule states a
+   * cancellation and the fill that raced it.
+   *
+   * Liveness is not consulted. An order that has ended can still be spoken
+   * about, because the frame that arrives after it ended is the whole reason
+   * this is here: `stdlib.md` 17.8's fill after a terminal status, which a
+   * venue sends whenever a cancel races a fill and which an engine refusing it
+   * loses, leaving a position the strategy cannot see.
+   */
+  private perform(order: Order, bar: RecordedBar, barIndex: number): void {
+    for (const act of order.acts) {
+      if (order.placedOn + act.afterBars !== barIndex) continue;
+      if (act.does === 'fill') {
+        this.report(order, act, bar, barIndex);
+        continue;
+      }
+      // The order ends, reporting what it filled before it ended, because a
+      // frame is cumulative: `stdlib.md` 17.8 has the row keeping the terminal
+      // word and the quantity recording what traded, both true at once.
+      order.live = false;
+      const ended = ENDED[act.does];
+      const price = order.filledQty > 0 ? order.avgPrice : null;
+      this.say(order.intent, order.ref, ended, order.filledQty, price, barIndex, act.text ?? '');
+    }
+  }
+
+  /**
+   * A fill the schedule stated, at this bar's close and worsened like any other.
+   *
+   * **The average is this venue's own, over the cumulative quantity**, the
+   * figure `stdlib.md` 17.8 step 3 says the row takes whole. A venue reporting
+   * the last piece's price and calling it an average hands the engine a number
+   * that is not one, and the engine may not work its own out from two of them,
+   * so the lie settles into the ledger and into every trade folded from it.
+   *
+   * A stated quantity at or below what this venue has already reported adds
+   * nothing and moves nothing: that is a repeated or a stale frame, which a real
+   * destination sends and the fold has to swallow. It carries the average this
+   * venue holds now rather than then, because it keeps no history of its own
+   * averages and the fold ignores the price of a frame adding no quantity. A
+   * bar with no close prices nothing, so an act due at one says nothing rather
+   * than raising a quantity with no price against it, which step 3 refuses.
+   */
+  private report(order: Order, act: VenueAct, bar: RecordedBar, barIndex: number): void {
+    const whole = this.unitsOf(order.intent);
+    const stated = act.units ?? whole;
+    const delta = stated - order.filledQty;
+    if (delta > 0) {
+      if (bar.close === null) return;
+      // Written in this order and left in it: the source order of a sum is
+      // what decides its last bit, and a case harvested from this venue is
+      // asserted to the bit.
+      const price = this.worsen(bar.close, order.intent.side);
+      order.avgPrice = ((order.avgPrice ?? 0) * order.filledQty + price * delta) / stated;
+      order.filledQty = stated;
+      if (order.filledQty >= whole) order.live = false;
+    }
+    // `working` is live and not completely filled, `filled` is the whole
+    // quantity: 17.7's two words read off the quantity rather than stated
+    // twice by a schedule that could disagree with the number beside them.
+    const status = order.filledQty >= whole ? 'filled' : 'working';
+    const price = stated > 0 ? order.avgPrice : null;
+    this.say(order.intent, order.ref, status, stated, price, barIndex, act.text ?? '');
+  }
+
+  /**
+   * The order's quantity in units, which is what a fill is counted in.
+   *
+   * The conversion `complete` did inline, wanted in two places the moment a
+   * schedule can fill an order in pieces: the whole a piece is measured
+   * against has to be the number the fill path would have reported.
+   */
+  private unitsOf(intent: OrderIntent): number {
+    const stated = intent.qty ?? 0;
+    const lot = this.options.contract.lotSize;
+    return this.options.qtyType === 'lots' && lot !== null && lot > 0 ? stated * lot : stated;
   }
 
   /**
@@ -270,6 +464,7 @@ export class Simulator {
     filledQty: number,
     avgFillPrice: number | null,
     barIndex: number,
+    text = '',
   ): void {
     this.seq += 1;
     this.answered.push({
@@ -281,7 +476,7 @@ export class Simulator {
       sentInstrument: intent.instrument,
       sentProduct: intent.product,
       time: this.options.bars[barIndex]?.time ?? null,
-      text: '',
+      text,
       seq: this.seq,
     });
   }

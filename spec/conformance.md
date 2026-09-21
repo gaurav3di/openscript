@@ -269,6 +269,24 @@ frame whose cumulative quantity rose after the row had gone terminal. A case
 asserts what came of them through the `orders` channel of `expected.json`, and a
 case with no `frames.csv` is handed no frames at all.
 
+**A frame's own timestamp is not in the file, and one field of the ledger is
+folded from it.** `host-interface.md` section 7.2 gives a frame a `time`, the
+destination's own instant for it, and `stdlib.md` 17.7 folds `updatedAt` from
+that field: when a frame last changed the row. No column here carries it. So an
+engine folding a case's frames has nothing to move `updatedAt` to and leaves it
+at `placedAt`, while an engine that answered its own frames carries the instant
+it spoke, and the two disagree on a row whose destination answered later than
+the bar that placed the order. They agree on every row whose frames arrive after
+that same bar, where the two instants are one, so a suite made of those frames
+cannot tell the two readings apart and passes both.
+
+Closing it is a column of its own, `time`, absent as `none` where the
+destination stated none, written by whatever projects a run into a case and read
+beside the others. Until then a case asserting the orders channel is asserting
+an `updatedAt` only an engine answering its own frames can produce, and a case
+whose destination answers a bar later than the one that placed the order cannot
+be reproduced from its own input.
+
 ### `backtest.json`
 
 What a strategy run's report was folded under, and the script never states.
