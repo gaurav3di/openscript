@@ -267,6 +267,91 @@ plot(close, "Close")
   );
 });
 
+// Catches: a grid handed to the chart with no column widths, so every column is
+// drawn at the chart's one flat default and a header wider than it is written
+// across the cells of the column beside it. Reported from /trading: a four by
+// five readings table whose first row read "Moving averaOscillators".
+test('a column is as wide as the widest thing written into it', () => {
+  const descriptor = descriptorOfSource(`version 1
+
+study("Readings")
+
+panel = table("Panel", 2, 2)
+cell(panel, 0, 0, "Moving averages")
+cell(panel, 0, 1, "RSI")
+cell(panel, 1, 0, "SMA 20: 1244.90")
+cell(panel, 1, 1, "27.22")
+plot(close, "Close")
+`);
+  const surface = run(descriptor, alternating(3), instance(), contextOf(3, {}));
+  const grid = descriptor.table?.(surface) as ChartGrid;
+  const widths = grid.options?.cellWidth;
+  assert.equal(widths?.length, 2, 'one width per declared column, not one for the grid');
+  assert.ok(
+    (widths?.[0] ?? 0) > (widths?.[1] ?? 0),
+    `the column holding the long header is the wider one: ${JSON.stringify(widths)}`,
+  );
+});
+
+// Catches: widths counted off the text but nothing to correct them. The count
+// is an estimate of a font only the chart has, so the chart has to be the one
+// that measures what it is about to draw.
+test('the chart is asked to shrink type that still does not fit', () => {
+  const descriptor = descriptorOfSource(`version 1
+
+study("Readings")
+
+panel = table("Panel", 1, 1)
+cell(panel, 0, 0, "Moving averages")
+plot(close, "Close")
+`);
+  const surface = run(descriptor, alternating(3), instance(), contextOf(3, {}));
+  const grid = descriptor.table?.(surface) as ChartGrid;
+  assert.equal(grid.options?.fontSize, 'auto');
+});
+
+// Catches: a column sized to its content with no floor and no ceiling. A grid of
+// one-character cells becomes a row of slivers, and one cell holding a sentence
+// pushes the grid off the pane it is pinned inside.
+test('a column is neither a sliver nor wider than the pane', () => {
+  const descriptor = descriptorOfSource(`version 1
+
+study("Extremes")
+
+panel = table("Panel", 1, 2)
+cell(panel, 0, 0, "x")
+cell(panel, 0, 1, "A reading with a great deal more to say than a cell has room for, at any size")
+plot(close, "Close")
+`);
+  const surface = run(descriptor, alternating(3), instance(), contextOf(3, {}));
+  const grid = descriptor.table?.(surface) as ChartGrid;
+  const widths = grid.options?.cellWidth ?? [];
+  assert.ok((widths[0] ?? 0) >= 56, `a one-character column keeps a floor: ${widths[0]}`);
+  assert.ok((widths[1] ?? 0) <= 220, `a sentence is capped rather than drawn: ${widths[1]}`);
+});
+
+// Catches: every character counted at one width. A column of ":.1" punctuation
+// and digits reserves half again the room it needs, which pushes the columns
+// that do need room off the pane.
+test('narrow characters are counted narrow', () => {
+  const descriptor = descriptorOfSource(`version 1
+
+study("Weights")
+
+panel = table("Panel", 1, 2)
+cell(panel, 0, 0, "1111111111111111")
+cell(panel, 0, 1, "WWWWWWWWWWWWWWWW")
+plot(close, "Close")
+`);
+  const surface = run(descriptor, alternating(3), instance(), contextOf(3, {}));
+  const grid = descriptor.table?.(surface) as ChartGrid;
+  const widths = grid.options?.cellWidth ?? [];
+  assert.ok(
+    (widths[0] ?? 0) < (widths[1] ?? 0),
+    `sixteen ones are narrower than sixteen Ws: ${JSON.stringify(widths)}`,
+  );
+});
+
 // Catches: a condition that is true on a bar that is still moving. The channel
 // is deferred, so an adapter that read it before step 9 would raise an alert for
 // a condition that was true halfway through the bar and false when it closed.

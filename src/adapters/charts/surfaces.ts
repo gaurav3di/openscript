@@ -100,6 +100,23 @@ export interface ChartTableOptions {
   readonly borderWidth: number;
   /** The backdrop behind the whole grid, which is the grid's own `bgColor`. */
   readonly background?: string;
+  /**
+   * Column widths in media pixels, one per column.
+   *
+   * The chart's own default is one flat width for every column, which is a
+   * width chosen without seeing the text. A grid whose first column says
+   * "Moving averages" and whose second says "RSI: 27.22" has two columns that
+   * want different room, and one number cannot give it to both.
+   */
+  readonly cellWidth?: readonly number[];
+  /**
+   * `'auto'` to shrink a cell's type until its text fits the cell it is in.
+   *
+   * The chart measures the text it is about to draw, which nothing upstream of
+   * it can do, so this is what makes a column width that is slightly wrong
+   * merely slightly loose instead of two cells written over each other.
+   */
+  readonly fontSize?: number | 'auto';
 }
 
 /** A grid of cells pinned to a corner, and the options it is drawn with. */

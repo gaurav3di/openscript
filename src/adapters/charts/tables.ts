@@ -118,9 +118,97 @@ function oneTable(
       position: CORNERS[position] ?? 'top-right',
       borderWidth: numberField(declared.options.borderWidth, lookup, 0),
       ...(bgColour === undefined ? {} : { background: cssColour(bgColour) }),
+      ...(cols > 0 ? { cellWidth: columnWidths(grid, cols) } : {}),
+      // The chart measures the text it is about to draw and shrinks it to fit,
+      // which is the half of this that cannot be done from here.
+      fontSize: 'auto',
     },
   };
 }
+
+/**
+ * How wide each column has to be, in media pixels.
+ *
+ * The chart's default is one width for every column, chosen without seeing the
+ * text, and a grid whose header says "Moving averages" over cells saying
+ * "RSI: 27.22" has one column bleeding into the next. Nothing downstream can
+ * choose better, because by the time the chart has the grid it has lost which
+ * cells belong together; and nothing upstream can, because the script declares
+ * a size and writes text, not a layout.
+ *
+ * **This is an estimate, and it is allowed to be.** A real width needs the font
+ * the chart will draw with, and only the chart has it. So the width is counted
+ * off the characters and the chart's own `fontSize: 'auto'` corrects whatever
+ * this gets wrong: too narrow and the type shrinks a little, too wide and the
+ * column is a little loose. Either is a table that reads. The failure this
+ * replaces was neither.
+ *
+ * Delete it when the chart can size a column from its own measurements. It
+ * exists because that is not a thing it can be asked to do yet.
+ */
+function columnWidths(grid: readonly (readonly ChartCell[])[], cols: number): number[] {
+  const widths: number[] = [];
+  for (let col = 0; col < cols; col += 1) {
+    let widest = 0;
+    for (const row of grid) {
+      const text = row[col]?.text ?? '';
+      if (text.length > 0) widest = Math.max(widest, textWidth(text));
+    }
+    widths.push(Math.min(MAX_COLUMN, Math.max(MIN_COLUMN, Math.ceil(widest) + CELL_PADDING * 2)));
+  }
+  return widths;
+}
+
+/**
+ * Roughly how wide a string is at the type size the chart starts from.
+ *
+ * Counted rather than measured, and counted in two weights rather than one: a
+ * column of "Histogram: -7.01" is half punctuation and narrow digits, and
+ * treating every character as an em-and-a-bit makes that column half again as
+ * wide as it needs to be while "Moving averages" stays too narrow. Two weights
+ * is not typography, but it is enough to tell those two apart.
+ */
+function textWidth(text: string): number {
+  let width = 0;
+  for (const character of text) {
+    width += NARROW.has(character) ? BASE_SIZE * NARROW_EM : BASE_SIZE * WIDE_EM;
+  }
+  return width;
+}
+
+/** The characters that take noticeably less than an average advance. */
+const NARROW = new Set([...' .,:;!|ijlt1IJfr()[]{}-']);
+
+/**
+ * The type size the widths are counted at.
+ *
+ * The chart's own default row is 18 media pixels and it draws at 62% of the
+ * row, so this is the size a cell gets before anything shrinks it. Counting at
+ * a larger size would reserve room the text never uses.
+ */
+const BASE_SIZE = 11;
+const NARROW_EM = 0.32;
+const WIDE_EM = 0.56;
+
+/** What the chart insets a cell's text by, on each side. */
+const CELL_PADDING = 4;
+
+/**
+ * The narrowest a column is drawn.
+ *
+ * A column of one-character cells sized to its content is a sliver, and a grid
+ * of slivers reads as a rendering fault rather than as a narrow column.
+ */
+const MIN_COLUMN = 56;
+
+/**
+ * The widest a column is drawn.
+ *
+ * A cell holding a sentence would otherwise push the grid past the pane it is
+ * pinned inside, taking the chart with it. Past this the type shrinks instead,
+ * which is the chart's job and it is better at it.
+ */
+const MAX_COLUMN = 220;
 
 /**
  * One written cell, or none.
