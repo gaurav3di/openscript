@@ -74,7 +74,8 @@ PROFILES: Tuple[str, ...] = ("core", "chart", "strategy")
 #: error rather than ignored, so a typo in a header cannot drop an input.
 BARS_HEADER: Tuple[str, ...] = ("time", "open", "high", "low", "close", "volume")
 
-#: Section 3: the fields of one row of ``frames.csv``, the last two optional.
+#: Section 3: the fields of one row of ``frames.csv``, the last three optional
+#: and dropped from the right, so a header the page allows is a prefix of this.
 FRAMES_HEADER: Tuple[str, ...] = (
     "afterBar",
     "intent",
@@ -83,6 +84,7 @@ FRAMES_HEADER: Tuple[str, ...] = (
     "avgFillPrice",
     "orderRef",
     "text",
+    "time",
 )
 
 #: Section 4: how an absent value is written in a case file, in every column of

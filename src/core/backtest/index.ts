@@ -20,13 +20,17 @@
  * `compareRuns` puts two records beside each other and says whether the gap
  * between them clears the noise. `caseFilesFrom` turns a record into the files
  * of a conformance case, returning text and writing nothing because core does
- * no I/O. It needed two channels the record did not carry. `conformance.md`
+ * no I/O. It needed three channels the record did not carry. `conformance.md`
  * section 2 requires a case to hold `script.os`, the source text, and a record
  * carried only the source's hash, its line count and its file name: record
  * version 2 carries the text, checked against that hash. The same section says
  * `instrument.json` is the record of `host-interface.md` 4.1, and a record
  * carried the money layer's contract, which holds six of its twelve facts:
- * record version 3 carries the record the engine was handed, whole.
+ * record version 3 carries the record the engine was handed, whole. And a case
+ * is handed frames, which `stdlib.md` 17.7 folds one ledger field from an
+ * instant of: a record carried a frame without the instant it arrived at, so a
+ * case projected from it asserted a field its own input could not reproduce.
+ * Record version 4 carries a frame's time.
  */
 export { backtest } from './drive.js';
 export type { BacktestResult, DriveOptions, InstrumentFacts } from './drive.js';

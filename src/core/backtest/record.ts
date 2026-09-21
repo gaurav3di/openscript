@@ -75,6 +75,20 @@ export interface RecordedFrame {
   readonly avgFillPrice: number | null;
   readonly orderRef: string | null;
   readonly text: string | null;
+  /**
+   * The destination's own instant for this frame, or null where it stated none.
+   *
+   * **One field of the ledger is folded from it.** `host-interface.md` 7.2
+   * gives a frame a `time` and `stdlib.md` 17.7 moves `updatedAt` to it, so a
+   * record that dropped it wrote a ledger no engine reading the case back could
+   * fold to: handed frames with no instant, that engine leaves every
+   * `updatedAt` at `placedAt`, and the two disagree on exactly the rows whose
+   * destination answered later than the bar that placed the order.
+   *
+   * Absent rather than substituted, because 7.2 lets a destination state none
+   * and a row whose frame stated none keeps the instant it had.
+   */
+  readonly time: number | null;
 }
 
 /** A ledger row of `stdlib.md` 17.7, flattened: the `orders` channel of expected.json. */
@@ -177,7 +191,7 @@ export interface RunRecord {
  * file alone. It moves when a channel is added or a meaning changes, never when
  * a figure in a report does.
  */
-export const RECORD_VERSION = 3;
+export const RECORD_VERSION = 4;
 
 /**
  * The revision each later channel arrived in.
@@ -186,8 +200,13 @@ export const RECORD_VERSION = 3;
  * and this table is what `recordFromJson` reads it from: one row per channel
  * added since version 1, so the rule for an old record is stated once and
  * grows by a line when the next channel does.
+ *
+ * `frameTime` is a field of a row rather than a channel of the document, and it
+ * is a row here for the same reason the other two are: what a reader has to
+ * know is which revision it arrived in. Where the absence is written differs,
+ * and that is the reader's business below, not this table's.
  */
-const ADDED_IN = { sourceText: 2, instrument: 3 } as const;
+const ADDED_IN = { sourceText: 2, instrument: 3, frameTime: 4 } as const;
 
 /** What this engine calls itself in a record it wrote. */
 const ENGINE_NAME = 'openscript';
@@ -376,7 +395,24 @@ export function recordFromJson(text: string): RunRecord | null {
     ...record,
     sourceText: version >= ADDED_IN.sourceText ? record.sourceText : null,
     instrument: version >= ADDED_IN.instrument ? record.instrument : null,
+    frames: version >= ADDED_IN.frameTime ? record.frames : timeless(record.frames),
   };
+}
+
+/**
+ * The frames of a record written before a frame carried an instant.
+ *
+ * The absence is written on every frame rather than on the record, because the
+ * channel is a field of a row: a reader that left the field undefined would
+ * hand the case projection an undefined where the column's absent spelling
+ * belongs, and the file would read `undefined` back to the next engine. The
+ * frames are left as they are when they are not an array, because this is a
+ * parse and not a validation and a document this engine did not write is the
+ * caller's to trust or not.
+ */
+function timeless(frames: readonly RecordedFrame[]): readonly RecordedFrame[] {
+  if (!Array.isArray(frames)) return frames;
+  return frames.map((frame) => ({ ...frame, time: null }));
 }
 
 /**

@@ -4382,3 +4382,66 @@ bullet says no case file carries the digit count, which is no longer so.
 **Edits.** `conformance.md` sections 2, 3, 4 and 6; `src/core/backtest/case.ts`;
 `tests/backtest/case-settings.test.ts`; the two harvested cases gain
 `backtest.json` by re-harvest and nothing else in them changes.
+
+---
+
+## 62. Whether a case states a frame's own instant, and where the column goes
+
+**Question.** `host-interface.md` 7.2 gives an order frame a `time`, the
+destination's own instant for it, and `stdlib.md` 17.7 folds a ledger row's
+`updatedAt` from it: when a frame last changed the row. `frames.csv` had no
+column for one, so an engine folding a case's frames left that field at
+`placedAt` while an engine answering its own frames carried the instant it
+spoke, and `conformance.md` section 3 recorded the gap in two paragraphs
+without settling it. Is a `time` required of a case, and where does the column
+go among fields that are read by position?
+
+**Decision.** `frames.csv` gains a `time` column, last, after `text`. It is
+optional in the same sense `orderRef` and `text` are, absent as `none`, and it
+is written on every row by whatever projects a run into a case. Record version 4
+carries a frame's instant, because a projection can only write what the record
+kept.
+
+- **Optional, because 7.2 lets a destination state none.** A frame carries an
+  instant where its destination stated one, so a file that required a number
+  would make a case invent what nobody said, and the invented figure would then
+  be asserted through the `orders` channel as though a destination had reported
+  it. An absent column and a `none` in it mean the same thing, which is the rule
+  already stated for the two optional columns beside it, so there is nothing new
+  to learn.
+- **Last, because the fields are read by position.** A required `time` would
+  have to sit before `orderRef`, which re-spells every case file already
+  harvested and leaves the rule "an omitted column is absent on every row"
+  saying nothing about which column was omitted. With it last, an optional
+  column is dropped from the right and a header is a prefix of the full list,
+  which is what both readers already do with the two before it. Section 3 now
+  says that in the open rather than leaving it to a reader to infer.
+- **What closes the gap is the writing, not the requirement.** The failure was a
+  harvested case whose run had instants and whose file did not: the case
+  asserted an `updatedAt` that its own input could not reproduce. A projection
+  that writes the column on every row removes that case, whether or not a
+  hand-written one may leave the column out. A hand-written case that leaves it
+  out is asserting a row whose `updatedAt` stayed where the placement put it,
+  and its own input reproduces that.
+- **Not a fallback to the bar boundary.** The alternative was to leave the file
+  alone and have an engine move `updatedAt` to the time of the bar the frame
+  arrived after. That is an engine reporting an instant no destination stated,
+  in a field whose whole content is what the destination said, and both engines
+  already move the field only when the frame carries one. It would also make the
+  field unfalsifiable: every reading would agree with every other, because the
+  number would come from the bars rather than from the case.
+
+**What this does not settle.** This engine's own adapter re-runs a case on its
+own destination and holds the frames its run answered to `frames.csv` byte for
+byte, so it is not yet an engine driven from the file, and the column does not
+change what it folds. The second engine is driven from the file and now reads
+the instant, and the one line that puts it on the frame it delivers belongs to
+the file that owns that delivery. Both are the adapters' owners' to close, and
+until the suite's cases are harvested again they carry the seven columns they
+were harvested with.
+
+**Edits.** `conformance.md` section 3, the `frames.csv` example block, its
+column list and the prose under it; `src/core/backtest/record.ts` (record
+version 4 and a frame's `time`), `drive.ts` and `case.ts`;
+`scripts/lib/case-reading.mjs`; `engine/openscript/adapter/page.py` and
+`reading.py`.

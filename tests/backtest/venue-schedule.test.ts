@@ -127,6 +127,16 @@ test('a partial fill is cumulative and priced over the whole of it', () => {
   // boundary that placed its own order and the two instants are one.
   assert.equal(entry?.placedAt, BARS[1]?.time);
   assert.equal(entry?.updatedAt, BARS[3]?.time);
+
+  // And the record carries the instant of every frame it folded, which is what
+  // lets a case reproduce the field above from its own input. Catches a driver
+  // that drops the instant on the way into the record: the run's own ledger is
+  // right either way, and the case harvested from it asserts an `updatedAt` no
+  // engine reading the case back could arrive at.
+  assert.deepEqual(
+    about(record, 1).map((frame) => frame.time),
+    [BARS[1]?.time, BARS[2]?.time, BARS[3]?.time],
+  );
 });
 
 /**

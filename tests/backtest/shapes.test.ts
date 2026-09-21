@@ -129,8 +129,26 @@ const REFERENCED: Portable<BarsInRecord> = {
 };
 
 const FRAMES: readonly Portable<RecordedFrame>[] = [
-  { afterBar: 1, intent: 1, status: 'working', filledQty: 0, avgFillPrice: null, orderRef: 'REF-1', text: null },
-  { afterBar: 1, intent: 1, status: 'filled', filledQty: 4, avgFillPrice: 104.25, orderRef: 'REF-1', text: null },
+  {
+    afterBar: 1,
+    intent: 1,
+    status: 'working',
+    filledQty: 0,
+    avgFillPrice: null,
+    orderRef: 'REF-1',
+    text: null,
+    time: T0 + DAY,
+  },
+  {
+    afterBar: 1,
+    intent: 1,
+    status: 'filled',
+    filledQty: 4,
+    avgFillPrice: 104.25,
+    orderRef: 'REF-1',
+    text: null,
+    time: T0 + DAY,
+  },
 ];
 
 const ORDERS: readonly Portable<RecordedOrder>[] = [

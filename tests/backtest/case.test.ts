@@ -135,8 +135,29 @@ test('the frames the run was handed are in the case', () => {
 
   const csv = filesOf(record)['frames.csv'] ?? '';
   const lines = csv.trimEnd().split('\n');
-  assert.equal(lines[0], 'afterBar,intent,status,filledQty,avgFillPrice,orderRef,text');
+  assert.equal(lines[0], 'afterBar,intent,status,filledQty,avgFillPrice,orderRef,text,time');
   assert.equal(lines.length - 1, record.frames.length);
+});
+
+test('a frame carries the instant it arrived at, and an absent one is written none', () => {
+  // `stdlib.md` 17.7 folds a row's `updatedAt` from a frame's `time`, so a case
+  // whose file does not carry the instant asserts a field its own input cannot
+  // reproduce: an engine handed those frames leaves `updatedAt` at `placedAt`.
+  // Catches a projection that drops the column, and one that writes an absent
+  // instant as an empty cell, which is indistinguishable from a file somebody's
+  // editor trimmed.
+  const record = harvestable();
+  const first = record.frames[0];
+  assert.notEqual(first, undefined, 'the probe answered no frame');
+  if (first === undefined) return;
+  assert.equal(typeof first.time, 'number');
+
+  const rows = (filesOf(record)['frames.csv'] ?? '').trimEnd().split('\n').slice(1);
+  assert.equal(rows[0]?.split(',').pop(), String(first.time));
+
+  const silent = { ...record, frames: [{ ...first, time: null }] };
+  const written = (filesOf(silent)['frames.csv'] ?? '').trimEnd().split('\n').slice(1);
+  assert.equal(written[0]?.split(',').pop(), 'none');
 });
 
 test('a frame names its intent by ordinal, never by an engine id', () => {

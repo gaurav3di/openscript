@@ -68,6 +68,13 @@ class Frame:
     avg_fill_price: Optional[float]
     order_ref: str
     text: str
+    #: The destination's own instant for this frame, absent where it stated
+    #: none. ``stdlib.md`` 17.7 folds a row's ``updatedAt`` from it, so a reader
+    #: that dropped this column would hand the ledger frames that leave that
+    #: field where the placement put it, whatever the case says its destination
+    #: did. Defaulted because a file written before the column existed is a file
+    #: whose frames state no instant.
+    time: Optional[float] = None
 
 
 @dataclass
@@ -169,11 +176,11 @@ def read_bars(text: str, name: str = "bars.csv") -> List[Bar]:
 def read_frames(text: str, name: str = "frames.csv") -> Tuple[Frame, ...]:
     """``frames.csv``: one row per frame, in the order the destination sent them.
 
-    Section 3 gives the header and makes the last two columns optional, and "an
-    omitted column is absent on every row". An extra column is an error, as in
-    ``bars.csv``, and so is a column out of order: the fields are read by
-    position, and a file that named them in another order would be folded into
-    another ledger without anything saying so.
+    Section 3 gives the header and makes the last three columns optional, dropped
+    from the right, and "an omitted column is absent on every row". An extra
+    column is an error, as in ``bars.csv``, and so is a column out of order: the
+    fields are read by position, and a file that named them in another order
+    would be folded into another ledger without anything saying so.
 
     Nothing is sorted. "Several rows may name one bar and are delivered in file
     order, which is how a case orders two frames that cross", so the file's order
@@ -184,7 +191,7 @@ def read_frames(text: str, name: str = "frames.csv") -> Tuple[Frame, ...]:
     if header != FRAMES_HEADER[: len(header)]:
         raise Malformed(
             f"{name} has the header {','.join(header)} and section 3 gives it "
-            f"{','.join(FRAMES_HEADER)}, of which only the last two columns may be left out"
+            f"{','.join(FRAMES_HEADER)}, of which only the last three columns may be left out"
         )
     found: List[Frame] = []
     for at, row in enumerate(rows[1:]):
@@ -193,6 +200,7 @@ def read_frames(text: str, name: str = "frames.csv") -> Tuple[Frame, ...]:
             raise Malformed(f"{where} holds {len(row)} fields and the header names {len(header)}")
         cell = dict(zip(header, row))
         price = cell["avgFillPrice"]
+        instant = cell.get("time", ABSENT_TEXT)
         found.append(
             Frame(
                 after_bar=read_whole(cell["afterBar"], f"{where}, afterBar"),
@@ -204,6 +212,9 @@ def read_frames(text: str, name: str = "frames.csv") -> Tuple[Frame, ...]:
                 ),
                 order_ref=cell.get("orderRef", ""),
                 text=cell.get("text", ""),
+                time=(
+                    None if instant == ABSENT_TEXT else read_number(instant, f"{where}, time")
+                ),
             )
         )
     return tuple(found)

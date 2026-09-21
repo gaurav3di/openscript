@@ -187,7 +187,28 @@ test('a record from an earlier revision reads with only its missing channels abs
   if (!out.ok) return;
   const record = out.record;
 
-  const two = { ...record, recordVersion: 2 };
+  // Version 3 knew every channel this one does but the instant on a frame,
+  // which is a field of a row rather than a channel of the document: the
+  // absence has to be written on every frame, because a reader that left the
+  // field undefined would have the projection write `undefined` into the file
+  // where the column's absent spelling belongs.
+  assert.equal(record.frames.length > 0, true, 'the probe answered no frame');
+  const three = {
+    ...record,
+    recordVersion: 3,
+    frames: record.frames.map((frame) => {
+      const { time: _time, ...rest } = frame;
+      return rest;
+    }),
+  };
+  const readThree = recordFromJson(JSON.stringify(three));
+  assert.notEqual(readThree, null);
+  assert.equal(readThree?.frames.length, record.frames.length);
+  for (const frame of readThree?.frames ?? []) assert.equal(frame.time, null);
+  assert.equal(readThree?.instrument !== null, true);
+  assert.equal(readThree?.sourceText, text);
+
+  const two = { ...three, recordVersion: 2 };
   delete (two as { instrument?: unknown }).instrument;
   const readTwo = recordFromJson(JSON.stringify(two));
   assert.notEqual(readTwo, null);

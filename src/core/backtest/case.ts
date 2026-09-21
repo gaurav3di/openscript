@@ -350,9 +350,14 @@ function barsCsv(rows: readonly RecordedBar[]): string {
  * ordinal rather than as this engine's own id, for the reason the same section
  * gives: a case cannot know the id another engine minted and must not depend on
  * its spelling.
+ *
+ * The instant is written on every row, `none` where the destination stated
+ * none, through the same cell writer as an absent price. A case whose frames
+ * carried instants and whose file did not would assert an `updatedAt` that its
+ * own input cannot reproduce, which is what the column closes.
  */
 function framesCsv(frames: readonly RecordedFrame[]): string {
-  const lines = ['afterBar,intent,status,filledQty,avgFillPrice,orderRef,text'];
+  const lines = ['afterBar,intent,status,filledQty,avgFillPrice,orderRef,text,time'];
   for (const frame of frames) {
     lines.push(
       [
@@ -363,6 +368,7 @@ function framesCsv(frames: readonly RecordedFrame[]): string {
         cell(frame.avgFillPrice),
         frame.orderRef ?? '',
         frame.text ?? '',
+        cell(frame.time),
       ].join(','),
     );
   }

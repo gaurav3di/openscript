@@ -90,6 +90,9 @@ export function readCaseDirectory(directory, vocabulary) {
     files[name] = held.value;
   }
 
+  const frames = names.includes(FRAMES) ? parseFrames(text(FRAMES)) : { ok: true, rows: null };
+  if (!frames.ok) return refused(`${FRAMES}: ${frames.reason}`);
+
   return {
     ok: true,
     declared: declared.value,
@@ -100,6 +103,8 @@ export function readCaseDirectory(directory, vocabulary) {
     instrument: files[INSTRUMENT],
     settings: files[SETTINGS],
     frames: text(FRAMES),
+    /** The same file, read: one object per frame, in file order. */
+    frameRows: frames.rows,
     ticks: names.includes(TICKS),
     /** Secondary series present, by file name: served from a file, never a provider. */
     secondary: names.filter((name) => name !== BARS && /^bars\..+\.csv$/.test(name)),
@@ -177,6 +182,66 @@ export function parseBars(text, header) {
       row[name] = value;
     }
     rows.push({ ...row, oi: null });
+  }
+  return { ok: true, rows };
+}
+
+/**
+ * `frames.csv` by section 3: one row per frame, in file order, never sorted.
+ *
+ * The columns are read by position under the names the file's own header
+ * states, because the list they are held to is the page's and this reader is
+ * handed a directory rather than a page. What the page fixes is that the last
+ * columns are the optional ones, dropped from the right, so a header is a
+ * prefix of the full list: a file naming a later column while dropping an
+ * earlier one is a file whose fields are in an order nothing reads, and the
+ * comparison the adapter makes against the projection's own bytes is what
+ * catches it.
+ *
+ * `time` is read the way `avgFillPrice` is, because both are absent as `none`,
+ * and it is put on the frame rather than dropped: `stdlib.md` 17.7 folds a
+ * row's `updatedAt` from it, so a reader that dropped it would hand an engine
+ * frames that leave that field where the placement put it, whatever the case
+ * says its destination did.
+ */
+export function parseFrames(text) {
+  if (!text.endsWith('\n')) return refused('does not end with a line break');
+  const lines = text.slice(0, -1).split('\n');
+  const columns = lines[0].split(',');
+  const rows = [];
+  for (let at = 1; at < lines.length; at += 1) {
+    const line = lines[at];
+    if (line === '') return refused(`line ${at + 1} is blank`);
+    const cells = line.split(',');
+    if (cells.length !== columns.length) {
+      return refused(`line ${at + 1} has ${cells.length} fields and the header has ${columns.length}`);
+    }
+    const row = {};
+    for (let column = 0; column < columns.length; column += 1) {
+      const cell = cells[column];
+      const name = columns[column];
+      if (name === 'afterBar' || name === 'intent' || name === 'filledQty') {
+        const value = cell === '' ? NaN : Number(cell);
+        if (!Number.isFinite(value)) return refused(`line ${at + 1}: ${name} ${JSON.stringify(cell)} is not a number`);
+        row[name] = value;
+        continue;
+      }
+      if (name === 'avgFillPrice' || name === 'time') {
+        if (cell === ABSENT) {
+          row[name] = null;
+          continue;
+        }
+        const value = cell === '' ? NaN : Number(cell);
+        if (!Number.isFinite(value)) return refused(`line ${at + 1}: ${name} ${JSON.stringify(cell)} is not a number`);
+        row[name] = value;
+        continue;
+      }
+      row[name] = cell;
+    }
+    // An omitted column is absent on every row, and absence is spelled the way
+    // the file spells it: a frame that came from a file with no `time` column
+    // is a frame whose destination stated no instant.
+    rows.push({ orderRef: '', text: '', avgFillPrice: null, time: null, ...row });
   }
   return { ok: true, rows };
 }

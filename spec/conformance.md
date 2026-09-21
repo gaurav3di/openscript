@@ -241,11 +241,11 @@ frame, and the fields of a frame are the ones `host-interface.md` section 7.2
 names:
 
 ```
-afterBar,intent,status,filledQty,avgFillPrice,orderRef,text
-0,1,working,0,none,R1,
-1,1,filled,25,101.5,R1,
-1,1,filled,25,101.5,R1,
-2,1,filled,40,101.75,R1,
+afterBar,intent,status,filledQty,avgFillPrice,orderRef,text,time
+0,1,working,0,none,R1,,1735689600500
+1,1,filled,25,101.5,R1,,1735693200750
+1,1,filled,25,101.5,R1,,1735693200750
+2,1,filled,40,101.75,R1,,none
 ```
 
 - `afterBar` is the zero-based index of the bar after whose execution the frame is
@@ -261,31 +261,42 @@ afterBar,intent,status,filledQty,avgFillPrice,orderRef,text
   17.7.
 - `filledQty` is cumulative. `avgFillPrice` is absent as `none`, written the way
   `bars.csv` writes an absent field.
-- `orderRef` and `text` are optional columns, and an omitted column is absent on
-  every row. Extra columns are an error, as in `bars.csv`.
+- `time` is the destination's own instant for this frame, UTC milliseconds
+  (`host-interface.md` section 7.2), and absent as `none` where the destination
+  stated none. It is not a bar time and is not required to fall inside the bar
+  the row names: what it is, is the instant the destination said it spoke at.
+- `orderRef`, `text` and `time` are optional columns, and an omitted column is
+  absent on every row. They are left out from the right, because the columns are
+  read by position: a header is a prefix of the list above, and a file that kept
+  a later column while dropping an earlier one names its fields in an order
+  nothing reads. Extra columns are an error, as in `bars.csv`.
 
 The four rows above are a working frame, a fill, the same fill repeated, and a
-frame whose cumulative quantity rose after the row had gone terminal. A case
-asserts what came of them through the `orders` channel of `expected.json`, and a
-case with no `frames.csv` is handed no frames at all.
+frame whose cumulative quantity rose after the row had gone terminal and whose
+destination stated no instant for it. A case asserts what came of them through
+the `orders` channel of `expected.json`, and a case with no `frames.csv` is
+handed no frames at all.
 
-**A frame's own timestamp is not in the file, and one field of the ledger is
-folded from it.** `host-interface.md` section 7.2 gives a frame a `time`, the
-destination's own instant for it, and `stdlib.md` 17.7 folds `updatedAt` from
-that field: when a frame last changed the row. No column here carries it. So an
-engine folding a case's frames has nothing to move `updatedAt` to and leaves it
-at `placedAt`, while an engine that answered its own frames carries the instant
-it spoke, and the two disagree on a row whose destination answered later than
-the bar that placed the order. They agree on every row whose frames arrive after
-that same bar, where the two instants are one, so a suite made of those frames
-cannot tell the two readings apart and passes both.
+**One field of the ledger is folded from the `time` column, which is why it is a
+column.** `stdlib.md` 17.7 moves a row's `updatedAt` to a frame's `time`: when a
+frame last changed the row. While no column carried it, an engine folding a
+case's frames had nothing to move that field to and left it at `placedAt`, an
+engine answering its own frames carried the instant it spoke, and the two
+disagreed on every row whose destination answered later than the bar that placed
+the order. They agree wherever the frames arrive at that same bar, because there
+the two instants are one, so a suite made only of those frames could not tell
+the two readings apart and passed both. With the column the instant is input
+like every other byte of a case, and a case whose destination answered a bar
+later than the one that placed the order can be reproduced from its own file.
 
-Closing it is a column of its own, `time`, absent as `none` where the
-destination stated none, written by whatever projects a run into a case and read
-beside the others. Until then a case asserting the orders channel is asserting
-an `updatedAt` only an engine answering its own frames can produce, and a case
-whose destination answers a bar later than the one that placed the order cannot
-be reproduced from its own input.
+A case is not required to state one. A frame carries an instant only where its
+destination stated one, so a file required to carry a number would make a case
+invent what nobody said, and an absent column and a `none` in it already mean
+the same thing here as they do for `orderRef` and `text`. What closes the gap is
+not the requirement but the writing: whatever projects a run into a case writes
+the column on every row, so a harvested case carries the instants its own run
+had, and a hand-written case that states none is asserting an `updatedAt` that
+stayed where the placement put it, which its own input then reproduces.
 
 ### `backtest.json`
 

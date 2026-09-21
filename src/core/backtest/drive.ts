@@ -334,7 +334,14 @@ function ordinalsOf(intents: readonly OrderIntent[]): ReadonlyMap<number, number
   return out;
 }
 
-/** One delivered frame, in the columns a case file prints. */
+/**
+ * One delivered frame, in the columns a case file prints.
+ *
+ * The instant travels with it. `stdlib.md` 17.7 folds `updatedAt` from a
+ * frame's `time`, so a driver that dropped the field here wrote a record whose
+ * ledger no engine could fold from the record's own frames: it would have
+ * nothing to move that field to and would leave it at `placedAt`.
+ */
 function framedAs(
   frame: OrderFrame,
   afterBar: number,
@@ -348,6 +355,7 @@ function framedAs(
     avgFillPrice: frame.avgFillPrice ?? null,
     orderRef: frame.orderRef ?? null,
     text: frame.text ?? null,
+    time: frame.time ?? null,
   };
 }
 

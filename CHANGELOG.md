@@ -9,6 +9,40 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A frame carries the instant it arrived at.** `frames.csv` gains a `time`
+column: the destination's own instant for that frame, UTC milliseconds, absent
+as `none`, last in the row and optional in the way `orderRef` and `text` are.
+`host-interface.md` 7.2 gives a frame that instant and `stdlib.md` 17.7 folds a
+ledger row's `updatedAt` from it, so while no column carried one an engine
+driven from a case file had nothing to move that field to and left it at
+`placedAt`, while an engine answering its own frames carried the instant it
+spoke. The two readings differ by one field, on exactly the rows whose
+destination answered later than the bar that placed the order, and every frame
+in the suite today arrives at the boundary that placed its own order, which is
+why a suite made of them passed both. The column makes the instant input, like
+every other byte of a case.
+
+A record carries it too, because a projection can only write what the run kept:
+`RECORD_VERSION` is 4, a record written before it reads with no instant on any
+frame, and a later revision is still refused rather than read under this one's
+rules. Both readers read the column, this engine's and the second engine's, and
+`conformance.md` section 3 now says what a `time` means, that a case is not
+required to state one, and why. `spec/decisions.md` 62 is the minute.
+
+**What this does not close.** The five cases in the suite were harvested before
+the column existed and carry the seven columns of the day, so they are stale
+rather than wrong, and until they are harvested again `npm test` stops on them:
+seven tests under `tests/suite/` drive this engine's adapter over them, that
+adapter holds the frames its own run answered to the case file byte for byte,
+and it answers `unsupported`. `scripts/harvest-cases.mjs --check` names the same
+five, and `frames.csv` is the only file it names. Measured with the five
+harvested again and nothing else changed: 1843 of 1843 unit tests, the harvest
+check passes, and the two engines agree on 5 of 5, exactly. The second engine
+reads the instant and does not yet carry it onto the frame it hands its ledger,
+which is one line in the file that owns that boundary. None of this is a change
+to what an engine computes: the ledgers, the trades and the money of every case
+are what they were.
+
 **The destination can be told to behave badly, on a schedule stated before the
 run.** `SimulatorOptions.fill` now carries one: a list of acts, each naming the
 nth order this destination took, how many boundaries after the one that took it
