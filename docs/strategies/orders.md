@@ -655,7 +655,7 @@ codes you will actually meet:
 | OS7012 | The instrument is outside its session | No `session.isOpen` guard |
 | OS7013 | Two opposite orders on one leg on one bar | Two independent `if` blocks that can both be true |
 | OS7014 | The destination rejected the order | A product the account cannot trade, or a margin shortfall |
-| OS7015 | The strategy has no order destination | No paper engine and no connection configured |
+| OS7015 | The strategy has no order destination | No sandbox engine and no connection configured |
 
 Three of these are worth a moment's thought rather than a quick fix. OS7008 is the
 pyramiding limit doing its job: refusing is better than silently building a

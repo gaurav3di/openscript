@@ -2,8 +2,8 @@
 
 By the end of this page you will have turned the study you built into a strategy
 that enters, exits, carries a stop and a target, sizes itself by risk, and
-produces a backtest report you know how to read, on paper, which is the only mode
-it can reach without a separate deliberate act from you.
+produces a backtest report you know how to read, in sandbox mode, which is the
+only mode it can reach without a separate deliberate act from you.
 
 > **Much of this page is marked planned.** A strategy's ledger, its legs and its
 > book are what the marked calls are folded from, and no engine holds one in this
@@ -24,7 +24,7 @@ it can reach without a separate deliberate act from you.
 8. [The finished strategy](#the-finished-strategy)
 9. [Running the backtest](#running-the-backtest)
 10. [Reading the headline numbers](#reading-the-headline-numbers)
-11. [Paper is the default. Live is a separate act](#paper-is-the-default-live-is-a-separate-act)
+11. [Sandbox mode is the default. Live is a separate act](#sandbox-mode-is-the-default-live-is-a-separate-act)
 12. [What will go wrong](#what-will-go-wrong)
 
 ---
@@ -421,18 +421,18 @@ Four ways a good-looking report is lying to you, all of them things you control:
    design, and a strategy built on it backtests beautifully and cannot be traded.
    The compiler warns, and the study is marked as repainting in the legend.
 
-## Paper is the default. Live is a separate act
+## Sandbox mode is the default. Live is a separate act
 
-**Paper mode is the default, and it is not a setting you can slip past by
-accident.** A strategy you start runs against the paper execution path. It takes
-the same orders, applies the same cost model and produces the same kind of
+**Sandbox mode is the default, and it is not a setting you can slip past by
+accident.** A strategy you start runs against the sandbox execution path. It
+takes the same orders, applies the same cost model and produces the same kind of
 report, and it sends nothing to a broker.
 
-**Arming live is a separate, deliberate act.** It is not a checkbox next to the
-run button and it is not a property of the script. Nothing in the language can
-arm it: there is no option on `strategy()`, no library call and no input that
-turns paper into live. That is why the word does not appear anywhere in the
-script above.
+**Switching to live is a separate, deliberate act.** It is not a checkbox next to
+the run button and it is not a property of the script. Nothing in the language
+can perform it: there is no option on `strategy()`, no library call and no input
+that turns sandbox mode into live. That is why the switch does not appear
+anywhere in the script above.
 
 Three rules that live running adds, all of them consequences of one idea, which
 is that nothing about a running strategy may change under it:
@@ -443,7 +443,7 @@ is that nothing about a running strategy may change under it:
 | A save while a strategy is running is refused rather than silently queued | Stop it, save, start it again, and you know which revision is live |
 | The same compiled program runs live as ran in the backtest | Live and backtest disagreeing is a defect, not a fact of life |
 
-Before you arm anything, read your own script once more for the things that only
+Before you enable anything, read your own script once more for the things that only
 matter when real orders leave the building: is `product` right for the position
 you intend to hold, is `closeOnSessionEnd` set the way you want, and does every
 order path have a stop.

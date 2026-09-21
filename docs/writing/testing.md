@@ -333,7 +333,7 @@ checker does not follow a bar index into a persistent value.
 |---|---|
 | It is flat when you expect it to be | Test `closeOnSessionEnd` and any clock exit on a real session end |
 | It behaves on a day with a gap, a halt, or a missing bar | Absence propagates to the plot as a gap; make sure it propagates to your decisions as "do nothing" |
-| It has run on paper, on live bars, for long enough to see every branch | Paper first is the default for a reason |
+| It has run in sandbox mode, on live bars, for long enough to see every branch | Sandbox mode first is the default for a reason |
 | You know what it does when a data read fails | `req.isReady` and `req.error` exist so a script can say "not yet" instead of guessing |
 
 ## What testing does not cover

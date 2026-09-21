@@ -172,15 +172,15 @@ engine, four to five for live running.
 The first number was four to five for both halves together, and it was written
 before anybody measured. A survey of `src/core/engine` and `src/core/stdlib`
 put the engine alone at eight to eleven, and that budget also had to cover
-process isolation, scheduling, per-script logs and the switch from paper to
+process isolation, scheduling, per-script logs and the switch from sandbox to
 live. One of the two numbers had to change, and it was not going to be the
 engine: an engine squeezed to fit an estimate is an engine that agrees with the
 first one on the cases it got to. The figure is here, in the document a reader
 plans from, rather than in a note nobody opens.
 
 A server-side engine running the same compiled program. Process isolation per
-strategy, scheduling against exchange calendars, per-script logs, paper trading
-by default and live only when deliberately armed.
+strategy, scheduling against exchange calendars, per-script logs, sandbox mode
+by default and live only as a deliberate act.
 
 **Strategy execution is server side, and never the browser's.** Decided rather
 than deferred, so nothing earlier is built as though a tab might run a strategy
@@ -209,7 +209,7 @@ here. Invented here, it would test what somebody imagined a run does instead of
 what runs actually did.
 
 **Alerts stay on the chart for now, and that is a decision rather than an
-omission.** An alert is evaluated by the chart that is open: it is armed on a
+omission.** An alert is evaluated by the chart that is open: it is set on a
 price, a study plot, a drawing level or a candle condition, it fires while
 somebody is watching, and it stops when the tab does. The alternative is
 server-side evaluation, where an alert outlives the session and fires with

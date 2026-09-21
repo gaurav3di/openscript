@@ -415,8 +415,8 @@ this entry says so rather than leaving you to assume one way or the other.
 ## 4. Where orders land
 
 Nothing on this page corresponds to a field of the descriptor a study becomes.
-Orders go to the host's order interface, on paper by default. What reaches the
-chart is their consequence: each fill becomes one marker, and a strategy that
+Orders go to the host's order interface, to the sandbox destination by default.
+What reaches the chart is their consequence: each fill becomes one marker, and a strategy that
 wants its stop or its target drawn plots them or draws them like any other
 value.
 

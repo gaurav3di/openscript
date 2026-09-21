@@ -381,8 +381,8 @@ and it is the next page.
 
 - [reading-a-report.md](./reading-a-report.md) for what every number in the
   result means
-- [paper-and-live.md](./paper-and-live.md) for the step after a run you believe,
-  and for why nothing in a script can arm one
+- [sandbox-and-live.md](./sandbox-and-live.md) for the step after a run you
+  believe, and for why nothing in a script can switch one to live
 - [scheduling.md](./scheduling.md) for running strategies on a calendar
 - [../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md) for
   the rules a run evaluates after each bar, and where their exits fill

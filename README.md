@@ -66,12 +66,21 @@ first thing a stranger reads:
   [`docs/integrating/the-editor-half.md`](./docs/integrating/the-editor-half.md).
   The language server that would put the same errors in a desktop editor is the
   rest of Phase 4 and is not written.
-- **No second engine, and no case files to hand one.** The Python engine and the
-  conformance suite that would prove two engines agree are Phase 6. A run record
-  is the case, but the files a suite is run from cannot be written from one yet:
-  a case has to carry the source text and a record carries the source's hash.
-  Until an engine somebody else wrote passes that suite, the portability claim is
-  a design, not a result.
+- **No engine anybody else wrote has run the suite, so the portability claim is
+  still untested.** The second engine is here: `engine/` holds a complete
+  engine in Python with a test suite of its own, and `npm test` runs both on
+  every build. A run record carries its own
+  source text rather than only a hash of it (`sourceText` in
+  [`src/core/backtest/record.ts`](./src/core/backtest/record.ts)), and
+  `caseFilesFrom` in [`src/core/backtest/case.ts`](./src/core/backtest/case.ts)
+  writes the files a suite runs from straight out of a record, which is where the
+  eight cases under [`cases/`](./cases) came from. `npm run suite:agree` reports
+  8 pass of 8 between the two engines. What that run does not prove is the thing
+  the suite exists for: both engines were written in this repository, from the
+  same specification, by the same hands, so their agreement is evidence about
+  this repository rather than about the specification. Until an engine written by
+  somebody who had only the specification passes these cases, portability is a
+  design with one corroborating implementation, not a result.
 
 The version is `0.4.0` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.

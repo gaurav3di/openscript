@@ -1586,7 +1586,7 @@ number that is not a quantity of anything and cannot be sent anywhere.
 An order is filled according to the declaration's `fillOn` option
 (`language.md` section 13.3), with the declared slippage and commission applied.
 **The party that applies them is the destination**, whether that destination is a
-paper one, a backtest's own or a venue: the engine folds the price it is told
+sandbox one, a backtest's own or a venue: the engine folds the price it is told
 (section 17.8) and never adjusts one. Two parties applying a slippage apply it
 twice, and neither applying it is a backtest that lies in the other direction.
 
@@ -1849,8 +1849,8 @@ a fact a dashboard should show and a trader should know.
 ### 17.5 Where orders land in the chart contract
 
 Nothing in this section corresponds to a field of the descriptor a study becomes.
-Orders go to the host's order interface, on paper by default. What reaches the
-chart is their consequence: each settled fill becomes one marker, and a strategy
+Orders go to the host's order interface, to the sandbox destination by default.
+What reaches the chart is their consequence: each settled fill becomes one marker, and a strategy
 that wants its stop or target drawn plots them or draws them like any other
 value. The named events of section 17.11 reach the run's record and the host's
 log, not the descriptor.
@@ -2317,21 +2317,22 @@ wrong: one rule that is always true is easier to hold in the head than one rule
 with an exception, and a script that grows a second leg later would otherwise
 start meaning something different on the day it grew it.
 
-### 17.13 Arming
+### 17.13 Switching to live
 
 **A strategy is born unable to trade for real.** A new strategy, and a strategy
-whose source has just been edited, sends its orders to the paper destination.
-Arming it is a separate, deliberate act performed on that one strategy in the
-host, and **nothing in a script can perform it**: there is no call, no option and
-no input that arms anything. A misconfigured script found after the fact cannot
-have been placing real orders, which is the only guarantee worth having here.
+whose source has just been edited, sends its orders to the sandbox destination.
+Switching it to live is a separate, deliberate act performed on that one strategy
+in the host, and **nothing in a script can perform it**: there is no call, no
+option and no input that switches anything. A misconfigured script found after
+the fact cannot have been placing real orders, which is the only guarantee worth
+having here.
 
-There is also no call that reports it. A script cannot know whether it is armed,
-so it cannot behave differently when it is, and the run that was tested on paper
-is the run that goes to market. A strategy that behaved differently once armed
-would be a strategy nobody had ever tested.
+There is also no call that reports it. A script cannot know whether it is live,
+so it cannot behave differently when it is, and the run that was tested in
+sandbox mode is the run that goes to market. A strategy that behaved differently
+once live would be a strategy nobody had ever tested.
 
-A strategy that places an order with no destination at all, armed or not, is
+A strategy that places an order with no destination at all, live or not, is
 OS7015.
 
 **Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy

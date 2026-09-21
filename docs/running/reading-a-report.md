@@ -435,7 +435,7 @@ tests honestly and raise the bar as the count rises.
 ## See also
 
 - [backtesting.md](./backtesting.md) for producing the run this page reads
-- [paper-and-live.md](./paper-and-live.md) for what a report does not predict
+- [sandbox-and-live.md](./sandbox-and-live.md) for what a report does not predict
 - [scheduling.md](./scheduling.md) for running strategies day after day
 - [../strategies/exits-and-brackets.md](../strategies/exits-and-brackets.md) for
   every named event and the order the rules are evaluated in

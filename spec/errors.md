@@ -4111,7 +4111,7 @@ Severity error. Stage host. Since language version 1. Reference language.md 13.3
 
 **Message.** `This strategy placed an order and the host supplied no destination.`
 
-**Cause.** A strategy needs somewhere for orders to go: a paper engine, a backtest simulator or a broker connection. Running one with no destination would compute a position nothing ever took.
+**Cause.** A strategy needs somewhere for orders to go: a sandbox engine, a backtest simulator or a broker connection. Running one with no destination would compute a position nothing ever took.
 
 **Fix.** Connect a destination in the host, or run the file as a study(): replace buy() with signal("BUY").
 

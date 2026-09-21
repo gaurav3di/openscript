@@ -229,10 +229,11 @@ whole file, not the first ten lines, and specifically these seven things:
 None of those are reasons to refuse a script. They are the things you have to
 know about a script before its results mean anything.
 
-The safest first run of any strategy you did not write is a backtest, then paper.
-Paper is the default and arming live is a separate deliberate act, which means
-you cannot reach live by accidentally dropping a file in a folder. See
-[first-strategy.md](./first-strategy.md#paper-is-the-default-live-is-a-separate-act).
+The safest first run of any strategy you did not write is a backtest, then
+sandbox mode. Sandbox mode is the default and switching to live is a separate
+deliberate act, which means you cannot reach live by accidentally dropping a file
+in a folder. See
+[first-strategy.md](./first-strategy.md#sandbox-mode-is-the-default-live-is-a-separate-act).
 
 ## Writing a script that travels
 
@@ -324,7 +325,7 @@ the picker while leaving the text exactly where you can find it.
 
 - [getting-started.md](./getting-started.md) for what a script is and what Apply does
 - [first-study.md](./first-study.md) for building one from an empty file
-- [first-strategy.md](./first-strategy.md) for orders, paper mode and arming live
+- [first-strategy.md](./first-strategy.md) for orders, sandbox mode and switching to live
 - [editor-tour.md](./editor-tour.md) for revisions, comparing them and the pinning rule
 - [../examples/README.md](../examples/README.md) for twelve scripts to drop into the folder and read
 - [../spec/language.md](../spec/language.md) for the source text rules in full

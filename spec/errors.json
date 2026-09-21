@@ -3021,7 +3021,7 @@
       "since": 1,
       "message": "This strategy placed an order and the host supplied no destination.",
       "placeholders": {},
-      "cause": "A strategy needs somewhere for orders to go: a paper engine, a backtest simulator or a broker connection. Running one with no destination would compute a position nothing ever took.",
+      "cause": "A strategy needs somewhere for orders to go: a sandbox engine, a backtest simulator or a broker connection. Running one with no destination would compute a position nothing ever took.",
       "fix": "Connect a destination in the host, or run the file as a study(): replace buy() with signal(\"BUY\").",
       "autofix": false,
       "example": {

@@ -492,8 +492,8 @@ backtest I approved. A start that logs the revision answers it in the log.
 
 ## See also
 
-- [paper-and-live.md](./paper-and-live.md) for what arming live changes and the
-  pre-flight checklist
+- [sandbox-and-live.md](./sandbox-and-live.md) for what switching to live changes
+  and the pre-flight checklist
 - [backtesting.md](./backtesting.md) for computing a file's warmup, which the
   start time depends on
 - [reading-a-report.md](./reading-a-report.md) for judging a run before it is

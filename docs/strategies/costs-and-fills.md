@@ -418,7 +418,7 @@ destination's own refusal is folded into the ledger row as a status and its
 text, and is reported against no line.
 
 None of these is an argument against backtesting. They are the reason a backtest
-result is a hypothesis and a paper run is the test of it, which is why the same
+result is a hypothesis and a sandbox run is the test of it, which is why the same
 script runs in all three places without being rewritten.
 
 ## Pitfalls

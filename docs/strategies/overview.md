@@ -320,10 +320,10 @@ plot(breakoutLevel, "Breakout level", aqua, style = "step")
 
 ## One file, three places it runs
 
-The same compiled strategy runs in a backtest over stored bars, on paper against
-live bars, and against a real order destination, and the numbers do not change
-between them. What changes is where the orders go. Orders reach the host's order
-interface, on paper by default; nothing about them is part of the chart. What
+The same compiled strategy runs in a backtest over stored bars, in sandbox mode
+against live bars, and against a real order destination, and the numbers do not
+change between them. What changes is where the orders go. Orders reach the host's
+order interface, at the sandbox destination by default; nothing about them is part of the chart. What
 reaches the chart is their consequence: each settled fill becomes one marker, and a
 strategy that wants its stop or its target drawn plots it like any other value. The
 named events the risk rules emit reach the run's record and the host's log rather
@@ -339,27 +339,27 @@ run the file as a `study()` with `signal("BUY")` in place of `buy()`.
 **Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
 with nowhere to send orders places intents that reach nobody.
 
-## A strategy cannot trade for real until it is armed
+## A strategy cannot trade for real until it is switched to live
 
 **A strategy is born unable to trade for real.** A new strategy, and a strategy
-whose source has just been edited, sends its orders to the paper destination.
-Arming it is a separate, deliberate act performed on that one strategy in the host,
-and **nothing in a script can perform it**. There is no call, no declaration option
-and no input that arms anything, and there is no combination of them that adds up
-to one.
+whose source has just been edited, sends its orders to the sandbox destination.
+Switching it to live is a separate, deliberate act performed on that one strategy
+in the host, and **nothing in a script can perform it**. There is no call, no
+declaration option and no input that switches anything, and there is no
+combination of them that adds up to one.
 
 The reason is the asymmetry of the mistake. A live strategy running by accident
-costs money and takes orders nobody chose to place. A paper strategy running by
+costs money and takes orders nobody chose to place. A sandbox strategy running by
 accident costs a log file. When one direction of a mistake is expensive and the
 other is free, the default belongs at the free end, and the expensive direction
 gets a door you have to open with your hand on the handle. A misconfigured script
 found after the fact cannot have been placing real orders, which is the only
 guarantee worth having here.
 
-There is also no call that reports it. A script cannot know whether it is armed, so
-it cannot behave differently when it is, and the run that was tested on paper is
-the run that goes to market. A strategy that behaved differently once armed would
-be a strategy nobody had ever tested.
+There is also no call that reports it. A script cannot know whether it is live, so
+it cannot behave differently when it is, and the run that was tested in sandbox
+mode is the run that goes to market. A strategy that behaved differently once live
+would be a strategy nobody had ever tested.
 
 ## Two shapes, chosen by which calls you use
 
@@ -397,7 +397,7 @@ with nowhere to send orders places intents that reach nobody.
 - [position-and-sizing.md](./position-and-sizing.md) for what the strategy can read about itself, and how big to trade
 - [exits-and-brackets.md](./exits-and-brackets.md) for stops, targets, trails, the combined rules and the session rules
 - [costs-and-fills.md](./costs-and-fills.md) for where a fill is assumed and what it really costs
-- [../running/paper-and-live.md](../running/paper-and-live.md) for what arming changes, and what it does not
+- [../running/sandbox-and-live.md](../running/sandbox-and-live.md) for what switching to live changes, and what it does not
 - [../../spec/language.md](../../spec/language.md) for the declaration and the per-bar execution model
 - [../../spec/stdlib.md](../../spec/stdlib.md) for every callable function and its warmup
 - [../../examples/10-strategy-ema-cross.oscript](../../examples/10-strategy-ema-cross.oscript) for a complete worked strategy

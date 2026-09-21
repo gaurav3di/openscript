@@ -9,6 +9,42 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The second engine's host surface is documented, and proved.** `engine/openscript/run.py`
+has held everything a live runner needs since the engine was written, and no
+document mentioned it once: a host reading `docs/integrating/the-python-engine.md`
+concluded that the only way to use this engine was to hand it a case directory,
+because the one entry point that page named was the conformance adapter. Phase 6
+of the roadmap is a server-side engine running the same compiled program, and the
+surface that makes it possible was invisible to the people it exists for.
+
+`docs/integrating/running-a-strategy.md` is the page a platform engineer reads
+instead. It states plainly that the engine is handed a compiled program and never
+a script, and what that means for a server that cannot run the compiler: the
+program is compiled where the compiler runs and stored as data. Then `load` and
+`load_text` and what a refusal carries, `execute_bar` argument by argument, what a
+`BarResult` holds, the rollback a still-moving bar rests on and the single
+condition it needs, the order boundary with `adapter/ordering.py` as the worked
+reference, a worked example that runs, and a list of what the surface does not
+give a host: no scheduling, no process isolation, no persistence, no data feed, no
+destination, no compiler and no chart.
+
+`engine/tests/test_host_surface.py` is the other half. It drives the engine the way
+a live host does, with no conformance adapter in the loop: a program loaded from
+canonical text, bars pushed one at a time, the order calls read back and placed on
+a ledger, a frame folded in at a bar boundary, and a moving bar executed three
+times that accumulates once. Every existing test drove this engine in batch, so
+nothing held the surface a live host actually uses.
+
+**And the record says what is true.** The registry page claimed there was no second
+engine and no case files; both have existed for some time, and it now says the one
+thing that is still true, which is that no engine anybody else wrote has run the
+suite. The trading-mode sense of "paper" is gone from the documentation, the
+specification and the error catalogue, and `docs/running/paper-and-live.md` is now
+`docs/running/sandbox-and-live.md`: this platform maintains sandbox mode and
+analyzer mode and now says so everywhere. The trading sense of "arm" is gone from
+the prose. A `switch` arm and a ternary arm are language vocabulary and are
+untouched.
+
 **Three cases where the destination behaves badly.** Every one of the 204 frames
 the suite held was an order working and then filling whole: no partial fill, no
 refusal, no cancellation, no expiry, and no frame arriving later than the bar

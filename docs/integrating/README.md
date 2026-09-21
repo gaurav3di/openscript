@@ -77,6 +77,8 @@ do.
 
 - [running-the-engine.md](./running-the-engine.md), for routes one and two
 - [your-own-engine.md](./your-own-engine.md), for route three
+- [running-a-strategy.md](./running-a-strategy.md), for driving the second
+  engine from your own host, bar by bar
 - [backtesting.md](./backtesting.md), for what a backtest engine gives you and
   what you fill in
 - [the-editor-half.md](./the-editor-half.md), for putting a script editor in

@@ -304,8 +304,8 @@ The OS7xxx range says which. See [strategies/orders.md](./strategies/orders.md)
 and [troubleshooting.md](./troubleshooting.md) entry 24.
 
 **Does it trade live by default?**
-No. Paper is the default and live is a deliberate act. See
-[running/paper-and-live.md](./running/paper-and-live.md).
+No. Sandbox mode is the default and live is a deliberate act. See
+[running/sandbox-and-live.md](./running/sandbox-and-live.md).
 
 ## Errors, warnings and limits
 

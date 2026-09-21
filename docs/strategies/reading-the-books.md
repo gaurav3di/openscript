@@ -317,6 +317,6 @@ the day you want to find out from a panel rather than from a statement.
 - [exits-and-brackets.md](./exits-and-brackets.md) for the levels whose exit orders land in it too
 - [position-and-sizing.md](./position-and-sizing.md) for sizing from what the books say
 - [overview.md](./overview.md) for where the fold sits in the per-bar loop
-- [../running/paper-and-live.md](../running/paper-and-live.md) for reconciling these books against a real account
+- [../running/sandbox-and-live.md](../running/sandbox-and-live.md) for reconciling these books against a real account
 - [../running/reading-a-report.md](../running/reading-a-report.md) for the finished run's version of the same record
 - [../../spec/stdlib.md](../../spec/stdlib.md) sections 17.7 and 17.8 for the ledger's fields and the exact fold

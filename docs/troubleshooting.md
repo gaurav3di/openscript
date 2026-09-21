@@ -360,7 +360,8 @@ honest for your market.
 strategy placed an order and had nowhere to send it (OS7015); the destination
 rejected the order and the reason came from the account rather than the script
 (OS7014); the instrument was outside its trading session (OS7012); or the
-strategy was never armed, since paper is the default and live is deliberate.
+strategy was never switched to live, since sandbox mode is the default and live
+is deliberate.
 
 **Not raised yet.** OS7015, OS7014 and OS7012 are in the catalogue and nothing
 raises them. A strategy with nowhere to send orders places intents that reach

@@ -328,7 +328,7 @@ the data moved rather than the script.
 - [running/backtesting.md](./running/backtesting.md) for the run that records a
   revision, and [running/reading-a-report.md](./running/reading-a-report.md) for
   what a recorded run lets you compare
-- [running/paper-and-live.md](./running/paper-and-live.md) for starting and
+- [running/sandbox-and-live.md](./running/sandbox-and-live.md) for starting and
   stopping the process that holds a revision
 - [language/persistence.md](./language/persistence.md) for the `var` state a
   restart begins again

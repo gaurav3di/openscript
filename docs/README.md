@@ -317,7 +317,7 @@ the page answers, which is not the same thing as what it is called.
 
 | Page | Answers |
 |---|---|
-| [strategies/overview.md](./strategies/overview.md) | What a strategy does that a study does not, in what order it happens on each bar, and why it can do none of it for real until somebody arms it |
+| [strategies/overview.md](./strategies/overview.md) | What a strategy does that a study does not, in what order it happens on each bar, and why it can do none of it for real until somebody switches it to live |
 | [strategies/orders.md](./strategies/orders.md) | How to declare the contracts a strategy trades, place, name, cancel and reverse an order on one of them, and what happens when the next signal arrives while one is still working |
 | [strategies/reading-the-books.md](./strategies/reading-the-books.md) | What a strategy's own order rows, fills and positions say, how to read them from a script, and why one fill can be reported twice without being counted twice |
 | [strategies/position-and-sizing.md](./strategies/position-and-sizing.md) | What a strategy knows about its own position, and how to size from quantity, lots, money at risk or volatility |
@@ -340,7 +340,7 @@ the page answers, which is not the same thing as what it is called.
 |---|---|
 | [running/backtesting.md](./running/backtesting.md) | How much history a run needs before its first trade means anything, and how to reproduce that run later |
 | [running/reading-a-report.md](./running/reading-a-report.md) | What each number is measuring, which ones flatter a strategy while saying nothing, and whether the gap between two runs is real |
-| [running/paper-and-live.md](./running/paper-and-live.md) | What paper mode does not simulate, and what to check before a script can touch a real account |
+| [running/sandbox-and-live.md](./running/sandbox-and-live.md) | What sandbox mode does not simulate, and what to check before a script can touch a real account |
 | [running/scheduling.md](./running/scheduling.md) | How to start and stop many strategies on the exchange's calendar, and what a restart does to an open position |
 
 ### writing/ (keeping a script good)
@@ -431,6 +431,7 @@ What you get, what you supply, and the three routes to adopting it.
 - [integrating/running-the-engine.md](./integrating/running-the-engine.md) - install it and implement the host interface
 - [integrating/your-own-engine.md](./integrating/your-own-engine.md) - implement the format in your own language
 - [integrating/the-python-engine.md](./integrating/the-python-engine.md) - the second engine in this repository: what is in it, how to run it, what refuses bad code in it
+- [integrating/running-a-strategy.md](./integrating/running-a-strategy.md) - driving that engine from your own host: a program loaded once, bars pushed at it one at a time, and the rollback a moving bar rests on
 - [integrating/backtesting.md](./integrating/backtesting.md) - what a backtest gives you and what you fill in
 - [integrating/the-editor-half.md](./integrating/the-editor-half.md) - the language intelligence an editor needs, and what stays yours
 - [integrating/running-the-suite.md](./integrating/running-the-suite.md) - run the conformance suite against an engine, or two engines against each other, which is what the build does

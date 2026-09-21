@@ -1,21 +1,28 @@
-# Paper and live
+# Sandbox and live
 
-By the end of this page you will know exactly what paper mode does and does not
-simulate, what changes at the moment a strategy is armed for live orders, and
+By the end of this page you will know exactly what sandbox mode does and does not
+simulate, what changes at the moment a strategy is switched to live orders, and
 you will have a pre-flight checklist to work through before a script touches a
 real account.
 
 ## Three destinations, one program
 
 A compiled program does not know where its orders go. The same instruction list
-that a backtest runs is the one paper runs and the one a live connection runs.
-What differs is the destination attached to it.
+that a backtest runs is the one sandbox mode runs and the one a live connection
+runs. What differs is the destination attached to it.
 
 | Destination | Bars arrive | Orders go to | Money |
 |---|---|---|---|
 | Backtest simulator | All at once, all confirmed | A fill model over the bars | None |
-| Paper | In real time, the newest bar still moving | A simulated account | None |
+| Sandbox | In real time, the newest bar still moving | A simulated account | None |
 | Live | In real time, the newest bar still moving | A real destination, through the host | Yours |
+
+**The host maintains two modes short of live, and only one of them is a
+destination.** In analyzer mode an order is validated and written to the log and
+sent nowhere, so no row above describes it: no fill is modelled and no position
+forms. In sandbox mode the order is filled against a simulated account at a model
+price, so a position, a ledger and a report exist to read. Neither mode touches
+real money, and neither is a setting a script can reach.
 
 That separation is the reason the numbers can be trusted. The chart shows what
 happened, the destination decides what happens, and nothing in the language
@@ -25,20 +32,21 @@ OS7015, which says so rather than computing a position nothing ever took.
 **Not raised yet.** OS7015 is in the catalogue and nothing raises it: a strategy
 with nowhere to send orders places intents that reach nobody.
 
-## Paper is the default, and nothing in a script can change that
+## Sandbox mode is the default, and nothing in a script can change that
 
 **A strategy is born unable to trade for real.** A new strategy sends its orders
-to the paper destination, and so does a strategy whose source has just been
-edited: an edit returns it to paper, and arming it again is a fresh decision.
+to the sandbox destination, and so does a strategy whose source has just been
+edited: an edit returns it to sandbox mode, and switching it to live again is a
+fresh decision.
 
-Arming is a separate, deliberate act performed on that one strategy in the host,
-and **nothing in a script can perform it**. There is no call, no declaration
-option and no input that arms anything, and there is no combination of them that
-adds up to one. Live is not a setting buried in the declaration and not an
-argument on an order.
+Switching to live is a separate, deliberate act performed on that one strategy in
+the host, and **nothing in a script can perform it**. There is no call, no
+declaration option and no input that switches anything, and there is no
+combination of them that adds up to one. Live is not a setting buried in the
+declaration and not an argument on an order.
 
 The reason is the asymmetry of the mistake. A live strategy running by accident
-costs money and takes orders you did not choose to place. A paper strategy
+costs money and takes orders you did not choose to place. A sandbox strategy
 running by accident costs a log file. When one direction of a mistake is
 expensive and the other is free, the default belongs at the free end, and the
 expensive direction gets a door you have to open with your hand on the handle. A
@@ -46,22 +54,22 @@ misconfigured script found after the fact cannot have been placing real orders,
 which is the only guarantee worth having here.
 
 **There is also no call that reports it.** A script cannot ask whether it is
-armed, so it cannot behave differently when it is. That is not an omission: a
-strategy that took a different branch once armed would be a strategy nobody had
-ever tested, and the paper run would stop being evidence about the live run.
+live, so it cannot behave differently when it is. That is not an omission: a
+strategy that took a different branch once live would be a strategy nobody had
+ever tested, and the sandbox run would stop being evidence about the live run.
 
 Nothing in the source distinguishes the two. The same file, the same revision
-and the same inputs run on paper and live, which is what makes a paper run
-evidence about the live run rather than a rehearsal of a different play.
+and the same inputs run in sandbox mode and live, which is what makes a sandbox
+run evidence about the live run rather than a rehearsal of a different play.
 
-## What paper simulates faithfully
+## What sandbox mode simulates faithfully
 
-These are the same in paper as in live, to the last decimal:
+These are the same in sandbox mode as in live, to the last decimal:
 
 - Every calculation in the script. Same compiled program, same arithmetic in
   source order, same warmup bars.
 - The absent value and where it appears. A study that is absent for the first
-  199 bars on paper is absent for the first 199 bars live.
+  199 bars in sandbox mode is absent for the first 199 bars live.
 - The per-bar execution model, including the re-execution of the moving bar and
   the rollback rule that makes it idempotent.
 - Which bar an order is decided on, and the deferral of orders, signals and
@@ -72,20 +80,20 @@ These are the same in paper as in live, to the last decimal:
 - The ledger of `stdlib.md` section 17.7 and the fold of section 17.8, applied to
   the same frames in the same order.
 - Which contract each leg resolved to. A relative contract resolves once, under
-  `host-interface.md` section 9.4, on paper exactly as it does live.
+  `host-interface.md` section 9.4, in sandbox mode exactly as it does live.
 - The cost model you declared: slippage in ticks, commission, lot rounding.
 - The risk rules and the order they are evaluated in, and the named events they
   emit.
 
-If a paper run and a live run disagree about any of the above, that is a defect,
-not a market effect.
+If a sandbox run and a live run disagree about any of the above, that is a
+defect, not a market effect.
 
-## What paper does not simulate
+## What sandbox mode does not simulate
 
-This list is the important one. Paper fills at a model price. The market fills
-at a price somebody else was willing to trade at.
+This list is the important one. Sandbox mode fills at a model price. The market
+fills at a price somebody else was willing to trade at.
 
-| What paper does | What the market does | What it costs you |
+| What sandbox mode does | What the market does | What it costs you |
 |---|---|---|
 | Fills the whole quantity at one price | Fills in pieces at several prices | Size, on anything larger than the top of book |
 | Fills a limit order when price touches it | Fills it when the queue in front of you clears | Missed entries that the report counts as taken |
@@ -99,8 +107,8 @@ at a price somebody else was willing to trade at.
 
 Two of those deserve a plain statement.
 
-**Liquidity is the one paper can never model.** A paper fill costs nothing to
-produce. On an illiquid instrument, or at a size larger than the visible depth,
+**Liquidity is the one sandbox mode can never model.** A sandbox fill costs
+nothing to produce. On an illiquid instrument, or at a size larger than the visible depth,
 the price you get is the price your own order made. No cost setting substitutes
 for checking the depth at the size you intend to trade.
 
@@ -114,10 +122,10 @@ order changes, so a strategy that retries in a loop just makes the log longer.
 destination's own refusal is folded into the ledger row as a status and its
 text, and is reported against no line.
 
-## Paper against backtest: the moving bar
+## Sandbox against backtest: the moving bar
 
-The largest single reason a paper run disagrees with a backtest of the same
-period is not fills. It is that a backtest sees only confirmed bars and a paper
+The largest single reason a sandbox run disagrees with a backtest of the same
+period is not fills. It is that a backtest sees only confirmed bars and a sandbox
 run sees the newest bar while it is still moving.
 
 The language handles this, and knowing how it handles it stops a whole class of
@@ -135,7 +143,7 @@ surprise:
   numbers live than in a backtest. That is what it is for, and it is spelled
   with an extra word so the reader sees it coming.
 - `onUnconfirmed = true` in the declaration lets orders fire on the moving bar.
-  It is the option that makes paper and backtest diverge, and it hands the
+  It is the option that makes sandbox mode and backtest diverge, and it hands the
   script responsibility for guarding itself.
 
 The default file needs none of this:
@@ -169,9 +177,9 @@ If you set `onUnconfirmed = true`, write the guard yourself with
 `bar.isConfirmed`, and expect the compiler to warn about every higher timeframe
 read in the file, because that combination is where repainting comes from.
 
-## What arming live changes, exactly
+## What switching to live changes, exactly
 
-| Thing | Paper | Live |
+| Thing | Sandbox | Live |
 |---|---|---|
 | The source | The pinned revision | The same pinned revision |
 | The compiled program | The same | The same |
@@ -195,7 +203,8 @@ does not know about the margin the account is carrying. Sizing from it live mean
 sizing from a number that agrees with your account only if this strategy is the
 only thing in it.
 
-**`pos.size` is the same number live as on paper, and for the same reason.** Both
+**`pos.size` is the same number live as in sandbox mode, and for the same
+reason.** Both
 are folded from this strategy's own settled fills. The strategy never reads an
 account position row and never sends an order computed as a difference against
 one, so the arrival of real money changes where the fills come from and nothing
@@ -337,7 +346,7 @@ to find out from a panel rather than from a statement.
 
 ## Pre-flight checklist
 
-Work through this before a strategy is armed. Every item is checkable, and none
+Work through this before a strategy goes live. Every item is checkable, and none
 of them is a matter of opinion.
 
 **The script**
@@ -385,12 +394,12 @@ of them is a matter of opinion.
 14. The average trade is comfortably larger than the round-trip cost.
 15. Maximum drawdown is measured bar by bar, and you have decided that you can
     sit through one that size.
-16. You have run the strategy on paper, in real time, for long enough to see it
-    trade: at least a week, and at least twenty fills.
-17. The paper trade list and the backtest trade list over the same days agree
+16. You have run the strategy in sandbox mode, in real time, for long enough to
+    see it trade: at least a week, and at least twenty fills.
+17. The sandbox trade list and the backtest trade list over the same days agree
     except for fill prices. A difference in which trades were taken is a bug to
-    find before arming.
-18. You have read the named events from the paper run and each square off was
+    find before you enable anything.
+18. You have read the named events from the sandbox run and each square off was
     caused by the rule you expected, not by a rule you forgot you had set.
 
 **The account and the destination**
@@ -419,7 +428,7 @@ of them is a matter of opinion.
 28. Somebody is watching for the first session. Not the whole quarter, the first
     session.
 
-## Errors you will meet live and not on paper
+## Errors you will meet live and not in sandbox mode
 
 | Code | Means | First thing to check |
 |---|---|---|
@@ -444,7 +453,7 @@ and one you find in a statement.
 
 ## See also
 
-- [backtesting.md](./backtesting.md) for the run that comes before a paper run
+- [backtesting.md](./backtesting.md) for the run that comes before a sandbox run
 - [reading-a-report.md](./reading-a-report.md) for judging that run honestly
 - [scheduling.md](./scheduling.md) for start times, holidays, restarts and logs
 - [../strategies/reading-the-books.md](../strategies/reading-the-books.md) for the
@@ -455,6 +464,6 @@ and one you find in a statement.
 - [../../spec/language.md](../../spec/language.md) for the moving bar, the
   rollback rule and `onUnconfirmed`
 - [../../spec/stdlib.md](../../spec/stdlib.md) section 17 for the order, leg,
-  position and book namespaces, and for arming
+  position and book namespaces, and for switching to live
 - [../../examples/README.md](../../examples/README.md) for the three worked
   strategies

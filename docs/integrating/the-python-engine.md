@@ -75,22 +75,52 @@ python engine/tools/run_tests.py
 ```
 
 A host that wants the package on the import path can install the directory with
-its own tooling, or put the directory on the path and import it. Either way the
-entry point is the same, which is the reason no console script is declared:
+its own tooling, or put the directory on the path and import it. No console
+script is declared, and the reason is worth a sentence rather than a footnote:
+there is no single command to declare, because this engine is driven two ways
+and which one a host wants depends on what it is doing.
+
+### The conformance adapter, which is the batch one
+
+Three invocations. The two that name a case directory read it, run it and answer
+it, and each is handed the compiled program on standard input. `--describe` is
+the capability probe: it is handed no program, reads no standard input, and
+answers what this engine claims.
 
 ```
 python -m openscript --describe
+python -m openscript <case-directory>
+python -m openscript --actual <case-directory>
 ```
 
-That entry point is the conformance adapter of `spec/conformance.md` section 9,
-and [`running-the-suite.md`](./running-the-suite.md) is how it is driven, what it
-claims and what it reports unsupported. One thing about it belongs here rather
-than there, because it is a fact about this engine and not about the suite: **it
-is handed a compiled program and never a script.** There is no compiler in this
+Those three invocations are the whole of the command line, and they are
+`spec/conformance.md` section 9's rather than this engine's.
+[`running-the-suite.md`](./running-the-suite.md) is how they are driven, what
+they claim and what they report unsupported.
+
+### The host surface, which is not a command line at all
+
+`engine/openscript/run.py` is the other way in: a program loaded once, and bars
+pushed at it one at a time. `load_text` takes the canonical text a host stored,
+`Run.execute_bar` is one execution of one bar, `Run.checkpoint` and `Run.restore`
+are the rollback a re-executed bar rests on, exposed for a host that has to
+replay one itself, and the order calls a decided bar left behind come back on the
+result for the host to send.
+
+That is what a live runner and a server-side backtest use, and neither of them
+has a case directory to hand.
+[`running-a-strategy.md`](./running-a-strategy.md) is the whole of it: every
+argument, what comes back, and the one thing a live host gets wrong.
+
+### What both of them are handed
+
+**A compiled program, and never a script.** There is no compiler in this
 directory and there is not meant to be one. The program arrives as the canonical
 text a host sends, so the check that the text is the encoding a recorded hash was
 taken over runs on every case rather than being skipped by handing the engine an
-object it built itself.
+object it built itself. A host that builds the program object in the same process
+it compiled in has nothing to be canonical about and says so by calling `load`
+instead.
 
 The version the distribution carries is the version the package manifest
 carries. They are one fact written in two files, because a build backend cannot
