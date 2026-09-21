@@ -275,6 +275,29 @@ test('the money layer folds the record into the same report', () => {
  * number anywhere in the fold. Each of those is right to eleven digits and
  * fails here, which is the point of comparing bytes rather than figures.
  */
+test('a record made under stated facts and its own text reruns to the same bytes', () => {
+  // The two channels that arrived after rerun was written. A rerun handed the
+  // contract alone runs under different session facts, so a script reading a
+  // session fact or the volume flag is a different run, and even one that reads
+  // neither produces a record whose instrument channel is null where the
+  // original's is not: different bytes, for the one record type the harvest is
+  // about to produce. Catches a rerun that forwards neither channel.
+  const text = probeText();
+  const out = backtest(compile('probe.oscript', text).program, BARS, runSettings(), {
+    instrument: FACTS,
+    sourceText: text,
+  });
+  assert.equal(out.ok, true);
+  if (!out.ok) return;
+
+  const again = rerun(out.record);
+  assert.equal(again.ok, true);
+  if (!again.ok) return;
+  assert.equal(runBytes(again.record), runBytes(out.record));
+  // And the rerun's record is still a case: being rerun must not strip the text.
+  assert.equal(again.record.sourceText, text);
+});
+
 test('rerunning a record produces the same run, byte for byte', () => {
   const record = recorded();
   const again = rerun(record);

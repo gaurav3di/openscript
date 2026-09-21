@@ -88,7 +88,17 @@ export function replay(record: RunRecord, bars: readonly RecordedBar[] | null = 
 export function rerun(record: RunRecord, bars: readonly RecordedBar[] | null = null): BacktestResult {
   const held = barsOf(record, bars);
   if (!held.ok) return { ok: false, diagnostic: held.diagnostic };
-  return backtest(record.program, held.bars, record.settings, { form: record.bars.form });
+  // Everything the run depended on, and that includes the two channels that
+  // arrived after the sentence above was written. The instrument record is what
+  // the engine read at load, so a rerun handed the contract alone runs under
+  // different session facts and does not reproduce the bytes; the text is what
+  // makes the rerun's record harvestable, and dropping it would turn a record
+  // that could become a case into one that cannot, by being rerun.
+  return backtest(record.program, held.bars, record.settings, {
+    form: record.bars.form,
+    ...(record.instrument === null ? {} : { instrument: record.instrument }),
+    ...(record.sourceText === null ? {} : { sourceText: record.sourceText }),
+  });
 }
 
 type BarsResult =
