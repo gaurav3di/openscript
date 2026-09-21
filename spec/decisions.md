@@ -4042,6 +4042,111 @@ alone. One note for the first host, outside this repository's remit: its
 interface never uses the word "arm" for the switch, whatever this document
 calls the act; a trader is shown *Live* and *Paper*.
 
+## 56. A lower minor of the same format major loads
+
+**Question.** `compiled-program.md` 9.4 step 3 said a higher minor continues
+and said nothing about a lower one, and the engine's check 1 required every
+table of its own minor to be present, so a program stamped `1.0` was refused
+by the `1.1` engine at load, at `requests`, with OS6018 and a message about a
+malformed program. 9.5's first line promises that a program that ran yesterday
+runs today. Which of the two is the rule?
+
+**Decision.** 9.5 is. A program at a lower minor of the same format major
+loads, and a table a later minor added and the program lacks reads as empty,
+never as a refusal. The compiler always stamps the minor it emits, the current
+one, and never a lower one, so a lower minor is an older program and nothing
+else. The other direction stands: a program at the engine's own minor or a
+later one that omits a table is still refused, because section 2 says an empty
+table is written as an empty array and never omitted, and the version is what
+tells an older program from a malformed one.
+
+**Why.** 9.2's whole design is that a minor is additive and that anything whose
+absence would change a number is announced by a tag in `requires`. That rule
+was written to let an older engine load a newer program, and it says the same
+thing read the other way round: a newer engine handed an older program meets
+fewer fields, every one of which means what it meant, and the ones added since
+are absent rather than wrong. `requests` is the case in hand. A `1.0` program
+carries no read, so its `requests` table is empty by construction, and refusing
+it for not writing `[]` was a refusal of the one program the format's
+compatibility promise is about. The refusal was also the wrong message: OS6018
+says the compiler that wrote the program is broken, and nothing was.
+
+**Edits.** 9.4 step 3 carries the sentence. `src/core/engine/verify-tables.ts`
+holds the tables a later minor added, with the minor, and writes the empty
+table into a program below it before check 1 reads it. `spec/format-history.json`
+is new and records, per released format version, the field paths, opcodes and
+tags it defined and the sentence of section 9 that justified the bump;
+`scripts/check-format-additive.mjs` holds the compiler to it in both directions.
+`tests/engine/format-minors.test.ts` is driven from that file rather than from
+a list of its own, so a version the history gains is a case the test gains.
+
+## 57. Canonicity is required of text, not of an object
+
+**Question.** Section 13's first line said a conforming engine parses the
+canonical encoding and rejects anything that is not it. `load()` took a parsed
+object and asked nothing about canonicity, because a host that compiled in the
+same process never serialised and there was nothing to ask about. Which is
+right?
+
+**Decision.** Both, about different boundaries, and the page now says so.
+Canonicity is required of the text an engine reads from outside its process;
+an object built in the same process is the post-parse half of 9.4 step 1 and
+enters at step 2. `loadText(text, options)` in `src/core/engine/load.ts` is the
+text entry: it parses, writes the result out again through the one canonical
+writer, and refuses any difference with OS6018 naming the character the two
+part at, then hands the object to `load` so every later refusal applies in the
+same order. The adapter's reading path was the other candidate and was not
+chosen: the engine is what a second implementation is measured against, and a
+rule enforced in an adapter is one every other adapter re-implements or
+forgets.
+
+**Why.** A hash is taken over canonical bytes and a host records it against a
+run. Text that parses to a program but is spelled some other way is text that
+hash does not name, and an engine that accepted it would report a run under a
+name that identifies different bytes. Refusing at the text boundary and nowhere
+else keeps the in-process case free of a rule it cannot break: an object has no
+whitespace and no key order until it is written.
+
+**Edits.** 9.4 step 1 and the first line under Loading in section 13.
+`tests/engine/load-text.test.ts` holds the entry to both halves. The entry is
+not yet exported through `src/core/engine/index.ts` and `src/core/index.ts`,
+which were outside this stage's ownership; the two export lines are the wire
+stage's, and the test reaches the function by its file until then.
+
+## 58. Where the named colours' channels live, and what the corpus compares
+
+Two smaller questions the same stage settled, recorded together.
+
+**The channels.** `stdlib.md` 11.1 says the exact channel values of the named
+colours are fixed in the library manifest and are part of the conformance
+suite. There is no manifest document, and the values lived in two source
+files, the compiler's table and the engine's, held to each other by a test and
+to nothing else. **Decision.** `spec/colours.json` is that part of the manifest
+in machine form and the home of the values; `scripts/check-colour-channels.mjs`
+holds both source tables to it and states no value of its own. Beside `errors.json`
+rather than in a page, because a value table is what a second engine reads and
+what a check compares, and prose around it would be a second place to be wrong.
+Owed by `stdlib.md`'s owner: 11.1's sentence names the file. Two things found
+on the way, outside this stage's files: the comment at the head of
+`src/core/engine/library/colours.ts` names `tests/engine/colours.test.ts`, which
+does not exist (`tests/engine/library.test.ts` is the test that holds the two
+tables to each other), and `scripts/check-examples.mjs` reads 11.1's block of
+names with a pattern that a checkout carrying carriage returns does not match,
+so on such a checkout the colour names are not in the global set that check
+reads.
+
+**The corpus.** `spec/corpus/` holds the canonical encoding and `programHash` of
+every shipped example, and `scripts/check-format-corpus.mjs` recompiles each
+one and compares the bytes. A program carries `compiler.version`, which is the
+package's and moves on every release, so compared whole the golden would fail
+on a package bump alone, which is the one failure that is not a defect.
+**Decision.** The recompiled program is given the corpus's own `compiler`
+object before it is canonicalised. `compiler` is never read by an engine and a
+minor may add anything under it (section 2's table and 9.2), so the comparison
+is over everything an engine reads, and the stored hash is a real hash of a
+real program, the one the corpus holds. A change to the stamp's shape is a
+field gained or lost, which the additive check reports.
+
 ## 56. (P6) What the library vectors are, and why a gap-reaching case is written and marked
 
 **Question.** `conformance.md` section 8 admits no case whose value reaches a

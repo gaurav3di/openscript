@@ -10,6 +10,7 @@
  * bar four thousand with half a study on the screen.
  */
 import type { Diagnostic } from '../diagnostics/index.js';
+import { canonicalise } from '../emit/index.js';
 import type { SourceFile } from '../source/index.js';
 import { BAR_FIELDS } from './bars.js';
 import { limitsWith } from './budget.js';
@@ -115,4 +116,71 @@ export function load(program: unknown, options: LoadOptions = {}): LoadResult {
     engine: new Engine(checked.program, resolved.inputs, options, limits, planned.plans),
     inputs: resolved.inputs,
   };
+}
+
+/**
+ * Loads a compiled program from text, which is where canonicity is required.
+ *
+ * `load` takes a parsed object because a host that compiled in this process
+ * never serialised, and there is nothing for such an object to be canonical
+ * about. Text is the other boundary, `compiled-program.md` 9.4 step 1 and
+ * section 13 (decision 57): a program an engine reads from outside its process
+ * arrives as the canonical encoding of 2.14, and text that parses to a program
+ * but is not that encoding is refused, because the hash a host recorded was
+ * taken over canonical bytes and text in any other spelling is text that hash
+ * does not name. So the text is parsed, written out again by the one canonical
+ * writer, and the two are compared character for character. Either failure is
+ * OS6018 naming where the text stops being readable or stops being canonical,
+ * counted in characters of the text, which is where an editor's cursor lands.
+ *
+ * What passes here is the object `load` verifies from step 2 on, so every
+ * refusal that applies to an object applies to text as well and in the same
+ * order.
+ */
+export function loadText(text: string, options: LoadOptions = {}): LoadResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (thrown) {
+    const message = thrown instanceof Error ? thrown.message : String(thrown);
+    const at = /position (\d+)/.exec(message);
+    return {
+      ok: false,
+      diagnostic: malformed(
+        at === null ? 'the text' : `character ${at[1]}`,
+        'the text stops being the object notation of section 2.14 there, so it is not a program',
+      ),
+    };
+  }
+
+  let canonical: string;
+  try {
+    canonical = canonicalise(parsed);
+  } catch (thrown) {
+    const message = thrown instanceof Error ? thrown.message : String(thrown);
+    return {
+      ok: false,
+      diagnostic: malformed('the text', `it parses but cannot be written in the canonical form: ${message}`),
+    };
+  }
+  if (canonical !== text) {
+    return {
+      ok: false,
+      diagnostic: malformed(
+        `character ${firstDifference(text, canonical)}`,
+        'the text is not the canonical encoding of the program it parses to, and a program ' +
+          'read from outside the process has to be, because that is what its hash was taken over',
+      ),
+    };
+  }
+  return load(parsed, options);
+}
+
+/** Where two texts part, as an index into either, or the shorter one's length. */
+function firstDifference(a: string, b: string): number {
+  const shorter = Math.min(a.length, b.length);
+  for (let i = 0; i < shorter; i += 1) {
+    if (a[i] !== b[i]) return i;
+  }
+  return shorter;
 }

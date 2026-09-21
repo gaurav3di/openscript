@@ -159,6 +159,13 @@ A compiler must emit every tag the program needs and must not emit a tag it does
 not need, because a spurious tag turns an engine that could have run the program
 into an engine that refuses it.
 
+Which format version defined each tag is `spec/format-history.json`'s to say,
+beside the opcodes and the field paths that version defined, and the table above
+is read on every build: `scripts/check-format-tables.mjs` compares it with the
+tags the compiler can emit and the tags the reference engine declares, and
+`scripts/check-format-additive.mjs` compares the compiler with the history in
+both directions, so a tag that gains or loses a home fails the build naming it.
+
 ### 2.3 meta
 
 The declaration statement, evaluated at compile time. Every option value here is a
@@ -1940,6 +1947,14 @@ Forty-one instructions, with their stack effect as a signed depth change.
 `CALL_FN`'s depth change uses `callSites[site].argc`, which is fixed at load, so
 the depth remains statically computable.
 
+This table is read on every build. `scripts/check-format-tables.mjs` takes each
+row's opcode, operand names and depth out of the page and compares them with the
+compiler's own opcode table: a row with no entry, an entry with no row, an operand
+count that differs or a depth that differs fails the build naming both sides. A
+depth written as `1 - n` or `1 - argc` is not read as a number; the compiler's
+answer is probed with several counts of the operand the formula names, or of the
+call site's `argc` where the count is not an operand.
+
 ---
 
 ## 5. Per-bar execution
@@ -2386,13 +2401,27 @@ section 4.1 binds the project to that whatever the format does.
 
 At load, in this order, stopping at the first failure:
 
-1. Parse the canonical encoding. A parse failure is OS6018.
+1. Parse the canonical encoding. A parse failure is OS6018, and so is text that
+   parses but is not the canonical encoding of what it parses to, each naming
+   where the text stops being readable or stops being canonical. This step is
+   about text: a program an engine reads from outside its process arrives as
+   the canonical encoding, and its hash was taken over those bytes. An object
+   built in the same process by the compiler beside the engine was never text,
+   has nothing to be canonical about, and enters at step 2 (section 13).
 2. Read `openscript.format`. If the major is higher than any the engine implements,
    refuse with OS6016, naming the program's format and the highest the engine has.
    If the major is one the engine does not implement at all, refuse the same way; an
    engine never makes a best effort at a format it does not have.
 3. If the major matches and the minor is higher than the engine's, continue. A
    minor bump is additive by section 9.2, and step 4 catches anything that is not.
+   If the minor is lower than the engine's, continue as well: a table a later
+   minor added and this program lacks reads as empty, never as a refusal,
+   because section 9.5's first line is a promise about exactly this program. A
+   compiler always stamps the minor it emits, the current one, and never a
+   lower one, so a lower minor is an older program and nothing else. A program
+   at the engine's own minor or a later one is owed no such reading: section 2
+   says an empty table is written as an empty array and never omitted, so a
+   table missing there fails step 8.
 4. Check every tag in `requires`. Refuse with OS6006 at the first tag the engine
    does not have, naming the tag.
 5. Read `openscript.language`. If the engine has no library semantics for that
@@ -2812,7 +2841,11 @@ following hold, and the conformance suite tests each one.
 
 **Loading**
 
-- [ ] Parses the canonical encoding and rejects anything that is not it.
+- [ ] Reads a program that arrives as text by parsing the canonical encoding, and
+      refuses text that is not it with OS6018 (section 9.4, step 1). Canonicity
+      is required of the text an engine reads from outside its process; an
+      object built in the same process is the post-parse half of that step and
+      enters section 9.4 at step 2.
 - [ ] Performs every verification check of section 3.5 before executing a bar.
 - [ ] Refuses in the order of section 9.4, with the code and the named cause.
 - [ ] Declares its format majors, language versions, capabilities and limits.

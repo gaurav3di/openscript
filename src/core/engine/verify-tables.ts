@@ -21,8 +21,51 @@ const META_KINDS = ['study', 'strategy'] as const;
 const CHANNEL_TYPES = ['number', 'string', 'color', 'bool'] as const;
 const EFFECTS = ['none', 'signal', 'order', 'draw', 'log'] as const;
 
+/**
+ * The tables a later minor of this format major added, with the minor that
+ * added each.
+ *
+ * 9.2's rule read from the other side, which 9.4 step 3 states and decision 56
+ * settled: a table a later minor added and an earlier program lacks reads as
+ * empty, never as a refusal, because 9.5's first line is a promise about that
+ * program. A program stamped at this minor or a later one has no such excuse.
+ * Section 2 says an empty table is written as an empty array and never
+ * omitted, so its absence there is the defect check 1 exists for, and the
+ * version is what tells the two apart.
+ *
+ * `spec/format-history.json` records the same additions, one entry per format
+ * version, and `tests/engine/format-minors.test.ts` holds this list to that
+ * file: a table the history says a later minor added has to be one a program
+ * at the earlier minor may lack.
+ */
+const ADDED_AT_MINOR: readonly { readonly table: string; readonly minor: number }[] = [
+  { table: 'requests', minor: 1 },
+];
+
+/** The minor of a `major.minor` the version step has already proved is one. */
+function minorOf(raw: Readonly<Record<string, unknown>>): number {
+  const version = raw['openscript'] as Readonly<Record<string, unknown>>;
+  return Number(String(version['format']).split('.')[1] ?? '0');
+}
+
+/**
+ * Writes the empty table an earlier minor is owed into the program itself.
+ *
+ * Into the object rather than into a local, because every later step reads
+ * the program as its own type and would find the table missing again: the
+ * verifier hands the same object on, and the engine holds it.
+ */
+function supplyAddedTables(raw: Readonly<Record<string, unknown>>): void {
+  const minor = minorOf(raw);
+  for (const added of ADDED_AT_MINOR) {
+    if (raw[added.table] !== undefined || minor >= added.minor) continue;
+    (raw as Record<string, unknown>)[added.table] = [];
+  }
+}
+
 /** Check 1 over every table the machine indexes, and every declaration field. */
 export function checkTables(shape: ShapeCheck, raw: Readonly<Record<string, unknown>>): boolean {
+  supplyAddedTables(raw);
   for (const name of ['requires', 'inputs', 'channels', 'consts', 'series', 'cells', 'states',
     'functions', 'callSites', 'loops', 'code', 'requests']) {
     if (!shape.array(raw[name], name)) return false;

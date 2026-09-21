@@ -1,0 +1,65 @@
+{
+  "what": "The canonical encoding (compiled-program.md 2.14) and programHash of every shipped example, as the compiler emitted them. scripts/check-format-corpus.mjs recompiles each example on every build and compares the bytes; a program file holds the canonical text and one trailing newline, and the hash is over the text. Rewritten only with --write, on purpose, and reviewed as a diff.",
+  "programs": [
+    {
+      "example": "examples/01-ema-cross.oscript",
+      "file": "01-ema-cross.json",
+      "programHash": "sha256:ff23e76466e20bbbacbad8b170aac285923614baa1eb7b734605c8b2ac0c2266"
+    },
+    {
+      "example": "examples/02-supertrend.oscript",
+      "file": "02-supertrend.json",
+      "programHash": "sha256:c03f587c947c1eff8c3973d9930aa108abea454ef566287350e403ab66dd6f2c"
+    },
+    {
+      "example": "examples/03-anchored-vwap.oscript",
+      "file": "03-anchored-vwap.json",
+      "programHash": "sha256:ea55c4e2777131e2d761490a18a0af02b24e60216fbd2ed06fb80c51a7bbf0c8"
+    },
+    {
+      "example": "examples/04-rsi-divergence.oscript",
+      "file": "04-rsi-divergence.json",
+      "programHash": "sha256:528b46ed05c1feceffa9673d920b53f1afce3a36e866acaf149136f8cbeeedeb"
+    },
+    {
+      "example": "examples/05-opening-range.oscript",
+      "file": "05-opening-range.json",
+      "programHash": "sha256:b7b53bcda0454e7307dd497775d8b2b5f0b65444be258bf928e1ee6929bd4e3f"
+    },
+    {
+      "example": "examples/06-combined-premium.oscript",
+      "file": "06-combined-premium.json",
+      "programHash": "sha256:2b6a117c801c24e3ad1daf2ea558d1e2f8c2cc9c95e66360a5137ba91297bb2a"
+    },
+    {
+      "example": "examples/07-higher-timeframe-bias.oscript",
+      "file": "07-higher-timeframe-bias.json",
+      "programHash": "sha256:1bc66436a19f49a7d21d16eac53400e45f9cc6ca72bb079063c90efcc7fd44ff"
+    },
+    {
+      "example": "examples/08-dashboard-table.oscript",
+      "file": "08-dashboard-table.json",
+      "programHash": "sha256:950e73d9a60cab7810fb7604fd91019cabb4898cafdc2090553f138da6fe7a8c"
+    },
+    {
+      "example": "examples/09-supply-demand-zones.oscript",
+      "file": "09-supply-demand-zones.json",
+      "programHash": "sha256:185e925f6a213a1e1bf43f4132eea387d103f65ff8811efb117652fd8326844a"
+    },
+    {
+      "example": "examples/10-strategy-ema-cross.oscript",
+      "file": "10-strategy-ema-cross.json",
+      "programHash": "sha256:56f508518bde1ea94c602df50914b13a7fe21317874b0e579131ae2522493eaf"
+    },
+    {
+      "example": "examples/11-strategy-opening-range.oscript",
+      "file": "11-strategy-opening-range.json",
+      "programHash": "sha256:4bb085b9f956ee1ed05cc8410e1831f5b9983a272979996dabc9b706d35e5fca"
+    },
+    {
+      "example": "examples/12-strategy-short-premium.oscript",
+      "file": "12-strategy-short-premium.json",
+      "programHash": "sha256:5d6a5a729ae389e26d732ef9f20203d7b81c00f15fbd4bed512e466b0ad23bf2"
+    }
+  ]
+}
