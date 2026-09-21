@@ -181,6 +181,13 @@ const DATA_EXTENSIONS = new Set([
   'json',
   'map',
   'oscript',
+  // The same language as `oscript`, under the name a conformance case gives it:
+  // `conformance.md` section 2 fixes the script inside a case as `script.os` so
+  // a runner never has to guess a name or scan a directory. It is data here for
+  // the reason `oscript` is: it is compiled to a program that is itself data,
+  // and no path through it reaches a generator in this runtime. The language's
+  // own refusal to build code from text is what `check-layering.mjs` holds.
+  'os',
   'yml',
   'yaml',
   'txt',
@@ -222,6 +229,52 @@ function kindOf(file) {
   if (DATA_EXTENSIONS.has(extensionOf(file))) return 'data';
   return 'unknown';
 }
+
+/**
+ * The classifier, attacked before it is trusted.
+ *
+ * `kindOf` decides whether a file is read at all, so a wrong answer here is not
+ * a wrong report, it is a file no rule ever applies to. That is how the last set
+ * of bypasses got in, and it is why a name added to the lists above is asserted
+ * rather than assumed.
+ *
+ * The last row is the one that keeps the others honest: a classifier that
+ * answered `data` to everything would pass every row above it and let anything
+ * into the tree unread.
+ */
+function classifierSelfTest() {
+  const expected = [
+    ['src/core/index.ts', 'code'],
+    ['scripts/check-no-eval.mjs', 'code'],
+    ['spec/conformance.md', 'data'],
+    ['examples/01-ema-cross.oscript', 'data'],
+    ['cases/absent/ordering/script.os', 'data'],
+    ['cases/absent/ordering/bars.csv', 'data'],
+    ['cases/absent/ordering/case.json', 'data'],
+    ['LICENSE', 'data'],
+    ['engine/run.py', 'unknown'],
+  ];
+  for (const [file, kind] of expected) {
+    const got = kindOf(file);
+    if (got !== kind) {
+      refuse(
+        `This check's own classifier is wrong before it has read anything.
+
+` +
+          `  ${file}
+  expected ${kind}, got ${got}
+
+` +
+          `Every rule below decides what to do with a file after this decides whether to
+` +
+          `open it, so a mistake here is silent: the file is simply never inspected.`,
+      );
+    }
+  }
+  return expected.length;
+}
+
+const classified = classifierSelfTest();
 
 // ---------------------------------------------------------------------------
 // The check attacks itself first
