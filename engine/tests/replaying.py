@@ -240,6 +240,7 @@ def replay(case: Case) -> Replayed:
                         avg_fill_price=delivered.avg_fill_price,
                         order_ref=delivered.order_ref,
                         text=delivered.text,
+                        time=delivered.time,
                     ),
                     delivered.intent,
                 )

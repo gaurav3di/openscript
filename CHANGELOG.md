@@ -63,20 +63,18 @@ run reported 400. The first version passed one of them, a fill of a whole order
 answered by whichever later order happened to fill, which is why an act is now
 held to the row its own order was answered about.
 
-**What this does not close.** The second engine puts a frame's instant on no
-frame it hands its ledger, so the three new cases fail on it at
-`orders[].updatedAt` and at nothing else, on every other field agreeing exactly:
-the partial quantities, the cumulative averages, the refusal text, the trades
-with two entries and two exits, and the whole summary. Eight of eight pass on
-the first engine; five pass and three fail on the second. Three places drop the
-instant, each by leaving one field off a frame it builds:
+**The second engine now carries a frame's instant, and the suite is eight of
+eight between the engines.** It did not when the three cases landed: three places
+built a frame and left the column off, so every frame carried the instant of the
+bar that placed the order and the three new cases failed on the second engine at
+`orders[].updatedAt` and at nothing else, with the partial quantities, the
+cumulative averages, the refusal text, the trades with two entries and two exits
+and the whole summary agreeing exactly. The three were
 `openscript/adapter/ordering.py`, where the driver builds the frame it delivers;
-`tests/recorded.py`, whose `DeliveredFrame` has no field for the column at all
-and reads seven of the file's eight; and `tests/replaying.py`, where the replay
-that holds the ledger to a case builds its own. Measured with the field added in
-all three and nothing else changed: `npm test` exits 0, the suite is eight of
-eight against the expected files and eight of eight between the engines, exactly,
-and the second engine's own 754 tests pass. That is the whole of the difference.
+`tests/recorded.py`, whose `DeliveredFrame` had no field for the column and read
+seven of the file's eight; and `tests/replaying.py`, where the replay that holds
+the ledger to a case builds its own. Each now sets it, and an absent column still
+leaves the ledger whatever instant the placement carried.
 
 And the language's own `cancel(...)` is still exercised by nothing, because no
 shipped example calls it: the cancellation in `order/fold-after-terminal` is the

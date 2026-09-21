@@ -55,6 +55,10 @@ class DeliveredFrame:
     avg_fill_price: Optional[float]
     order_ref: str
     text: str
+    #: When the destination answered, which is the eighth column and the last
+    #: optional one. Absent where the file does not state it, and then the
+    #: ledger keeps whatever instant the placement carried.
+    time: Optional[float] = None
 
 
 @dataclass(frozen=True)
@@ -112,6 +116,7 @@ def _frames_of(text: str) -> Tuple[DeliveredFrame, ...]:
             avg_fill_price=_value(row[4]),
             order_ref=row[5] if len(row) > 5 else "",
             text=row[6] if len(row) > 6 else "",
+            time=_value(row[7]) if len(row) > 7 else None,
         )
         for row in _rows(text, FRAMES_HEADER)
     )

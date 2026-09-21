@@ -114,6 +114,12 @@ class Desk:
                     avg_fill_price=frame.avg_fill_price,
                     order_ref=frame.order_ref,
                     text=frame.text,
+                    # When the destination answered. Left off, every frame
+                    # carried the instant of the bar that placed the order, so a
+                    # case whose destination answered later was answered one way
+                    # here and another by the first engine, at `updatedAt` and
+                    # at nothing else.
+                    time=frame.time,
                 )
             )
         self._waiting = ()
