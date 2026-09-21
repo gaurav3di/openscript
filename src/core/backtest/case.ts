@@ -18,7 +18,7 @@
  * So a record that cannot make a whole case does not make a partial one.
  */
 import { canonicalise } from '../emit/index.js';
-import type { RecordedBar, RunRecord } from './record.js';
+import type { RecordedBar, RecordedFrame, RunRecord } from './record.js';
 
 /** The files of one case, keyed by the name `conformance.md` section 2 gives them. */
 export type CaseFiles = Readonly<Record<string, string>>;
@@ -112,6 +112,17 @@ export function caseFilesFrom(record: RunRecord, identity: CaseIdentity): CaseRe
     'instrument.json': json(record.settings.contract),
   };
 
+  // Without this the case is unpassable, on every engine including the one that
+  // wrote it. `conformance.md` section 3 ends "a case with no `frames.csv` is
+  // handed no frames at all", and what `expected.json` asserts through the
+  // orders channel is what came of the frames: a status, a cumulative quantity,
+  // an average fill price. An engine handed none of them folds nothing and
+  // disagrees with every row, and the failure reads as a defect in that engine.
+  //
+  // Written only when the run had frames, because an empty file and an absent
+  // one mean the same thing here and the absent one says it in fewer bytes.
+  if (record.frames.length > 0) files['frames.csv'] = framesCsv(record.frames);
+
   // Written only when the run had inputs to write. An empty settings.json says
   // "these are the values" about nothing, and section 2 reads an absent one as
   // every input taking its declared default, which is what actually happened.
@@ -153,6 +164,32 @@ function barsCsv(rows: readonly RecordedBar[]): string {
   for (const bar of rows) {
     lines.push(
       [bar.time, bar.open, bar.high, bar.low, bar.close, bar.volume].map(cell).join(','),
+    );
+  }
+  return `${lines.join('\n')}\n`;
+}
+
+/**
+ * `conformance.md` section 3: the fields of a frame, in the order that page names.
+ *
+ * A projection and not a translation. The record already holds an intent as an
+ * ordinal rather than as this engine's own id, for the reason the same section
+ * gives: a case cannot know the id another engine minted and must not depend on
+ * its spelling.
+ */
+function framesCsv(frames: readonly RecordedFrame[]): string {
+  const lines = ['afterBar,intent,status,filledQty,avgFillPrice,orderRef,text'];
+  for (const frame of frames) {
+    lines.push(
+      [
+        String(frame.afterBar),
+        String(frame.intent),
+        frame.status,
+        String(frame.filledQty),
+        cell(frame.avgFillPrice),
+        frame.orderRef ?? '',
+        frame.text ?? '',
+      ].join(','),
     );
   }
   return `${lines.join('\n')}\n`;

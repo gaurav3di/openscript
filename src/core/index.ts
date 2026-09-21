@@ -326,6 +326,7 @@ export {
   RECORD_VERSION,
   backtest,
   barsHash,
+  caseFilesFrom,
   checkSettings,
   compareRuns,
   recordFromJson,
@@ -341,6 +342,9 @@ export type { BacktestResult, ReplayResult, ReportWindow } from './backtest/inde
 export type {
   BacktestSettings,
   BarsInRecord,
+  CaseFiles,
+  CaseIdentity,
+  CaseResult,
   DateRange,
   FillPolicy,
   RecordedBar,

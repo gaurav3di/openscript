@@ -42,6 +42,18 @@ is the asymmetry that matters: a later one may mean something new by a field thi
 version thinks it knows. Such a record replays and reruns as before; the one
 thing it cannot do is become a case.
 
+**A harvested case carries the frames the run was handed.** Without them the
+case was unpassable on every engine, including the one that wrote it:
+`conformance.md` section 3 ends "a case with no `frames.csv` is handed no frames
+at all", and what `expected.json` asserts through its orders channel is what came
+of those frames. An engine handed none folds nothing, disagrees with every row,
+and takes the blame for a hole in the case. A frame names its intent by ordinal
+rather than by an engine's own id, because a case cannot know the id another
+engine minted.
+
+`caseFilesFrom` and its types are exported from the package root, so an install
+can reach the one function that turns a run into a case.
+
 `backtest` takes `sourceText` in its options. A caller that has only a compiled
 program leaves it out and loses nothing but the ability to harvest.
 

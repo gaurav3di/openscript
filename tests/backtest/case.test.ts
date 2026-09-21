@@ -51,7 +51,7 @@ test('a case carries every file conformance.md requires of it', () => {
   // quietly dropped: a case missing one fails on somebody else's engine and the
   // blame lands on them.
   const files = filesOf();
-  for (const name of ['case.json', 'script.os', 'bars.csv', 'expected.json']) {
+  for (const name of ['case.json', 'script.os', 'bars.csv', 'expected.json', 'frames.csv']) {
     assert.equal(typeof files[name], 'string', `${name} is missing`);
   }
 });
@@ -88,6 +88,41 @@ test('an absent reading is written none rather than left blank', () => {
 
   const csv = filesOf(out.record)['bars.csv'] ?? '';
   assert.equal(csv.includes(',none'), true);
+});
+
+test('the frames the run was handed are in the case', () => {
+  // Without this the case is unpassable on every engine, including the one that
+  // wrote it. conformance.md section 3 ends "a case with no `frames.csv` is
+  // handed no frames at all", and expected.json's orders channel asserts what
+  // came of those frames: a status, a cumulative quantity, an average price. An
+  // engine handed none folds nothing, disagrees with every row, and takes the
+  // blame for a hole in the case.
+  const record = harvestable();
+  assert.equal(record.frames.length > 0, true, 'the probe placed no frames to assert on');
+
+  const csv = filesOf(record)['frames.csv'] ?? '';
+  const lines = csv.trimEnd().split('\n');
+  assert.equal(lines[0], 'afterBar,intent,status,filledQty,avgFillPrice,orderRef,text');
+  assert.equal(lines.length - 1, record.frames.length);
+});
+
+test('a frame names its intent by ordinal, never by an engine id', () => {
+  // A case cannot know the id another engine minted and must not depend on its
+  // spelling, so the runner maps an ordinal onto whatever that engine called it.
+  const record = harvestable();
+  const rows = (filesOf(record)['frames.csv'] ?? '').trimEnd().split('\n').slice(1);
+  for (const row of rows) {
+    const ordinal = Number(row.split(',')[1]);
+    assert.equal(Number.isInteger(ordinal) && ordinal >= 1, true, `not an ordinal: ${row}`);
+  }
+});
+
+test('a run that was handed no frames writes no frames file', () => {
+  // An empty file and an absent one mean the same thing here, and the absent
+  // one says it in fewer bytes.
+  const record = harvestable();
+  const without = { ...record, frames: [] };
+  assert.equal('frames.csv' in filesOf(without), false);
 });
 
 test('the case declares what it asserts, and its id', () => {
