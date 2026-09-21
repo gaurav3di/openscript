@@ -17,22 +17,36 @@ can write their own engine for it.
 
 ## Status
 
-**`0.2.0` runs studies and ships the language intelligence an editor needs. It
-does not yet backtest.**
+**`0.4.0` runs studies, backtests strategies, and ships the language
+intelligence an editor needs.**
 
-What an install gets you today: the compiler, the engine, and the chart adapter.
-A script compiles in milliseconds in a browser tab and computes, bar by bar, the
-same numbers everywhere. One hundred and one independently written studies
-compile, load and run, and five of them match arithmetic transcribed from the
-specification alone, bit for bit, warmups included.
+What an install gets you today: the compiler, the engine, the chart adapter and
+the backtest. A script compiles in milliseconds in a browser tab and computes,
+bar by bar, the same numbers everywhere. One hundred and one independently
+written studies compile, load and run, and five of them match arithmetic
+transcribed from the specification alone, bit for bit, warmups included.
+
+A strategy is walked over a range of bars and what comes back is a document
+rather than a number: the program, the bars, the settings, every frame, every
+fill, the ledger and the report. That document replays to the same report and
+reruns to the same bytes, and `npm test` proves it over the shipped strategy
+examples on every run rather than asserting it in a page. Two records can be put
+beside each other, and a pair over different bars is reported incomparable
+instead of being subtracted into a table that reads like a result.
 
 What it does **not** do yet, stated plainly because the registry page is the
 first thing a stranger reads:
 
-- **No backtest and no report.** A strategy can place orders through a host, and
-  the order ledger refuses what the specification says to refuse, but the
-  equity curve, the drawdown, the trade list and the run you can reproduce
-  months later are Phase 5 and are not here.
+- **The backtest does not model everything, and says which.** A bracket's stop
+  cannot fill, because the engine appends no order row for a bracket. A quantity
+  stated in cash or in a percentage of equity is refused rather than filled,
+  because a backtest works out no running equity to size against. The equity
+  curve marks a trade at the size it ended up entering, so a strategy that
+  scales in is reported with a drawdown deeper than the account had. A script
+  still cannot read its own equity mid-run. The `0.4.0` entry in
+  [`CHANGELOG.md`](./CHANGELOG.md) is the full list, and every item on it is
+  there because somebody would otherwise find it inside a report they had
+  already believed.
 - **No editor on screen, and that is the design.** The six headless functions are
   here and resolve as `openalgo-script/editor`: highlight, complete, diagnose,
   hover, signature and format, text in and data out, with no DOM at any tier. The
@@ -43,11 +57,14 @@ first thing a stranger reads:
   [`docs/integrating/the-editor-half.md`](./docs/integrating/the-editor-half.md).
   The language server that would put the same errors in a desktop editor is the
   rest of Phase 4 and is not written.
-- **No second engine.** The Python engine and the conformance suite that would
-  prove two engines agree are Phase 6. Until an engine somebody else wrote
-  passes that suite, the portability claim is a design, not a result.
+- **No second engine, and no case files to hand one.** The Python engine and the
+  conformance suite that would prove two engines agree are Phase 6. A run record
+  is the case, but the files a suite is run from cannot be written from one yet:
+  a case has to carry the source text and a record carries the source's hash.
+  Until an engine somebody else wrote passes that suite, the portability claim is
+  a design, not a result.
 
-The version is `0.2.0` rather than `1.0` because of that list. The studies
+The version is `0.4.0` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The

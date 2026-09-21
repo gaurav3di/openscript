@@ -7,6 +7,134 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## 0.4.0
+
+**A backtest is driven, and what it produces is a document rather than a
+number.** `backtest(program, bars, settings)` walks a compiled program over a
+range of bars against a destination that prices fills, and hands back a
+`RunRecord`: the compiled program and the hash of the source it came from, the
+bars or a hash naming them, the settings the host chose, every frame the
+destination answered in delivery order, every fill the engine folded in fold
+order, the ledger the run ended with, the diagnostics and the report. Nothing in
+it is an object reference, a function or a shape only this engine can read,
+because the same document is what a second engine will be handed as a
+conformance case.
+
+**A stored run can be reported again and run again, and both are checked rather
+than asserted.** `replay(record)` folds the money again from the record's own
+fills with no bar executed, and has to produce the report the record carries:
+that is what says the report is a function of the fills and not of anything the
+engine happened to be holding. `rerun(record)` executes the record again and the
+two runs are compared as bytes. Bars are revised, so a replay over bars that do
+not hash to the record's is refused, OS6022, rather than reporting the original
+figures over different data.
+
+**The comparison that tells an improvement from noise.** `compareRuns` puts two
+records beside each other. Two runs over different bars or different contracts
+are two studies, so the pair is reported incomparable and given no separation at
+all; a different program over the same bars is exactly what is comparable, and
+every other difference is named, because the reason a run improved is as often a
+setting somebody forgot they changed as it is the change they meant to test.
+Separation is the gap between the two expectancies over the combined standard
+error, analytic and with no resampling, so the same pair gives the same figure
+for ever. It is null rather than infinite where neither run has the two closed
+trades a spread needs.
+
+**The phase's gate is executed rather than promised.**
+`scripts/check-reproducible.mjs` runs on every `npm test`, over the shipped
+strategy examples rather than over a probe written the same afternoon. Each run
+is written to JSON, every other reference to it is dropped, and the record is
+parsed back from that text alone; then it is reported again from its own fills to
+the same report, executed again to the same bytes, refused a replay over revised
+bars, compared with itself to no movement, and refused a separation against a run
+over other bars. A strategy needing a capability the driver cannot supply is
+named and counted, never skipped.
+
+**The report: a trade list, an equity curve, a drawdown and a month by month
+table.** A trade is one position reference from the fill that takes it off zero
+to the fill that returns it, so a pyramided entry is more entry fills on one
+trade, a partial close is an exit fill that does not close it, and a reversal is
+two trades. Win rate is over closed trades on the net after charges, with an
+exactly zero net counted as a scratch in neither half; expectancy carries its own
+standard error. None of it is readable by a script: the money entries of the
+`pos` namespace stay planned and go on refusing at the call, because the moment a
+script can branch on its own equity every formula joins the conformance surface.
+
+**Every bar supplied executes and only the ones inside the window are reported.**
+A bar before the window is warmup: it runs, its orders are real, and a position
+opened on one is carried in with its charges paid. A window holding none of the
+bars supplied is refused, OS6020, rather than reported as a flat curve, which is
+what a strategy that did nothing also produces.
+
+**The costs are the destination's, where the specification puts them.** Slippage
+is measured in ticks and is adverse always, worse on a buy and worse on a sell,
+and it applies to a market fill and to a stop and never to a limit. A platform
+that has its own rates supplies a charge schedule; a script that states a
+commission gets a schedule of one line derived from it; both at once is refused,
+OS6023, because two cost models charge the same money twice or charge whichever
+an engine preferred.
+
+**A quantity is converted into units by the destination, or the run is refused.**
+A quantity travels in the declaration's own unit and the destination is the party
+that converts it. Lots are converted through the instrument's lot size, and a lot
+on an instrument stating none is refused. Cash and a percentage of equity are
+refused by name: a backtest fills in units and works out no running equity to
+size against, so it can convert neither, and filling the number as written is
+what it used to do.
+
+**What it does not model, said here rather than left to be discovered.** A
+bracket reaches the destination as a protective instruction attached to a tag and
+the engine appends no order row for one, so a stop cannot fill in a backtest yet
+and a page that says otherwise is ahead of the engine. A limit fills only where
+the bar traded through it and a stop that gapped fills at the open, both of which
+a host can change in the fill policy; a bar is four prices and no path, and
+nothing here pretends to know which extreme came first.
+
+The equity curve marks a trade at the size it ended up entering from the bar it
+first opened, so a scale-in is marked, before its second entry, on units it did
+not hold at an average it had not reached: the curve reports a drawdown the
+account never had, and the maximum drawdown figures are folded from it, so a
+pyramiding strategy is reported as having risked more than it did. The realised
+total is unaffected. Folding the curve from the fills rather than from the trades
+is what fixes it, and that is a different fold rather than a correction to this
+one.
+
+The conformance case files a second engine would be handed are not written, and
+cannot be from a record alone: a case has to carry the source text and a record
+carries the source hash, its line count and its file name. Nothing can recompile
+a stored revision for the same reason. Both belong to the next phase, and both
+are now written down instead of implied.
+
+**Four defects found by review before any of this shipped**, each a wrong number
+rather than a crash:
+
+- A quantity stated in lots, cash or a percentage of equity was filled at the
+  number the script wrote, so a strategy sizing in lots of sixty five traded one
+  sixty fifth of what it asked for and every money figure went with it.
+- `checkSettings` asked about the cost model only when the host supplied one, so
+  on the path almost every run takes it asked nothing: a declared commission of
+  minus five was charged as a credit and turned a loss into a gain. A declared
+  slippage below zero improved both sides of every fill through the same hole.
+- A month's return was divided by the equity it had already earned, so a month
+  that doubled an account reported fifty percent, with the money column beside it
+  right.
+- A gross loss driven under zero by charges gave a negative profit factor, which
+  is a ratio nobody can act on. It is null there now, and the field says it can
+  go under zero instead of calling itself a positive magnitude.
+
+A bar time outside the range a calendar can hold, which is what nanoseconds
+instead of milliseconds produce, made the monthly table NaN and then threw a bare
+error with no catalogue code out of core. Such a time names no month.
+
+**`load` hands back the inputs it resolved**, beside the engine, so that a caller
+outside the engine can read the declaration's capital, commission and fill rule
+without resolving an input a second time under its own rules.
+
+**`settingsFor`'s second argument no longer names a contract it ignored.** It
+took a partial settings object whose contract field it discarded in favour of the
+positional one, so a caller passing a contract there silently got the other. It
+is now a compiler error at the call.
+
 ## 0.3.0
 
 **The editor half is here: six functions, text in and data out, and a drop-in

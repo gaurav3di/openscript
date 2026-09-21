@@ -136,6 +136,21 @@ drawdown, trade list, win rate, expectancy, and every trade marked on the chart.
 later, and two runs can be compared well enough to tell a real improvement from
 noise.
 
+**Held, and held by a check.** `scripts/check-reproducible.mjs` runs on every
+`npm test` over the shipped strategy examples: each run is written to JSON, every
+other reference to it is dropped, and the record is parsed back from that text
+alone before it is reported again, run again, refused over revised bars, and
+compared. What the gate does not cover, and says so in its own summary, is the
+half that needs somebody else's engine, which is the next phase's.
+
+**What this phase owed the next one and could not pay in full.** A run record is
+the conformance case, and it is written. The case *files* are not, and cannot be
+produced from a record alone: `spec/conformance.md` section 2 requires a case
+directory to carry `script.os`, the source text, and a record carries the
+source's hash, its line count and its file name. Adding the text to the record,
+or handing it to the writer beside the record, is the first thing the next phase
+has to decide.
+
 ## Phase 6. The second engine, and live running
 
 Four to five weeks.
