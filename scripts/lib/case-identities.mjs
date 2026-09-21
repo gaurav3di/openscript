@@ -28,6 +28,17 @@
  * gate drives everywhere else, which is what keeps the first two cases the
  * bytes they were harvested as.
  *
+ * A fourth choice is how the destination behaved, which is `schedule`: acts
+ * naming the nth order the destination took, the boundary each falls on and
+ * what it does there (`simulate.ts`). It reaches the case as its frames rather
+ * than as a file of its own, because what a destination decided is the frames,
+ * and those are `frames.csv`. It is what lets a case carry a partial fill, an
+ * order that ends carrying nothing and a fill that arrives after its order has
+ * ended, none of which the destination this suite was harvested from ever did
+ * on its own. `scripts/lib/venue-schedule.mjs` holds a schedule to the run it
+ * produced, because an act names an order by ordinal and the run decides how
+ * many orders there are.
+ *
  * A window is stated as two bar indices and not as two instants. The bars are
  * a formula's, and an instant written here would have to be worked out again
  * by hand the day that formula moves, by somebody who would have no way of
@@ -169,6 +180,119 @@ export const IDENTITIES = [
       "the refusal of a stored value outside an input's bounds (OS6019), because every " +
       'value here is inside them and a case is a run that happened.',
   },
+  {
+    example: '10-strategy-ema-cross.oscript',
+    id: 'order/partial-fill',
+    run: {
+      schedule: [
+        { order: 1, afterBars: 0, does: 'fill', units: 0 },
+        { order: 1, afterBars: 2, does: 'fill', units: 400 },
+        { order: 1, afterBars: 5, does: 'fill' },
+        { order: 2, afterBars: 0, does: 'fill', units: 0 },
+        { order: 2, afterBars: 1, does: 'fill', units: 500 },
+        { order: 2, afterBars: 3, does: 'fill' },
+      ],
+    },
+    description:
+      'A strategy whose first entry and the close that ends it each arrive in pieces over ' +
+      'several bars produces the recorded ledger, trades and summary.',
+    why:
+      '`stdlib.md` 17.8 folds a frame that is cumulative: a row takes the quantity whole and ' +
+      "the destination's average over it whole, and what is new in the frame is the delta " +
+      'that settles as a fill. Every frame in the suite before this one carried nothing filled ' +
+      'or the whole order, so the difference between a quantity and a delta could not be seen. ' +
+      'This is the run of `order/buy` against a destination told to report 400 of the first ' +
+      "entry's 1084 units two boundaries after it took the order and the rest five boundaries " +
+      'after, and 500 of the closing order before the rest of it. Four things follow and are ' +
+      'each in `expected.json`: the first trade has two entries and two exits where every ' +
+      'other trade in the suite has one of each, its entry price is the average over two ' +
+      'pieces filled at two prices, the run is charged for fourteen fills where the plain run ' +
+      'is charged for twelve, and the two rows the destination answered late carry an ' +
+      '`updatedAt` that the placement did not put there.',
+    defends:
+      'A second engine that reads `filledQty` as a delta and adds it to the row folds 1484 ' +
+      'units onto a 1084 unit order and every figure after it is wrong. One that works an ' +
+      "average out from the pieces it saw, rather than taking the destination's, writes " +
+      'another entry price on the first trade. One that charges a commission per order rather ' +
+      'than per fill reports 240 in charges where this case says 280. One that leaves ' +
+      "`updatedAt` where the placement put it disagrees on two rows and on nothing else, and " +
+      'the suite before this case could not tell that reading from the right one. What it ' +
+      'does not defend: a frame whose quantity goes backwards, which is a stale frame the ' +
+      'fold swallows and `order/fold-repeat` reserves, and a partial fill of a resting order, ' +
+      'because this destination prices a scheduled fill at the close of the bar the act falls ' +
+      'on and answers a scheduled order by the schedule alone.',
+  },
+  {
+    example: '10-strategy-ema-cross.oscript',
+    id: 'order/ended-unfilled',
+    run: {
+      schedule: [
+        { order: 1, afterBars: 0, does: 'fill', units: 0 },
+        { order: 1, afterBars: 1, does: 'reject', text: 'not enough margin' },
+        { order: 2, afterBars: 0, does: 'fill', units: 0 },
+        { order: 2, afterBars: 2, does: 'expire' },
+        { order: 3, afterBars: 0, does: 'fill', units: 0 },
+        { order: 3, afterBars: 1, does: 'cancel' },
+      ],
+    },
+    description:
+      'A strategy whose first three entries are refused, expire and are cancelled without ' +
+      'filling produces the recorded ledger, trades and summary.',
+    why:
+      '`stdlib.md` 17.7 gives an order four terminal words and three of them end it carrying ' +
+      'less than it asked for. No case in the suite carried one: every order in it filled, so ' +
+      'an engine that never learned what to do with a quantity still working passed. This is ' +
+      'the run of `order/buy` against a destination that refuses the first entry with its own ' +
+      'text, lets the second expire and cancels the third, each after acknowledging it and ' +
+      'each with nothing filled. Because nothing filled, no position opens on any of the ' +
+      'three, the crossing back finds the strategy flat and sends nothing, and the run reaches ' +
+      'half the trades the plain run does from the same bars. The refused row is the only row ' +
+      'in the suite carrying a `rejection`.',
+    defends:
+      'A second engine that folds a terminal word as an ending of the whole order opens a ' +
+      'position of 1084 units that nothing filled, and every trade and every money figure ' +
+      'after it is a fold of that position. One that drops the text a refusal carried writes ' +
+      'null where this case records the text the destination sent. One that keeps the row live ' +
+      'after a terminal word lets the next crossing be refused by the pyramiding limit rather ' +
+      'than entering. One that leaves `updatedAt` where the placement put it disagrees on the ' +
+      'three rows the destination ended and on nothing else. What it does not defend: an ' +
+      'engine raising a code for a refused order, which is OS7014 and deferred, so this case ' +
+      'records the refusal in the ledger and no diagnostic beside it.',
+  },
+  {
+    example: '10-strategy-ema-cross.oscript',
+    id: 'order/fold-after-terminal',
+    run: {
+      schedule: [
+        { order: 1, afterBars: 0, does: 'fill', units: 0 },
+        { order: 1, afterBars: 1, does: 'cancel' },
+        { order: 1, afterBars: 2, does: 'fill' },
+      ],
+    },
+    description:
+      'A strategy whose first entry is cancelled and then filled by a frame arriving after ' +
+      'the cancellation produces the recorded ledger, trades and summary.',
+    why:
+      '`stdlib.md` 17.8 says a fill arriving after a terminal status is folded for its ' +
+      'quantity with the status left terminal, and gives the reason: a cancellation can race ' +
+      'a fill at any destination, and an engine that refuses the late frame leaves the account ' +
+      'holding a position the strategy cannot see. This is the run of `order/buy` against a ' +
+      'destination that acknowledges the first entry, cancels it a boundary later and reports ' +
+      'it filled whole the boundary after that. The row ends `cancelled` carrying 1084 filled ' +
+      'and an average price, which is the shape that sentence describes and which no other ' +
+      'case in the suite has, and the position that fill opened is the one the first trade is ' +
+      'folded from.',
+    defends:
+      'A second engine that refuses a frame because the row it names has ended folds no ' +
+      'quantity: its first row reports nothing filled, the position never opens, and the ' +
+      'first trade of `expected.json` has nothing to be folded from. One that lets the late ' +
+      'fill move the status writes `filled` where this case says `cancelled`, which is the ' +
+      'other half of the same sentence and the half an engine is likelier to get wrong. One ' +
+      'that leaves `updatedAt` where the placement put it disagrees on that row and on ' +
+      'nothing else. What it does not defend: a cancellation the strategy itself asked for, ' +
+      'because no shipped example calls `cancel(...)` and a case is a run that happened; the ' +
+      'cancellation here is the destination behaving as a destination does.',
+  },
 ];
 
 /** Every identity naming one example, in the order a case is harvested in. */
@@ -197,8 +321,15 @@ export function contractFor(identity, contract) {
  * reports against the case, not an exception out of a helper: the bars are a
  * formula's and a shorter fixture would otherwise harvest a run over a bound
  * of absence, which is a case nobody could read back.
+ *
+ * `policy` is the fill policy a run takes when the host states none, which a
+ * schedule is carried on rather than beside: the two are the same kind of
+ * fact, how this destination decides a fill, and `settings.ts` says why they
+ * travel together. It is handed in rather than named here so that a case
+ * stating no schedule is harvested under the policy the engine itself
+ * defaults to, whatever that becomes, and not under a second copy of it.
  */
-export function chosenFor(identity, bars) {
+export function chosenFor(identity, bars, policy) {
   const chosen = {};
   const window = identity.run?.window;
   if (window !== undefined) {
@@ -215,5 +346,7 @@ export function chosenFor(identity, bars) {
     chosen.range = { from: from.time, to: to.time };
   }
   if (identity.run?.inputs !== undefined) chosen.inputs = identity.run.inputs;
+  const schedule = identity.run?.schedule;
+  if (schedule !== undefined) chosen.fill = { ...policy, schedule };
   return { chosen, problem: null };
 }

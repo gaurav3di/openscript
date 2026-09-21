@@ -46,6 +46,9 @@
  *   one. A disagreement between what is committed and what this engine
  *   produces is a defect in the engine or in the page, settled by reading the
  *   specification, and the case stays as it was until it is.
+ * - **A case whose destination schedule the run no longer produces**, which is
+ *   a case that quietly stopped testing what it was written for.
+ *   `scripts/lib/venue-schedule.mjs` is the reading and says why.
  * - **A run that harvests nothing.** A harvest that wrote no case and reported
  *   success would be the check this repository has already shipped four times,
  *   the one that inspected nothing.
@@ -97,6 +100,7 @@ import { matrixRows } from './lib/catalogue.mjs';
 import { frontEndWith } from './lib/example-run.mjs';
 import { nothingFound } from './lib/files.mjs';
 import { MATRIX } from './lib/raise-documents.mjs';
+import { scheduleProblem } from './lib/venue-schedule.mjs';
 import {
   BAR_COUNT,
   CONTRACT,
@@ -142,11 +146,12 @@ const core = await import(CORE_MODULE);
 const emitter = await import(EMITTER_MODULE);
 const gaps = await import(GAPS_MODULE);
 const compile = frontEndWith(core, emitter);
-const { backtest, caseFilesFrom, settingsFor } = core;
+const { DEFAULT_FILL, backtest, caseFilesFrom, settingsFor } = core;
 
 // ------------------------------------------------------------- the gaps table
 
-const gapsText = gaps.gapsSection(read(STDLIB));
+const stdlib = read(STDLIB);
+const gapsText = gaps.gapsSection(stdlib);
 if (gapsText === null) {
   refuse(
     `${STDLIB} holds no section headed "${gaps.GAPS_HEADING.trim()}", so this harvest cannot ` +
@@ -211,9 +216,7 @@ const probed = gapSelfTest();
 const rowsByTest = new Map();
 for (const row of matrixRows(read(MATRIX))) {
   if (row.test === null) continue;
-  const held = rowsByTest.get(row.test) ?? [];
-  held.push(row);
-  rowsByTest.set(row.test, held);
+  rowsByTest.set(row.test, [...(rowsByTest.get(row.test) ?? []), row]);
 }
 if (rowsByTest.size === 0) refuse(nothingFound(`feature row naming a test in ${MATRIX}`));
 
@@ -244,7 +247,7 @@ if (!Number.isFinite(minutes) || minutes * 60_000 !== spacing) {
 /** One example run, harvested to files, or the reason it was not. */
 function harvestOnce(example, identity) {
   const compiled = compile(example.name, example.text);
-  const { chosen, problem } = chosenFor(identity, bars);
+  const { chosen, problem } = chosenFor(identity, bars, DEFAULT_FILL);
   if (problem !== null) return { ok: false, reason: problem };
   const settings = settingsFor(contractFor(identity, CONTRACT), chosen);
   const run = backtest(compiled.program, bars, settings, {
@@ -252,18 +255,17 @@ function harvestOnce(example, identity) {
     instrument: facts,
   });
   if (!run.ok) return { ok: false, diagnostic: run.diagnostic };
+  const lost = scheduleProblem(identity.run?.schedule, run.record, stdlib);
+  if (lost !== null) return { ok: false, reason: lost };
   const made = caseFilesFrom(run.record, { id: identity.id, description: identity.description });
   if (!made.ok) return { ok: false, reason: made.reason };
-  const files = {
-    ...made.files,
-    'notes.md': notesFor(identity, {
-      path: example.path,
-      bars: run.record.bars.rows.length,
-      orders: run.record.orders.length,
-      trades: run.record.report.trades.length,
-    }),
-  };
-  return { ok: true, files };
+  const notes = notesFor(identity, {
+    path: example.path,
+    bars: run.record.bars.rows.length,
+    orders: run.record.orders.length,
+    trades: run.record.report.trades.length,
+  });
+  return { ok: true, files: { ...made.files, 'notes.md': notes } };
 }
 
 // -------------------------------------------------------------------- the run
@@ -430,8 +432,7 @@ for (const found of directories) {
 }
 
 const implementedCases = [...rowsByTest.entries()]
-  .filter(([test]) => !test.startsWith(UNIT))
-  .filter(([, rows]) => rows.some((row) => row.status === IMPLEMENTED))
+  .filter(([test, rows]) => !test.startsWith(UNIT) && rows.some((r) => r.status === IMPLEMENTED))
   .map(([test]) => test);
 for (const test of implementedCases) {
   if (existsSync(caseDirectory(test))) continue;
@@ -464,10 +465,10 @@ const unitRows = [...rowsByTest.keys()].filter((test) => test.startsWith(UNIT)).
 console.log(
   `Harvest${CHECK ? ' check' : ''} passed: ${harvested.length} ` +
     `case${harvested.length === 1 ? '' : 's'} (${written.length} written, ` +
-    `${unchanged.length} already there and identical) from the ` +
-    `shipped strategies over ${BAR_COUNT} bars, under the gate's placeholder contract and the ` +
-    `instrument facts ${CONFORMANCE} section 3 assumes of a case that states none, each under ` +
-    'the digit count, report window and input values its own identity names. Each was ' +
+    `${unchanged.length} already there and identical) from the shipped strategies over ` +
+    `${BAR_COUNT} bars, under the gate's placeholder contract and the instrument facts ` +
+    `${CONFORMANCE} section 3 assumes of a case that states none, each under the digit count, ` +
+    'report window, input values and destination schedule its own identity names. Each was ' +
     'harvested twice to the same bytes, compared with its directory byte for byte, and names ' +
     `a row of ${MATRIX} marked \`${IMPLEMENTED}\`; the gap rule was attacked with ${probed} ` +
     `probes first, and ${gapRows.length} gaps of ${STDLIB} section 20.11 were read. ` +

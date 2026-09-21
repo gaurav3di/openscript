@@ -1,0 +1,1 @@
+{"asserts":["diagnostics","orders","trades","performance"],"category":"strategy","description":"A strategy whose first entry and the close that ends it each arrive in pieces over several bars produces the recorded ledger, trades and summary.","id":"order/partial-fill","languageVersion":1,"profile":"strategy","tolerance":{"abs":0,"reason":null,"rel":0}}

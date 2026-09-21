@@ -1,0 +1,1 @@
+{"asserts":["diagnostics","orders","trades","performance"],"category":"strategy","description":"A strategy whose first three entries are refused, expire and are cancelled without filling produces the recorded ledger, trades and summary.","id":"order/ended-unfilled","languageVersion":1,"profile":"strategy","tolerance":{"abs":0,"reason":null,"rel":0}}

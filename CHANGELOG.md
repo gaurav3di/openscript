@@ -9,6 +9,79 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**Three cases where the destination behaves badly.** Every one of the 204 frames
+the suite held was an order working and then filling whole: no partial fill, no
+refusal, no cancellation, no expiry, and no frame arriving later than the bar
+that placed its order. Two engines agreeing over that agreed about the half of a
+day that costs nobody anything. Three cases are harvested from the crossing
+example against a destination told to behave badly on a schedule stated before
+the run, and each one reaches a shape `stdlib.md` 17.7 and 17.8 provide for and
+no case carried.
+
+- `order/partial-fill`. The first entry is acknowledged with nothing filled,
+  reports 400 of its 1084 units two boundaries later and the rest five
+  boundaries after it was taken, and the close that ends the trade arrives in
+  two pieces as well. The first trade has two entries and two exits where every
+  other trade in the suite has one of each, its entry price is the average over
+  two pieces filled at two prices, and the run is charged for fourteen fills
+  where the same run against a destination that fills whole is charged for
+  twelve. An engine that reads a cumulative quantity as a delta folds 1484 units
+  onto a 1084 unit order.
+- `order/ended-unfilled`. The first three entries are refused carrying the
+  destination's own text, expire, and are cancelled, each after being
+  acknowledged and each with nothing filled. Because nothing fills, no position
+  opens on any of the three, the crossing back finds the strategy flat and sends
+  nothing, and the run reaches three trades where the plain run reaches six. It
+  is the only case in the suite carrying a `rejection`.
+- `order/fold-after-terminal`. The first entry is cancelled a boundary after it
+  is taken and reported filled whole the boundary after that. The row ends
+  `cancelled` carrying 1084 filled and an average price, which is what 17.8
+  describes and why: a cancellation can race a fill at any destination, and an
+  engine that refuses the late frame leaves the account holding a position the
+  strategy cannot see.
+
+The suite is eight cases now, 273 frames, 140 ledger rows and 66 trades. Across
+it a frame says `working` 137 times, `filled` 132, `cancelled` twice, `rejected`
+once and `expired` once, and a ledger row ends `filled` 131 times, `placed` five
+times, `cancelled` twice, `rejected` once and `expired` once. Two of those
+`working` frames carry part of an order rather than none of it, and five of the
+`placed` rows are the order each run was holding when its bars ran out.
+
+**A schedule that stops producing its status is refused rather than harvested.**
+An act names an order by its ordinal and the run decides how many orders there
+are, so a schedule can stop reaching its order without anything failing: the
+case is still harvested, still passes, and tests whatever the plain run tests.
+`scripts/lib/venue-schedule.mjs` holds each act to the frames the run recorded,
+by the facts the act itself fixes and by the row it reached, with the status
+vocabulary read out of `stdlib.md` 17.7 rather than copied into it. Twenty four
+wrong schedules and wrong pages were put to it and all twenty four were refused:
+every ordinal moved past the orders the run places, one act moved past the end
+of the run, the plain run asked about a schedule it never ran under, the acts
+written in reverse, a verb no word on the page is the stem of, a page with no
+status table, a rejection text no frame carries, and a piece of 401 where the
+run reported 400. The first version passed one of them, a fill of a whole order
+answered by whichever later order happened to fill, which is why an act is now
+held to the row its own order was answered about.
+
+**What this does not close.** The second engine puts a frame's instant on no
+frame it hands its ledger, so the three new cases fail on it at
+`orders[].updatedAt` and at nothing else, on every other field agreeing exactly:
+the partial quantities, the cumulative averages, the refusal text, the trades
+with two entries and two exits, and the whole summary. Eight of eight pass on
+the first engine; five pass and three fail on the second. Three places drop the
+instant, each by leaving one field off a frame it builds:
+`openscript/adapter/ordering.py`, where the driver builds the frame it delivers;
+`tests/recorded.py`, whose `DeliveredFrame` has no field for the column at all
+and reads seven of the file's eight; and `tests/replaying.py`, where the replay
+that holds the ledger to a case builds its own. Measured with the field added in
+all three and nothing else changed: `npm test` exits 0, the suite is eight of
+eight against the expected files and eight of eight between the engines, exactly,
+and the second engine's own 754 tests pass. That is the whole of the difference.
+
+And the language's own `cancel(...)` is still exercised by nothing, because no
+shipped example calls it: the cancellation in `order/fold-after-terminal` is the
+destination's own and not the strategy's.
+
 **A report says how far the run climbed, and which side made the money.** The
 summary answered twenty six figures and could not answer three questions a
 reader decides on. A run that made ten and gave back nine reports the same net
@@ -667,7 +740,7 @@ harvested the same way from the same shipped strategies:
   Ten ledger rows and five trades, where the declared defaults give thirteen and
   six.
 
-The suite is five cases, 104 ledger rows and 51 trades, and each passes against
+That harvest made the suite five cases, 104 ledger rows and 51 trades, each passing against
 the expected files on both engines and against the other engine exactly. Each
 one was mutation tested before it was committed: an engine that reports every
 bar supplied fails the window case at the bar count, one that never opens

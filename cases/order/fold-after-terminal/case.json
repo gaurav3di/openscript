@@ -1,0 +1,1 @@
+{"asserts":["diagnostics","orders","trades","performance"],"category":"strategy","description":"A strategy whose first entry is cancelled and then filled by a frame arriving after the cancellation produces the recorded ledger, trades and summary.","id":"order/fold-after-terminal","languageVersion":1,"profile":"strategy","tolerance":{"abs":0,"reason":null,"rel":0}}
