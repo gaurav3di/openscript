@@ -17,7 +17,7 @@ that the fold reads it rather than recomputing it.
 
 from typing import Any, Dict, Optional, Sequence
 
-from ..accounting import BarMark, ChargeSchedule, Contract, schedule_from_declaration
+from ..accounting import BarMark, ChargeLine, ChargeSchedule, Contract, schedule_from_declaration
 from .reading import Bar, Case
 from .spellings import Malformed
 
@@ -61,6 +61,39 @@ def contract_for(case: Case) -> Contract:
     )
 
 
+def line_of(stated: Dict[str, Any]) -> ChargeLine:
+    """One line of a supplied schedule, as the host stated it.
+
+    `conformance.md` section 3 says `costs` is the schedule the host supplied
+    "whole and as the host stated it", and whole is the word that matters: the
+    lines ARE the schedule. Dropping them leaves a currency and a digit count
+    charging nothing, which is not a cheaper run, it is a different one, and it
+    is wrong in the direction nobody checks because it flatters the strategy.
+
+    Read by name and not by position, and the optional bounds stay absent when
+    the host stated none: a floor of zero and no floor are different rules, and
+    a line that invented one would charge a fill the host meant to leave alone.
+    """
+    return ChargeLine(
+        name=stated["name"],
+        base=stated["base"],
+        side=stated.get("side", "both"),
+        rate=stated.get("rate", 0.0),
+        min=stated.get("min"),
+        max=stated.get("max"),
+        of=tuple(stated.get("of", ())),
+    )
+
+
+def schedule_lines(supplied: Dict[str, Any]) -> tuple:
+    """Every line of a supplied schedule, in the order the host stated them.
+
+    Order is part of the result: a charge whose base is `charges` is a fraction
+    of the lines named before it, so reordering them changes the money.
+    """
+    return tuple(line_of(one) for one in supplied.get("lines", ()))
+
+
 def schedule_for(case: Case, declared: Dict[str, Any]) -> Optional[ChargeSchedule]:
     """The charge schedule the run was carried out under.
 
@@ -77,7 +110,7 @@ def schedule_for(case: Case, declared: Dict[str, Any]) -> Optional[ChargeSchedul
             currency=supplied["currency"],
             digits=supplied["digits"],
             slippage_ticks=supplied.get("slippageTicks", 0.0),
-            lines=(),
+            lines=schedule_lines(supplied),
             source="supplied",
         )
     return schedule_from_declaration(

@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from tests.recorded import Case, RecordedBar
 
+from openscript.adapter.reporting import schedule_lines
 from openscript.accounting import BarMark, Contract, ChargeSchedule, schedule_from_declaration
 from openscript.diagnostics import Position
 from openscript.strategy import (
@@ -110,7 +111,7 @@ def schedule_for(case: Case) -> Optional[ChargeSchedule]:
             currency=supplied["currency"],
             digits=supplied["digits"],
             slippage_ticks=supplied.get("slippageTicks", 0.0),
-            lines=(),
+            lines=schedule_lines(supplied),
             source="supplied",
         )
     contract = contract_for(case)
