@@ -18,6 +18,7 @@ export {
   roundTo,
   roundToStep,
   roundToTick,
+  scaleOf,
   trunc,
 } from './rounding.js';
 

@@ -32,6 +32,28 @@ export function round(x: Value): Value {
 }
 
 /**
+ * Ten to each whole power a binary64 can hold, as the binary64 nearest to it.
+ *
+ * `stdlib.md` 20.7: the scale a fixed decimal rounding or conversion multiplies
+ * by is the nearest binary64 to the power of ten, the value the literal `1e23`
+ * reads as, and not what a floating point power returns, which is an ulp away
+ * from it for one count on this engine's host. Built once from exact integer
+ * arithmetic, and it is the one table: `text(x, decimals)` in the engine's
+ * library scales by it through `scaleOf` rather than holding a copy.
+ */
+const POWERS_OF_TEN: readonly number[] = Array.from({ length: 309 }, (_, count) =>
+  Number(10n ** BigInt(count)),
+);
+
+/**
+ * The scale for a digit count: the nearest binary64 to ten to that power, and
+ * past the last finite power the infinity the power would have been.
+ */
+export function scaleOf(decimals: number): number {
+  return POWERS_OF_TEN[decimals] ?? Infinity;
+}
+
+/**
  * `round(x, decimals)`: to a fixed number of decimals, halves away from zero.
  *
  * A digit count is a whole number of zero or more; anything else is OS3004 or
@@ -40,7 +62,7 @@ export function round(x: Value): Value {
 export function roundTo(x: Value, decimals: number): Value {
   if (!isPresent(x)) return NONE;
   if (!Number.isInteger(decimals) || decimals < 0) return NONE;
-  const scale = Math.pow(10, decimals);
+  const scale = scaleOf(decimals);
   return result(roundHalfAway(x * scale) / scale);
 }
 

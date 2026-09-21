@@ -143,6 +143,29 @@ plot(close, "Close")
   assert.equal(cell, 'a|！|￿|\u{10000}|\u{1F600}');
 });
 
+// Catches: an operator that compares the host's sixteen bit units, under which
+// the fullwidth exclamation mark U+FF01 orders after a symbol above the plane,
+// so `<` and `sort` disagree on the same pair; and one that reads the order
+// the right way round for `<` and not for its three companions. Source to
+// table cell, so a second engine reading this script has the same thing to
+// agree with.
+test('the four ordering comparisons order strings by code point through the whole pipeline', () => {
+  const engine = running(`version 1
+
+study("Order operators")
+
+mark = "！"
+face = "\u{1F600}"
+t = table("Panel", 1, 1)
+cell(t, 0, 0, text(mark < face) + " " + text(mark <= face) + " " + text(face > mark) + " " + text(face >= mark)
+    + " " + text(face < mark) + " " + text("a" < "ab") + " " + text("same" <= "same") + " " + text("same" < "same"))
+
+plot(close, "Close")
+`);
+  engine.append(flat(100, 1_000), CLOSING);
+  assert.equal(engine.tables()[0]?.cells[0]?.text, 'true true true true false true true false');
+});
+
 // Catches: a trim inside the engine that is not the one the manifest test
 // above drove, and an escape the lexer reads into a code point the set holds.
 test('str.trim through the whole pipeline', () => {

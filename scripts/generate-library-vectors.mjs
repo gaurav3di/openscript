@@ -131,12 +131,18 @@ const SHORT = 5;
 const TICK = 0.05;
 
 /**
- * Edge values for a stateless function: both zeros, halves either side of
- * even, the value just below a half, the subnormal range, the largest finite
- * value, the two constants, and absence.
+ * Edge values for a stateless function: zero, halves either side of even, the
+ * value just below a half, the subnormal range, the largest finite value, the
+ * two constants, and absence.
+ *
+ * No negative zero and nothing that is not finite: `language.md` 5.5 says the
+ * language holds one zero and 5.1 that a number is always finite, so neither
+ * is a value a script can hand a function, and a vector that probed with one
+ * would carry as an output what the page says an engine never produces.
+ * `check-library-vectors.mjs` refuses such an output wherever it came from.
  */
 const PROBES = [
-  0, -0, 1, -1, 0.5, -0.5, 2.5, -2.5, 0.49999999999999994, 3, 7, -7, 0.1, 0.2, 0.3, 10,
+  0, 1, -1, 0.5, -0.5, 2.5, -2.5, 0.49999999999999994, 3, 7, -7, 0.1, 0.2, 0.3, 10,
   100.37, 2.675, 1e-310, 5e-324, 1e308, 1.7976931348623157e308, 3.141592653589793,
   2.718281828459045, null,
 ];

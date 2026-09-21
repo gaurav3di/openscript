@@ -23,13 +23,33 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import type { ChargeSchedule, Contract } from '../../src/core/accounting/index.js';
 import { TOLERANCE_CAP } from '../../src/core/backtest/case.js';
-import { backtest, caseFilesFrom } from '../../src/core/backtest/index.js';
+import { backtest, caseFilesFrom, settingsFor } from '../../src/core/backtest/index.js';
 import type { BacktestSettings, RunRecord } from '../../src/core/backtest/index.js';
 import { compile } from '../engine/support.js';
-import { CONTRACT, FACTS, HOUR, START, SUPPLIED, probeText, rising, runSettings } from './support.js';
+import { CONTRACT, FACTS, HOUR, START, SUPPLIED, probeText, rising } from './support.js';
 
 const BARS = rising(8);
+
+/**
+ * A contract rounding to a count neither the test contract nor the gate's
+ * fixture uses, both of which round to two.
+ *
+ * Every run here is under it, because a projection that wrote the digit count
+ * from anywhere but the run's own contract, a constant, the fixture, a
+ * schedule, passed every test while the runs all rounded to two. The supplied
+ * schedule follows it, since a schedule that disagrees with its contract is
+ * refused before the first bar.
+ */
+const ODD: Contract = { ...CONTRACT, digits: 4 };
+const ODD_SUPPLIED: ChargeSchedule = { ...SUPPLIED, digits: ODD.digits };
+
+/**
+ * A declared commission with a third decimal, so the count is visible in the
+ * charge: 0.075 per fill at four digits, and 0.08 at two.
+ */
+const COMMISSION = 0.075;
 
 /** The page whose section 6 prints the cap, read from the source tree. */
 const CONFORMANCE = new URL('../../../spec/conformance.md', import.meta.url);
@@ -49,10 +69,10 @@ interface BacktestFile {
   readonly range: { readonly from: number | null; readonly to: number | null };
 }
 
-/** A harvestable run under whatever settings a test chose. */
-function run(chosen: Partial<BacktestSettings> = {}): RunRecord {
-  const text = probeText();
-  const out = backtest(compile('probe.oscript', text).program, BARS, runSettings(chosen), {
+/** A harvestable run under whatever settings a test chose, and the odd contract. */
+function run(chosen: Omit<Partial<BacktestSettings>, 'contract'> = {}, commission = 0): RunRecord {
+  const text = probeText({ commission });
+  const out = backtest(compile('probe.oscript', text).program, BARS, settingsFor(ODD, chosen), {
     sourceText: text,
     instrument: FACTS,
   });
@@ -90,14 +110,27 @@ function capsIn(page: string): { readonly rel: number; readonly abs: number } {
 
 const CAPS = capsIn(readFileSync(CONFORMANCE, 'utf8'));
 
+/** The charges figure of the one summary a case holds. */
+function chargesIn(record: RunRecord): number | undefined {
+  const expected = JSON.parse(filesOf(record)['expected.json'] ?? '{}') as {
+    performance: readonly { charges: number }[];
+  };
+  return expected.performance[0]?.charges;
+}
+
 test('backtest.json carries the digits, the schedule and the window the report was folded under', () => {
   // Catches the projection this replaced, which wrote no such file, and one
-  // that takes the digit count from anywhere but the run's own contract. A run
-  // under no supplied schedule and no stated window says so in the file rather
-  // than leaving a runner to assume it.
-  const record = run();
+  // that takes the digit count from anywhere but the run's own contract: the
+  // count differs from the test contract's and the fixture's, and the charge
+  // the run produced shows it was in force, two fills at 0.075 and not at the
+  // 0.08 two digits would make of each. A run under no supplied schedule and
+  // no stated window says so in the file rather than leaving a runner to
+  // assume it.
+  const record = run({}, COMMISSION);
   const held = backtestFile(record);
-  assert.equal(held.digits, CONTRACT.digits);
+  assert.equal(held.digits, ODD.digits);
+  assert.notEqual(held.digits, CONTRACT.digits, 'the run rounds to a count the test contract does not');
+  assert.equal(chargesIn(record), 0.15);
   assert.equal(held.costs, null);
   assert.deepEqual(held.range, { from: null, to: null });
   assert.deepEqual(Object.keys(held).sort(), ['costs', 'digits', 'range']);
@@ -109,12 +142,10 @@ test('a run charged under a supplied schedule writes that schedule, and the figu
   // supplied, and the charges figure ties the file to the summary a second
   // engine is held to: two fills at fifteen each, which is the supplied
   // schedule and not the declaration's commission of zero.
-  const record = run({ costs: SUPPLIED });
-  assert.deepEqual(backtestFile(record).costs, SUPPLIED);
-  const expected = JSON.parse(filesOf(record)['expected.json'] ?? '{}') as {
-    performance: readonly { charges: number }[];
-  };
-  assert.equal(expected.performance[0]?.charges, 30);
+  const record = run({ costs: ODD_SUPPLIED });
+  assert.deepEqual(backtestFile(record).costs, ODD_SUPPLIED);
+  assert.equal(backtestFile(record).digits, ODD.digits);
+  assert.equal(chargesIn(record), 30);
 });
 
 test('a run reported over a window writes the window, and every bar it executed', () => {

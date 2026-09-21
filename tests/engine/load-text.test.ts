@@ -19,8 +19,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { canonicalise } from '../../src/core/emit/index.js';
-import { load } from '../../src/core/engine/index.js';
-import { loadText } from '../../src/core/engine/load.js';
+import { load, loadText } from '../../src/core/engine/index.js';
 import { compile } from './support.js';
 
 const SOURCE = [

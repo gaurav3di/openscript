@@ -250,10 +250,15 @@ export { DECLARATION_CALLS, declarationDefaultText, namedColour } from './emit/i
  * same check on its own, for a host that keeps compiled programs and wants to
  * refuse a bad one when it arrives rather than when it is first drawn.
  *
+ * `loadText` is `load` for a program that arrives as text, which is the one
+ * boundary where the canonical encoding is required (`compiled-program.md`
+ * section 13): text that parses to a program but is not that encoding is
+ * refused, because the hash a host recorded was taken over canonical bytes.
+ *
  * `capabilitiesFor` and `LANGUAGE_VERSIONS` are this engine's half of the
  * compatibility statement in 9.1, beside `COMPILED_FORMAT_VERSION` above.
  */
-export { load } from './engine/index.js';
+export { load, loadText } from './engine/index.js';
 export type { BarResult, Engine, LoadOptions, LoadResult, RunResult } from './engine/index.js';
 export type {
   BarState,

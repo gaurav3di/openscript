@@ -34,12 +34,21 @@
  * fold that never saw the file. A case with no `frames.csv` whose run answered
  * frames is the same shortfall the other way round.
  *
+ * ## The settings a strategy case runs under are the case's, never a default
+ *
+ * Section 3's `backtest.json` carries the three facts the report was folded
+ * under and the script never states: the digit count money is rounded to, the
+ * charge schedule the host supplied and the report window. This engine once
+ * took the digit count from the gate's fixture, no schedule and the whole
+ * window, and passed every harvested case, because every harvested case had
+ * been run under exactly those: a suite passed by coincidence. So the file is
+ * read, whole, and every one of the three goes into the run's settings; a
+ * strategy case without it is reported `error` by name, as the page promises,
+ * and is not run under anything. A study folds no money, so a study case has
+ * nothing for the file to state and runs without one.
+ *
  * ## What else is said rather than guessed
  *
- * - A rounding digit count for money is a fact of a run (`accounting`'s
- *   contract) that no file section 2 names carries. The fixture's is used,
- *   because every harvested case ran under it, and the page owes a place for
- *   it before a second engine can know it.
  * - Section 3's default instrument states no currency, and the money layer
  *   refuses to charge in none (OS6021), so a strategy case that states no
  *   `instrument.json` is answered with that refusal in its diagnostics.
@@ -49,10 +58,12 @@
  * - `ticks.csv` and a secondary series are `unsupported`: a backtest replays
  *   no intrabar update and serves no series but its own.
  */
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { suiteDefaultFacts } from './case-directory.mjs';
 import { readCaseDirectory } from './case-reading.mjs';
 import { compareChannels, toleranceFrom } from './compare.mjs';
-import { CONTRACT, missingCapability } from './strategy-drive.mjs';
+import { CONTRACT, isStrategy, missingCapability } from './strategy-drive.mjs';
 
 /** The name section 2 fixes for the source inside a case. */
 const SCRIPT_NAME = 'script.os';
@@ -61,11 +72,26 @@ const SCRIPT_NAME = 'script.os';
 const EXPECTED = 'expected.json';
 const FRAMES = 'frames.csv';
 
+/** Section 3: what a strategy run's report was folded under. */
+const BACKTEST = 'backtest.json';
+
+/** The three fields that file holds, and no other. */
+const BACKTEST_FIELDS = ['digits', 'costs', 'range'];
+
 /** The category whose diagnostics this engine's record does not carry. */
 const WARNING = 'warning';
 
-/** The one contract field that is not an instrument fact. */
+/** The one contract field that is not an instrument fact: it is `backtest.json`'s. */
 const DIGITS = 'digits';
+
+/**
+ * The count a study case runs under when it states none.
+ *
+ * A study places no order and folds no money, so no figure is rounded to the
+ * count and the page requires the file of a strategy case only; the contract
+ * still has to state one, and zero is the count that rounds nothing.
+ */
+const STUDY_DIGITS = 0;
 
 /**
  * What this engine computed for one case, and what it could not.
@@ -128,9 +154,13 @@ export function caseAnswer(directory, engine) {
   if (read.settings !== null && (typeof read.settings !== 'object' || Array.isArray(read.settings))) {
     return { id, error: 'settings.json is not an object of input values' };
   }
-  const { contract, facts } = partition(instrument);
+  const folded = backtestSettings(directory, isStrategy(compiled.program));
+  if (!folded.ok) return { id, error: folded.reason };
+  const { contract, facts } = partition(instrument, folded.value.digits);
   const settings = engine.core.settingsFor(contract, {
     inputs: read.settings ?? {},
+    costs: folded.value.costs,
+    range: folded.value.range,
     ...(declared.now === undefined ? {} : { now: declared.now }),
   });
   const run = engine.core.backtest(compiled.program, read.bars, settings, {
@@ -206,20 +236,74 @@ function diagnosticRow(diagnostic) {
 }
 
 /**
+ * `backtest.json`, read by section 3's shape, or why the case cannot run.
+ *
+ * Required of a strategy case, and the refusal says so in the page's words
+ * rather than running the case under a count somebody assumed. A study case
+ * that states none runs under the count that rounds nothing; one that states
+ * the file is read like any other, because a file the table names is input.
+ * The shape is held: a digit count that is not a whole number of zero or more,
+ * a schedule that is neither `null` nor an object, a window bound that is
+ * neither `null` nor an integer, and a field the page does not name are each
+ * a malformed case, which section 9 files under `error`. Whether a stated
+ * schedule can be evaluated is the run's own question (OS6021), answered in
+ * the diagnostics channel like every other refusal a run makes.
+ */
+function backtestSettings(directory, strategy) {
+  const path = join(directory, BACKTEST);
+  const refused = (reason) => ({ ok: false, reason: `${BACKTEST}: ${reason}` });
+  if (!existsSync(path)) {
+    if (!strategy) return { ok: true, value: { digits: STUDY_DIGITS, costs: null, range: { from: null, to: null } } };
+    return refused(
+      'missing, and section 3 requires it of a strategy case; a digit count nobody stated is a ' +
+        'figure two engines round differently, so the case is not run under a default',
+    );
+  }
+  let held;
+  try {
+    held = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return refused('not JSON');
+  }
+  if (held === null || typeof held !== 'object' || Array.isArray(held)) return refused('not an object');
+  for (const key of Object.keys(held)) {
+    if (!BACKTEST_FIELDS.includes(key)) return refused(`states ${key}, which section 3 does not name`);
+  }
+  for (const key of BACKTEST_FIELDS) {
+    if (!(key in held)) return refused(`states no ${key}, which section 3 requires`);
+  }
+  const { digits, costs, range } = held;
+  if (!Number.isInteger(digits) || digits < 0) {
+    return refused(`digits is ${JSON.stringify(digits)}, and section 3 gives a whole number of decimal places`);
+  }
+  if (costs !== null && (typeof costs !== 'object' || Array.isArray(costs))) {
+    return refused('costs is neither null nor a charge schedule');
+  }
+  if (range === null || typeof range !== 'object' || Array.isArray(range)) return refused('range is not an object');
+  for (const bound of ['from', 'to']) {
+    if (range[bound] !== null && !Number.isInteger(range[bound])) {
+      return refused(`range.${bound} is neither null nor an integer of UTC milliseconds`);
+    }
+  }
+  return { ok: true, value: { digits, costs, range: { from: range.from, to: range.to } } };
+}
+
+/**
  * The instrument record split the way `backtest` takes it: the six facts the
  * money layer's contract holds, and the rest beside it.
  *
  * The partition is read from the fixture's contract rather than written here,
  * as `suiteDefaultFacts` reads it, so there is one statement of which facts
- * are the contract's. The digit count is the fixture's for the reason at the
- * top of this file; the currency and the point value take what the contract's
- * own shape says of a host that states none.
+ * are the contract's. The digit count is `backtest.json`'s, handed in, because
+ * `host-interface.md` 4.1 has no such fact and section 3 gives it that file;
+ * the currency and the point value take what the contract's own shape says of
+ * a host that states none.
  */
-function partition(instrument) {
+function partition(instrument, digits) {
   const contract = {};
   const facts = {};
   for (const key of Object.keys(CONTRACT)) {
-    if (key === DIGITS) contract[key] = CONTRACT[key];
+    if (key === DIGITS) contract[key] = digits;
     else if (key === 'currency') contract[key] = instrument[key] ?? '';
     else if (key === 'pointValue') contract[key] = instrument[key] ?? 1;
     else contract[key] = instrument[key] ?? null;

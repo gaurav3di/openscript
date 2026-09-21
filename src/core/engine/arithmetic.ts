@@ -23,6 +23,7 @@
  * what a script wants when it wraps an index. Collapsing them would silently
  * change one of the two.
  */
+import { compareStrings } from './library/index.js';
 import type { Value } from './values/index.js';
 import { ABSENT, numberValue, valuesEqual } from './values/index.js';
 
@@ -99,12 +100,17 @@ function numeric(
  * absence is treated two ways, and it is deliberate: an operator that can
  * itself be absent gives a script no way to ask whether a value is absent at
  * all, so equality is the exception and every other comparison is not.
+ *
+ * **Two strings are ordered by code point** (`language.md` 9.3, `stdlib.md`
+ * section 10), through the one order `sort` uses, and not by the host's own
+ * operator, which orders by sixteen bit unit and puts a symbol outside the
+ * basic plane below the last thousands of the plane. Numbers take the host's
+ * operator, which is the binary64 order every engine shares.
  */
 export function compare(opcode: 'LT' | 'LE' | 'GT' | 'GE', a: Value, b: Value): Value {
   if (a === null || b === null) return ABSENT;
-  const bothNumbers = typeof a === 'number' && typeof b === 'number';
-  const bothStrings = typeof a === 'string' && typeof b === 'string';
-  if (!bothNumbers && !bothStrings) throw new OperandMismatch(opcode);
+  if (typeof a === 'string' && typeof b === 'string') return ordered(opcode, compareStrings(a, b));
+  if (typeof a !== 'number' || typeof b !== 'number') throw new OperandMismatch(opcode);
   switch (opcode) {
     case 'LT':
       return a < b;
@@ -114,6 +120,20 @@ export function compare(opcode: 'LT' | 'LE' | 'GT' | 'GE', a: Value, b: Value): 
       return a > b;
     default:
       return a >= b;
+  }
+}
+
+/** An ordering comparison read off a three way order: negative, zero or positive. */
+function ordered(opcode: 'LT' | 'LE' | 'GT' | 'GE', order: number): boolean {
+  switch (opcode) {
+    case 'LT':
+      return order < 0;
+    case 'LE':
+      return order <= 0;
+    case 'GT':
+      return order > 0;
+    default:
+      return order >= 0;
   }
 }
 

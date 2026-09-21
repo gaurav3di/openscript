@@ -19,7 +19,7 @@
  * this is a display conversion and half up is what a reader of a price expects.
  */
 import { canonicalNumber } from '../../emit/index.js';
-import { roundHalfAway } from '../../stdlib/index.js';
+import { roundHalfAway, scaleOf } from '../../stdlib/index.js';
 import type { Value } from '../values/index.js';
 import { isColour, reference } from '../values/index.js';
 import { entry, numberAt, refAt, stringAt, valueAt, wholeAt } from './binding.js';
@@ -50,23 +50,6 @@ const HEX_DIGITS = '0123456789abcdef';
 
 function hexByte(channel: number): string {
   return `${HEX_DIGITS[channel >> 4] ?? '0'}${HEX_DIGITS[channel & 15] ?? '0'}`;
-}
-
-/**
- * Ten to a whole power, as the binary64 nearest to it.
- *
- * `stdlib.md` 20.7: the scale a fixed decimal conversion multiplies by is the
- * nearest binary64 to the power of ten and not what a floating point power
- * returns, which is an ulp away from it for one count on this engine's host.
- * Built once from exact integer arithmetic, and past the last finite power the
- * scale is infinite, which is what the power would have been.
- */
-const POWERS_OF_TEN: readonly number[] = Array.from({ length: 309 }, (_, count) =>
-  Number(10n ** BigInt(count)),
-);
-
-function scaleOf(decimals: number): number {
-  return POWERS_OF_TEN[decimals] ?? Infinity;
 }
 
 /** A magnitude as decimal digits, and how many of them fall before the point. */
@@ -140,6 +123,11 @@ function written(of: Spread): string {
  * **The result is positional, always**, whatever the magnitude: a sign, at
  * least one digit, and exactly `d` digits after the point. `spread` is what
  * makes that true of every magnitude rather than of the ones below a threshold.
+ *
+ * **The scale is `round(x, d)`'s**, `scaleOf` from the numeric library, so
+ * the display conversion and the rounding call multiply by one value
+ * (`stdlib.md` 20.7) and cannot part by an ulp at the one count where the
+ * host's power does.
  *
  * **The digits are the shortest form's, zero filled, at every magnitude.**
  * Below 2 ** 53 a rounded whole number has no digits but its own, so nothing

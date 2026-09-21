@@ -24,7 +24,7 @@
 export { Engine } from './engine.js';
 export type { BarResult, RunResult } from './results.js';
 
-export { load } from './load.js';
+export { load, loadText } from './load.js';
 export type { LoadOptions, LoadResult } from './load.js';
 
 export type { AlertFiring } from './alerts.js';

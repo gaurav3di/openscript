@@ -105,6 +105,7 @@ export {
   roundTo,
   roundToStep,
   roundToTick,
+  scaleOf,
   sign,
   sin,
   sqrt,

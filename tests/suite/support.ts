@@ -11,7 +11,7 @@
  * break that rule.
  */
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -85,27 +85,41 @@ export function runSuite(args: readonly string[]): RunOutcome {
   return { status: child.status, document, stderr: child.stderr };
 }
 
-/** A suite of copied cases in a directory of its own, which a test may break. */
+/**
+ * A suite in a directory of its own, which a test may break: cases copied out
+ * of `cases/`, cases a test made from a run of its own, or both.
+ */
 export interface TemporarySuite {
   readonly root: string;
   directoryOf(id: string): string;
+  /** One case, written from the files a projection made, under its id. */
+  write(id: string, files: Readonly<Record<string, string>>): void;
   /** One file of one case, parsed, changed and written back. */
   rewrite(id: string, file: string, change: (parsed: Record<string, unknown>) => void): void;
+  /** One file of one case, removed. */
+  drop(id: string, file: string): void;
   remove(): void;
 }
 
-export function temporarySuite(ids: readonly string[]): TemporarySuite {
+export function temporarySuite(ids: readonly string[] = []): TemporarySuite {
   const root = mkdtempSync(join(tmpdir(), 'openscript-suite-'));
   const directoryOf = (id: string): string => join(root, ...id.split('/'));
   for (const id of ids) cpSync(join(CASES, ...id.split('/')), directoryOf(id), { recursive: true });
   return {
     root,
     directoryOf,
+    write(id, files) {
+      mkdirSync(directoryOf(id), { recursive: true });
+      for (const [name, text] of Object.entries(files)) writeFileSync(join(directoryOf(id), name), text, 'utf8');
+    },
     rewrite(id, file, change) {
       const path = join(directoryOf(id), file);
       const parsed = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
       change(parsed);
       writeFileSync(path, `${JSON.stringify(parsed)}\n`, 'utf8');
+    },
+    drop(id, file) {
+      rmSync(join(directoryOf(id), file));
     },
     remove() {
       rmSync(root, { recursive: true, force: true });
