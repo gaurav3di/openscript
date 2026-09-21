@@ -4041,3 +4041,47 @@ question is not answered again the other way by somebody reading the engine
 alone. One note for the first host, outside this repository's remit: its
 interface never uses the word "arm" for the switch, whatever this document
 calls the act; a trader is shown *Live* and *Paper*.
+
+## 56. (P6) What the library vectors are, and why a gap-reaching case is written and marked
+
+**Question.** `conformance.md` section 8 admits no case whose value reaches a
+gap of `stdlib.md` 20.11, and the harvest refuses a script by that rule. The
+vector files under `spec/vectors/library/` drive every arithmetic function of
+the manifest, twenty of which reach gap 1 or gap 2 by name or, for `ma` and
+`keltner`, by the string that selects an average. Are those cases refused the
+way a conformance case is, or written?
+
+**Decision. Written, and marked, in the case and in the index.** A conformance
+case is an assertion an engine is held to, and section 8 is right to refuse one
+whose arithmetic no document fixes. A vector is a record of what this engine
+produced, offered to the author of the next one as the fastest way to find a
+disagreement, and a record that left out `log` would leave them nothing to
+compare their `log` against at all. So the case is written, its `gaps` field
+names the gaps its call reaches, the index carries the union per function, and
+`docs/integrating/library-vectors.md` says in the open that a difference there
+is not a defect. Which calls reach which gap is not decided again here: the
+case's call is spelled the way a script would write it and read by the gate's
+own reading of the table, `tests/gate/gaps-derivation.ts`, the same one the
+harvest refuses by.
+
+**Three further things this settles.**
+
+- **The unit is the manifest entry**, a name and an argument count, driven
+  through the manifest's own binding rather than through the numeric library
+  directly. A second engine implements the manifest, and the binding is where
+  an absent length becomes absence, a bool becomes a flag and a string becomes
+  a type; a vector taken below it would be one the engine's own call sites do
+  not reproduce.
+- **The directory is held to the engine by regeneration**, the way a harvested
+  case is, and a byte that differs fails the build. Regenerating is therefore a
+  deliberate act: it is committed with the change to the arithmetic, the
+  fixture or the generator that caused it, and the changelog says which.
+- **The six groups with no vector are named with the reason** in the index and
+  on every run of the check, never passed over, and an entry in a group the
+  generator does not list fails the run.
+
+**Edits.** `scripts/generate-library-vectors.mjs`, `scripts/check-library-vectors.mjs`,
+`spec/vectors/library/`, `tests/stdlib/library-vectors.test.ts`,
+`docs/integrating/library-vectors.md`, and the link from
+`docs/integrating/README.md`. `conformance.md` section 8 stands as written: it
+is about cases, and a vector is not one.

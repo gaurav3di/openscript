@@ -1,0 +1,961 @@
+{
+  "see": "docs/integrating/library-vectors.md",
+  "fixture": "tests/stdlib/vectors.ts",
+  "bars": 80,
+  "functions": [
+    {
+      "name": "abs",
+      "arity": 1,
+      "state": false,
+      "file": "abs-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "ad",
+      "arity": 0,
+      "state": true,
+      "file": "ad-0.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "adOsc",
+      "arity": 2,
+      "state": true,
+      "file": "adOsc-2.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "adx",
+      "arity": 2,
+      "state": true,
+      "file": "adx-2.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "alma",
+      "arity": 4,
+      "state": true,
+      "file": "alma-4.json",
+      "cases": 7,
+      "gaps": [1]
+    },
+    {
+      "name": "aroon",
+      "arity": 1,
+      "state": true,
+      "file": "aroon-1.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "atr",
+      "arity": 1,
+      "state": true,
+      "file": "atr-1.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "avgSkip",
+      "arity": 2,
+      "state": true,
+      "file": "avgSkip-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "awesomeOsc",
+      "arity": 2,
+      "state": true,
+      "file": "awesomeOsc-2.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "barsSince",
+      "arity": 1,
+      "state": true,
+      "file": "barsSince-1.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "bbPercent",
+      "arity": 3,
+      "state": true,
+      "file": "bbPercent-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "bbWidth",
+      "arity": 3,
+      "state": true,
+      "file": "bbWidth-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "bollinger",
+      "arity": 3,
+      "state": true,
+      "file": "bollinger-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "cci",
+      "arity": 1,
+      "state": true,
+      "file": "cci-1.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "ceil",
+      "arity": 1,
+      "state": false,
+      "file": "ceil-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "change",
+      "arity": 1,
+      "state": true,
+      "file": "change-1.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "change",
+      "arity": 2,
+      "state": true,
+      "file": "change-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "chop",
+      "arity": 1,
+      "state": true,
+      "file": "chop-1.json",
+      "cases": 6,
+      "gaps": [1]
+    },
+    {
+      "name": "clamp",
+      "arity": 3,
+      "state": false,
+      "file": "clamp-3.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "cmf",
+      "arity": 1,
+      "state": true,
+      "file": "cmf-1.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "cmo",
+      "arity": 2,
+      "state": true,
+      "file": "cmo-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "correlation",
+      "arity": 3,
+      "state": true,
+      "file": "correlation-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "count",
+      "arity": 2,
+      "state": true,
+      "file": "count-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "countPresent",
+      "arity": 2,
+      "state": true,
+      "file": "countPresent-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "covariance",
+      "arity": 3,
+      "state": true,
+      "file": "covariance-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "cross",
+      "arity": 2,
+      "state": true,
+      "file": "cross-2.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "crossDown",
+      "arity": 2,
+      "state": true,
+      "file": "crossDown-2.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "crossUp",
+      "arity": 2,
+      "state": true,
+      "file": "crossUp-2.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "cum",
+      "arity": 1,
+      "state": true,
+      "file": "cum-1.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "dema",
+      "arity": 2,
+      "state": true,
+      "file": "dema-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "donchian",
+      "arity": 1,
+      "state": true,
+      "file": "donchian-1.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "dpo",
+      "arity": 2,
+      "state": true,
+      "file": "dpo-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "ema",
+      "arity": 2,
+      "state": true,
+      "file": "ema-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "eom",
+      "arity": 1,
+      "state": true,
+      "file": "eom-1.json",
+      "cases": 7,
+      "gaps": [3]
+    },
+    {
+      "name": "exp",
+      "arity": 1,
+      "state": false,
+      "file": "exp-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "falling",
+      "arity": 2,
+      "state": true,
+      "file": "falling-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "floor",
+      "arity": 1,
+      "state": false,
+      "file": "floor-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "forceIndex",
+      "arity": 1,
+      "state": true,
+      "file": "forceIndex-1.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "highest",
+      "arity": 2,
+      "state": true,
+      "file": "highest-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "highestBars",
+      "arity": 2,
+      "state": true,
+      "file": "highestBars-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "history",
+      "arity": 2,
+      "state": true,
+      "file": "history-2.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "hma",
+      "arity": 2,
+      "state": true,
+      "file": "hma-2.json",
+      "cases": 7,
+      "gaps": [2]
+    },
+    {
+      "name": "hv",
+      "arity": 3,
+      "state": true,
+      "file": "hv-3.json",
+      "cases": 7,
+      "gaps": [1]
+    },
+    {
+      "name": "ichimoku",
+      "arity": 3,
+      "state": true,
+      "file": "ichimoku-3.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "isNone",
+      "arity": 1,
+      "state": false,
+      "file": "isNone-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "keltner",
+      "arity": 4,
+      "state": true,
+      "file": "keltner-4.json",
+      "cases": 10,
+      "gaps": [2]
+    },
+    {
+      "name": "linreg",
+      "arity": 3,
+      "state": true,
+      "file": "linreg-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "log",
+      "arity": 1,
+      "state": false,
+      "file": "log-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "log10",
+      "arity": 1,
+      "state": false,
+      "file": "log10-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "lowest",
+      "arity": 2,
+      "state": true,
+      "file": "lowest-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "lowestBars",
+      "arity": 2,
+      "state": true,
+      "file": "lowestBars-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "ma",
+      "arity": 3,
+      "state": true,
+      "file": "ma-3.json",
+      "cases": 11,
+      "gaps": [2]
+    },
+    {
+      "name": "macd",
+      "arity": 4,
+      "state": true,
+      "file": "macd-4.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "math.acos",
+      "arity": 1,
+      "state": false,
+      "file": "math.acos-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.asin",
+      "arity": 1,
+      "state": false,
+      "file": "math.asin-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.atan",
+      "arity": 1,
+      "state": false,
+      "file": "math.atan-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.atan2",
+      "arity": 2,
+      "state": false,
+      "file": "math.atan2-2.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.cos",
+      "arity": 1,
+      "state": false,
+      "file": "math.cos-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.e",
+      "arity": 0,
+      "state": false,
+      "file": "math.e-0.json",
+      "cases": 2,
+      "gaps": []
+    },
+    {
+      "name": "math.hypot",
+      "arity": 2,
+      "state": false,
+      "file": "math.hypot-2.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.log2",
+      "arity": 1,
+      "state": false,
+      "file": "math.log2-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.pi",
+      "arity": 0,
+      "state": false,
+      "file": "math.pi-0.json",
+      "cases": 2,
+      "gaps": []
+    },
+    {
+      "name": "math.sin",
+      "arity": 1,
+      "state": false,
+      "file": "math.sin-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.tan",
+      "arity": 1,
+      "state": false,
+      "file": "math.tan-1.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "math.toDegrees",
+      "arity": 1,
+      "state": false,
+      "file": "math.toDegrees-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "math.toRadians",
+      "arity": 1,
+      "state": false,
+      "file": "math.toRadians-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "max",
+      "arity": 2,
+      "state": false,
+      "file": "max-2.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "median",
+      "arity": 2,
+      "state": true,
+      "file": "median-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "mfi",
+      "arity": 1,
+      "state": true,
+      "file": "mfi-1.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "min",
+      "arity": 2,
+      "state": false,
+      "file": "min-2.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "mod",
+      "arity": 2,
+      "state": false,
+      "file": "mod-2.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "mom",
+      "arity": 2,
+      "state": true,
+      "file": "mom-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "natr",
+      "arity": 1,
+      "state": true,
+      "file": "natr-1.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "obv",
+      "arity": 0,
+      "state": true,
+      "file": "obv-0.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "orElse",
+      "arity": 2,
+      "state": false,
+      "file": "orElse-2.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "percentRank",
+      "arity": 2,
+      "state": true,
+      "file": "percentRank-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "percentile",
+      "arity": 3,
+      "state": true,
+      "file": "percentile-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "pivotHigh",
+      "arity": 3,
+      "state": true,
+      "file": "pivotHigh-3.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "pivotLow",
+      "arity": 3,
+      "state": true,
+      "file": "pivotLow-3.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "pow",
+      "arity": 2,
+      "state": false,
+      "file": "pow-2.json",
+      "cases": 4,
+      "gaps": [1]
+    },
+    {
+      "name": "ppo",
+      "arity": 4,
+      "state": true,
+      "file": "ppo-4.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "psar",
+      "arity": 3,
+      "state": true,
+      "file": "psar-3.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "pvt",
+      "arity": 0,
+      "state": true,
+      "file": "pvt-0.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "relativeVolume",
+      "arity": 1,
+      "state": true,
+      "file": "relativeVolume-1.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "rising",
+      "arity": 2,
+      "state": true,
+      "file": "rising-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "rma",
+      "arity": 2,
+      "state": true,
+      "file": "rma-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "roc",
+      "arity": 2,
+      "state": true,
+      "file": "roc-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "round",
+      "arity": 1,
+      "state": false,
+      "file": "round-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "round",
+      "arity": 2,
+      "state": false,
+      "file": "round-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "roundToStep",
+      "arity": 2,
+      "state": false,
+      "file": "roundToStep-2.json",
+      "cases": 8,
+      "gaps": []
+    },
+    {
+      "name": "roundToTick",
+      "arity": 1,
+      "state": false,
+      "file": "roundToTick-1.json",
+      "cases": 5,
+      "gaps": []
+    },
+    {
+      "name": "rsi",
+      "arity": 2,
+      "state": true,
+      "file": "rsi-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "sign",
+      "arity": 1,
+      "state": false,
+      "file": "sign-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "sma",
+      "arity": 2,
+      "state": true,
+      "file": "sma-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "sqrt",
+      "arity": 1,
+      "state": false,
+      "file": "sqrt-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "stdev",
+      "arity": 3,
+      "state": true,
+      "file": "stdev-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "stoch",
+      "arity": 3,
+      "state": true,
+      "file": "stoch-3.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "stochRsi",
+      "arity": 5,
+      "state": true,
+      "file": "stochRsi-5.json",
+      "cases": 5,
+      "gaps": []
+    },
+    {
+      "name": "sum",
+      "arity": 2,
+      "state": true,
+      "file": "sum-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "sumSkip",
+      "arity": 2,
+      "state": true,
+      "file": "sumSkip-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "supertrend",
+      "arity": 2,
+      "state": true,
+      "file": "supertrend-2.json",
+      "cases": 5,
+      "gaps": []
+    },
+    {
+      "name": "swma",
+      "arity": 1,
+      "state": true,
+      "file": "swma-1.json",
+      "cases": 3,
+      "gaps": []
+    },
+    {
+      "name": "tema",
+      "arity": 2,
+      "state": true,
+      "file": "tema-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "toBool",
+      "arity": 1,
+      "state": false,
+      "file": "toBool-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "trix",
+      "arity": 2,
+      "state": true,
+      "file": "trix-2.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "trueRange",
+      "arity": 0,
+      "state": false,
+      "file": "trueRange-0.json",
+      "cases": 2,
+      "gaps": []
+    },
+    {
+      "name": "trunc",
+      "arity": 1,
+      "state": false,
+      "file": "trunc-1.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "tsi",
+      "arity": 3,
+      "state": true,
+      "file": "tsi-3.json",
+      "cases": 5,
+      "gaps": []
+    },
+    {
+      "name": "ultimateOsc",
+      "arity": 3,
+      "state": true,
+      "file": "ultimateOsc-3.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "valueWhen",
+      "arity": 3,
+      "state": true,
+      "file": "valueWhen-3.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "variance",
+      "arity": 3,
+      "state": true,
+      "file": "variance-3.json",
+      "cases": 7,
+      "gaps": []
+    },
+    {
+      "name": "vwap",
+      "arity": 1,
+      "state": true,
+      "file": "vwap-1.json",
+      "cases": 5,
+      "gaps": []
+    },
+    {
+      "name": "vwapAnchor",
+      "arity": 2,
+      "state": true,
+      "file": "vwapAnchor-2.json",
+      "cases": 4,
+      "gaps": []
+    },
+    {
+      "name": "vwma",
+      "arity": 2,
+      "state": true,
+      "file": "vwma-2.json",
+      "cases": 8,
+      "gaps": []
+    },
+    {
+      "name": "williamsR",
+      "arity": 1,
+      "state": true,
+      "file": "williamsR-1.json",
+      "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "wma",
+      "arity": 2,
+      "state": true,
+      "file": "wma-2.json",
+      "cases": 7,
+      "gaps": []
+    }
+  ],
+  "notReached": [
+    {
+      "why": "a colour is four channels the conformance suite compares as a colour, and gap 4 of stdlib.md 20.11 leaves the named values to the suite",
+      "functions": ["aqua/0", "black/0", "blue/0", "brown/0", "fuchsia/0", "gray/0", "green/0", "lime/0", "maroon/0", "navy/0", "olive/0", "orange/0", "pink/0", "purple/0", "red/0", "silver/0", "teal/0", "white/0", "yellow/0", "rgb/3", "rgba/4", "fade/2", "mix/3", "alpha/1", "withAlpha/2"]
+    },
+    {
+      "why": "a string is code points the conformance suite compares as text; stdlib.md 20.10 says the string operations accumulate nothing",
+      "functions": ["text/1", "text/2", "toNumber/1", "str.length/1", "str.upper/1", "str.lower/1", "str.trim/1", "str.contains/2", "str.startsWith/2", "str.endsWith/2", "str.indexOf/2", "str.substring/3", "str.replace/3", "str.replaceAll/3", "str.split/2", "str.join/2", "str.padLeft/3", "str.padRight/3", "str.repeat/2"]
+    },
+    {
+      "why": "an array operation moves values between heap objects and computes nothing; language.md 14.1 fixes each one",
+      "functions": ["size/1", "element/2", "set/3", "push/2", "pop/1", "shift/1", "unshift/2", "insert/3", "remove/2", "slice/3", "copy/1", "indexOf/2", "arrayEqual/2", "sort/2", "reverse/1", "sum/1", "avg/1", "min/1", "max/1", "stdev/1"]
+    },
+    {
+      "why": "a drawing or grid call has a draw effect and no numeric result; the chart contract is proved by the surface cases",
+      "functions": ["draw.line/9", "draw.label/7", "draw.box/11", "draw.polyline/7", "draw.setFrom/3", "draw.setTo/3", "draw.setAt/3", "draw.setBounds/5", "draw.setPoints/3", "draw.setText/2", "draw.setColor/2", "draw.setTextColor/2", "draw.setFillColor/2", "draw.setWidth/2", "draw.setStyle/2", "draw.setExtend/3", "draw.setTooltip/2", "draw.delete/1", "draw.deleteAll/0", "draw.count/0", "cell/7", "clear/1"]
+    },
+    {
+      "why": "a chart, request, order or position read reports a host or ledger fact rather than computing one",
+      "functions": ["chart.symbol/0", "chart.exchange/0", "chart.interval/0", "chart.timezone/0", "chart.tickSize/0", "chart.lotSize/0", "chart.pointValue/0", "chart.currency/0", "chart.instrumentType/0", "chart.hasVolume/0", "chart.hasOpenInterest/0", "chart.now/0", "chart.intervalMinutes/0", "chart.isIntraday/0", "req.isReady/1", "req.error/1", "session.isFirstBar/0", "session.isLastBar/0", "pos.size/0", "pos.avgPrice/0", "pos.isLong/0", "pos.isShort/0", "pos.isFlat/0", "print/1", "buy/6", "sell/6", "close/4", "exit/8", "cancel/2", "cancelAll/1", "order.place/8", "order.reverse/4", "order.bracket/5"]
+    },
+    {
+      "why": "the calendar is exact integer arithmetic over a zone table, which stdlib.md 20.10 says has no order to fix",
+      "functions": ["date.year/2", "date.month/2", "date.day/2", "date.dayOfWeek/2", "date.dayOfYear/2", "date.hour/2", "date.minute/2", "date.second/2", "date.weekOfYear/2", "date.startOfDay/2", "date.startOfWeek/2", "date.startOfMonth/2", "date.from/7", "date.isSameDay/3", "date.format/3", "session.isIn/2"]
+    }
+  ]
+}

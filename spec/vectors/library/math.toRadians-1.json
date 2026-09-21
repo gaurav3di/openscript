@@ -1,0 +1,88 @@
+{
+  "name": "math.toRadians",
+  "arity": 1,
+  "state": false,
+  "params": ["x"],
+  "cases": [
+    {
+      "id": "full-0",
+      "call": "math.toRadians(x)",
+      "gaps": [],
+      "bars": 80,
+      "args": [
+        {
+          "name": "x",
+          "kind": "number",
+          "values": ["4058e51eb851eb85", "4058cb851eb851ec", "4058b33333333333", "40589c28f5c28f5c", "4058866666666666", "405871eb851eb852", "405857ae147ae148", "40586e147ae147ae", "405885c28f5c28f6", "40589eb851eb851f", "4058b8f5c28f5c29", "4058cd70a3d70a3d", "4058e33333333333", "4058fa3d70a3d70a", "4058e33333333333", "4058cd70a3d70a3d", "4058b8f5c28f5c29", "40589eb851eb851f", "405885c28f5c28f6", "40586e147ae147ae", "405977ae147ae148", "405991eb851eb852", "4059a66666666666", "4059bc28f5c28f5c", "4059d33333333333", "4059eb851eb851ec", "405a051eb851eb85", "405a200000000000", "405a05c28f5c28f6", "4059eccccccccccd", "4059d51eb851eb85", "4059beb851eb851f", "4059a9999999999a", "40598eb851eb851f", "4059751eb851eb85", "40598c28f5c28f5c", "4059a47ae147ae14", "4059be147ae147ae", "4059d8f5c28f5c29", "4059ee147ae147ae", "4059eccccccccccd", "4059eccccccccccd", "4059ee147ae147ae", "4059f0a3d70a3d71", "4059ed70a3d70a3d", "4059eb851eb851ec", "4059c8f5c28f5c29", "4059a7ae147ae148", "405987ae147ae148", "4059accccccccccd", "4059cc28f5c28f5c", "4059eccccccccccd", "405a0eb851eb851f", "405a31eb851eb852", "405a566666666666", "405a751eb851eb85", "405a5147ae147ae1", "405a2eb851eb851f", "405a0d70a3d70a3d", "4059ed70a3d70a3d", "405a033333333333", "405a133333333333", "405a247ae147ae14", "405a11eb851eb852", "405a00a3d70a3d71", "4059f0a3d70a3d71", "4059dae147ae147b", "4059c66666666666", "4059b33333333333", "4059a147ae147ae1", "4059b5c28f5c28f6", "4059cb851eb851ec", "4059db851eb851ec", "4059eccccccccccd", "4059ff5c28f5c28f", "405a133333333333", "405a2851eb851eb8", "405a128f5c28f5c3", "4059fe147ae147ae", "4059eae147ae147b"]
+        }
+      ],
+      "outputs": [
+        {
+          "kind": "number",
+          "values": ["3ffbced7e6f6c84e", "3ffbb23f75f310ee", "3ffb97150a95ef83", "3ffb7d58a4df6411", "3ffb650a44cf6e97", "3ffb4e29ea660f17", "3ffb30da768f0cb9", "3ffb49dfd9724d2e", "3ffb645341fc239c", "3ffb8034b02c9001", "3ffb9d842403925f", "3ffbb4647e6cf1e1", "3ffbccb2de7ce75b", "3ffbe66f443372cd", "3ffbccb2de7ce75b", "3ffbb4647e6cf1e1", "3ffb9d842403925f", "3ffb8034b02c9001", "3ffb645341fc239c", "3ffb49dfd9724d2e", "3ffc728d6df8dbc6", "3ffc8fdce1cfde24", "3ffca6bd3c393da5", "3ffcbf0b9c49331f", "3ffcd8c801ffbe91", "3ffcf3f26d5cdffc", "3ffd108ade60975c", "3ffd2e91550ae4b7", "3ffd1141e133e25a", "3ffcf560730375f3", "3ffcdaed0a799f86", "3ffcc1e7a7965f10", "3ffcaa504a59b492", "3ffc8c49d3af6737", "3ffc6fb162abafd5", "3ffc896dc8623b47", "3ffca49833bf5cb0", "3ffcc130a4c31414", "3ffcdf371b6d616e", "3ffcf6ce78aa0beb", "3ffcf560730375f3", "3ffcf560730375f3", "3ffcf6ce78aa0beb", "3ffcf9aa83f737db", "3ffcf61775d6c0ef", "3ffcf3f26d5cdffc", "3ffccd57d4cb0ed0", "3ffca82b41dfd39e", "3ffc846cb49b2e64", "3ffcade3587a2b7f", "3ffcd0eae2eb85bc", "3ffcf560730375f3", "3ffd1b4408c1fc22", "3ffd4295a4271849", "3ffd6b554532ca66", "3ffd8da5ccd0d9a9", "3ffd659d2e987286", "3ffd3f029606a15c", "3ffd19d6031b6629", "3ffcf61775d6c0ef", "3ffd0e65d5e6b668", "3ffd20451c890906", "3ffd339268d1f19b", "3ffd1ed716e2730e", "3ffd0b89ca998a79", "3ffcf9aa83f737db", "3ffce15c23e74262", "3ffcca7bc97de2df", "3ffcb50974bb1957", "3ffca105259ee5c4", "3ffcb7e580084547", "3ffcd033e0183ac1", "3ffce21326ba8d5e", "3ffcf560730375f3", "3ffd0a1bc4f2f480", "3ffd20451c890906", "3ffd37dc79c5b383", "3ffd1f8e19b5be0a", "3ffd08adbf4c5e89", "3ffcf33b6a8994ff"],
+          "warmup": 0
+        }
+      ]
+    },
+    {
+      "id": "holes-0",
+      "call": "math.toRadians(x)",
+      "gaps": [],
+      "bars": 80,
+      "args": [
+        {
+          "name": "x",
+          "kind": "number",
+          "values": ["4058e51eb851eb85", "4058cb851eb851ec", "4058b33333333333", null, null, "405871eb851eb852", "405857ae147ae148", "40586e147ae147ae", "405885c28f5c28f6", "40589eb851eb851f", "4058b8f5c28f5c29", "4058cd70a3d70a3d", "4058e33333333333", "4058fa3d70a3d70a", "4058e33333333333", "4058cd70a3d70a3d", "4058b8f5c28f5c29", "40589eb851eb851f", "405885c28f5c28f6", "40586e147ae147ae", "405977ae147ae148", "405991eb851eb852", "4059a66666666666", "4059bc28f5c28f5c", "4059d33333333333", "4059eb851eb851ec", "405a051eb851eb85", null, "405a05c28f5c28f6", "4059eccccccccccd", "4059d51eb851eb85", "4059beb851eb851f", "4059a9999999999a", "40598eb851eb851f", "4059751eb851eb85", "40598c28f5c28f5c", "4059a47ae147ae14", "4059be147ae147ae", "4059d8f5c28f5c29", "4059ee147ae147ae", "4059eccccccccccd", "4059eccccccccccd", "4059ee147ae147ae", "4059f0a3d70a3d71", "4059ed70a3d70a3d", "4059eb851eb851ec", "4059c8f5c28f5c29", "4059a7ae147ae148", "405987ae147ae148", "4059accccccccccd", "4059cc28f5c28f5c", "4059eccccccccccd", "405a0eb851eb851f", "405a31eb851eb852", "405a566666666666", null, null, null, "405a0d70a3d70a3d", "4059ed70a3d70a3d", "405a033333333333", "405a133333333333", "405a247ae147ae14", "405a11eb851eb852", "405a00a3d70a3d71", "4059f0a3d70a3d71", "4059dae147ae147b", "4059c66666666666", "4059b33333333333", "4059a147ae147ae1", "4059b5c28f5c28f6", "4059cb851eb851ec", "4059db851eb851ec", "4059eccccccccccd", "4059ff5c28f5c28f", "405a133333333333", "405a2851eb851eb8", "405a128f5c28f5c3", "4059fe147ae147ae", "4059eae147ae147b"]
+        }
+      ],
+      "outputs": [
+        {
+          "kind": "number",
+          "values": ["3ffbced7e6f6c84e", "3ffbb23f75f310ee", "3ffb97150a95ef83", null, null, "3ffb4e29ea660f17", "3ffb30da768f0cb9", "3ffb49dfd9724d2e", "3ffb645341fc239c", "3ffb8034b02c9001", "3ffb9d842403925f", "3ffbb4647e6cf1e1", "3ffbccb2de7ce75b", "3ffbe66f443372cd", "3ffbccb2de7ce75b", "3ffbb4647e6cf1e1", "3ffb9d842403925f", "3ffb8034b02c9001", "3ffb645341fc239c", "3ffb49dfd9724d2e", "3ffc728d6df8dbc6", "3ffc8fdce1cfde24", "3ffca6bd3c393da5", "3ffcbf0b9c49331f", "3ffcd8c801ffbe91", "3ffcf3f26d5cdffc", "3ffd108ade60975c", null, "3ffd1141e133e25a", "3ffcf560730375f3", "3ffcdaed0a799f86", "3ffcc1e7a7965f10", "3ffcaa504a59b492", "3ffc8c49d3af6737", "3ffc6fb162abafd5", "3ffc896dc8623b47", "3ffca49833bf5cb0", "3ffcc130a4c31414", "3ffcdf371b6d616e", "3ffcf6ce78aa0beb", "3ffcf560730375f3", "3ffcf560730375f3", "3ffcf6ce78aa0beb", "3ffcf9aa83f737db", "3ffcf61775d6c0ef", "3ffcf3f26d5cdffc", "3ffccd57d4cb0ed0", "3ffca82b41dfd39e", "3ffc846cb49b2e64", "3ffcade3587a2b7f", "3ffcd0eae2eb85bc", "3ffcf560730375f3", "3ffd1b4408c1fc22", "3ffd4295a4271849", "3ffd6b554532ca66", null, null, null, "3ffd19d6031b6629", "3ffcf61775d6c0ef", "3ffd0e65d5e6b668", "3ffd20451c890906", "3ffd339268d1f19b", "3ffd1ed716e2730e", "3ffd0b89ca998a79", "3ffcf9aa83f737db", "3ffce15c23e74262", "3ffcca7bc97de2df", "3ffcb50974bb1957", "3ffca105259ee5c4", "3ffcb7e580084547", "3ffcd033e0183ac1", "3ffce21326ba8d5e", "3ffcf560730375f3", "3ffd0a1bc4f2f480", "3ffd20451c890906", "3ffd37dc79c5b383", "3ffd1f8e19b5be0a", "3ffd08adbf4c5e89", "3ffcf33b6a8994ff"],
+          "warmup": 0
+        }
+      ]
+    },
+    {
+      "id": "short-0",
+      "call": "math.toRadians(x)",
+      "gaps": [],
+      "bars": 5,
+      "args": [
+        {
+          "name": "x",
+          "kind": "number",
+          "values": ["4058e51eb851eb85", "4058cb851eb851ec", "4058b33333333333", "40589c28f5c28f5c", "4058866666666666"]
+        }
+      ],
+      "outputs": [
+        {
+          "kind": "number",
+          "values": ["3ffbced7e6f6c84e", "3ffbb23f75f310ee", "3ffb97150a95ef83", "3ffb7d58a4df6411", "3ffb650a44cf6e97"],
+          "warmup": 0
+        }
+      ]
+    },
+    {
+      "id": "probes-0",
+      "call": "math.toRadians(x)",
+      "gaps": [],
+      "bars": 25,
+      "args": [
+        {
+          "name": "x",
+          "kind": "number",
+          "values": ["0000000000000000", "8000000000000000", "3ff0000000000000", "bff0000000000000", "3fe0000000000000", "bfe0000000000000", "4004000000000000", "c004000000000000", "3fdfffffffffffff", "4008000000000000", "401c000000000000", "c01c000000000000", "3fb999999999999a", "3fc999999999999a", "3fd3333333333333", "4024000000000000", "405917ae147ae148", "4005666666666666", "000012688b70e62b", "0000000000000001", "7fe1ccf385ebc8a0", "7fefffffffffffff", "400921fb54442d18", "4005bf0a8b145769", null]
+        }
+      ],
+      "outputs": [
+        {
+          "kind": "number",
+          "values": ["0000000000000000", "0000000000000000", "3f91df46a2529d39", "bf91df46a2529d39", "3f81df46a2529d39", "bf81df46a2529d39", "3fa657184ae74487", "bfa657184ae74487", "3f81df46a2529d38", "3faacee9f37bebd5", "3fbf46bb9c109324", "bfbf46bb9c109324", "3f5c987103b761f5", "3f6c987103b761f5", "3f757254c2c98977", "3fc657184ae74487", "3ffc0751c62aec17", "3fa7e76e791b4be2", "000000523fda0e37", "0000000000000000", null, null, "3fac12d39c144c9c", "3fa84a71d724bc61", null],
+          "warmup": 0
+        }
+      ]
+    }
+  ]
+}
