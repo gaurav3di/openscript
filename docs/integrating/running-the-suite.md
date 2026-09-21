@@ -203,13 +203,13 @@ Said here so a reader does not discover it as a surprise. Each is reported as
 `unsupported` or `error` on the case, never as a pass. The second engine's own
 list is in its section above.
 
-- **Frames the destination did not answer itself.** This engine's backtest
-  answers its own frames from a simulated destination and takes none from a
-  file, so the frames it answered are held to the case's `frames.csv` byte
-  for byte. When they are the same frames, the fold was over the case's input;
-  when they are not, the case is `unsupported` with that said. Every
-  harvested case holds the frames this destination answered, so every one of
-  them runs.
+- **A frame no boundary of the run delivers.** Section 3 puts a frame's
+  delivery after the bar it names and its fold before the next execution, so a
+  row naming the last bar has no fold left and a row naming no bar of the run
+  has no delivery. What becomes of either is not written down anywhere, so the
+  case is `unsupported` naming the row rather than run with part of its own
+  input passed over. Every other `frames.csv` is folded as it is written: this
+  engine delivers the rows a case supplies and answers none of its own.
 - **Channels beyond what a run records.** The adapter answers `diagnostics`,
   `orders`, `trades` and `performance`, which are what a harvested case
   asserts. A case asserting a per-bar or chart channel is `unsupported`, by
@@ -248,13 +248,14 @@ What no case has yet, each with the reason:
 - **A charge schedule the host supplied.** A supplied schedule beside a declared
   commission is refused before the first bar, and every shipped strategy
   declares one, so harvesting such a case needs a strategy that declares none.
-- **A frame that is anything but an order working and then filling whole.** The
-  frames in a case are the ones its run was answered, the destination a backtest
-  runs against fills an order once and in full, and no shipped strategy cancels
-  an order or leaves one resting. So a partial fill, a frame repeated, two
-  frames arriving in the wrong order, a fill reported after the order had gone
-  terminal, a rejection, a cancellation and a frame naming no row of the ledger
-  are all shapes the specification provides for and no case hands to an engine.
+- **A frame repeated, and two frames arriving in the wrong order.** These are
+  shapes the specification provides for and no case hands to an engine, so two
+  engines could differ on them today and the build would not say so. What used
+  to be on this line with them, and is not any more: a partial fill, a
+  rejection, a cancellation, an expiry and a fill reported after the order had
+  gone terminal are each carried by a case now, because a case states the
+  destination's behaviour and no longer only records what this engine's own
+  simulated destination happened to do.
 - **More than one entry in a direction, and more than one instrument.** Every
   shipped strategy holds one position at a time on the chart's own instrument.
 
