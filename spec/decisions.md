@@ -4009,3 +4009,35 @@ per-code section of `errors.md` is the same change to the matching field of the
 same entry in `errors.json`, and every `feature-matrix.md` row added here must
 satisfy the five rules in that file's preamble, with a test identifier that
 appears nowhere else. `npm test` passes after every edit.
+
+## 55. (P6) Whether the engine learns the destination's mode
+
+**Question.** Should the engine be told whether the destination it sends orders
+to is paper or live, and compare a token at load so that a script can only run
+against a live destination when the host has deliberately switched it?
+
+**Decision.** No. The engine does not learn the destination's mode, compares no
+token, and raises nothing about it. `stdlib.md` 17.13 stands as written:
+
+> Arming it is a separate, deliberate act performed on that one strategy in the
+> host, and **nothing in a script can perform it**: there is no call, no option
+> and no input that arms anything.
+
+**Why.** The proposal was made to give the engine something to enforce, on the
+argument that a boundary the engine cannot see is a boundary this repository
+cannot test. That is true and it is the weaker concern. A token the engine
+compares is a token a script can be written to satisfy, and the moment the mode
+is a value the engine holds, it is a value some path can be found to read. The
+guarantee 17.13 makes is stronger precisely because the engine holds nothing:
+a misconfigured script found after the fact cannot have been placing real
+orders, because there is no state inside the program's execution that decides
+where an order goes. The boundary lives in the host, where the switch is a
+deliberate act on one strategy, and the host is the thing with a user in front
+of it. What this repository can test is that no such call, option or input
+exists, which the library manifest already fixes; the host tests its switch.
+
+**Edits.** None to the specification. This minute is the record, so that the
+question is not answered again the other way by somebody reading the engine
+alone. One note for the first host, outside this repository's remit: its
+interface never uses the word "arm" for the switch, whatever this document
+calls the act; a trader is shown *Live* and *Paper*.

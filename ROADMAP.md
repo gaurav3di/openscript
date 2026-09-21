@@ -166,7 +166,17 @@ would cost the thing the record is for.
 
 ## Phase 6. The second engine, and live running
 
-Four to five weeks.
+Twelve to sixteen weeks, in two halves that can overlap: eight to eleven for the
+engine, four to five for live running.
+
+The first number was four to five for both halves together, and it was written
+before anybody measured. A survey of `src/core/engine` and `src/core/stdlib`
+put the engine alone at eight to eleven, and that budget also had to cover
+process isolation, scheduling, per-script logs and the switch from paper to
+live. One of the two numbers had to change, and it was not going to be the
+engine: an engine squeezed to fit an estimate is an engine that agrees with the
+first one on the cases it got to. The figure is here, in the document a reader
+plans from, rather than in a note nobody opens.
 
 A server-side engine running the same compiled program. Process isolation per
 strategy, scheduling against exchange calendars, per-script logs, paper trading
@@ -238,6 +248,17 @@ An importer for scripts written in other chart languages, a documentation site
 generated from the specification and the error catalogue, a versioned compiled
 format with a compatibility promise, a conformance badge, and an engine written
 in a third language to prove the format travels.
+
+**Gate:** a `core` profile engine written in a third language, from the
+specification alone, by somebody who has not read this implementation, passes
+the suite at a named revision. That is the only result that means the format
+travels rather than that two teams who talked to each other agree, and it is
+why the badge is the last thing in this phase and not the first: a badge names
+a suite revision, and it is not shown for a revision no third engine has passed.
+
+This phase had no gate line until now, which made "done" undefined for the one
+phase whose artefacts leave the repository. The importer and the site are
+deliverables inside it; the gate is what finishes it.
 
 ---
 
