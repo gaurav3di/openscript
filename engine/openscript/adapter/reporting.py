@@ -159,11 +159,26 @@ def settings_problem(
     every refusal in the money layer unreachable on the path almost every run
     takes.
 
+    **A quantity in a unit this destination cannot fill, OS6021.** A backtest
+    fills in units. A quantity in lots converts when the instrument states a lot
+    size and cannot when it does not, and a quantity in any other unit would have
+    to be sized against a running equity a backtest works out nothing of. Refused
+    rather than guessed, because a guess here is a position size.
+
+    The first engine asks a fourth question here, about the comparison
+    tolerance. This engine asks it in ``matching.tolerance_from``, where the
+    tolerance is read, and asks it more strictly: a bound with no reason, a bound
+    below zero, and a bound past section 6's cap. Asking again here would be the
+    same rule in two places, and the two would drift.
+
     Nothing has been computed when this is asked, so a refusal costs one run
     rather than a report a reader has to be told to distrust.
     """
+    # A run with no schedule at all still has a quantity to fill, so the sizing
+    # question is asked whatever the cost model is. Returning here when there was
+    # no schedule is how the check came to be skipped on the path most runs take.
     if schedule is None:
-        return None
+        return _sizing_problem(declared, contract)
     if schedule.source == SUPPLIED and declared["commission"] != 0:
         return failure(
             "OS6023",
@@ -171,10 +186,43 @@ def settings_problem(
             commissionType=declared["commissionType"],
         )
     problem = schedule_problem(schedule, contract)
-    if problem is None:
+    if problem is not None:
+        setting, reason = problem
+        return failure("OS6021", setting=setting, problem=reason)
+    return _sizing_problem(declared, contract)
+
+
+def _sizing_problem(declared: Dict[str, Any], contract: Contract) -> Optional[Diagnostic]:
+    """A quantity in a unit this destination cannot fill.
+
+    A backtest fills in units. Lots convert when the instrument states a lot
+    size; without one there is nothing to convert a lot into. Any other unit
+    would have to be sized against a running equity a backtest works out none
+    of. Both are refused rather than guessed, because the guess is a position
+    size and nobody could explain the figure afterwards.
+    """
+    # No strategy test: this is reached only on the trading path, where the
+    # declaration was read, and a study has no declaration to read.
+    stated = declared.get("qtyType", "")
+    if stated in ("units", ""):
         return None
-    setting, reason = problem
-    return failure("OS6021", setting=setting, problem=reason)
+    if stated == "lots":
+        lot = contract.lot_size
+        if lot is not None and lot > 0:
+            return None
+        return failure(
+            "OS6021",
+            setting="A quantity stated in lots",
+            problem="this instrument states no lot size, so there is nothing to convert a lot into",
+        )
+    return failure(
+        "OS6021",
+        setting="A quantity stated in " + stated,
+        problem=(
+            "a backtest fills in units and works out no running equity to size against, so it "
+            "cannot convert one. State the quantity in units or in lots"
+        ),
+    )
 
 
 def marks_for(case: Case, bars: Sequence[Bar]) -> tuple:

@@ -61,12 +61,13 @@ guarantee. ``elementary`` says it again where an implementer will be standing.
 from .stateful import ENTRIES as STATEFUL_ENTRIES
 from .stateful import Entry as StatefulEntry
 from .stateful import table as stateful_table
-from .stateless import ENTRIES, MEASURED, Context, Entry, table
+from .stateless import BUILDS_A_STRING, ENTRIES, MEASURED, Context, Entry, table
 
 __all__ = [
     "ENTRIES",
     "Context",
     "Entry",
+    "BUILDS_A_STRING",
     "MEASURED",
     "STATEFUL_ENTRIES",
     "StatefulEntry",

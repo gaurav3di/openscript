@@ -453,11 +453,12 @@ class Machine:
         region = None if state < 0 else self.states.region(frame.state_base + state)
         # The string ceiling, both halves: the length a call can be asked for
         # before a character of it exists, and the string it did build. A call of
-        # no arguments answers a fact the host stated rather than a string this
-        # bar grew, and the ceiling is on what a script grows.
+        # that passes a string through, or answers a fact the host stated, hands
+        # back a string it did not make, and refusing that would refuse the host
+        # its own symbol for being long.
         self.budget.measured(self.here(), self.library.length_of(entry.name, arguments))
         answer = self.library.call(entry.name, list(arguments), region, self.context)
-        if arguments and isinstance(answer, str):
+        if isinstance(answer, str) and self.library.builds_a_string(entry.name):
             self.budget.text(self.here(), answer)
         frame.stack.append(stored(answer))
 

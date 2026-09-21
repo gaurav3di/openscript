@@ -102,6 +102,13 @@ class Library(Protocol):
     be, and refuses the call rather than the result where the answer is past the
     ceiling. ``None`` is the honest answer for every call whose length is not
     known until the work is done, which is all but two of them.
+
+    ``builds_a_string`` is the other half, asked after. Only a call that BUILDS
+    a string is held to the ceiling, because the ceiling is on what a script
+    grows. A call that passes one through, or answers a fact the host stated,
+    hands back a string it did not make, and refusing that would refuse the
+    host its own symbol for being long. Both questions are the library's,
+    because the library is what knows which of its functions build.
     """
 
     def entry(self, name: str, arity: int) -> Optional[LibraryEntry]:
@@ -111,6 +118,9 @@ class Library(Protocol):
         ...
 
     def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
+        ...
+
+    def builds_a_string(self, name: str) -> bool:
         ...
 
     def call(
@@ -141,6 +151,9 @@ class NoLibrary:
 
     def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
         return None
+
+    def builds_a_string(self, name: str) -> bool:
+        return False
 
     def call(
         self,

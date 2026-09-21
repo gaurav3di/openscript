@@ -46,7 +46,7 @@ seam that converted quietly would hide the one place a test can see it.
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..contracts import CallContext, LibraryEntry
-from ..library import MEASURED, stateful_table, table
+from ..library import BUILDS_A_STRING, MEASURED, stateful_table, table
 from ..library.stateless import Entry
 from ..values import ABSENT, ArrayValue, Reference, tag
 from .facts import FACT_NAMES, POSITION_FACTS, Book, fact_value
@@ -136,6 +136,16 @@ class Serving:
         """
         measure = MEASURED.get((name, len(arguments)))
         return None if measure is None else measure(*arguments)
+
+    def builds_a_string(self, name: str) -> bool:
+        """Whether this call makes the string it answers, rather than passing one on.
+
+        The ceiling is on what a script grows. A call that hands back a string
+        it was given, or one the host stated, grew nothing, and holding it to the
+        ceiling would refuse a host its own long instrument name on a script that
+        only read it.
+        """
+        return name in BUILDS_A_STRING
 
     def describe(self, name: str) -> str:
         """What this engine's manifest holds for a name, in OS6004's own words."""

@@ -206,6 +206,31 @@ _TEXT: tuple[Entry, ...] = (
 #: padded string is within a constant factor of what it was handed. These two are
 #: not, and a count a script computed can ask either of them for a string no
 #: engine could hold.
+#: The calls that BUILD a string, and so are held to the code point ceiling.
+#:
+#: Named rather than inferred, because the answer's type cannot tell a string a
+#: call made from one it passed through. `orElse(chart.symbol, "x")` answers a
+#: string, and it is the host's symbol: refusing it for being long would refuse
+#: the host its own instrument name, which is a difference the first engine does
+#: not make. That engine guards these twelve call sites and no others
+#: (`src/core/engine/library/text.ts` and `dates.ts`), so this is that set.
+BUILDS_A_STRING: frozenset = frozenset(
+    {
+        "text",
+        "str.upper",
+        "str.lower",
+        "str.trim",
+        "str.substring",
+        "str.replace",
+        "str.replaceAll",
+        "str.join",
+        "str.padLeft",
+        "str.padRight",
+        "str.repeat",
+        "date.format",
+    }
+)
+
 MEASURED: Dict[Tuple[str, int], Callable[..., Optional[int]]] = {
     ("text", 2): text_length,
     ("str.repeat", 2): strings.repeat_length,
