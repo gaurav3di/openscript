@@ -1,0 +1,1 @@
+{"asserts":["diagnostics","orders","trades","performance"],"category":"strategy","description":"A strategy run reported over a window inside the bars supplied, with a position open at each end of it, produces the recorded ledger, trades and summary.","id":"perf/report-window","languageVersion":1,"profile":"strategy","tolerance":{"abs":0,"reason":null,"rel":0}}

@@ -508,6 +508,7 @@ Areas: `lex`, `version`, `type`, `obj`, `absent`, `bar`, `chart`, `persist`,
 | Top level only | An `input()` inside a block or a function is OS3007 | `specified` | `language.md` 13.4, `stdlib.md` 14.1, `errors.md` OS3007 | `unit:input/top-level-only` |
 | Where an input may be written | Anywhere at the top level a value belongs, including a declaration option, a larger expression and the expression argument of a read; a block and a function body are the two exceptions | `specified` | `language.md` 13.4, `stdlib.md` 15.4 | `input/where-written` |
 | The settings key | The name the input was assigned to, or its title where it was assigned to none, and never its position, so an insert, a delete or a reorder leaves a stored value on its own row | `specified` | `host-interface.md` 8.1, `compiled-program.md` 2.6 | `input/settings-key` |
+| A value the host stored for an input | Reaches the run keyed by the input's own name, so the same program over the same bars decides differently under it | `implemented` | `host-interface.md` 8.1, `conformance.md` 2 | `input/host-values` |
 | A row nothing can name | An input assigned to no name and given no title written as a string literal is OS3021, because the title is the row's key and its label both | `specified` | `language.md` 13.4, `errors.md` OS3021 | `unit:input/no-name-no-title` |
 | A row whose title says nothing | An input assigned to no name whose title is an empty string literal is OS3024 rather than OS3021, because the reader did write a title and a fix telling them to write one is a fix they have already applied; assigned to a name, an empty title is read as no title and the row is labelled by the name | `specified` | `language.md` 13.4, `errors.md` OS3024 | `unit:input/empty-title` |
 | Two rows on one key | A title spelling another input's name is OS3022, and two inputs carrying one title are OS3017, because a host stores one value per key | `specified` | `host-interface.md` 8.1, `errors.md` OS3022, `errors.md` OS3017 | `unit:input/key-taken` |
@@ -947,6 +948,8 @@ from a `study()` file is OS7001.
 | Win rate and expectancy | The two headline statistics, each with its formula written down | `planned` | `none` | `perf/win-rate-expectancy` |
 | Monthly return table | Returns grouped by calendar month | `planned` | `none` | `perf/monthly-table` |
 | Trade markers | Every trade marked on the chart at its fill bar | `planned` | `none` | `perf/trade-markers` |
+| The report window | Which of the bars supplied a run is reported over: every bar executes, a bar outside the window is warmup whose orders are real and whose position is carried in, and only a bar inside it gets a point of the report | `implemented` | `conformance.md` 3 | `perf/report-window` |
+| The money rounding digit count | The count the run was folded under, which rounds the total of one fill's charges half to even and is a fact of the run rather than of the instrument | `implemented` | `conformance.md` 3 | `perf/money-digits` |
 | Run reproducibility | A run records its script revision, inputs, date range and cost settings and reruns identically; only the program hash half of that is fixed today | `planned` | `compiled-program.md` 2.14 | `perf/reproducible-run` |
 | Run comparison | Two runs compared well enough to tell a real improvement from noise | `planned` | `none` | `perf/run-comparison` |
 

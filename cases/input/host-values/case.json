@@ -1,0 +1,1 @@
+{"asserts":["diagnostics","orders","trades","performance"],"category":"strategy","description":"A strategy run under the values a host stored for three of its inputs produces the recorded ledger, trades and summary.","id":"input/host-values","languageVersion":1,"profile":"strategy","tolerance":{"abs":0,"reason":null,"rel":0}}

@@ -35,6 +35,9 @@ engine/
   openscript/        the package, importable as one name
     __init__.py      the door
     __main__.py      the conformance adapter's command line
+    *.py             the machine: the program read as data, the instructions,
+                     the memory regions, the values, the bars, the inputs, the
+                     verification before the first bar and the encoding
     library/         the functions of the library, both halves
     strategy/        orders, frames, fills and the ledger
     accounting/      what a run made, what it cost and what that is worth
@@ -48,10 +51,10 @@ belongs to the JavaScript package, and a second project file beside it would
 leave two answers to the question of what an install of this directory ships.
 Under `engine/` there is one answer.
 
-Much of the package is not written yet. `__init__.py` says what goes where and
-which stage fills it, and a module that is not there yet is absent rather than
-stubbed: a stub that answers an invocation with a shape somebody starts
-depending on is worse than nothing.
+`__init__.py` says what is where. What is not there is absent rather than
+stubbed, which is the rule this package was started under and still keeps: a
+stub that answers an invocation with a shape somebody starts depending on is
+worse than nothing.
 
 What is written runs a strategy end to end: the machine, both halves of the
 library, the order ledger, the money, and the adapter that joins them over a
@@ -198,3 +201,23 @@ order, and neither is the accurate one.
 gap where no portable reference algorithm exists, and `conformance.md` section 8
 scopes it out of every profile. Those calls use the interpreter's own maths
 module here, and no case may assert a value that reaches one.
+
+## What is independent here, and what is not
+
+The arithmetic is held to the vectors and the behaviour to the pages. The module
+layout is not independent at all: it falls one to one with the first engine's,
+`strategy/` beside that engine's order ledger and `accounting/` beside its money
+layer, because two engines that divide one behaviour the same way are cheap to
+read against each other on the day they disagree, and a disagreement is the
+moment either of them is worth having.
+
+What follows is worth writing down rather than leaving for a reader to work out.
+The two engines agreeing to the last bit says that this one computes what that
+one computes, which is the claim the gate makes and the claim a host needs. It
+does not say that the pages on their own were enough to build an engine from. A
+page with a hole in it can be read the same wrong way twice by somebody who has
+the other engine open beside them, and the suite cannot tell that apart from two
+readings that agree because the page is complete. What can tell them apart is
+somebody implementing from the pages with nothing else to hand, which is
+[`integrating/your-own-engine.md`](./your-own-engine.md), and that has not
+happened yet.

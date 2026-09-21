@@ -11,6 +11,10 @@
  * programs a stranger reads first and the ones nobody wrote to make a test
  * pass.
  *
+ * What each case is run under is its identity's, in
+ * `scripts/lib/case-identities.mjs`, which says why one example harvested
+ * under two sets of host choices is two cases and not one case twice.
+ *
  * Two modes, one script. Run bare it writes the case directory of every
  * strategy it can harvest that is not there yet, leaves one that is there and
  * agrees, and refuses one that is there and disagrees. Run with `--check` it
@@ -88,7 +92,7 @@ import {
   suiteDefaultFacts,
   writeCaseFiles,
 } from './lib/case-directory.mjs';
-import { IDENTITIES } from './lib/case-identities.mjs';
+import { IDENTITIES, chosenFor, contractFor, identitiesFor } from './lib/case-identities.mjs';
 import { matrixRows } from './lib/catalogue.mjs';
 import { frontEndWith } from './lib/example-run.mjs';
 import { nothingFound } from './lib/files.mjs';
@@ -240,7 +244,10 @@ if (!Number.isFinite(minutes) || minutes * 60_000 !== spacing) {
 /** One example run, harvested to files, or the reason it was not. */
 function harvestOnce(example, identity) {
   const compiled = compile(example.name, example.text);
-  const run = backtest(compiled.program, bars, settingsFor(CONTRACT), {
+  const { chosen, problem } = chosenFor(identity, bars);
+  if (problem !== null) return { ok: false, reason: problem };
+  const settings = settingsFor(contractFor(identity, CONTRACT), chosen);
+  const run = backtest(compiled.program, bars, settings, {
     sourceText: example.text,
     instrument: facts,
   });
@@ -296,88 +303,83 @@ for (const example of shippedExamples()) {
   // name, is not a case: the id is not under any area the matrix lists, it has
   // no reason for existing, and the notes writer fell over on the absence with
   // a stack trace where a sentence belonged.
-  const identity = IDENTITIES.find((one) => one.example === name);
-  if (identity === undefined) {
+  const chosenIdentities = identitiesFor(name);
+  if (chosenIdentities.length === 0) {
     refused.push(`${path}: no case identity chosen for it in scripts/lib/case-identities.mjs`);
     outcome.set(name, 'no case identity chosen');
     continue;
   }
-  const first = harvestOnce(example, identity);
-  if (!first.ok && first.diagnostic !== undefined) {
-    const capability = missingCapability(first.diagnostic);
-    if (capability !== null) {
-      unsupported.push(`${path}: ${capability}`);
-      outcome.set(name, `needs ${capability}, which this driver cannot supply`);
+
+  for (const identity of chosenIdentities) {
+    const first = harvestOnce(example, identity);
+    if (!first.ok && first.diagnostic !== undefined) {
+      const capability = missingCapability(first.diagnostic);
+      if (capability !== null) {
+        unsupported.push(`${path}: ${capability}`);
+        outcome.set(name, `needs ${capability}, which this driver cannot supply`);
+        continue;
+      }
+      problems.push(`${path}: the run could not start: ${first.diagnostic.code}.`);
       continue;
     }
-    problems.push(`${path}: the run could not start: ${first.diagnostic.code}.`);
-    continue;
-  }
-  if (identity === undefined) {
-    problems.push(
-      `${path}: is a strategy this driver can run, and no case id is chosen for it. Add it to ` +
-        `IDENTITIES in scripts/lib/case-identities.mjs naming the ${MATRIX} row it proves, or ` +
-        'say why it is not a case.',
-    );
-    continue;
-  }
-  if (!first.ok) {
-    problems.push(`${path}: cannot become a case: ${first.reason}.`);
-    continue;
-  }
+    if (!first.ok) {
+      problems.push(`${path}: cannot become ${identity.id}: ${first.reason}.`);
+      continue;
+    }
 
-  const rows = rowsByTest.get(identity.id) ?? [];
-  if (rows.length !== 1) {
-    problems.push(
-      `${identity.id}: ${rows.length === 0 ? 'no row' : `${rows.length} rows`} of ${MATRIX} ` +
-        `name${rows.length === 1 ? 's' : ''} it, and a case is one row. Rule 3 of that page ` +
-        'fails the build on a case directory no row names.',
-    );
-    continue;
-  }
-
-  // The same script again, from its text, and the two compared before either is
-  // written: a case that differs between two runs of its own engine is a case
-  // no engine can pass.
-  const second = harvestOnce(example, identity);
-  const unstable = second.ok ? differences(first.files, second.files) : ['the second run failed'];
-  if (unstable.length > 0) {
-    problems.push(
-      `${path}: two runs of the same script harvest to different bytes (${unstable.join('; ')}), ` +
-        'so what it produces is not a case.',
-    );
-    continue;
-  }
-
-  const directory = caseDirectory(identity.id);
-  const held = readCaseFiles(directory);
-  if (held === null) {
-    if (CHECK) {
+    const rows = rowsByTest.get(identity.id) ?? [];
+    if (rows.length !== 1) {
       problems.push(
-        `${directory}/ does not exist, and this engine harvests it from ${path}. Run ` +
-          'node scripts/harvest-cases.mjs to write it, then commit it.',
+        `${identity.id}: ${rows.length === 0 ? 'no row' : `${rows.length} rows`} of ${MATRIX} ` +
+          `name${rows.length === 0 ? 's' : ''} it, and a case is one row. Rule 3 of that page ` +
+          'fails the build on a case directory no row names.',
       );
       continue;
     }
-    writeCaseFiles(directory, first.files);
-    written.push(identity.id);
-  } else {
-    const differing = differences(first.files, held);
-    if (differing.length > 0) {
+
+    // The same script again, from its text, and the two compared before either
+    // is written: a case that differs between two runs of its own engine is a
+    // case no engine can pass.
+    const second = harvestOnce(example, identity);
+    const unstable = second.ok ? differences(first.files, second.files) : ['the second run failed'];
+    if (unstable.length > 0) {
       problems.push(
-        `${directory}/: what is on disk is not what this engine produces from ${path}: ` +
-          `${differing.join('; ')}. conformance.md section 10: a case is never edited to make ` +
-          'an engine pass, and it is not overwritten to make one either. Read the ' +
-          'specification against the engine, and correct whichever is wrong with a reviewed ' +
-          'explanation.',
+        `${identity.id}: two runs of ${path} harvest to different bytes ` +
+          `(${unstable.join('; ')}), so what it produces is not a case.`,
       );
-      outcome.set(name, 'disagrees with its directory');
       continue;
     }
-    unchanged.push(identity.id);
+
+    const directory = caseDirectory(identity.id);
+    const held = readCaseFiles(directory);
+    if (held === null) {
+      if (CHECK) {
+        problems.push(
+          `${directory}/ does not exist, and this engine harvests it from ${path}. Run ` +
+            'node scripts/harvest-cases.mjs to write it, then commit it.',
+        );
+        continue;
+      }
+      writeCaseFiles(directory, first.files);
+      written.push(identity.id);
+    } else {
+      const differing = differences(first.files, held);
+      if (differing.length > 0) {
+        problems.push(
+          `${directory}/: what is on disk is not what this engine produces from ${path}: ` +
+            `${differing.join('; ')}. conformance.md section 10: a case is never edited to make ` +
+            'an engine pass, and it is not overwritten to make one either. Read the ' +
+            'specification against the engine, and correct whichever is wrong with a reviewed ' +
+            'explanation.',
+        );
+        outcome.set(identity.id, 'disagrees with its directory');
+        continue;
+      }
+      unchanged.push(identity.id);
+    }
+    outcome.set(identity.id, 'harvested');
+    harvested.push({ identity, row: rows[0], path });
   }
-  outcome.set(name, 'harvested');
-  harvested.push({ identity, row: rows[0], path });
 }
 
 // ---------------------------------------------- the matrix, held to the tree
@@ -397,7 +399,10 @@ for (const { identity, row, path } of harvested) {
 const vouched = new Set(harvested.map((one) => one.identity.id));
 for (const identity of IDENTITIES) {
   if (vouched.has(identity.id) || !existsSync(caseDirectory(identity.id))) continue;
-  const became = outcome.get(identity.example) ?? 'is not a shipped strategy this driver ran';
+  const became =
+    outcome.get(identity.id) ??
+    outcome.get(identity.example) ??
+    'is not a shipped strategy this driver ran';
   if (became === 'disagrees with its directory') continue;
   problems.push(
     `${caseDirectory(identity.id)}/ exists and nothing harvested it this run: ` +
@@ -461,7 +466,8 @@ console.log(
     `case${harvested.length === 1 ? '' : 's'} (${written.length} written, ` +
     `${unchanged.length} already there and identical) from the ` +
     `shipped strategies over ${BAR_COUNT} bars, under the gate's placeholder contract and the ` +
-    `instrument facts ${CONFORMANCE} section 3 assumes of a case that states none. Each was ` +
+    `instrument facts ${CONFORMANCE} section 3 assumes of a case that states none, each under ` +
+    'the digit count, report window and input values its own identity names. Each was ' +
     'harvested twice to the same bytes, compared with its directory byte for byte, and names ' +
     `a row of ${MATRIX} marked \`${IMPLEMENTED}\`; the gap rule was attacked with ${probed} ` +
     `probes first, and ${gapRows.length} gaps of ${STDLIB} section 20.11 were read. ` +
@@ -476,8 +482,10 @@ if (unsupported.length > 0) {
 }
 if (refused.length > 0) {
   console.log(
-    `\n${refused.length} shipped strateg${refused.length === 1 ? 'y reaches' : 'ies reach'} ` +
-      `a gap and cannot be a case until the gap closes (conformance.md section 8)` +
+    `\n${refused.length} shipped strateg${refused.length === 1 ? 'y is' : 'ies are'} refused, ` +
+      'each with the reason: a script reaching a gap cannot be a case until the gap closes ' +
+      '(conformance.md section 8), and one nothing in scripts/lib/case-identities.mjs names ' +
+      'is one nobody has chosen a row for' +
       named(refused),
   );
 }

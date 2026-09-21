@@ -13,11 +13,11 @@ nothing, fails the build before it can become permanent.
 holds a Python distribution: the package `openscript`, importable as one name,
 its tests beside it, and the tools that run them. It requires an interpreter and
 nothing else, so a clone runs the tests as it stands, with no install and
-nothing fetched from an index. The entry point an adapter will start is
+nothing fetched from an index. The entry point the suite's adapter starts is
 `python -m openscript`, which works from an installed distribution and from the
-directory unchanged. The interpreter, the library and the adapter are not
-written yet: the modules that will hold them are absent or empty, and
-`__init__.py` says which stage fills which.
+directory unchanged. `__init__.py` is the door, and it says what is where: the
+machine, the two halves of the library, the orders, the money and the adapter,
+each of which is an entry of its own below.
 
 `npm test` now runs `scripts/check-python.mjs`, which finds an interpreter,
 refuses one older than the distribution requires, reads every import in the tree
@@ -168,8 +168,8 @@ gate's fixture, the placeholder contract and four hundred formula bars, under
 the instrument facts `conformance.md` section 3 assumes of a case that states
 none, read from that page, and writes each run into `cases/<id>/` through
 `caseFilesFrom`, with a `notes.md` saying why the case exists and what it
-defends against. Two cases: `order/buy`, from the crossing strategy, and
-`order/sell`, from the opening range strategy. The two rows of
+defends against. The first two: `order/buy`, from the crossing strategy, and
+`order/sell`, from the opening range strategy. The rows of
 `feature-matrix.md` that name them are the first marked `implemented`, and the
 gate's contract and bars now live in one module the reproducibility check and
 the harvest share, so what the gate reproduces is what the suite holds.
@@ -185,7 +185,8 @@ name with the call that reached it, by the gate's own reading of that table,
 which now lives in one module the gate's test and the harvest share; and a
 strategy this driver cannot run is named and counted rather than passed over.
 The short premium example reads a second instrument, which a backtest over one
-series of bars cannot supply, so it is not a case yet and the report says so.
+series of bars cannot supply, so nobody has chosen a case identity for it, and
+that is what the report names it for.
 
 **The feature matrix is checked against the tests and the pages it cites.**
 `scripts/check-matrix.mjs` enforces the preamble of `spec/feature-matrix.md`,
@@ -229,7 +230,7 @@ there: against the expected files, and `--against` a second adapter, where each
 is asked for `--actual` and the runner compares the two channel by channel with
 tolerance zero, whatever the case declares. A case outside the claimed profile
 is skipped and never counted as a pass; any failing, erroring or unsupported
-case exits non-zero. Both harvested cases pass on this adapter, alone and
+case exits non-zero. Every harvested case passes on this adapter, alone and
 against itself. `docs/integrating/running-the-suite.md` is the page.
 
 **The comparison of section 6 is written once**, in `scripts/lib/compare.mjs`,
@@ -268,8 +269,8 @@ three are not in `settings.json` because that file is the script's inputs keyed
 by name. Every field of `BacktestSettings` now has a place in a case,
 `caseFilesFrom` carries the table saying which, and a record whose settings hold
 a field the table does not know is refused by name rather than written into a
-case that ran under something it does not state. Both harvested cases were
-re-harvested and gain the file; nothing else in them changed. Decision 61 has
+case that ran under something it does not state. The two cases in the tree at
+the time were re-harvested and gain the file; nothing else in them changed. Decision 61 has
 the reasoning.
 
 **A record past the tolerance cap makes no case.** Section 6 caps a declared
@@ -413,10 +414,27 @@ the next execution, applies the order calls a decided bar left behind, and
 answers the `orders`, `trades` and `performance` channels beside `diagnostics`
 and `values`.
 
-Both harvested cases pass on it, against the expected files and against the
-first engine. That is four hundred bars, thirteen and twenty one ledger rows,
-their trades and their summaries, reproduced to the last bit by an engine
-written from the pages rather than ported from the other engine's source.
+Every harvested case passes on it, against the expected files and against the
+first engine. That is four hundred bars a case, 104 ledger rows and 51 trades
+folded into five summaries, reproduced to the last bit, with every figure here
+read out of `cases/*/expected.json` rather than remembered.
+
+**What was read from the pages, and what was not.** The behaviour is the
+pages': the machine of `compiled-program.md` section 5, the fold and the ledger
+of `stdlib.md` section 17, and the accumulation order section 20 fixes for every
+library function, with the arithmetic held to `spec/vectors/library/` bit for
+bit. The decomposition is not: the modules of `strategy/` and `accounting/`
+fall one to one against the first engine's order ledger and money layer, name
+for name, and much of the prose explaining them is that engine's prose. A reader
+deciding what the gate is worth should have both halves of that. Two engines
+agreeing to the last bit says this one computes what the other computes, which
+is what a host needs and what the release is gated on. It does not say the pages
+alone were enough to build an engine from: a page with a hole in it can be read
+the same wrong way twice by somebody with the other engine open beside them, and
+no suite can tell that apart from two readings that agree because the page is
+complete. Only an implementation from the pages with nothing else to hand can,
+and there has not been one. `docs/integrating/the-python-engine.md` says the
+same on the page somebody reading the engine reaches.
 
 **`npm test` runs the two engines against each other.** `npm run suite:agree`
 hands every case to both adapters with `--actual` and compares what each
@@ -442,6 +460,64 @@ series, a calendar in a timezone it cannot read, or a frame delivered after the
 last bar, which no fold boundary reaches. `docs/integrating/running-the-suite.md`
 holds the whole list and says why a cumulative profile table has no word for an
 engine that runs the money and draws nothing.
+
+**Three more cases, and a straight answer about how much the two engines
+agreeing proves.** The suite held two cases, and the script was the only thing
+that differed between them: no charge schedule, two rounding digits, the whole
+of the bars reported, no value stored for an input, one instrument and one entry
+at a time, in both. Between them, 47 ledger rows and 23 trades, and every frame
+in both was an order working and then filling whole. Three cases join them,
+harvested the same way from the same shipped strategies:
+
+- `perf/report-window` reports 151 of the 400 bars, with a position open at each
+  end of the window. The ledger, the trades and the realised profit are
+  `order/buy`'s to the bit and the summary is not: the bars reported, the bars
+  spent holding a position and the deepest drawdown all change, because every
+  bar still executes and only the ones inside the window are reported.
+- `perf/money-digits` folds the opening range run under a rounding count of zero
+  instead of two. Every figure is `order/sell`'s, which is the assertion: the
+  count reaches the total of one fill's charges, half to even, and no other
+  figure of the report. An engine reading `conformance.md` section 3 as every
+  money figure being rounded to that count writes a net profit of -654 where
+  this case says -653.55.
+- `input/host-values` runs the crossing strategy under three values a host
+  stored for its inputs, and is the only case that carries a `settings.json`.
+  Ten ledger rows and five trades, where the declared defaults give thirteen and
+  six.
+
+The suite is five cases, 104 ledger rows and 51 trades, and each passes against
+the expected files on both engines and against the other engine exactly. Each
+one was mutation tested before it was committed: an engine that reports every
+bar supplied fails the window case at the bar count, one that never opens
+`settings.json` fails the input case on the length of the ledger, four rows
+where the case says ten, and one that rounds every money figure fails the digits
+case at the first trade. The one
+mutant that survives is an engine that ignores the digit count and rounds at
+two, and the case says so in its own notes rather than leaving it to be found.
+
+**A case is a run, so one example can be more than one case.**
+`scripts/harvest-cases.mjs` now harvests every identity that names an example
+rather than the first one, and an identity carries what the host chose for its
+run: a money rounding digit count, a report window as two bar indices, or values
+for the script's inputs. An identity that chooses none is the run the gate
+drives everywhere else, which is why the two cases already in the tree are byte
+for byte what they were. The harvest's report no longer files a strategy nobody
+has chosen a case identity for under the sentence about gaps, which is what it
+was doing to the short premium example on every run.
+
+**What the suite does not reach, written down rather than left to be
+discovered.** No case supplies a charge schedule: a supplied schedule beside a
+declared commission is refused before the first bar (OS6023) and every shipped
+strategy declares one, so a case for it needs a strategy example that declares
+none. No case hands an engine a partial fill, a repeated frame, two frames in
+the wrong order, a fill reported after the order had gone terminal, a rejection,
+a cancellation, or a frame naming no row of the ledger. The frames in a
+harvested case are the ones its own run was answered, the destination a backtest
+runs against fills an order once and in full, and no shipped strategy cancels an
+order or leaves one resting, so none of those shapes can be harvested from what
+is in the tree today. `docs/integrating/running-the-suite.md` carries the list
+beside the commands, because that is where somebody reading a green run is
+standing.
 
 ---
 

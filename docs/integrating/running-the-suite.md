@@ -229,3 +229,34 @@ list is in its section above.
   rather than running it under a digit count, a schedule or a window nobody
   stated. Two engines rounding to counts they each assumed agree by
   coincidence.
+
+## How wide the agreement is
+
+A passing run says the engines agree on the cases there are, and the cases there
+are do not cover the language. This is the part a reader has to be told, because
+a green suite reads as wide as the reader imagines it.
+
+What the cases exercise: a strategy entering long and one entering on either
+side of a range, both sized and flattened by the script; the ledger the frames
+of a simulated destination fold to; the trades and the summary folded from those
+fills; a report narrowed to a window inside the bars, with a position open at
+each end of it; a money rounding digit count other than the fixture's; and
+values a host stored for a script's inputs.
+
+What no case has yet, each with the reason:
+
+- **A charge schedule the host supplied.** A supplied schedule beside a declared
+  commission is refused before the first bar, and every shipped strategy
+  declares one, so harvesting such a case needs a strategy that declares none.
+- **A frame that is anything but an order working and then filling whole.** The
+  frames in a case are the ones its run was answered, the destination a backtest
+  runs against fills an order once and in full, and no shipped strategy cancels
+  an order or leaves one resting. So a partial fill, a frame repeated, two
+  frames arriving in the wrong order, a fill reported after the order had gone
+  terminal, a rejection, a cancellation and a frame naming no row of the ledger
+  are all shapes the specification provides for and no case hands to an engine.
+- **More than one entry in a direction, and more than one instrument.** Every
+  shipped strategy holds one position at a time on the chart's own instrument.
+
+Each of those is a place where two engines could differ today and the build
+would not notice, which is the honest reading of a green run.
