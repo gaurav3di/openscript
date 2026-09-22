@@ -9,6 +9,25 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The Python distribution shipped one package out of six.** `[tool.setuptools]
+packages` named `openscript` alone, so an install carried the machine and none
+of the halves it calls: `import openscript` worked and
+`from openscript.adapter.serving import Serving` did not. A host that followed
+`docs/integrating/the-python-engine.md` and installed the directory got an
+engine that could not run anything, and the failure appeared at their first
+import rather than anywhere in this build.
+
+It was found by doing it: installing the engine into a platform and watching the
+adapter go missing. Nothing here could have caught it, because every test in this
+repository runs the package from the tree where all six directories are present
+whether or not the distribution would have carried them.
+
+`scripts/check-python.mjs` now compares the package list against the packages
+that exist, in both directions: a directory holding an `__init__.py` that the
+list omits is refused, and a name in the list that is not a package in the tree
+is refused too. A new subpackage is shipped because it exists, not because
+somebody remembered a line.
+
 **The phase the language was designed for is now scoped.** A strategy trades one
 instrument today, chosen by the host before the run starts. The surface for more
 than one has been designed and marked planned since `stdlib.md` was written:

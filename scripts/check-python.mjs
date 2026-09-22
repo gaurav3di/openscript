@@ -46,6 +46,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { dirname, relative, sep } from 'node:path';
 import { filesMatching } from './lib/files.mjs';
 import { imports, maskPython } from './lib/python-source.mjs';
 
@@ -282,7 +283,63 @@ function versionsAgree() {
 const { command, said } = findInterpreter();
 const standardLibrary = new Set(said.standardLibrary);
 const forms = selfTest(standardLibrary);
+// ---------------------------------------------------------------------------
+// Every package the tree holds is a package the distribution ships
+// ---------------------------------------------------------------------------
+
+/**
+ * The package list a build backend is given, held to the packages that exist.
+ *
+ * `[tool.setuptools] packages` is written by hand and names each one, so a new
+ * subpackage is shipped only if somebody remembered to add a line. Nobody did:
+ * the list said `["openscript"]` while the tree held six, and the distribution
+ * that came out carried the machine and none of the halves it calls. `import
+ * openscript` worked and `from openscript.adapter.serving import Serving` did
+ * not, so a host that followed the integration page installed an engine that
+ * could not run anything, and the failure appeared at their first import rather
+ * than at our build.
+ *
+ * A package is a directory holding `__init__.py`, which is the same thing the
+ * backend means by one, so this compares the tree with the list rather than
+ * trusting either.
+ */
+function packagesShip() {
+  const declared = new Set();
+  const block = /\[tool\.setuptools\][\s\S]*?packages\s*=\s*\[([\s\S]*?)\]/.exec(
+    readFileSync(PROJECT, 'utf8'),
+  );
+  if (block === null) {
+    refuse(`${PROJECT} states no package list, so what the distribution ships is whatever the backend guesses.`);
+  }
+  for (const quoted of block[1].matchAll(/"([^"]+)"/g)) declared.add(quoted[1]);
+
+  const present = new Set(
+    filesMatching(/(^|\/)__init__\.py$/, ['engine'])
+      .map((file) => relative('engine', dirname(file)).split(sep).join('.'))
+      .filter((name) => name === 'openscript' || name.startsWith('openscript.')),
+  );
+
+  const missing = [...present].filter((name) => !declared.has(name)).sort();
+  if (missing.length > 0) {
+    refuse(
+      `${PROJECT} does not ship ${missing.join(', ')}.\n\n` +
+        'Every directory under engine/openscript holding an __init__.py is a package, and a\n' +
+        'package left out of that list is absent from the installed distribution. An import\n' +
+        'of it fails in the host and nowhere here, which is how this was found: by installing\n' +
+        'the engine into a platform and watching the adapter go missing.',
+    );
+  }
+
+  const absent = [...declared].filter((name) => !present.has(name)).sort();
+  if (absent.length > 0) {
+    refuse(`${PROJECT} ships ${absent.join(', ')}, which is not a package in this tree.`);
+  }
+
+  return present.size;
+}
+
 const version = versionsAgree();
+const packageCount = packagesShip();
 
 // Every Python file the project holds, rather than the ones under engine/. The
 // engine is there today and a tool or a fixture in the same language tomorrow is

@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+*.egg-info/
 coverage/
 *.tsbuildinfo
 .DS_Store

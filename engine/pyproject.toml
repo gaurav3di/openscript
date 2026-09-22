@@ -54,4 +54,17 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["openscript"]
+# Every package and not just the top one. Listing only "openscript" shipped a
+# distribution holding the machine and none of the subpackages beside it:
+# `import openscript` worked, `from openscript.adapter.serving import Serving`
+# did not, and a host following the integration page installed an engine that
+# could not run anything. Found by installing it into a host and watching the
+# import fail, which is the only place an incomplete package shows.
+packages = [
+    "openscript",
+    "openscript.accounting",
+    "openscript.adapter",
+    "openscript.library",
+    "openscript.strategy",
+    "openscript.surface",
+]
