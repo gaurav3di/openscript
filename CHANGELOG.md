@@ -9,6 +9,35 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The phase the language was designed for is now scoped.** A strategy trades one
+instrument today, chosen by the host before the run starts. The surface for more
+than one has been designed and marked planned since `stdlib.md` was written:
+`leg.fixed` and `leg.relative` declare what each leg trades, the `leg.*` rules
+manage one, and the `book.*` rules reason across all of them. None of it
+executes, and a script calling any of it is refused at the call with OS2020.
+`ROADMAP.md` now carries Phase 8, which says what building it involves, in the
+order it has to be built, and the four questions that have to be answered before
+any of it is written. It is placed after Phase 7 deliberately, and the reason is
+in the phase: every rule in it is behaviour a third engine has to reproduce
+exactly, so designing it before the format is fixed means discovering the
+disagreements one at a time in somebody else's engine.
+
+The risk rules that a combination of contracts needs are the point of it. A
+position made of two or more derivative contracts has a risk profile belonging to
+the combination and not to any leg, so a stop placed per leg both fires on moves
+the combination absorbed and misses the ones it did not. Two independent
+single-instrument strategies are not a substitute for one multi-leg strategy;
+they are two strategies running at the same time.
+
+**Six capabilities that were missing rather than planned now have rows.** The
+feature matrix said nothing at all about an account-level drawdown halt, a
+position size cap, a cap on orders per session, a halt after consecutive losing
+sessions, indexed access to past trades, or a script stating whether it is
+evaluated on every update or only on a closed bar. Every one of them is ordinary
+in the prior art this language is measured against, and a gap nothing records is
+a gap nobody plans. They are `planned` with no section, which is what that status
+is for.
+
 **The second engine's host surface is documented, and proved.** `engine/openscript/run.py`
 has held everything a live runner needs since the engine was written, and no
 document mentioned it once: a host reading `docs/integrating/the-python-engine.md`

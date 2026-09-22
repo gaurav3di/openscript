@@ -956,6 +956,12 @@ from a `study()` file is OS7001.
 | The money rounding digit count | The count the run was folded under, which rounds the total of one fill's charges half to even and is a fact of the run rather than of the instrument | `implemented` | `conformance.md` 3 | `perf/money-digits` |
 | Run reproducibility | A run records its script revision, inputs, date range and cost settings and reruns identically; only the program hash half of that is fixed today | `planned` | `compiled-program.md` 2.14 | `perf/reproducible-run` |
 | Run comparison | Two runs compared well enough to tell a real improvement from noise | `planned` | `none` | `perf/run-comparison` |
+| Account-level drawdown halt | Stop taking entries for the rest of the run once equity has fallen a stated amount or fraction from its peak, whatever the strategy asks for | `planned` | `none` | `pos/risk-drawdown-halt` |
+| Position size cap | Refuse an entry that would take the position past a stated size, rather than trusting every call site to size correctly | `planned` | `none` | `pos/risk-position-cap` |
+| Orders per session cap | Refuse further entries once a stated number of orders has been filled in one session, which is what stops a loop that is placing orders it should not | `planned` | `none` | `pos/risk-order-cap` |
+| Consecutive losing sessions halt | Stop entering after a stated number of sessions that each closed down | `planned` | `none` | `pos/risk-losing-sessions` |
+| Indexed access to past trades | Read a closed or open trade by index: its entry, its exit, its size and its excursions, so a strategy can reason about what it has already done | `planned` | `none` | `perf/trade-access` |
+| Intrabar recalculation choice | Whether a strategy is evaluated on every update, on each fill, or only on a bar that has closed, stated by the script rather than decided by the host | `planned` | `none` | `decl/calc-timing` |
 
 ## 31. Errors, warnings and diagnostics
 

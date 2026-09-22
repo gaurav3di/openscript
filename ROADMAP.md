@@ -262,6 +262,111 @@ deliverables inside it; the gate is what finishes it.
 
 ---
 
+## Phase 8. Multi-leg strategies and the risk controls over them
+
+Ten to fourteen weeks. It is written down here rather than left as a note because
+it is the phase the language was designed for and the one nothing in Phases 1 to 7
+delivers.
+
+A strategy today trades one instrument, chosen by the host before the run starts.
+The surface for more than one is already designed and marked planned in
+`stdlib.md` sections 17.6 and 17.9 to 17.11: `leg.fixed` and `leg.relative`
+declare what each leg trades, the `leg.*` rules manage each one, and the `book.*`
+rules reason across all of them. None of it executes. A script calling any of it
+is refused at the call with OS2020, which is the honest behaviour and is not the
+same as the feature existing.
+
+This matters most for the strategies nobody can express any other way. A position
+made of two or more derivative contracts has a risk profile that belongs to the
+combination and not to any leg: the loss that matters is the book's, the stop
+that matters squares off everything at once, and a stop placed per leg both
+triggers on moves the combination absorbed and misses the ones it did not. That
+is why `book.stop` exists in the design, and it is why two independent
+single-instrument strategies are not a substitute for one multi-leg strategy.
+They are two strategies that happen to be running at the same time.
+
+### What this phase delivers, in the order it has to be built
+
+**1. Contract resolution, which everything else waits on.** `leg.fixed` names a
+contract outright. `leg.relative` describes one: an underlying, whether it is a
+future or an option, which expiry by rank, which series, how far from the money
+in strikes, and which right. Resolving a description into a contract needs an
+instrument master, a definition of "at the money" at the moment of resolution,
+and a rule for what happens when the described contract does not exist. Resolution
+happens once, before bar zero, and the resolved contract is then fixed for the
+run: a leg that re-resolved mid-run would be a different position under the same
+name.
+
+**2. One run, several data feeds.** Each leg has its own contract and therefore its
+own bars. The engine's bar cycle takes one bar at a time today, so this phase
+decides what a bar is when a strategy holds three contracts: whether legs share a
+clock, what happens when one feed is late or has a hole, and which leg's bar the
+script is executing on. This is the largest piece of engine work in the phase and
+the one most likely to be got wrong quietly.
+
+**3. Per-leg rules.** `leg.stop`, `leg.target` and `leg.trail`, each attached to a
+named leg, each replacing any in force on that leg. A leg carries at most one stop
+and one target at a time, which is already the rule written down for the
+single-instrument case.
+
+**4. Book rules, which are the point of the phase.**
+   - `book.stop(amount)` and `book.target(amount)`: square off every leg when the
+     combination's profit reaches a figure. The combination's profit, not any
+     leg's.
+   - `book.lockProfit(activateAt, lock, step, advance)`: a floor under the book's
+     profit that ratchets up.
+   - `book.trailStopsToEntry(at)`: move every leg's stop to its own entry once the
+     book is ahead by a stated amount.
+   - `book.direction`, `book.entryWindow`, `book.exitAt`, `book.dailyLoss` and
+     `book.squareOffAtExpiry`: the gates on when a position may be opened and the
+     rules that close it whatever the strategy thinks.
+
+**5. The order in which rules are tested**, which is a specification problem
+before it is an implementation one. Within one bar a leg stop, a leg target, a
+book stop, a book target, a profit floor and a time rule can all be true at once.
+`stdlib.md` 17.10 already owns this question for the single-instrument case and
+this phase extends it: the order must be total, written down, and identical in
+both engines, because two engines testing the same conditions in a different
+order take different trades from the same script.
+
+**6. Squaring off a book is not squaring off each leg in turn.** A square-off that
+sends one leg and is refused on the next leaves a position that is no longer the
+position the strategy was reasoning about, and it is the shape most likely to
+lose money. The phase owes a rule for a partial square-off and an engine that
+reports it rather than continuing.
+
+**7. The host side.** A runner that holds one instrument per script cannot run
+this. It needs a feed per leg, an order path that knows which leg an order belongs
+to, and a stop that means every leg.
+
+### What has to be decided before any of it is written
+
+- **Where the instrument master comes from**, and what an engine does with a
+  description that resolves to nothing.
+- **What "at the money" means** at the moment of resolution, to the tick.
+- **Whether a leg may be added after bar zero.** The design says no; this phase
+  either confirms that or changes it deliberately.
+- **What a book-level stop does to a leg whose contract is halted or has no
+  quote.** Squaring off a book means squaring off every leg, and a leg that
+  cannot be squared off is the case that decides whether the rule is honest.
+
+### Gate
+
+A multi-leg strategy, expressed once, backtested and then run, where the
+combination's stop squares off every leg; both engines agree on every conformance
+case for sections 17.6 and 17.9 to 17.11, including the order rules of 17.10 and
+at least one case per book rule; and a partial square-off is reported rather than
+hidden. The adoption bar this phase owes: a platform that did not build this can
+run a multi-leg strategy on it without reading the implementation.
+
+### Why it is after Phase 7 and not before
+
+Phase 7 fixes the format and proves it travels. Every rule above is behaviour a
+third engine has to reproduce exactly, so adding them before the format is fixed
+and a second implementation has been written against it means designing them
+against one implementation and discovering the disagreements later, one at a time,
+in somebody else's engine.
+
 ## The adoption bar
 
 Every phase is measured against two questions, not one: is it correct, and can a
