@@ -15,6 +15,7 @@
 name = "openscript"
 version = "0.4.0"
 description = "An open trading language: the engine that runs a compiled program."
+readme = "README.md"
 requires-python = ">=3.12"
 license = "Apache-2.0"
 keywords = ["trading", "language", "interpreter", "indicators", "backtesting"]

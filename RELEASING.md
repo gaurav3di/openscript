@@ -116,3 +116,38 @@ The deciding argument is the second one in the first option: automation that has
 never run is not automation. Proving the path works while the stakes are a
 placeholder is better than discovering a misconfigured publisher on the day a
 release matters.
+
+## The Python engine, to PyPI
+
+Two packages ship as one release. `scripts/check-python.mjs` holds their version
+numbers equal, so this happens in the same change as the npm publish and never
+on its own.
+
+The distribution is `engine/`, and it is built and uploaded from there:
+
+```
+cd engine
+rm -rf dist build *.egg-info
+uv build --out-dir dist .
+uvx twine check dist/*
+uvx twine upload dist/*
+```
+
+**Check the wheel before uploading, not after.** An upload cannot be undone: a
+deleted release does not free its version, so the number is spent whatever
+happens next. Two things to look at, both of which have been wrong:
+
+- **Every package is in it.** `[tool.setuptools] packages` is a hand-written
+  list, and it once named only `openscript`, so the distribution shipped the
+  machine and none of the halves it calls. `check-python.mjs` now holds that
+  list to the tree, and the wheel can be read directly:
+  `python -c "import zipfile; print([n for n in zipfile.ZipFile('dist/openscript-<v>-py3-none-any.whl').namelist() if n.endswith('__init__.py')])"`
+- **It installs and imports somewhere else.** A clean interpreter, the built
+  wheel, and an import of each half. The tree has every directory present
+  whether or not the distribution carries them, so nothing here can tell you
+  this: only an install elsewhere can.
+
+**The token is never pasted anywhere it is recorded.** `twine` reads
+`TWINE_USERNAME=__token__` and `TWINE_PASSWORD` from the environment. Use a
+token scoped to this project rather than the account, so a leak reaches nothing
+else.

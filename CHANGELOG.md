@@ -9,6 +9,21 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**The Python engine is on the index.** `pip install openscript` gets the engine
+that runs a compiled program, Apache-2.0, zero dependencies, Python 3.12 or
+newer. Until now the only way to have it was to clone this repository and point
+an environment variable at a directory, which meant a platform built from a
+container image could not run a strategy at all, and anyone attempting the
+second half of Phase 6 had nothing to install. `RELEASING.md` carries the
+release, beside the npm one, and the two versions ship together because
+`check-python.mjs` holds them equal.
+
+`engine/README.md` is the page the index shows: what the package is, that it
+holds no compiler and is handed a compiled program, that nothing in it builds
+code out of text, and how a host drives it bar by bar. It was written because
+the first build had no long description at all and the page would have been
+blank, which is permanent for a version once it is up.
+
 **The Python distribution shipped one package out of six.** `[tool.setuptools]
 packages` named `openscript` alone, so an install carried the machine and none
 of the halves it calls: `import openscript` worked and
