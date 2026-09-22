@@ -4600,3 +4600,48 @@ section 30 read `planned` while the code that computes them ships.
 `tests/accounting/analysis.test.ts` and `drawdown.test.ts`;
 `engine/tests/test_analysis_and_runup.py`; `engine/tests/replaying.py`, whose
 copy of the channel encoder became the encoder itself.
+
+## 65. A chart may draw a strategy, against the venue a backtest uses
+
+**The question.** A chart tier had two ways to treat a program that places
+orders and neither was usable. Refuse it, which is what `load` does without a
+route, and a strategy cannot be drawn at all: no plots, no legend row, no
+settings dialog, none of the affordances a study gets, although it has exactly
+the same plots and the same declared inputs. Or hand it a route that accepts
+intents and answers nothing, and it runs while never learning it holds a
+position, because a position is folded from frames and no frame ever arrives.
+
+**Why the second is worse than the first.** It looks like it works. Every
+`close()` closes nothing, so every entry is allowed again on the next signal,
+and anything plotted from `pos` is wrong. Measured on a stop and reverse script:
+five buys, no sells, and a chart that reads as an ordinary strategy.
+
+**The decision.** `descriptorFor` takes `simulateOrders`. With it, a program
+requiring `orders` runs against a `Simulator`, the same one `backtest()` runs
+against, and the chart run is walked bar by bar so the venue's frames reach the
+engine between them. `run()` hands over every bar in one call and has nowhere to
+put them, which is why the walk exists and not merely because it is tidier.
+
+**It is the backtest's venue and not a second one.** A venue written for charts
+would be a second answer to what a bar would have filled at, and the two would
+disagree the first time either changed: the chart would draw one set of trades
+and a report of the same script would list another, with nothing saying which
+was right. The agreement is asserted rather than assumed: a test compares the
+position a chart run ends on against the open size the report states.
+
+**Off unless asked for.** A strategy with no route is still refused with OS6006.
+That refusal is what a host which meant to wire a destination and forgot has to
+see, and filling one in for them would turn the mistake into a chart that draws
+convincingly and routes nothing. A host that supplies `orders` keeps it:
+somewhere real to send an order is a better destination than a simulated one.
+
+**What this does not settle.** A strategy's fills are not markers. The chart's
+marker channel carries what `marker()` and `signal()` declared, and an order is
+neither, so a host drawing entries and exits still builds them from the report
+itself. Whether the language should give an order call a caption of its own is
+open: `tag` names a position and a close is required to repeat its entry's tag,
+so it distinguishes nothing between the two orders of a round trip and is not a
+label. That is a language question and is not answered here.
+
+**Edits.** `src/adapters/charts/venue.ts` (new), `run.ts`;
+`tests/adapters/charts/calc.test.ts`; `CHANGELOG.md`.

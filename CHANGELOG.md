@@ -7,7 +7,7 @@ nothing, fails the build before it can become permanent.
 
 ---
 
-## Unreleased
+## 0.5.0
 
 **A chart can draw a strategy, not just a study.** `descriptorFor` takes
 `simulateOrders`, and with it a program that places orders runs in the chart

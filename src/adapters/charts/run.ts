@@ -43,6 +43,8 @@ import { stationIn, stationOf } from './requests.js';
 import { engineSettings, signatureOf } from './settings.js';
 import { answersFor, needsVenue, routeInto, venueFor } from './venue.js';
 import type { HeldVenue } from './venue.js';
+import { runWhole, walkWith } from './driving.js';
+import type { Held } from './driving.js';
 import type { Simulator } from '../../core/backtest/index.js';
 
 /** What a host tells the adapter that neither the chart nor the program says. */
@@ -153,22 +155,6 @@ export interface ChartAdapterOptions {
 }
 
 /** The engine one chart instance is holding, between recomputes. */
-interface Held {
-  readonly engine: Engine;
-  readonly signature: string;
-  count: number;
-  firstTime: number;
-  lastTime: number;
-  /**
-   * The destination this run's orders go to, for a strategy.
-   *
-   * Held with the engine because the two are one run: the venue holds the
-   * orders that have not filled yet, and an engine continued onto a new bar
-   * against a fresh venue would have its working orders silently forgotten.
-   */
-  readonly venue: HeldVenue | null;
-}
-
 /** The store key. Namespaced, because the store belongs to the host as well. */
 const HELD = 'openscript';
 
@@ -188,74 +174,6 @@ export interface RunOutput {
   readonly columns: Columns;
   readonly tables: readonly Grid[];
   readonly drawings: readonly Drawing[];
-}
-
-/** A study: every bar in one hand-over, which is what `run` is for. */
-function runWhole(
-  engine: Engine,
-  bars: readonly ChartBar[],
-  ctx: ChartCalcContext | undefined,
-  program: CompiledProgram,
-  settings: ChartSettings,
-): Held {
-  const result = engine.run(
-    bars.map(hostBar),
-    bars.map((_, index) => stateFor(index, bars, ctx)),
-  );
-  if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
-  return heldFrom(engine, null, bars, program, settings);
-}
-
-/**
- * A strategy: one bar at a time, with the venue answering between them.
- *
- * The order is deliver, execute, then ask. A driver that asked the venue before
- * executing would price a fill against a bar the strategy had not seen yet, and
- * one that delivered after executing would let a script read a position its own
- * order on this bar had just created.
- *
- * `supplied` is the whole count rather than the index reached, so `bar.isLast`
- * means the same on this path as on the one above it: a strategy written to act
- * on the final bar acts on the final bar, not on every bar in turn.
- */
-function walkWith(
-  engine: Engine,
-  held: HeldVenue,
-  bars: readonly ChartBar[],
-  ctx: ChartCalcContext | undefined,
-  program: CompiledProgram,
-  settings: ChartSettings,
-): Held {
-  for (let index = 0; index < bars.length; index += 1) {
-    const bar = bars[index];
-    if (bar === undefined) continue;
-
-    for (const frame of held.pending) engine.deliver(frame);
-    held.pending = [];
-
-    const result = engine.append(hostBar(bar), stateFor(index, bars, ctx), bars.length);
-    if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
-
-    answersFor(held, index);
-  }
-  return heldFrom(engine, held, bars, program, settings);
-}
-
-function heldFrom(
-  engine: Engine,
-  venue: HeldVenue | null,
-  bars: readonly ChartBar[],
-  program: CompiledProgram,
-  settings: ChartSettings,
-): Held {
-  return {
-    engine,
-    venue,
-    signature: signatureOf(program, settings),
-    count: bars.length,
-    firstTime: bars[0]?.time ?? 0,
-    lastTime: bars[bars.length - 1]?.time ?? 0,
-  };
 }
 
 export function fullRun(
