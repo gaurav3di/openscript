@@ -3297,13 +3297,20 @@ roundToTick(p)     = roundToStep(p, the instrument's tick size)
 
 **The scale is the binary64 nearest to the power of ten**, the value the
 literal `1e23` reads as, and not what a floating point power returns for it.
-The two are not one function: on this engine's host `pow(10, d)` returns a
-value an ulp from it for 1 of the 309 counts from 0 to 308, at 23, and over
-the 5000 bars of a price walk and those counts `round(x, d)` differs on 814 of
-the 1545000 pairs, every one of them at that count. A second engine builds the
-scale from its own decimal reader or from an exact integer power converted
-once, and never from a floating point power; the display conversion
-`text(x, decimals)` of section 10 scales by the same value.
+The two are not one function: over the 309 counts from 0 to 308 a host's
+`pow(10, d)` returns a value an ulp from the nearest binary64 for at least one
+of them, and over the 5000 bars of a price walk and those counts `round(x, d)`
+then differs on part of the 1545000 pairs it makes.
+
+**How many, and at which counts, belongs to the host and not to this
+language.** It is a property of one `pow` implementation, and the same engine
+has measured a different set of them on two runtimes of the same virtual
+machine: a figure printed here would be a reading from whichever machine
+happened to take it, quoted afterwards as though it described the language.
+That difference is the reason for the rule rather than something to build on.
+A second engine builds the scale from its own decimal reader or from an exact
+integer power converted once, and never from a floating point power; the
+display conversion `text(x, decimals)` of section 10 scales by the same value.
 
 **`math.toDegrees(x)`** is `(x * 180) / pi` and **`math.toRadians(x)`** is
 `(x * pi) / 180`: multiply first, divide second. The other association, folding

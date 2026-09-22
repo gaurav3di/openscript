@@ -9,6 +9,19 @@ nothing, fails the build before it can become permanent.
 
 ## 0.5.0
 
+**A figure in the specification was one machine's reading.** Section 20.7 said
+how many powers of ten a host's `pow` gets wrong and which one, and a test
+measured it again on every build, which is the rule this project has for a
+printed figure. Both numbers turned out to belong to the host rather than to the
+language: the same engine misses a single count on one runtime of its virtual
+machine and thirty six on another, and the two sets do not overlap. The claim
+that matters, that a floating point power is not the nearest binary64 and that
+the difference reaches `round`, is true on both and is what is now printed and
+measured. The witnesses the two rounding tests use are found on the host running
+them rather than written down, because a literal witness demonstrates the claim
+on the machine it was written on and nothing on the next one.
+
+
 **A chart can draw a strategy, not just a study.** `descriptorFor` takes
 `simulateOrders`, and with it a program that places orders runs in the chart
 tier against the venue a backtest uses: its plots draw, its legend row and its
