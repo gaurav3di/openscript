@@ -41,6 +41,9 @@ import type { ChartBar, ChartCalcContext, ChartSettings, ChartStore } from './co
 import { refused, stopped } from './errors.js';
 import { stationIn, stationOf } from './requests.js';
 import { engineSettings, signatureOf } from './settings.js';
+import { answersFor, needsVenue, routeInto, venueFor } from './venue.js';
+import type { HeldVenue } from './venue.js';
+import type { Simulator } from '../../core/backtest/index.js';
 
 /** What a host tells the adapter that neither the chart nor the program says. */
 export interface ChartAdapterOptions {
@@ -116,6 +119,26 @@ export interface ChartAdapterOptions {
    * (`stdlib.md` 17.1), never handed over by the chart.
    */
   readonly orders?: EffectRoute;
+  /**
+   * Run a strategy against a simulated destination where the host gives none.
+   *
+   * **Off by default, because the refusal it replaces is useful.** A strategy
+   * with nowhere to send an order is refused at load with OS6006 naming the
+   * capability, which is exactly what a host that meant to wire a destination
+   * and forgot needs to be told. A chart that quietly filled one in for them
+   * would draw a convincing strategy that routed nothing.
+   *
+   * **On, it is the venue a backtest uses.** A chart drawing a strategy then
+   * fills the same orders at the same prices as the report of the same script,
+   * so the marks on the price and the trades in the report are one answer
+   * rather than two. This is what a host turns on to draw a strategy the way it
+   * draws a study: the plots, the legend row and the settings all follow from
+   * the program running at all.
+   *
+   * It does not place an order anywhere. A host that wants that supplies
+   * `orders`, which wins over this.
+   */
+  readonly simulateOrders?: boolean;
   readonly limits?: Partial<EngineLimits>;
   readonly clock?: Clock;
   /**
@@ -136,6 +159,14 @@ interface Held {
   count: number;
   firstTime: number;
   lastTime: number;
+  /**
+   * The destination this run's orders go to, for a strategy.
+   *
+   * Held with the engine because the two are one run: the venue holds the
+   * orders that have not filled yet, and an engine continued onto a new bar
+   * against a fresh venue would have its working orders silently forgotten.
+   */
+  readonly venue: HeldVenue | null;
 }
 
 /** The store key. Namespaced, because the store belongs to the host as well. */
@@ -159,6 +190,74 @@ export interface RunOutput {
   readonly drawings: readonly Drawing[];
 }
 
+/** A study: every bar in one hand-over, which is what `run` is for. */
+function runWhole(
+  engine: Engine,
+  bars: readonly ChartBar[],
+  ctx: ChartCalcContext | undefined,
+  program: CompiledProgram,
+  settings: ChartSettings,
+): Held {
+  const result = engine.run(
+    bars.map(hostBar),
+    bars.map((_, index) => stateFor(index, bars, ctx)),
+  );
+  if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
+  return heldFrom(engine, null, bars, program, settings);
+}
+
+/**
+ * A strategy: one bar at a time, with the venue answering between them.
+ *
+ * The order is deliver, execute, then ask. A driver that asked the venue before
+ * executing would price a fill against a bar the strategy had not seen yet, and
+ * one that delivered after executing would let a script read a position its own
+ * order on this bar had just created.
+ *
+ * `supplied` is the whole count rather than the index reached, so `bar.isLast`
+ * means the same on this path as on the one above it: a strategy written to act
+ * on the final bar acts on the final bar, not on every bar in turn.
+ */
+function walkWith(
+  engine: Engine,
+  held: HeldVenue,
+  bars: readonly ChartBar[],
+  ctx: ChartCalcContext | undefined,
+  program: CompiledProgram,
+  settings: ChartSettings,
+): Held {
+  for (let index = 0; index < bars.length; index += 1) {
+    const bar = bars[index];
+    if (bar === undefined) continue;
+
+    for (const frame of held.pending) engine.deliver(frame);
+    held.pending = [];
+
+    const result = engine.append(hostBar(bar), stateFor(index, bars, ctx), bars.length);
+    if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
+
+    answersFor(held, index);
+  }
+  return heldFrom(engine, held, bars, program, settings);
+}
+
+function heldFrom(
+  engine: Engine,
+  venue: HeldVenue | null,
+  bars: readonly ChartBar[],
+  program: CompiledProgram,
+  settings: ChartSettings,
+): Held {
+  return {
+    engine,
+    venue,
+    signature: signatureOf(program, settings),
+    count: bars.length,
+    firstTime: bars[0]?.time ?? 0,
+    lastTime: bars[bars.length - 1]?.time ?? 0,
+  };
+}
+
 export function fullRun(
   program: CompiledProgram,
   bars: readonly ChartBar[],
@@ -168,20 +267,20 @@ export function fullRun(
   options: ChartAdapterOptions,
 ): RunOutput {
   const station = stationIn(store);
-  const engine = start(program, settings, ctx, options, station.provider(bars));
-  const result = engine.run(
-    bars.map(hostBar),
-    bars.map((_, index) => stateFor(index, bars, ctx)),
-  );
-  if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
+  const started = start(program, settings, ctx, options, station.provider(bars), bars);
+  const engine = started.engine;
 
-  const held: Held = {
-    engine,
-    signature: signatureOf(program, settings),
-    count: bars.length,
-    firstTime: bars[0]?.time ?? 0,
-    lastTime: bars[bars.length - 1]?.time ?? 0,
-  };
+  // **A strategy is walked bar by bar and a study is handed the lot.** The
+  // difference is the venue: its frames reach the engine between bars, which is
+  // the only place they can, so a strategy's position is right on the bar after
+  // the one it traded on. `run()` has no gap to put them in.
+  //
+  // It is also the loop the backtest uses, which is the point: a chart drawing a
+  // strategy and a report of the same strategy walk the same bars in the same
+  // order against the same venue, so they cannot disagree about what filled.
+  const held: Held = started.venue === null
+    ? runWhole(engine, bars, ctx, program, settings)
+    : walkWith(engine, started.venue, bars, ctx, program, settings);
   store[HELD] = held;
   station.settle();
   return outputOf(program, engine);
@@ -218,11 +317,29 @@ export function tailRun(
     const bar = bars[index];
     if (bar === undefined) return null;
     const state = stateFor(index, bars, ctx);
+
+    // The venue's answers about the bar before this one, delivered before this
+    // one runs, exactly as the full walk does. A tail that skipped this would
+    // draw the first bars of a strategy correctly and then quietly stop folding
+    // its fills the moment the chart went live, which is the half of the run
+    // nobody re-checks.
+    //
+    // Only when the bar is new. Re-executing the bar that moved must not
+    // deliver again: a frame is cumulative and folding one twice is harmless,
+    // but the bar's own orders have been rolled back and answering them a
+    // second time would fill an order the engine no longer knows it sent.
+    if (held.venue !== null && index !== from) {
+      for (const frame of held.venue.pending) held.engine.deliver(frame);
+      held.venue.pending = [];
+    }
+
     const result =
       index === from
         ? held.engine.update(hostBar(bar), state)
         : held.engine.append(hostBar(bar), state);
     if (result.diagnostic !== undefined) throw stopped(result.diagnostic);
+
+    if (held.venue !== null) answersFor(held.venue, index);
   }
 
   held.count = bars.length;
@@ -257,23 +374,65 @@ function outputOf(program: CompiledProgram, engine: Engine): RunOutput {
   return { columns, tables: engine.tables(), drawings: engine.drawings() };
 }
 
+/** A loaded engine, and the destination its orders go to where it has one. */
+interface Started {
+  readonly engine: Engine;
+  readonly venue: HeldVenue | null;
+}
+
+/**
+ * Load the program, and give a strategy somewhere for its orders to go.
+ *
+ * **The venue is built after the load and reached through a holder, because
+ * neither can come first.** The route has to be handed to `load`, since that is
+ * what declares the `orders` capability and a program needing one is otherwise
+ * refused. The venue has to be built after it, because the declaration it reads
+ * may state its fill rule through an `input()`, and inputs are not resolved
+ * until `load` has run. The route is only ever called from inside an execution,
+ * which is after both, so the holder is always filled by the time anything
+ * reaches it.
+ *
+ * **A host that supplied its own route keeps it.** Somewhere real to send an
+ * order is a better destination than a simulated one, and a host that wired one
+ * up meant it.
+ *
+ * **And simulation is asked for rather than assumed.** Without
+ * `simulateOrders` a strategy with nowhere to send an order is still refused at
+ * load, which is the answer a host that meant to wire a destination and forgot
+ * needs to see. Filling in a venue for them would turn that mistake into a
+ * chart that draws convincingly and routes nothing, discovered whenever
+ * somebody next looked for the orders.
+ */
 function start(
   program: CompiledProgram,
   settings: ChartSettings,
   ctx: ChartCalcContext | undefined,
   options: ChartAdapterOptions,
   requests: RequestProvider,
-): Engine {
+  bars: readonly ChartBar[],
+): Started {
+  const holder: { current: Simulator | null } = { current: null };
+  const simulate = options.simulateOrders === true && options.orders === undefined && needsVenue(program);
+  const withRoute: ChartAdapterOptions = simulate
+    ? { ...options, orders: routeInto(holder) }
+    : options;
+
   const loaded = load(program, {
     settings: engineSettings(program, settings),
-    host: hostFor(ctx, options, requests),
+    host: hostFor(ctx, withRoute, requests),
     time: timeFor(options, ctx?.timezone ?? ''),
     ...(options.limits === undefined ? {} : { limits: options.limits }),
     ...(options.source === undefined ? {} : { source: options.source }),
     ...(options.clock === undefined ? {} : { clock: options.clock }),
   });
   if (!loaded.ok) throw refused(loaded.diagnostic);
-  return loaded.engine;
+
+  if (!simulate) return { engine: loaded.engine, venue: null };
+
+  const venue = venueFor(program, bars, loaded.inputs, instrumentFor(ctx, options));
+  if (venue === null) return { engine: loaded.engine, venue: null };
+  holder.current = venue;
+  return { engine: loaded.engine, venue: { venue, pending: [] } };
 }
 
 /**
@@ -286,12 +445,19 @@ function start(
  * the chart's own sentence in `req.error`, instead of being refused at load
  * with OS6006 naming a capability the chart does have.
  */
-function hostFor(
+/**
+ * The instrument record, from what the host stated and what the chart knows.
+ *
+ * Its own function because two callers need it and they must not each build
+ * one: the engine is loaded with this record, and the venue prices fills
+ * against the tick size in it. Two spellings of the same record is how a fill
+ * gets rounded to a tick the strategy was never told about.
+ */
+function instrumentFor(
   ctx: ChartCalcContext | undefined,
   options: ChartAdapterOptions,
-  requests: RequestProvider,
-): EngineHost {
-  const instrument: Instrument = {
+): Instrument {
+  return {
     ...(options.instrument ?? {}),
     ...(ctx?.symbol === undefined ? {} : { symbol: ctx.symbol }),
     ...(ctx?.interval === undefined ? {} : { interval: ctx.interval }),
@@ -302,6 +468,14 @@ function hostFor(
     // the chart it was drawn on.
     ...(ctx === undefined || ctx.timezone === '' ? {} : { timezone: ctx.timezone }),
   };
+}
+
+function hostFor(
+  ctx: ChartCalcContext | undefined,
+  options: ChartAdapterOptions,
+  requests: RequestProvider,
+): EngineHost {
+  const instrument = instrumentFor(ctx, options);
   return {
     instrument,
     requestBars: requests,

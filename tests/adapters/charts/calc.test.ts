@@ -17,7 +17,8 @@ import test from 'node:test';
 
 import type { ChartValues } from '../../../src/adapters/charts/index.js';
 import { release } from '../../../src/adapters/charts/index.js';
-import { BASE_TIME, bars, context, descriptorOf, descriptorOfSource, refusalOf } from './support.js';
+import { BASE_TIME, bars, compile, context, descriptorOf, descriptorOfSource, refusalOf } from './support.js';
+import { backtest, settingsFor } from '../../../src/core/backtest/index.js';
 
 /** The tail the incremental path served, or a failure saying it refused one. */
 function served(values: ChartValues | null | undefined): ChartValues {
@@ -171,6 +172,113 @@ test('a strategy with nowhere to send an order is refused, and runs when given o
   const routed = descriptorOf('10-strategy-ema-cross.oscript', { orders: () => {} });
   const values = routed.calc(data, {}, {}, context(60));
   assert.equal(values['p0']?.length, data.length);
+});
+
+test('a simulated destination folds the position, so a reversal actually reverses', () => {
+  // THE DEFECT THIS EXISTS FOR. A strategy handed a destination that answers
+  // nothing runs, draws and is wrong about itself: no frame ever reaches the
+  // ledger, so it never learns it holds anything, every close closes nothing and
+  // every entry is allowed again on the next signal. Measured on a stop and
+  // reverse script before this, five buys and no sells.
+  //
+  // The position is read back through the script rather than asserted on the
+  // engine, because what a chart draws is what a reader sees.
+  const source = [
+    'version 1',
+    'strategy("Reversing", overlay = true, qty = 1)',
+    'up = close > close[1] and close[1] <= close[2]',
+    'dn = close < close[1] and close[1] >= close[2]',
+    'if up',
+    '    buy(qty = 1 + abs(pos.size), tag = "L")',
+    'if dn',
+    '    sell(qty = 1 + abs(pos.size), tag = "S")',
+    'plot(pos.size, "Position")',
+    '',
+  ].join('\n');
+
+  const data = bars(80);
+  const drawn = descriptorOfSource(source, { simulateOrders: true })
+    .calc(data, {}, {}, context(80));
+  const position = (drawn['p0'] ?? []).filter((one) => typeof one === 'number');
+
+  // Both sides are held at some point, which is only true if the fills folded.
+  assert.ok(
+    position.some((one) => (one as number) > 0),
+    'the strategy was never long, so no fill reached the ledger',
+  );
+  assert.ok(
+    position.some((one) => (one as number) < 0),
+    'the strategy was never short, so a reversal only ever flattened',
+  );
+});
+
+test('a simulated chart run and a backtest of the same script agree', () => {
+  // The reason the chart borrows the backtest's own venue rather than a simpler
+  // one written for it. Two venues is two answers to what a bar would have
+  // filled at, and a trader reading marks on the price and trades in a report
+  // would be reading two different runs of one strategy.
+  const source = [
+    'version 1',
+    'strategy("Agreeing", overlay = true, qty = 1)',
+    'up = close > close[1] and close[1] <= close[2]',
+    'dn = close < close[1] and close[1] >= close[2]',
+    'if up',
+    '    buy(qty = 1 + abs(pos.size), tag = "L")',
+    'if dn',
+    '    sell(qty = 1 + abs(pos.size), tag = "S")',
+    'plot(pos.size, "Position")',
+    '',
+  ].join('\n');
+
+  const data = bars(80);
+  const onChart = descriptorOfSource(source, { simulateOrders: true })
+    .calc(data, {}, {}, context(80));
+  const position = (onChart['p0'] ?? []).filter((one) => typeof one === 'number') as number[];
+
+  const ran = backtest(
+    compile('agreeing.oscript', source),
+    data.map((bar) => ({
+      time: bar.time, open: bar.open, high: bar.high, low: bar.low,
+      close: bar.close, volume: bar.volume ?? null, oi: bar.oi ?? null,
+    })),
+    // The contract the chart's venue builds for itself, with one difference
+    // that cannot be helped: a backtest is refused without a currency, because
+    // it charges and a charge with no unit on it is a number. A chart never
+    // charges, so its venue states none. Neither reaches a fill, which is what
+    // this test compares.
+    settingsFor({
+      symbol: null, exchange: null, currency: 'XXX',
+      tickSize: null, lotSize: null, pointValue: 1, digits: 2,
+    }),
+    {},
+  );
+  assert.ok(ran.ok, 'the backtest of the same script was refused');
+  if (!ran.ok) return;
+
+  // The chart's last position and the report's open size are the same fact.
+  const last = position[position.length - 1] ?? 0;
+  const open = ran.record.report.trades
+    .filter((one) => one.isOpen)
+    .reduce((sum, one) => sum + (one.side === 'short' ? -one.units : one.units), 0);
+  assert.equal(last, open);
+});
+
+test('a strategy is still refused where the host asked for no simulation', () => {
+  // The refusal above this is the one a host that meant to wire a destination
+  // and forgot has to see. Simulation is asked for; filling one in would turn
+  // that mistake into a chart that draws convincingly and routes nothing.
+  const source = [
+    'version 1',
+    'strategy("Unrouted", overlay = true, qty = 1)',
+    'buy(tag = "L")',
+    'plot(close, "Close")',
+    '',
+  ].join('\n');
+
+  const refusal = refusalOf(() =>
+    descriptorOfSource(source).calc(bars(20), {}, {}, context(20)),
+  );
+  assert.equal(refusal.code, 'OS6006');
 });
 
 test('a script that stops on a bar reports its own diagnostic, at its own line', () => {

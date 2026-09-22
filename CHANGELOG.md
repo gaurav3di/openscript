@@ -9,6 +9,28 @@ nothing, fails the build before it can become permanent.
 
 ## Unreleased
 
+**A chart can draw a strategy, not just a study.** `descriptorFor` takes
+`simulateOrders`, and with it a program that places orders runs in the chart
+tier against the venue a backtest uses: its plots draw, its legend row and its
+settings dialog follow, and its position is right because the venue's frames
+reach the engine between bars. Until now a host had two choices, refuse the
+strategy or hand it a destination that answered nothing, and the second draws a
+strategy that never learns it holds anything: every close closes nothing, every
+entry is allowed again on the next signal, and a stop and reverse script
+measured five buys and no sells while looking entirely normal.
+
+It is the backtest's own `Simulator` rather than a second one written for
+charts, so the marks a trader sees on the price and the trades in the report of
+the same script are one answer. A test holds the two together: the position the
+chart ends on and the open size the report states are compared directly.
+
+**Off unless asked for.** Without `simulateOrders` a strategy with nowhere to
+send an order is still refused at load with OS6006, which is what a host that
+meant to wire a destination and forgot needs to be told. Supplying `orders`
+still wins over it: somewhere real to send an order is a better destination than
+a simulated one. Nothing is placed anywhere by this.
+
+
 **The Python engine is on the index.** `pip install openscript` gets the engine
 that runs a compiled program, Apache-2.0, zero dependencies, Python 3.12 or
 newer. Until now the only way to have it was to clone this repository and point
