@@ -9,6 +9,21 @@ nothing, fails the build before it can become permanent.
 
 ## 0.5.0
 
+**`pow` has no library vector, and the reason is the same one.** A vector is a
+bit pattern a second engine is written to match, and `pow` returns different
+bits on two runtimes of the same virtual machine: publishing one hands that
+second engine a test it cannot pass and this engine cannot keep. The vectors
+were added after the last release, so this is the first build to check them
+anywhere but where they were made.
+
+`compiled-program.md` 8.3 already requires that the transcendental functions not
+use the platform's maths library, and the source records that they do until the
+portable algorithm it names exists. Everything in that group is provisional in
+the last bit; only `pow` has been measured to differ, so only `pow` is held out,
+and the index says why. The rest keep their vectors and the exposure is written
+down where the next one goes when it is measured.
+
+
 **A figure in the specification was one machine's reading.** Section 20.7 said
 how many powers of ten a host's `pow` gets wrong and which one, and a test
 measured it again on every build, which is the rule this project has for a

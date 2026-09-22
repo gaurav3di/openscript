@@ -636,14 +636,6 @@
       "gaps": []
     },
     {
-      "name": "pow",
-      "arity": 2,
-      "state": false,
-      "file": "pow-2.json",
-      "cases": 4,
-      "gaps": [1]
-    },
-    {
       "name": "ppo",
       "arity": 4,
       "state": true,
@@ -956,6 +948,10 @@
     {
       "why": "the calendar is exact integer arithmetic over a zone table, which stdlib.md 20.10 says has no order to fix",
       "functions": ["date.year/2", "date.month/2", "date.day/2", "date.dayOfWeek/2", "date.dayOfYear/2", "date.hour/2", "date.minute/2", "date.second/2", "date.weekOfYear/2", "date.startOfDay/2", "date.startOfWeek/2", "date.startOfMonth/2", "date.from/7", "date.isSameDay/3", "date.format/3", "session.isIn/2"]
+    },
+    {
+      "why": "the last bit comes from the host maths library rather than from this engine: compiled-program.md 8.3 requires a portable algorithm, src/core/stdlib/maths/elementary.ts records that there is none yet, and this one was measured returning different bits on two runtimes of the same virtual machine",
+      "functions": ["pow/2"]
     }
   ]
 }

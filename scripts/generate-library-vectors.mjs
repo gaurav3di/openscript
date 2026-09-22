@@ -55,6 +55,8 @@
  * built trees.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+
+import { withoutHostArithmetic } from './lib/host-arithmetic.mjs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GAPS_MODULE, fromRoot } from './lib/built.mjs';
@@ -442,7 +444,7 @@ export async function generateLibraryVectors() {
     gapRows,
   };
 
-  const reached = [];
+  let reached = [];
   const notReached = [];
   const named = new Set();
   for (const group of GROUPS) {
@@ -452,6 +454,7 @@ export async function generateLibraryVectors() {
     if (group.why === undefined) reached.push(...entries);
     else notReached.push({ why: group.why, functions: entries.map((one) => `${one.name}/${one.arity}`) });
   }
+  reached = withoutHostArithmetic(reached, notReached, refuse);
   const unlisted = library.manifestEntries().filter((one) => !named.has(`${one.name}/${one.arity}`));
   if (unlisted.length > 0) {
     refuse(
