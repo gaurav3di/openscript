@@ -151,6 +151,15 @@ columns for exactly this reason). An absent price propagates: what it feeds turn
 absent, a plot gaps rather than dropping to zero, and a comparison against it is
 absent rather than false.
 
+**The fields are the interface and the representation is the host's.** A history
+may be handed over as one record per bar or as one array per field, and an
+engine reads the same bars from either. The two are not equal over a long range:
+a decade of one minute bars held as records costs more than twice the memory of
+the same bars as columns of doubles, and a run over them allocates in proportion.
+A column that cannot hold an absent value writes it as a floating point
+not-a-number, which is absence here and nowhere a number. A bar that arrives
+live, one at a time, is a record.
+
 ### 3.2 The order they arrive in, and what the engine will not do to them
 
 - Oldest first. Position 0 is the oldest bar the host has supplied, and that

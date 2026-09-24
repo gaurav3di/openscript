@@ -1,6 +1,6 @@
 # 0005 Bars arrive as one object per bar, and a long range cannot afford it
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Against: `src/core/engine/`, the `HostBar` record and `Engine.run`, `Engine.append`
 and `Engine.update`
@@ -95,3 +95,44 @@ both, or the browser measurement above comes back saying the record form is not
 what stops a long run, and this issue closes with that reading written down.
 
 It does not close by the decision being made quietly in either direction.
+
+## How it closed
+
+The engine changed: a columnar entry point landed beside the record one, and the
+page describes both.
+
+`src/core/engine/bar-source.ts` is the door. `engine.run` takes either an array
+of records or `{ time, open, high, low, close, volume?, oi? }`, each any
+array-like of numbers, typed arrays included, and the bar cycle and the fold both
+read through one small interface, `BarSource`, so nothing past the door knows
+which form arrived. In a column `NaN` is absence as well as `null`, because a
+typed array cannot hold `null`, and a `NaN` time is a bar with no time, refused
+with OS6025 like a record with none. The number of bars is the length of `time`,
+and a shorter column reads as absent past its end. A request's answer may arrive
+as columns too. `append` and `update` keep the record form, for the reason this
+file gave: a live bar arrives one at a time.
+
+## The measurement this file asked for
+
+Taken on this engine under the runtime the build uses, 900,000 one minute bars,
+six fields each:
+
+| | Records | Columns of doubles |
+|---|---|---|
+| Held at rest, heap and buffers after a collection | 104 MB | 43 MB |
+| Peak during a run of `plot(sma(close, 20))` over all of them | 877 MB | 346 MB |
+| Time for that run | 9.7 s | 5.0 s |
+
+The resting figure is close to the table above: about two and a half times, not
+three. The run is the half this file could not measure and it is the larger:
+most of the peak in either form is the run's own per-bar results, and the
+difference between the two is the collector walking nine hundred thousand
+objects it can never free while the run holds them. So the record form was not
+the smaller half of the problem, and the second question this file left open is
+answered: the engine's own per-bar allocation is large, and it is the same in
+both forms. That is not closed by this change and is not claimed to be.
+
+Tests: `tests/engine/columns.test.ts` holds a study over records, plain columns
+and typed columns giving the same columns bar for bar, `NaN` read as absence, a
+short column, a `NaN` time refused, a live bar after a columnar run, and a
+request answered in columns folding as its records do.

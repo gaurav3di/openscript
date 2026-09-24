@@ -50,6 +50,8 @@ import type { RequestPlan } from './request-plan.js';
 import { NO_SESSION, sessionReader } from './session/index.js';
 import type { SessionReader } from './session/index.js';
 import { handOver, noBars } from './series.js';
+import { KnownBars, sourceOf } from './bar-source.js';
+import type { BarColumns } from './bar-source.js';
 import { barMinutesOf } from './timeframe.js';
 import { RequestSet } from './requests.js';
 import type { Value } from './values/index.js';
@@ -96,7 +98,7 @@ export class Engine {
    * chart bar is inside, and on a live feed there is nothing there yet. That is
    * the mode repainting on history, permanently and by design.
    */
-  private known: HostBar[] = [];
+  private readonly known = new KnownBars();
 
   private supplied = 0;
   private index = -1;
@@ -230,7 +232,7 @@ export class Engine {
     // that has already failed keeps the failure it has, which is the one that
     // explains what went wrong first.
     if (this.failure === undefined) {
-      const problem = handOver(bar, this.known[this.index], this.index + 1);
+      const problem = handOver(bar, this.known.at(this.index), this.index + 1);
       if (problem !== undefined) return this.refuse(problem);
     }
     if (this.started) this.checkpoint();
@@ -239,7 +241,7 @@ export class Engine {
     this.updates = 1;
     this.started = true;
     this.previousClose = this.lastClose;
-    if (this.known.length <= this.index) this.known[this.index] = bar;
+    if (this.known.length <= this.index) this.known.set(this.index, bar);
     return this.execute(bar, state, true);
   }
 
@@ -257,14 +259,14 @@ export class Engine {
     // update whose time has moved back onto the bar before it is a series the
     // engine cannot run on, whatever it is called.
     if (this.failure === undefined) {
-      const problem = handOver(bar, this.known[this.index - 1], this.index);
+      const problem = handOver(bar, this.known.at(this.index - 1), this.index);
       if (problem !== undefined) return this.refuse(problem);
     }
     this.rollback();
     this.updates += 1;
     // A revision replaces the bar the fold already read, so the bucket it is
     // inside is rebuilt from this reading rather than from the one it replaced.
-    this.known[this.index] = bar;
+    this.known.set(this.index, bar);
     return this.execute(bar, state, false);
   }
 
@@ -282,21 +284,20 @@ export class Engine {
    * pane with nothing drawn on it is what a study that computed nothing also
    * produces and only the engine can tell the two apart.
    */
-  run(bars: readonly HostBar[], states: readonly BarState[] = []): RunResult {
+  run(bars: readonly HostBar[] | BarColumns, states: readonly BarState[] = []): RunResult {
+    const source = sourceOf(bars);
     const out: BarResult[] = [];
-    // A dataset with nothing in it is the one hand-over that has no bar to
-    // report against, so it is answered here rather than by the loop below,
-    // which would run no iterations and return a clean, empty, wordless result.
-    if (bars.length === 0 && !this.started) {
+    // No bars at all is answered here: the loop below would return an empty, wordless result.
+    if (source.length === 0 && !this.started) {
       const diagnostic = this.failure ?? noBars(this.options.host?.instrument);
       this.failure = diagnostic;
       return { bars: [], diagnostic };
     }
-    this.known = [...bars];
-    for (let i = 0; i < bars.length; i += 1) {
-      const bar = bars[i];
+    this.known.reset(source);
+    for (let i = 0; i < source.length; i += 1) {
+      const bar = source.at(i);
       if (bar === undefined) continue;
-      const result = this.append(bar, states[i] ?? {}, bars.length);
+      const result = this.append(bar, states[i] ?? {}, source.length);
       out.push(result);
       if (result.diagnostic !== undefined) return { bars: out, diagnostic: result.diagnostic };
     }
@@ -339,7 +340,7 @@ export class Engine {
     // session or is inside the one that bar was already in. Read from the bars
     // themselves rather than carried, so a re-executed bar compares against the
     // same neighbour it compared against the first time.
-    const previous = this.known[index - 1]?.time ?? null;
+    const previous = this.known.at(index - 1)?.time ?? null;
     this.facts = factsFor(
       index,
       this.supplied,

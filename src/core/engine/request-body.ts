@@ -28,6 +28,8 @@
 import type { Span } from '../span/index.js';
 import { barField, factsFor } from './bars.js';
 import type { HostBar } from './bars.js';
+import { recordSource } from './bar-source.js';
+import type { BarSource } from './bar-source.js';
 import { Budget, stepBound } from './budget.js';
 import type { Clock, EngineLimits } from './budget.js';
 import { Channels } from './channels.js';
@@ -59,12 +61,7 @@ export interface BodyInput {
  */
 export interface NestedRequests {
   readonly empty: boolean;
-  fill(
-    registers: Registers,
-    bars: readonly HostBar[],
-    index: number,
-    fresh: boolean,
-  ): void;
+  fill(registers: Registers, bars: BarSource, index: number, fresh: boolean): void;
 }
 
 export interface BodyParts {
@@ -120,6 +117,7 @@ export class RequestBody {
   private lastClose: number | null = null;
   /** The requested bars themselves, kept only when a read inside folds them. */
   private readonly history: HostBar[] = [];
+  private readonly historySource = recordSource(this.history);
   /**
    * The value the last closed requested bar handed back.
    *
@@ -251,7 +249,7 @@ export class RequestBody {
     const nested = this.parts.nested;
     if (nested !== undefined && !nested.empty) {
       this.history[index] = bar;
-      nested.fill(this.registers, this.history, index, this.touches === 0);
+      nested.fill(this.registers, this.historySource, index, this.touches === 0);
     }
 
     this.machine.run();

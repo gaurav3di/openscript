@@ -32,6 +32,7 @@ export type { AlertFiring } from './alerts.js';
 export type { Grid } from './grids.js';
 
 export type { BarFacts, BarState, HostBar } from './bars.js';
+export type { BarColumn, BarColumns } from './bar-source.js';
 export { BAR_FIELDS, barField, isBarField } from './bars.js';
 
 export type { Clock, EngineLimits } from './budget.js';

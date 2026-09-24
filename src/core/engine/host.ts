@@ -25,6 +25,7 @@
  * stop rather than what a script computes.
  */
 import type { HostBar } from './bars.js';
+import type { BarColumns } from './bar-source.js';
 import type { PendingEffect } from './channels.js';
 import type { OrderIntent } from './ledger/index.js';
 import type { HostFacts } from './library/index.js';
@@ -154,10 +155,11 @@ export interface RequestRefusal {
  * answer between bars and then recalculates the study over its whole history,
  * which is a fresh load rather than an answer spliced into a run already past
  * the bars it would have changed. A host that wants the engine to fold the
- * chart's own bars instead returns nothing at all.
+ * chart's own bars instead returns nothing at all. The bars may be records or
+ * columns, as a run's may (`bar-source.ts`).
  */
 export type RequestAnswer =
-  | { readonly bars: readonly HostBar[] }
+  | { readonly bars: readonly HostBar[] | BarColumns }
   | { readonly pending: true }
   | { readonly refused: RequestRefusal };
 

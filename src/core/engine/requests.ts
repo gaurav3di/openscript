@@ -48,6 +48,8 @@
  */
 import type { Span } from '../span/index.js';
 import type { HostBar } from './bars.js';
+import { sourceOf } from './bar-source.js';
+import type { BarSource } from './bar-source.js';
 import type { Clock, EngineLimits } from './budget.js';
 import type { EngineHost } from './host.js';
 import type { ResolvedInput } from './inputs.js';
@@ -97,7 +99,7 @@ interface Read {
   readonly register: number;
   readonly body: RequestBody;
   /** The host's bars for a `symbol` read, or nothing when the fold is the chart's. */
-  readonly source: readonly HostBar[] | undefined;
+  readonly source: BarSource | undefined;
   readonly ready: boolean;
   readonly reason: string;
   /** How far into the source the fold has read. */
@@ -146,7 +148,7 @@ export class RequestSet {
    * have been revised since the last execution, and the bucket it is inside has
    * to be rebuilt from the revision rather than from the reading it replaced.
    */
-  fill(registers: Registers, bars: readonly HostBar[], index: number, fresh: boolean): void {
+  fill(registers: Registers, bars: BarSource, index: number, fresh: boolean): void {
     const heap = this.parts.heapOf();
     for (const read of this.reads) {
       if (fresh) {
@@ -227,7 +229,7 @@ function build(parts: RequestParts, request: Request, plan: RequestPlan): Read {
     plan,
     register: request.series,
     body,
-    source: answer !== undefined && 'bars' in answer ? answer.bars : undefined,
+    source: answer !== undefined && 'bars' in answer ? sourceOf(answer.bars) : undefined,
     // A fold of the chart's own bars needs nothing from the host, so it is
     // answered the moment it is planned. A read the host is still fetching is
     // not: the read is absent, `req.isReady` is false, and the study keeps
@@ -247,9 +249,9 @@ function build(parts: RequestParts, request: Request, plan: RequestPlan): Read {
 }
 
 /** The read's value for the chart bar at `index`, and the fold that gets there. */
-function valueOf(read: Read, bars: readonly HostBar[], index: number): Value {
+function valueOf(read: Read, bars: BarSource, index: number): Value {
   if (!read.ready) return ABSENT;
-  const bar = bars[index];
+  const bar = bars.at(index);
   const at = bar?.time ?? null;
   if (at === null) return ABSENT;
   const key = keyOf(read, at);
@@ -258,7 +260,7 @@ function valueOf(read: Read, bars: readonly HostBar[], index: number): Value {
   const source = read.source ?? bars;
   const lookahead = read.plan.request.mode === 'lookahead';
   for (;;) {
-    const next = source[read.cursor];
+    const next = source.at(read.cursor);
     if (next === undefined) break;
     const found = next.time === null ? undefined : keyOf(read, next.time);
     if (found === undefined) {
@@ -310,7 +312,7 @@ function feed(read: Read, bar: HostBar, key: number): void {
 }
 
 /** A re-executed bar: the fold as it stood when the bar began. */
-function restore(read: Read, bars: readonly HostBar[]): void {
+function restore(read: Read, bars: BarSource): void {
   read.cursor = read.mark.cursor;
   read.openKey = read.mark.openKey;
   read.openFrom = read.mark.openFrom;
@@ -318,7 +320,7 @@ function restore(read: Read, bars: readonly HostBar[]): void {
   if (read.openKey === undefined) return;
   const source = read.source ?? bars;
   for (let at = read.openFrom; at < read.cursor; at += 1) {
-    const bar = source[at];
+    const bar = source.at(at);
     if (bar === undefined || bar.time === null) continue;
     if (keyOf(read, bar.time) !== read.openKey) continue;
     read.open = read.open === undefined ? start(bar) : extend(read.open, bar);
@@ -380,3 +382,4 @@ function lower(a: number | null, b: number | null | undefined): number | null {
 function both(a: number | null, b: number | null): number | null {
   return a === null || b === null ? null : a + b;
 }
+
