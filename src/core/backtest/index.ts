@@ -36,6 +36,7 @@
  */
 export { backtest, backtestSupplied } from './drive.js';
 export type { BacktestResult, DriveOptions, InstrumentFacts } from './drive.js';
+export type { LogLine } from './walk.js';
 export { declarationOf } from './declaration.js';
 export type { RunDeclaration } from './declaration.js';
 export { marksFor, windowFor } from './range.js';

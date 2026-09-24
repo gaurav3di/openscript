@@ -995,7 +995,7 @@ from a `study()` file is OS7001.
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
 | `print(value)` | Write a value to the script's log for the bar being executed, from anywhere in the file | `implemented` | `stdlib.md` 14.3, `language.md` 15.3 | `log/print` |
-| Bar context | Every entry carries the bar's time, so a log line can be matched to a bar | `specified` | `stdlib.md` 14.3 | `log/bar-context` |
+| Bar context | Every entry carries the bar's time, so a log line can be matched to a bar | `implemented` | `stdlib.md` 14.3 | `log/bar-context` |
 | Rate limited by the host | The host rate limits rather than the language, and a host that drops lines says how many rather than truncating silently | `specified` | `stdlib.md` 14.3 | `log/rate-limit` |
 | Logging changes no value | `print` draws nothing and lands in no contract field, so a case's numeric output is identical with logging on or off | `implemented` | `stdlib.md` 14.3, `stdlib.md` 18 | `log/no-side-effect` |
 | Log as an assertable output | A conformance case may assert the log stream, which is how logging itself is proved | `specified` | `conformance.md` 7 | `log/assertable` |

@@ -83,7 +83,7 @@ import { join } from 'node:path';
 import { suiteDefaultFacts } from './case-directory.mjs';
 import { readCaseDirectory } from './case-reading.mjs';
 import { compareChannels, toleranceFrom } from './compare.mjs';
-import { readExpectedCsv, valuesAnswer, valuesExpected } from './case-values.mjs';
+import { readExpectedCsv, reported, valuesAnswer, valuesExpected } from './case-values.mjs';
 import { CONTRACT, isStrategy, missingCapability } from './strategy-drive.mjs';
 
 /** The name section 2 fixes for the source inside a case. */
@@ -101,6 +101,9 @@ const BACKTEST_FIELDS = ['digits', 'costs', 'range'];
 
 /** Section 4's one columnar channel, written in `expected.csv` rather than `expected.json`. */
 const VALUES = 'values';
+
+/** The lines `print` wrote, which a record does not hold either. */
+const LOG = 'log';
 
 /** The category whose diagnostics this engine's record does not carry. */
 const WARNING = 'warning';
@@ -187,7 +190,8 @@ export function caseAnswer(directory, engine) {
   // Section 4 puts the values channel in expected.csv, one row per bar, so a
   // case asserting it is run with the rows kept and has that file read.
   const wantsValues = declared.asserts.includes(VALUES);
-  const driving = { sourceText: read.script, instrument: facts, rows: wantsValues };
+  const wantsLog = declared.asserts.includes(LOG);
+  const driving = { sourceText: read.script, instrument: facts, rows: wantsValues, log: wantsLog };
   // Section 3: the file supplies the frames, and a case that holds none is
   // handed none. The second driver delivers what it is given and answers
   // nothing of its own, which is the whole difference between the two.
@@ -221,8 +225,11 @@ export function caseAnswer(directory, engine) {
     if (wanted.ok) expected = { ...(expected !== null && typeof expected === 'object' ? expected : {}), [VALUES]: wanted.values };
     else if (!wanted.ok && projected.unsupported.length === 0) return { id, error: wanted.reason };
   }
+  if (wantsLog) {
+    channels[LOG] = (run.log ?? []).map((line) => ({ barIndex: line.barIndex, time: line.time, value: reported(line.value) }));
+  }
   for (const channel of declared.asserts) {
-    if (channel === VALUES) continue;
+    if (channel === VALUES || channel === LOG) continue;
     if (channel in produced) channels[channel] = produced[channel];
     else unsupported.push(`the ${channel} channel: this engine's projection writes ${Object.keys(produced).join(', ')}`);
   }

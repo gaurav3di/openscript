@@ -403,6 +403,14 @@ ordered list, and each element is a flat object of named fields.
 An element of the `orders` channel is a ledger row of `stdlib.md` section 17.7,
 compared on the fields the case names and no others.
 
+**An element of the `log` channel is one line `print` wrote**, in the order the
+run wrote them: `barIndex`, the bar it was written on; `time`, that bar's open
+instant as `bars.csv` states it; and `value`, what the script passed, spelled as
+a cell of the `values` channel is, with absence as `null` because a script that
+printed an absent value wrote an absent line. A line is written at step 9 of a
+bar the engine decided (`stdlib.md` section 14.3), so a case of confirmed bars
+holds every line the script wrote, and a bar that failed writes none.
+
 **`performance` is a list of one flat object**, holding the run's summary
 statistics and nothing nested. The channel is a list for the same reason every
 other one here is, so a reader and a runner need one shape rather than two. The

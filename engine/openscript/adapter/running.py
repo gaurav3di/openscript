@@ -76,7 +76,7 @@ _UNSUPPORTED_CODES = {
 #: assert is named ``unsupported`` on the case rather than answered emptily,
 #: because an empty channel compares equal to an empty expectation and would be a
 #: pass nobody earned.
-ANSWERED = ("diagnostics", "values", "orders", "trades", "performance")
+ANSWERED = ("diagnostics", "values", "orders", "trades", "performance", "log")
 
 #: ``compiled-program.md`` 2.2's tag for a program that places orders, and the
 #: word the meta uses for a program that is one. This engine serves the tag
@@ -337,6 +337,10 @@ def run_case(case: Case, program_text: str) -> Answer:
         answered["values"] = _values_channel(case.expected_columns, raw, rows, answer)
     if "orders" in case.asserts:
         answered["orders"] = orders_channel(desk.rows(), desk.intents)
+    if "log" in case.asserts:
+        # conformance.md section 4: the bar, its time, and the value spelled as a
+        # cell of the values channel is, absence included.
+        answered["log"] = [dict(one, value=as_reported(one["value"])) for one in logbook.rows()]
     if "trades" in case.asserts or "performance" in case.asserts:
         report = report_of(
             desk.fills.settled(),

@@ -89,7 +89,7 @@ function plotChannels(program) {
 }
 
 /** A value of an answered channel in the JSON shape section 4 gives it. */
-function reported(value) {
+export function reported(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') return value;
   if (typeof value === 'number') return value;
   if (value !== null && typeof value === 'object' && value.tag === 'color') return colourText(value);
