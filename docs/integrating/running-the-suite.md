@@ -204,8 +204,44 @@ the `error` outcome, with a reason in the row: the program that suffered it
 cannot report it, which is why an adapter is invoked once per case and never
 for the suite as a whole.
 
-The document's `suiteRevision` is the package version the cases shipped with,
-because the page fixes no other place for a revision yet.
+The document's `suiteRevision` is the revision `conformance.md` section 11
+spells: the package version the cases shipped with and a digest of every file
+under the suite root the run walked, so a result names the cases it was run
+against and a suite that differs by a byte has a revision of its own. An
+engine-only adapter's identity carries `engineOnly` in the document, because
+section 8 says its report says so.
+
+## Making a badge
+
+A badge is the claim a passing run entitles you to make, and `conformance.md`
+section 12 says it carries four things or it is not valid: the implementation
+and its version, the suite revision, the profile, and a link to the result
+document. Run the suite with your adapter, publish the document it writes, then
+make the badge from that document:
+
+```
+node scripts/run-suite.mjs --adapter path/to/your-adapter.mjs --out result.json
+npm run badge -- result.json --link <where result.json is published> --out badge.svg
+```
+
+The second command writes `badge.svg` and prints the line a page embeds it
+with, linking to the document. It refuses, and writes nothing, when the document
+is not a passing run of the profile it claims (any `fail`, `nonFinite`, `error`
+or `unsupported` case, or a skipped case inside that profile), when it compares
+two engines rather than running one, when it lacks any of the four things, or
+when its revision is not the revision of the suite under `--cases`, which it
+recomputes rather than reads. An engine-only run may skip the compiler
+categories, and its badge says it is engine only.
+
+What the badge does not say is that the run happened as the document reports.
+The project certifies nothing and vouches for nobody; a badge is credible
+exactly to the extent that the document is published beside a build anybody can
+rerun.
+
+This repository shows no badge of its own. `ROADMAP.md` Phase 7 holds it back
+until an engine written from the specification alone, by somebody who has not
+read this implementation, passes a named revision, because until then a badge
+here would be two engines that talked to each other agreeing.
 
 ## What the reference adapter does not reach
 

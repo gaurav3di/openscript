@@ -1090,7 +1090,7 @@ declares" mean the same thing for both engines.
 
 ```json
 {
-  "suiteRevision": "2026.1",
+  "suiteRevision": "1.0.0+4f0c2a9d1e7b",
   "engine": { "name": "...", "version": "...", "profile": "chart" },
   "languageVersions": [1],
   "schemaVersion": "1.0",
@@ -1170,7 +1170,20 @@ the specification said. Loosening a tolerance is not on the list.
 ## 11. Suite versioning
 
 The suite is released with a revision, and a result is only meaningful against
-one. Between revisions:
+one.
+
+**A revision is written as the package version, a plus sign, and the first
+twelve hexadecimal digits of a SHA-256 over every file under the suite root.**
+The files are taken in the order of their paths relative to the root, written
+with forward slashes and sorted by code unit, and each contributes its path, a
+zero byte, its length in bytes written in decimal, a zero byte, and its bytes.
+The version says which release the cases shipped with; the digest says which
+cases they are, because cases are added between releases and a version alone
+would give two different suites one name. Anybody holding the cases a result
+names can recompute its revision, so a result claimed against a suite that was
+edited, even by one byte, names a revision the published suite does not have.
+
+Between revisions:
 
 - Cases may be added at any time.
 - A case may be corrected only with the reviewed explanation above.

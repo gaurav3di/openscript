@@ -26,7 +26,7 @@ export const CASES = join(ROOT, 'cases');
 /** A fake adapter under `tests/suite/adapters/`, by its file name. */
 export const fake = (name: string): string => join(ROOT, 'tests', 'suite', 'adapters', `${name}.mjs`);
 
-/** The package version, which the runner writes as the suite revision. */
+/** The package version, which the runner writes as the first half of the suite revision. */
 export const packageVersion = (): string =>
   (JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { version: string }).version;
 
@@ -52,7 +52,12 @@ export interface CaseRow {
 /** The result document of `conformance.md` section 9, as this runner writes it. */
 export interface SuiteDocument {
   readonly suiteRevision: string;
-  readonly engine: { readonly name: string; readonly version: string; readonly profile: string };
+  readonly engine: {
+    readonly name: string;
+    readonly version: string;
+    readonly profile: string;
+    readonly engineOnly?: boolean;
+  };
   readonly against?: { readonly name: string; readonly version: string; readonly profile: string };
   readonly languageVersions: readonly number[];
   readonly schemaVersion: string;

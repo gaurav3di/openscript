@@ -13,13 +13,23 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 
-import { OWN_ADAPTER, fake, oneBitUp, packageVersion, runSuite, temporarySuite } from './support.js';
+import { CASES, OWN_ADAPTER, fake, oneBitUp, packageVersion, runSuite, temporarySuite } from './support.js';
 import type { SuiteDocument, TemporarySuite } from './support.js';
 
 const BUY = 'order/buy';
 
 /** Every harvested case, which the round trip below has to pass. */
 const HARVESTED = [BUY, 'order/sell'];
+
+/** Section 11's revision of a suite, recomputed here rather than read from the runner. */
+const REVISION_MODULE = '../../../scripts/lib/suite-revision.mjs';
+
+async function revisionOf(root: string): Promise<string> {
+  const module = (await import(REVISION_MODULE)) as {
+    suiteRevision(root: string, version: string): string;
+  };
+  return module.suiteRevision(root, packageVersion());
+}
 
 /** The one field the mutations below move by one bit. */
 const PRICE = 'avgFillPrice';
@@ -41,7 +51,7 @@ function oneBitOff(): TemporarySuite {
   return suite;
 }
 
-test('this engine passes every harvested case, and the document is section 9\'s', () => {
+test('this engine passes every harvested case, and the document is section 9\'s', async () => {
   // The round trip: catches a runner that never invokes the adapter, one that
   // loses a case, and an adapter that cannot answer the cases its own engine
   // harvested. The revision and identity are held to where they are written.
@@ -53,7 +63,7 @@ test('this engine passes every harvested case, and the document is section 9\'s'
   for (const id of HARVESTED) {
     assert.equal(document.cases.find((row) => row.id === id)?.outcome, 'pass', id);
   }
-  assert.equal(document.suiteRevision, packageVersion());
+  assert.equal(document.suiteRevision, await revisionOf(CASES));
   assert.equal(document.engine.version, packageVersion());
   assert.equal(document.engine.profile, 'strategy');
   assert.equal(typeof document.startedAt, 'number');

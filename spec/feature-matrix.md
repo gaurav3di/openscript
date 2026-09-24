@@ -1056,8 +1056,8 @@ from a `study()` file is OS7001.
 | Profiles | The profiles of `conformance.md` 8, cumulative, with `unsupported` counted and printed separately | `specified` | `conformance.md` 8 | `conf/profiles` |
 | The adapter and the result document | What an implementation ships and what it reports | `specified` | `conformance.md` 9 | `conf/result-document` |
 | Cross-engine equality | Every engine produces identical output on every case, and a disagreement blocks the release | `specified` | `conformance.md` 10 | `prog/cross-engine-equality` |
-| Suite versioning | How the suite itself is versioned, so a result names what it was run against | `specified` | `conformance.md` 11 | `conf/suite-versioning` |
-| What a passing result means | What it does and does not entitle an implementation to claim, and the badge | `specified` | `conformance.md` 12 | `conf/claim` |
+| Suite versioning | How the suite itself is versioned, so a result names what it was run against | `implemented` | `conformance.md` 11 | `unit:conf/suite-versioning` |
+| What a passing result means | What it does and does not entitle an implementation to claim, and the badge | `implemented` | `conformance.md` 12 | `unit:conf/claim` |
 
 ## 35. Strategy: legs, protective levels and the book
 
