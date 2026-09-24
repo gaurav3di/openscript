@@ -13,7 +13,7 @@
 
 [project]
 name = "openscript"
-version = "0.5.0"
+version = "0.6.0"
 description = "An open trading language: the engine that runs a compiled program."
 readme = "README.md"
 requires-python = ">=3.12"

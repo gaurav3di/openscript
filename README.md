@@ -26,8 +26,9 @@ execution; see [Phase 6](./ROADMAP.md#phase-6-the-second-engine-and-live-running
 
 ## Status
 
-**`0.5.0` runs studies, backtests strategies, draws a strategy on a chart, and
-ships the language intelligence an editor needs.** The Python engine is on PyPI
+**`0.6.0` runs studies, backtests strategies, draws a strategy on a chart,
+imports scripts from another chart language, and ships the language
+intelligence an editor needs.** The Python engine is on PyPI
 as `openscript`, at the same version, and the two are released together.
 
 What an install gets you today: the compiler, the engine, the chart adapter and
@@ -44,7 +45,7 @@ examples on every run rather than asserting it in a page. Two records can be put
 beside each other, and a pair over different bars is reported incomparable
 instead of being subtracted into a table that reads like a result.
 
-**Since `0.5.0`, on the main line and not yet released:** `importScript`
+**New in `0.6.0`:** `importScript`
 imports a script written in the version-annotated chart dialect, translating
 each statement with its meaning or saying why not; `engine.run` takes a history
 as columns as well as one record per bar; `npm run site` builds a documentation
@@ -106,7 +107,7 @@ first thing a stranger reads:
   corroborating implementation, not a result. That is why no conformance badge
   is shown here, though `npm run badge` will make one for an engine that passes.
 
-The version is `0.5.0` rather than `1.0` because of that list. The studies
+The version is `0.6.0` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The

@@ -7,7 +7,7 @@ nothing, fails the build before it can become permanent.
 
 ---
 
-## Unreleased
+## 0.6.0
 
 **An engine that implemented nothing passed the conformance suite, and now does
 not.** Every case in the tree declared the `strategy` profile, so an engine
