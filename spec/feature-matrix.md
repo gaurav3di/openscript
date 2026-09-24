@@ -550,8 +550,8 @@ identifier rather than one diagnostic having two proofs.
 | `reverse(arr)` | In place | `specified` | `language.md` 14.1 | `array/reverse` |
 | Array statistics | `sum`, `avg`, `min`, `max`, `stdev` over the whole array | `specified` | `language.md` 14.1 | `array/statistics` |
 | An operation on an empty array | OS4006, rather than an invented value | `deferred` | `language.md` 14.1, `errors.md` OS4006 | `array/empty-operation` |
-| Out-of-range index | OS4004 naming the index and the size, because an array has an extent the script chose | `specified` | `language.md` 14.1, `errors.md` OS4004 | `array/out-of-range` |
-| Element limit | 1,000,000 by default; exceeding it is OS5002 and `limits()` does not raise it in version 1 | `specified` | `language.md` 14.1, `errors.md` OS5002 | `array/element-limit` |
+| Out-of-range index | OS4004 naming the index and the size, because an array has an extent the script chose | `implemented` | `language.md` 14.1, `errors.md` OS4004 | `array/out-of-range` |
+| Element limit | 1,000,000 by default; exceeding it is OS5002 and `limits()` does not raise it in version 1 | `implemented` | `language.md` 14.1, `errors.md` OS5002 | `array/element-limit` |
 | Persistent array | An array in a `var` persists, and rollback restores its contents | `specified` | `language.md` 14.1, `language.md` 7.5 | `array/persistent` |
 | Arrays in the object heap | An array is a reference into the same heap that holds tables and drawing objects | `specified` | `compiled-program.md` 3.2, `compiled-program.md` 4.9 | `array/heap` |
 | `map<K, V>` | Reserved word, not implemented; insertion-order iteration when it arrives, for determinism | `specified` | `language.md` 14.2 | `unit:array/map-reserved` |
@@ -994,10 +994,10 @@ from a `study()` file is OS7001.
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `print(value)` | Write a value to the script's log for the bar being executed, from anywhere in the file | `specified` | `stdlib.md` 14.3, `language.md` 15.3 | `log/print` |
+| `print(value)` | Write a value to the script's log for the bar being executed, from anywhere in the file | `implemented` | `stdlib.md` 14.3, `language.md` 15.3 | `log/print` |
 | Bar context | Every entry carries the bar's time, so a log line can be matched to a bar | `specified` | `stdlib.md` 14.3 | `log/bar-context` |
 | Rate limited by the host | The host rate limits rather than the language, and a host that drops lines says how many rather than truncating silently | `specified` | `stdlib.md` 14.3 | `log/rate-limit` |
-| Logging changes no value | `print` draws nothing and lands in no contract field, so a case's numeric output is identical with logging on or off | `specified` | `stdlib.md` 14.3, `stdlib.md` 18 | `log/no-side-effect` |
+| Logging changes no value | `print` draws nothing and lands in no contract field, so a case's numeric output is identical with logging on or off | `implemented` | `stdlib.md` 14.3, `stdlib.md` 18 | `log/no-side-effect` |
 | Log as an assertable output | A conformance case may assert the log stream, which is how logging itself is proved | `specified` | `conformance.md` 7 | `log/assertable` |
 | Levels | `log.info`, `log.warn`, `log.error`, so a live script's log can be filtered | `planned` | `none` | `log/levels` |
 | Rollback of log output | Whether lines written during a re-executed moving bar replace the previous execution's lines or are deferred like an order | `planned` | `none` | `log/rollback` |

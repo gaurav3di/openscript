@@ -48,6 +48,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, relative, sep } from 'node:path';
 import { filesMatching } from './lib/files.mjs';
+import { LOWEST, ask, findInterpreter } from './lib/interpreter.mjs';
 import { imports, maskPython } from './lib/python-source.mjs';
 
 /** The package a host installs, and the directory the whole engine lives in. */
@@ -60,19 +61,6 @@ const SELF = 'openscript';
 /** What may be imported outside the package, and is not installed with it. */
 const BESIDE = ['tools', 'tests'];
 
-/** The first host requires this, and `pyproject.toml` states it. */
-const LOWEST = [3, 12];
-
-/**
- * The spellings an interpreter answers to, tried in this order.
- *
- * Both are written down rather than taken from the environment: a command this
- * file computed is a command a reader cannot check, which is the rule
- * `check-no-eval.mjs` holds every launch in this repository to.
- */
-const CANDIDATES = ['python3', 'python'];
-
-const ENVIRONMENT = `${ENGINE}/tools/environment.py`;
 const RUNNER = `${ENGINE}/tools/run_tests.py`;
 const PROJECT = `${ENGINE}/pyproject.toml`;
 
@@ -112,45 +100,10 @@ function refuse(message) {
 // The interpreter
 // ---------------------------------------------------------------------------
 
-/**
- * The first candidate that answers, with what it said about itself.
- *
- * Bytecode caching is turned off for every call, so nothing this check does
- * leaves a directory of compiled files behind. `check-no-eval.mjs` reads every
- * file this project holds and refuses one it cannot place, and a compiled
- * bytecode file is code nobody can read, so leaving one would fail the build in
- * a way that looks like somebody else's fault.
- */
-const ask = (command, program) =>
-  spawnSync(command, [program], {
-    encoding: 'utf8',
-    env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
-  });
-
-function findInterpreter() {
-  const tried = [];
-  for (const candidate of CANDIDATES) {
-    const result = ask(candidate, ENVIRONMENT);
-    if (result.error || result.status !== 0) {
-      tried.push(`  ${candidate}: ${result.error ? result.error.code : result.stderr.trim().split('\n').pop()}`);
-      continue;
-    }
-    const said = JSON.parse(result.stdout);
-    const [major, minor] = said.version;
-    if (major < LOWEST[0] || (major === LOWEST[0] && minor < LOWEST[1])) {
-      tried.push(`  ${candidate}: Python ${said.version.join('.')}, older than ${LOWEST.join('.')}`);
-      continue;
-    }
-    return { command: candidate, said };
-  }
-  refuse(
-    `No interpreter answered, so the second engine was not checked and its tests did not\n` +
-      `run:\n\n${tried.join('\n')}\n\n` +
-      `The gate covers both engines, so a missing interpreter fails it rather than\n` +
-      `skipping it: a suite that quietly checks one engine is how two engines drift\n` +
-      `apart. Install Python ${LOWEST.join('.')} or later, or put it on the path under one of ` +
-      `${CANDIDATES.join(' or ')}.`,
-  );
+function findInterpreterOrRefuse() {
+  const found = findInterpreter();
+  if (found.refusal !== undefined) refuse(found.refusal);
+  return found;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +233,7 @@ function versionsAgree() {
 // The run
 // ---------------------------------------------------------------------------
 
-const { command, said } = findInterpreter();
+const { command, said } = findInterpreterOrRefuse();
 const standardLibrary = new Set(said.standardLibrary);
 const forms = selfTest(standardLibrary);
 // ---------------------------------------------------------------------------

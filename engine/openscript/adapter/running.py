@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from ..accounting import report_of
 from ..contracts import Bar as EngineBar, BarState
 from ..inputs import utc_time
+from ..logbook import Logbook
 from ..run import load_text
 from ..strategy import IntentBar
 from ..values import ABSENT
@@ -324,7 +325,8 @@ def run_case(case: Case, program_text: str) -> Answer:
             answer.channels = _with_empty(case, {"diagnostics": [_refusal_row(refused)]})
             return answer
 
-    rows, diagnostics = _every_bar(run, serving, desk, case)
+    logbook = Logbook()
+    rows, diagnostics = _every_bar(run, serving, desk, case, logbook)
     answered: Dict[str, Any] = {"diagnostics": diagnostics}
     if "values" in case.asserts:
         if not case.expected_columns:
@@ -394,7 +396,7 @@ def _declaration(run: Any) -> Dict[str, Any]:
 
 
 def _every_bar(
-    run: Any, serving: Serving, desk: Desk, case: Case
+    run: Any, serving: Serving, desk: Desk, case: Case, logbook: Logbook
 ) -> Tuple[List[List[Any]], List[Dict[str, Any]]]:
     """Every bar of the file, in order, stopping at the first that fails.
 
@@ -441,7 +443,11 @@ def _every_bar(
         if result.diagnostic is not None:
             found = result.diagnostic
             return rows, [_diagnostic_row(found.code, found.line, found.column, index)]
-        sent = desk.apply(result.applied, IntentBar(index=index, time=float(bar.time)))
+        # Step 9's records, each to the side of the run that owns it: an order
+        # to the desk, a log line to the book. Nothing else carries an effect.
+        logbook.write(result.applied, index, bar.time)
+        orders = [one for one in result.applied if one.effect == "order"]
+        sent = desk.apply(orders, IntentBar(index=index, time=float(bar.time)))
         if sent is not None:
             return rows, [_diagnostic_row(sent.code, sent.line, sent.column, index)]
         rows.append(list(result.columns))

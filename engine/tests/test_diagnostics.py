@@ -45,8 +45,10 @@ from openscript.diagnostics import (
 
 PACKAGE = ENGINE / "openscript"
 
-#: The two calls that carry a code, and where the code sits in each.
-BUILDERS = ("failure", "raise_at")
+#: The calls that carry a code, and where the code sits in each: the two that
+#: build a diagnostic, and the refusal an array call raises for the machine to
+#: position (``arrays.py``).
+BUILDERS = ("failure", "raise_at", "Refused")
 
 
 def raised():
@@ -105,6 +107,7 @@ class EveryCodeThisEngineRaises(unittest.TestCase):
             "OS4004",
             "OS4013",
             "OS5001",
+            "OS5002",
             "OS5003",
             "OS5004",
             "OS5005",

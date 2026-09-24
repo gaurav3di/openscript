@@ -74,6 +74,17 @@ for (const one of ENTRIES) {
 }
 
 /** The entry for one name and argument count, or nothing when there is none. */
+/**
+ * Every name and argument count this engine holds, as `name/arity`, sorted.
+ *
+ * `scripts/check-manifests.mjs` compares it with the second engine's, so a call
+ * one engine holds and the other does not is found by a build rather than by the
+ * first case that reaches it.
+ */
+export function manifestKeys(): readonly string[] {
+  return [...INDEX.keys()].sort();
+}
+
 export function manifestEntry(name: string, arity: number): ManifestEntry | undefined {
   return INDEX.get(keyOf(name, arity));
 }

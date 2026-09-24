@@ -9,13 +9,17 @@ this adapter carries the join, and it carries it here rather than inside the
 answer so that the day a module in the package does it, one import changes and
 nothing else does.
 
-**Four tables and not one.** Beside the two halves of the library are the two
+**Six tables and not one.** Beside the two halves of the library are the two
 namespaces that are not in it: the ``chart`` and ``pos`` facts of ``facts.py``,
 whose answer is the host's record and the strategy's own fills, and the nine
 order calls of ``ordering.py``, which carry an effect and are therefore never
-called through here at all. A name in none of the four is a name this engine's
-manifest does not hold, and a program calling it is refused at load (OS6004)
-naming the function and what this engine holds instead.
+called through here at all. Then the array calls of ``arrays.py``, which live
+outside the library because they refuse an index and a size and the library
+refuses nothing, and ``print``, whose one row is ``logbook.py``'s and which
+carries an effect, so it is never called through here either. A name in none of
+the six is a name this engine's manifest does not hold, and a program calling it
+is refused at load (OS6004) naming the function and what this engine holds
+instead.
 
 **Two things the machine cannot pass through, and how they are served.**
 
@@ -43,11 +47,13 @@ it is written up in the stage's report; nothing here papers over it, because a
 seam that converted quietly would hide the one place a test can see it.
 """
 
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from ..arrays import CALLS as ARRAY_CALLS
 from ..contracts import CallContext, LibraryEntry
 from ..library import BUILDS_A_STRING, MEASURED, stateful_table, table
 from ..library.stateless import Entry
+from ..logbook import LOG_ENTRIES
 from ..values import ABSENT, ArrayValue, Reference, tag
 from .facts import FACT_NAMES, POSITION_FACTS, Book, fact_value
 from .ordering import ORDER_ENTRIES
@@ -110,16 +116,32 @@ class Serving:
             return LibraryEntry(held.name, held.arity, held.state, held.effect)
         if arity == 0 and name in self._facts():
             return LibraryEntry(name, 0, False, "none")
-        return ORDER_ENTRIES.get((name, arity))
+        if (name, arity) in ARRAY_CALLS:
+            return LibraryEntry(name, arity, False, "none")
+        return ORDER_ENTRIES.get((name, arity)) or LOG_ENTRIES.get((name, arity))
 
     def _arities(self, name: str) -> Sequence[int]:
         """Every argument count this engine holds the name under."""
         found = {arity for (held, arity) in self._entries if held == name}
         found |= {arity for (held, arity) in self._stateful if held == name}
         found |= {arity for (held, arity) in ORDER_ENTRIES if held == name}
+        found |= {arity for (held, arity) in ARRAY_CALLS if held == name}
+        found |= {arity for (held, arity) in LOG_ENTRIES if held == name}
         if name in self._facts():
             found.add(0)
         return sorted(found)
+
+    def manifest(self) -> List[Tuple[str, int]]:
+        """Every name and argument count this engine holds, across all six tables.
+
+        ``scripts/check-manifests.mjs`` compares this against the first engine's
+        library, which is how a call one engine has and the other does not is
+        found by a build rather than by the first case that happens to reach it.
+        """
+        held = set(self._entries) | set(self._stateful) | set(ORDER_ENTRIES)
+        held |= set(ARRAY_CALLS) | set(LOG_ENTRIES)
+        held |= {(name, 0) for name in self._facts()}
+        return sorted(held)
 
     def length_of(self, name: str, arguments: Sequence[Any]) -> Optional[int]:
         """How long the string this call will build is, before it is built.
@@ -185,6 +207,9 @@ class Serving:
         keeping = self._stateful.get((name, len(arguments)))
         if keeping is not None:
             return ABSENT if state is None else keeping.call(self, list(arguments), state)
+        array = ARRAY_CALLS.get((name, len(arguments)))
+        if array is not None:
+            return array(list(arguments))
         if len(arguments) == 0 and name in self._facts():
             return fact_value(
                 name, self._instrument(), self._now(), self._book, self._bar.get(SESSION_FIRST, ABSENT)
