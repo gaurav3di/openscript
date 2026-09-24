@@ -12,6 +12,6 @@ len = input(20, "Length", min = 1, max = 1000)
 channel = donchian(len)
 
 topRail    = plot(element(channel, 0), "Upper", aqua)
-plot(element(channel, 1), "Basis", orange, width = 2)
+basisRail  = plot(element(channel, 1), "Basis", orange, width = 2)
 bottomRail = plot(element(channel, 2), "Lower", aqua)
 fill(topRail, bottomRail, fade(aqua, 92))

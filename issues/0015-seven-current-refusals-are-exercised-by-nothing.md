@@ -1,6 +1,6 @@
 # 0015 Seven refusals taught as current behaviour are exercised by nothing
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Against: `tests/`, and the seven entries in `spec/errors.json` whose `test` is
 now `null`
@@ -55,3 +55,27 @@ Two of them have a worked example that is already proved by
 ## How it would be tested
 
 It is the test. The check that found the gap is what holds it closed.
+
+## How it closed
+
+Seven tests, each asserting the code and the span and each beside the shape
+next door that must not raise it:
+
+| Code | Test |
+|---|---|
+| OS2010 | `tests/unit/check-names.test.ts` |
+| OS4003 | `tests/engine/machine.test.ts` |
+| OS8007 | `tests/unit/check-plot-options.test.ts` |
+| OS8012, OS8015, OS8016, OS8017 | `tests/unit/check-dead-code.test.ts` |
+
+Writing the OS2010 test found a defect the missing test had been hiding. The
+catalogue documents OS2010's `suggestion` as the library function whose name is
+closest, with its first argument filled in, and the checker offered the closest
+name of any kind: `volume(20)` was offered `blue`, which is not callable either,
+and in a study `hl2(close)` could be offered an order function, which is OS7001.
+`Checker.callSuggestionFor` now draws from the names the library lets this file
+call and writes the call out, so `volume(20)` is offered `vwma(volume, 20)`.
+
+The seven entries point at their tests in `spec/errors.json` and
+`spec/errors.md`, and `scripts/check-catalogue-tests.mjs` now reports no current
+code that nothing exercises.

@@ -902,7 +902,7 @@
       },
       "spec": "language.md 15.1",
       "refines": null,
-      "test": null
+      "test": "tests/unit/check-names.test.ts"
     },
     {
       "code": "OS2011",
@@ -1709,7 +1709,7 @@
       },
       "spec": "language.md 14.1",
       "refines": null,
-      "test": null
+      "test": "tests/engine/machine.test.ts"
     },
     {
       "code": "OS4004",
@@ -3274,7 +3274,7 @@
       },
       "spec": "language.md 13.2, 15.3",
       "refines": null,
-      "test": null
+      "test": "tests/unit/check-plot-options.test.ts"
     },
     {
       "code": "OS8008",
@@ -3380,7 +3380,7 @@
       },
       "spec": "language.md 6.4, 6.5",
       "refines": null,
-      "test": null
+      "test": "tests/unit/check-dead-code.test.ts"
     },
     {
       "code": "OS8013",
@@ -3449,7 +3449,7 @@
       },
       "spec": "language.md 10.3",
       "refines": null,
-      "test": null
+      "test": "tests/unit/check-dead-code.test.ts"
     },
     {
       "code": "OS8016",
@@ -3470,7 +3470,7 @@
       },
       "spec": "language.md 11.3",
       "refines": null,
-      "test": null
+      "test": "tests/unit/check-dead-code.test.ts"
     },
     {
       "code": "OS8017",
@@ -3491,7 +3491,7 @@
       },
       "spec": "language.md 10.2",
       "refines": null,
-      "test": null
+      "test": "tests/unit/check-dead-code.test.ts"
     },
     {
       "code": "OS8018",

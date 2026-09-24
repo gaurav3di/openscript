@@ -1468,7 +1468,7 @@ plot(bar.index, "Bar", aqua)
 
 ### OS2010 This name is not a function
 
-Severity error. Stage checker. Since language version 1. Reference language.md 15.1. No test in this repository names this code.
+Severity error. Stage checker. Since language version 1. Reference language.md 15.1. Test `tests/unit/check-names.test.ts`.
 
 **Message.** `{name} is {type}, not a function, so it cannot be called.`
 
@@ -2443,7 +2443,7 @@ old = close[120]
 
 ### OS4003 A whole number was required here
 
-Severity error. Stage engine. Since language version 1. Reference language.md 14.1. No test in this repository names this code.
+Severity error. Stage engine. Since language version 1. Reference language.md 14.1. Test `tests/engine/machine.test.ts`.
 
 **Message.** `{name}'s {argument} was {found} on this bar; a whole number was required.`
 
@@ -4424,7 +4424,7 @@ plot(hlc3, "Typical price", aqua)
 
 ### OS8007 A plot sets the price pane's own formatting
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. No test in this repository names this code.
+Severity warning. Stage checker. Since language version 1. Reference language.md 13.2, 15.3. Test `tests/unit/check-plot-options.test.ts`.
 
 **Message.** `{title} sets {option} while drawing over the price pane, which reformats the instrument's own axis.`
 
@@ -4555,7 +4555,7 @@ plot(barCount, "Bars", aqua)
 
 ### OS8012 An ordered comparison against none is always absent
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 6.4, 6.5. No test in this repository names this code.
+Severity warning. Stage checker. Since language version 1. Reference language.md 6.4, 6.5. Test `tests/unit/check-dead-code.test.ts`.
 
 **Message.** `This {op} has none on one side, so it is absent on every bar.`
 
@@ -4639,7 +4639,7 @@ if enter
 
 ### OS8015 This loop never runs
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 10.3. No test in this repository names this code.
+Severity warning. Stage checker. Since language version 1. Reference language.md 10.3. Test `tests/unit/check-dead-code.test.ts`.
 
 **Message.** `The loop starts at {start}, ends at {end} and steps {step}, so the body never runs.`
 
@@ -4667,7 +4667,7 @@ for i = 9 to 0 step -1
 
 ### OS8016 Unreachable code
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 11.3. No test in this repository names this code.
+Severity warning. Stage checker. Since language version 1. Reference language.md 11.3. Test `tests/unit/check-dead-code.test.ts`.
 
 **Message.** `Line {line} follows a return that always runs, so it never executes.`
 
@@ -4694,7 +4694,7 @@ fn pick(x) =>
 
 ### OS8017 The condition is constant
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 10.2. No test in this repository names this code.
+Severity warning. Stage checker. Since language version 1. Reference language.md 10.2. Test `tests/unit/check-dead-code.test.ts`.
 
 **Message.** `This condition is {value} on every bar.`
 

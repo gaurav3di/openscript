@@ -1,6 +1,6 @@
 # 0007 OS8009 is reported for a plot that does draw
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Found by: the phase three gate, writing a study that carries one piece of
 per-bar state into another at a session boundary
@@ -107,3 +107,25 @@ The engine is correct throughout. Nothing is miscomputed, no column is wrong and
 no warmup in a published program is affected: `compiled-program.md` section 7
 carries no warmup field, and the line starts on the bar the value stops being
 absent. This is a diagnostic that is false, and only that.
+
+## How it closed
+
+Option 1, in the one form that stays truthful without a second pass.
+`src/core/check/assigned.ts` collects, before any expression is walked, every
+name some line of the file gives a value, leaving out an assignment of the
+literal `none`. A read of a `var` whose warmup is still `never` at that line,
+and which a later line gives a value, now sees a floor of bar 0 rather than
+`never`: the later line wrote it on the bar before, or on an earlier pass of the
+same loop, and an exact bar would need that line's warmup before it had been
+read. A floor claims nothing, which is what withdrawing a false `never` needs.
+
+A plain name is untouched, because it is recomputed every bar and cannot be read
+before this bar's line writes it. The placeholder case is untouched too:
+`var x = none` that nothing writes, or that a later line only writes `none`
+into, is still OS8009.
+
+Tests: `tests/unit/check-warmup.test.ts` holds the reproduction above with no
+OS8009, and both placeholder shapes with it. The comment in
+`tests/gate/studies/scripts/session-pivots.oscript` that pointed here now says
+why its running extremes are seeded from a bar field, which is that `max` and
+`min` propagate absence, rather than blaming the checker.

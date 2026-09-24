@@ -59,7 +59,10 @@ export function resolveCall(checker: Checker, call: Call, placement: Placement):
     checker.report('OS2010', call.span, {
       name: checker.textOf(call.callee.span),
       type: typeText(UNKNOWN),
-      suggestion: checker.suggestionFor(checker.textOf(call.callee.span)),
+      suggestion: checker.callSuggestionFor(
+        checker.textOf(call.callee.span),
+        call.args.map((one) => checker.textOf(one.span)),
+      ),
     });
     return record(checker, call, unresolved(call, 'call'));
   }

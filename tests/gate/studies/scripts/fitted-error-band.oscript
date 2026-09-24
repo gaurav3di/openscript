@@ -45,6 +45,6 @@ spread = sqrt((squaresY - crossXY * crossXY / squaresX) / (periods - 2))
 middle = linreg(close, periods, 0)
 
 upperRail = plot(sma(middle + errors * spread, avgLen), "Upper", aqua)
-plot(sma(middle, avgLen), "Basis", orange, width = 2)
+basisRail = plot(sma(middle, avgLen), "Basis", orange, width = 2)
 lowerRail = plot(sma(middle - errors * spread, avgLen), "Lower", aqua)
 fill(upperRail, lowerRail, fade(aqua, 90))

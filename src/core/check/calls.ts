@@ -331,7 +331,10 @@ export function resolveLibraryCall(
     checker.report('OS2010', call.span, {
       name,
       type: held === undefined ? typeText(UNKNOWN) : typeText(held.returns),
-      suggestion: checker.suggestionFor(name),
+      suggestion: checker.callSuggestionFor(
+        name,
+        call.args.map((one) => checker.textOf(one.span)),
+      ),
     });
     return unresolved(call, name);
   }

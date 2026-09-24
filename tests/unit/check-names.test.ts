@@ -5,6 +5,7 @@ import {
   checkBody,
   codes,
   parseCodes,
+  spanFor,
   spans,
   strategyCodes,
   values,
@@ -176,4 +177,25 @@ test('a name nothing reads is reported once, at its declaration', () => {
   const body = 'spare = close - open';
   assert.deepEqual(codes(body), ['OS8010']);
   assert.deepEqual(values(body)[0], { name: 'spare', line: 3 });
+});
+
+// Catches a checker that offers the closest name of any kind. `volume(20)` was
+// offered `blue`, which is a second OS2010 waiting to happen, where the
+// catalogue promises the closest function with the value that was called as
+// its first argument.
+test('a series called like a function is OS2010, offering a function over it', () => {
+  const body = 'v = volume(20)\nplot(v, "V")';
+  assert.deepEqual(codes(body), ['OS2010']);
+  assert.equal(spanFor(body, 'OS2010'), '3:5+10');
+  const found = valuesFor(body, 'OS2010');
+  assert.equal(found?.['name'], 'volume');
+  assert.equal(found?.['suggestion'], 'vwma(volume, 20)');
+});
+
+// Catches the same slot offering an order function in a study, which the
+// reader would paste and meet OS7001.
+test("OS2010's suggestion leaves out what this file cannot call", () => {
+  const suggestion = String(valuesFor('v = hl2(close)\nplot(v, "V")', 'OS2010')?.['suggestion']);
+  assert.ok(suggestion.endsWith('(hl2, close)'), suggestion);
+  assert.ok(!suggestion.startsWith('close('), suggestion);
 });

@@ -22,6 +22,6 @@ upperSource = high * (1 + ratio)
 lowerSource = low * (1 - ratio)
 
 upperRail = plot(sma(upperSource, len), "Upper", teal)
-plot(sma(close, len), "Basis", purple, width = 2)
+basisRail = plot(sma(close, len), "Basis", purple, width = 2)
 lowerRail = plot(sma(lowerSource, len), "Lower", teal)
 fill(upperRail, lowerRail, fade(yellow, 84))
