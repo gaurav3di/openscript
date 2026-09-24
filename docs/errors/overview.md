@@ -173,8 +173,9 @@ There is one catalogue, and everything else is a view of it.
 
 | Where | What it is |
 |---|---|
-| `spec/errors.json` | The catalogue itself, machine readable, one hundred and sixteen entries |
-| `spec/errors.md` | The human face of the same file. Its per-code sections are rendered from the JSON by the documentation build |
+| `spec/errors.json` | The catalogue itself, machine readable, one entry per code |
+| `spec/errors.md` | The human face of the same file. Each per-code section is the text the documentation site renders from that entry, and the build compares the two character for character |
+| The documentation site | One page per code, rendered from the JSON, and an index of the codes by range. [the-documentation-site.md](../integrating/the-documentation-site.md) says how to build it |
 | The editor | Reads the message and the fix and puts them on the exact character, and applies the fix directly where the entry says it can |
 | The compiler and the engines | Emit a code and the values, never a whole string |
 

@@ -6,7 +6,7 @@ Conventions for anyone, human or agent, changing this repository.
 
 ## The rules that are not negotiable
 
-Twenty six checks enforce these, twenty five `check-*` scripts and the harvest
+Twenty seven checks enforce these, twenty six `check-*` scripts and the harvest
 run with `--check`, and each one of them is a rule somebody broke once.
 `npm test` runs all of them, and so does every pull request. The count is here
 to be corrected when it changes, not to be trusted: `package.json`'s `test`
@@ -106,11 +106,12 @@ exercises every run.
 **And the page says what the file says.** `spec/errors.md` is the catalogue a
 reader is sent to and `spec/errors.json` is what the compiler is generated from,
 so the two are compared character for character: every heading, first line,
-message, placeholder gloss, cause, fix, deferral and example block, and the two
-tables outside part 8 that are copies of the file as well. Until that was
-enforced, one word of a message could differ between them and the whole build
-passed. `scripts/lib/catalogue-page.mjs` holds the comparison and says which
-parts of the page it does not reach.
+message, placeholder gloss, cause, fix, deferral and example block, then each
+whole section against the text the documentation site renders from its entry,
+and the two tables outside part 8 that are copies of the file as well. Until
+that was enforced, one word of a message could differ between them and the
+whole build passed. `scripts/lib/catalogue-page.mjs` holds the comparison and
+says which parts of the page it does not reach.
 
 ## Tests
 

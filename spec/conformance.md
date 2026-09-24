@@ -1243,4 +1243,3 @@ passing implementation on everything the suite covers, to the bit.
 A badge carries four things and is not valid without all four: the implementation
 and its version, the suite revision, the profile, and a link to the result
 document. Everything else on a badge is decoration.
-</content>

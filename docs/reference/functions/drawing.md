@@ -375,20 +375,20 @@ compatibility promise means this form keeps working when it does.
 
 | Call | Returns | For |
 |---|---|---|
-| `draw.setFrom(obj: line | box, t, p)` | nothing | Move a line's or box's first anchor |
-| `draw.setTo(obj: line | box, t, p)` | nothing | Move its second anchor |
-| `draw.setBounds(obj: line | box, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
+| `draw.setFrom(obj: line \| box, t, p)` | nothing | Move a line's or box's first anchor |
+| `draw.setTo(obj: line \| box, t, p)` | nothing | Move its second anchor |
+| `draw.setBounds(obj: line \| box, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
 | `draw.setAt(label, t, p)` | nothing | Move a label |
 | `draw.setPoints(polyline, times, prices)` | nothing | Replace a polyline's path |
-| `draw.setText(obj: label | box, text)` | nothing | Change a label's or box's caption |
-| `draw.setColor(obj: line | label | box | polyline, color)` | nothing | Change the line or border colour |
-| `draw.setTextColor(obj: label | box, color)` | nothing | Change the text colour |
-| `draw.setFillColor(obj: box | polyline, color)` | nothing | Change a box's or polyline's fill |
-| `draw.setWidth(obj: line | box | polyline, width)` | nothing | Change the line thickness |
+| `draw.setText(obj: label \| box, text)` | nothing | Change a label's or box's caption |
+| `draw.setColor(obj: line \| label \| box \| polyline, color)` | nothing | Change the line or border colour |
+| `draw.setTextColor(obj: label \| box, color)` | nothing | Change the text colour |
+| `draw.setFillColor(obj: box \| polyline, color)` | nothing | Change a box's or polyline's fill |
+| `draw.setWidth(obj: line \| box \| polyline, width)` | nothing | Change the line thickness |
 | `draw.setStyle(obj: line, style)` | nothing | Change a line's style, to a value the `draw.setStyle` row of [`stdlib.md`](../../../spec/stdlib.md) section 14.4 lists |
 | `draw.setExtend(line, left, right)` | nothing | Continue a line to the pane edge |
-| `draw.setTooltip(obj: label | box, text)` | nothing | Detail shown while the pointer rests on the object |
-| `draw.delete(obj: line | label | box | polyline)` | nothing | Remove one object |
+| `draw.setTooltip(obj: label \| box, text)` | nothing | Detail shown while the pointer rests on the object |
+| `draw.delete(obj: line \| label \| box \| polyline)` | nothing | Remove one object |
 | `draw.deleteAll()` | nothing | Remove every object this script created |
 | `draw.count()` | `number` | How many objects this script currently holds |
 
