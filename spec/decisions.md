@@ -700,8 +700,9 @@ citation survived.
 - `feature-matrix.md` section 26, after the row "Deletion and counting":
   `| A deleted object still held | OS8019, warning that a name or an array still refers to an object deleted earlier, because a stale handle in a setter is OS4005 one bar later | `specified` | `language.md` 5.4, `errors.md` OS8019 | `unit:draw/deleted-still-held` |`
 
-  **Not raised yet.** OS8019 is in the catalogue and nothing raises it: the
-  checker does not follow a reference to a deleted object.
+  When this was decided nothing raised OS8019, because the checker did not
+  follow a reference to a deleted object. It does since issue 0006's two
+  neighbours were closed, and the row is `implemented`.
 
 ---
 

@@ -21,6 +21,7 @@ import type { SourceFile } from '../source/index.js';
 import { Checker, TOP_LEVEL, finaliseStorage } from './checker.js';
 import type { CheckedScript } from './checked.js';
 import { checkDeclaration, checkLimits, readHeader } from './declaration.js';
+import { reportDeletedStillHeld } from './deleted.js';
 import { checkFunctionDeclarations, checkRemainingFunctions } from './functions.js';
 import { reportRepeatedAlertIds } from './outputs.js';
 import { checkStatement } from './statements.js';
@@ -54,6 +55,7 @@ export function check(file: SourceFile, script: Script, sink: DiagnosticSink): C
   finaliseStorage(checker);
   reportUnknownElementTypes(checker);
   reportNamesNeverRead(checker);
+  reportDeletedStillHeld(checker);
   reportRepeatedTitles(checker);
   reportInputKeys(checker);
   reportRepeatedAlertIds(checker);

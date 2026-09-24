@@ -1824,8 +1824,7 @@
       },
       "spec": "language.md 15.3",
       "refines": null,
-      "test": null,
-      "deferred": "Nothing raises this yet. A write outside the declared grid raises the broader OS4004, which names an index rather than the shape the declaration fixed. Raised when the table surface reports the cell against the table it was written to, language.md 15.3."
+      "test": "tests/engine/tables.test.ts"
     },
     {
       "code": "OS4009",
@@ -3536,8 +3535,7 @@
       },
       "spec": "language.md 5.4",
       "refines": null,
-      "test": null,
-      "deferred": "Nothing raises this yet. The checker does not follow a reference to a deleted object, so the held handle this warns about compiles silently. Raised when the checker follows a deletion to the names and elements still holding the object, language.md 5.4."
+      "test": "tests/unit/check-deleted.test.ts"
     }
   ]
 }

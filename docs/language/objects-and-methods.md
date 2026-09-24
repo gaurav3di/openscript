@@ -403,10 +403,6 @@ appear anywhere. A cell reference outside the declared rows and columns is
 OS4008, which names the grid's size, and `clear(panel)` empties every cell so a
 table can be rebuilt from scratch.
 
-**Not raised yet.** OS4008 is in the catalogue and nothing raises it: a cell
-outside the declared grid raises the broader OS4004, which names an index rather
-than the shape.
-
 There is no `draw.delete` for a table. It is a fixed surface of the study, like
 a plot, and it lives as long as the study does.
 
@@ -420,10 +416,8 @@ a plot, and it lives as long as the study does.
 | OS8014 | A persistent value holds a bar index | Store `time` instead; indices shift when history loads |
 | OS5002 | An array of handles grew past the element ceiling | Cap it, and delete the objects as you drop the handles |
 
-**Not raised yet.** OS4008 and OS8014 are in the catalogue and nothing raises
-them. A cell outside the declared grid raises the broader OS4004, which names an
-index rather than the shape. The checker does not follow a bar index into a
-persistent value.
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it. The
+checker does not follow a bar index into a persistent value.
 
 ## See also
 

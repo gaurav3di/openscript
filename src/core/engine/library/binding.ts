@@ -160,6 +160,8 @@ export interface Guard {
   badArgument(span: Span, name: string, argument: string, found: string): never;
   /** Raise a run-time diagnostic against an index outside an array. */
   badIndex(span: Span, name: string, index: string, size: number): never;
+  /** Raise a run-time diagnostic against a cell outside a table's declared shape. */
+  badCell(span: Span, row: number, column: number, rows: number, columns: number): never;
   /** Raise a run-time diagnostic against an object a script already deleted. */
   deleted(span: Span, kind: string, bar: number): never;
   /** Raise a run-time diagnostic against a zone name the host does not know. */

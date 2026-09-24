@@ -2586,9 +2586,7 @@ tail = slice(values, max(0, size(values) - 10), size(values))
 
 ### OS4008 Table cell is outside the table
 
-Severity error. Stage engine. Since language version 1. Reference language.md 15.3. No test in this repository names this code.
-
-**Deferred.** Nothing raises this yet. A write outside the declared grid raises the broader OS4004, which names an index rather than the shape the declaration fixed. Raised when the table surface reports the cell against the table it was written to, language.md 15.3.
+Severity error. Stage engine. Since language version 1. Reference language.md 15.3. Test `tests/engine/tables.test.ts`.
 
 **Message.** `Cell ({row}, {column}) is outside a table of {rows} rows and {columns} columns.`
 
@@ -4747,9 +4745,7 @@ plot(ema(close, len), "EMA", aqua)
 
 ### OS8019 A deleted object is still held
 
-Severity warning. Stage checker. Since language version 1. Reference language.md 5.4. No test in this repository names this code.
-
-**Deferred.** Nothing raises this yet. The checker does not follow a reference to a deleted object, so the held handle this warns about compiles silently. Raised when the checker follows a deletion to the names and elements still holding the object, language.md 5.4.
+Severity warning. Stage checker. Since language version 1. Reference language.md 5.4. Test `tests/unit/check-deleted.test.ts`.
 
 **Message.** `{name} still holds the {kind} deleted at line {line}.`
 

@@ -30,7 +30,6 @@
     { "file": "src/core/engine/library/arrays.ts", "count": 1, "reason": "The index a bad-index diagnostic names, printed for a human." },
     { "file": "src/core/engine/library/binding.ts", "count": 1, "reason": "The value a bad-argument diagnostic names, printed for a human." },
     { "file": "src/core/engine/library/index.ts", "count": 2, "reason": "The key an entry is indexed under and the arities a manifest refusal names: one internal, one printed for a human." },
-    { "file": "src/core/engine/library/objects.ts", "count": 2, "reason": "The row and column a bad-index diagnostic names, printed for a human." },
     { "file": "src/core/engine/load.ts", "count": 2, "reason": "The path and the character position a malformed-program refusal names, printed for a human." },
     { "file": "src/core/engine/operations.ts", "count": 1, "reason": "The value a diagnostic names, printed for a human." },
     { "file": "src/core/engine/timeframe.ts", "count": 1, "reason": "The timeframe a diagnostic suggests instead, printed for a human." },
