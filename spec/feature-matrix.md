@@ -589,7 +589,7 @@ identifier rather than one diagnostic having two proofs.
 | Open interest is a level | A coarser bar takes the last reading and never the sum, unlike volume, because it is a position as at the bar rather than a quantity traded during it | `specified` | `stdlib.md` 3.1 | `bar/open-interest-folds-last` |
 | `close` has two roles | `close` bare is the price and `close(...)` is the order function, told apart by syntax; in a study file the call is OS7001 | `specified` | `stdlib.md` 3.2, `errors.md` OS7001 | `bar/close-two-roles` |
 | `chart.symbol`, `chart.exchange` | The instrument being charted | `specified` | `stdlib.md` 3.4 | `chart/instrument-identity` |
-| `chart.interval` and friends | The canonical interval string, `chart.intervalMinutes` and `chart.isIntraday` | `specified` | `stdlib.md` 3.4, `stdlib.md` 15.2 | `chart/interval` |
+| `chart.interval` and friends | The canonical interval string, `chart.intervalMinutes` and `chart.isIntraday` | `implemented` | `stdlib.md` 3.4, `stdlib.md` 15.2 | `chart/interval` |
 | `chart.timezone` | The chart's IANA zone, which every calendar conversion uses | `specified` | `stdlib.md` 3.4, `stdlib.md` 12.1 | `chart/timezone` |
 | `chart.tickSize`, `chart.lotSize`, `chart.pointValue` | Instrument facts a strategy needs for rounding and sizing, absent rather than guessed when the host has not said, and never an error on a bare read | `specified` | `stdlib.md` 3.4, `host-interface.md` 4.5 | `chart/tick-and-lot` |
 | `chart.currency`, `chart.instrumentType`, `chart.hasVolume` | The remaining constant facts a script reads from the instrument record | `specified` | `stdlib.md` 3.4, `host-interface.md` 4.1 | `chart/instrument-facts` |
@@ -706,16 +706,16 @@ library manifest, alongside the count of manifest entries that have a case.
 | `time` | The bar's open time, UTC milliseconds | `specified` | `language.md` 15.1, `stdlib.md` 3.1 | `time/bar-time` |
 | The zone a calendar field is read in | The chart's timezone unless a `zone` argument names another, because a study that disagreed with the chart's own axis would be wrong invisibly | `specified` | `stdlib.md` 12.1 | `time/zone-default` |
 | A zone is an IANA name | Never a fixed offset, which is silently wrong for half the year wherever daylight saving is observed; an unknown zone is OS6005 | `specified` | `stdlib.md` 12.1, `errors.md` OS6005 | `time/zone-iana` |
-| Calendar fields | `date.year`, `date.month`, `date.day`, `date.dayOfYear` | `specified` | `stdlib.md` 12.2 | `time/date-fields` |
-| Clock fields | `date.hour`, `date.minute`, `date.second` | `specified` | `stdlib.md` 12.2 | `time/clock-fields` |
-| `date.dayOfWeek` | 1 for Monday through 7 for Sunday, so a trading week is a contiguous range | `specified` | `stdlib.md` 12.2 | `time/day-of-week` |
-| `date.weekOfYear` | Week number, weeks starting Monday | `specified` | `stdlib.md` 12.2 | `time/week-of-year` |
+| Calendar fields | `date.year`, `date.month`, `date.day`, `date.dayOfYear` | `implemented` | `stdlib.md` 12.2 | `time/date-fields` |
+| Clock fields | `date.hour`, `date.minute`, `date.second` | `implemented` | `stdlib.md` 12.2 | `time/clock-fields` |
+| `date.dayOfWeek` | 1 for Monday through 7 for Sunday, so a trading week is a contiguous range | `implemented` | `stdlib.md` 12.2 | `time/day-of-week` |
+| `date.weekOfYear` | Week number, weeks starting Monday | `implemented` | `stdlib.md` 12.2 | `time/week-of-year` |
 | `date.from` | Build a timestamp from calendar and clock fields plus a zone; a field outside its range is OS4010 | `deferred` | `stdlib.md` 12.2, `errors.md` OS4010 | `time/construct` |
-| Calendar boundaries | `date.startOfDay`, `date.startOfWeek`, `date.startOfMonth`, `date.isSameDay` | `specified` | `stdlib.md` 12.2 | `time/boundaries` |
-| `date.format` | A closed set of placeholders, with English invariant month and weekday abbreviations, never a locale default | `specified` | `stdlib.md` 12.3 | `time/format` |
-| Session flags | `session.isOpen`, `session.isFirstBar`, `session.isLastBar`, the last known from the session's scheduled close rather than from a bar arriving | `specified` | `stdlib.md` 12.4, `host-interface.md` 4.3 | `session/flags` |
+| Calendar boundaries | `date.startOfDay`, `date.startOfWeek`, `date.startOfMonth`, `date.isSameDay` | `implemented` | `stdlib.md` 12.2 | `time/boundaries` |
+| `date.format` | A closed set of placeholders, with English invariant month and weekday abbreviations, never a locale default | `implemented` | `stdlib.md` 12.3 | `time/format` |
+| Session flags | `session.isFirstBar` and `session.isLastBar`, the last known from the session's scheduled close rather than from a bar arriving; `session.isOpen` beside them is named and planned | `implemented` | `stdlib.md` 12.4, `host-interface.md` 4.3 | `session/flags` |
 | Session times | `session.startTime`, `session.endTime`, `session.barIndex` | `specified` | `stdlib.md` 12.4 | `session/times` |
-| `session.isIn` and the window spec | `"HHMM-HHMM"` with an optional day list, an end before a start crossing midnight, a malformed literal OS3008 | `specified` | `stdlib.md` 12.5, `errors.md` OS3008 | `session/window-spec` |
+| `session.isIn` and the window spec | `"HHMM-HHMM"` with an optional day list, an end before a start crossing midnight, a malformed literal OS3008 | `implemented` | `stdlib.md` 12.5, `errors.md` OS3008 | `session/window-spec` |
 | `date.add` | Calendar arithmetic that respects month lengths and daylight saving, named and not defined | `planned` | `stdlib.md` 12.2 | `time/calendar-add` |
 | `session.isHoliday`, `session.nextOpen` | Named and not defined; the first waits on a supplied calendar | `planned` | `stdlib.md` 12.4 | `session/planned` |
 | Session day boundary | Which calendar day a bar belongs to when a session crosses midnight | `planned` | `none` | `session/day-boundary` |

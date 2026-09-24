@@ -14,18 +14,20 @@ for every entry but one: ``chart.symbol`` is the empty string, because 3.4 says
 so. A default anywhere else would make "the smallest increment is five paise"
 and "nobody said" the same reading.
 
-**The two derived facts are not here.** ``chart.intervalMinutes`` and
-``chart.isIntraday`` are computed from the interval string by section 15.2's
-canonical form, which this engine does not read yet, so a program calling one is
-refused at load by name (OS6004) rather than answered from a guess at what the
-string meant. The planned entries of both tables are absent for the same reason:
-a name the language does not serve yet is a refusal naming it.
+**The two derived facts are computed from the interval, never read.**
+``chart.intervalMinutes`` and ``chart.isIntraday`` are derived from the one
+interval string the host stated, so neither can disagree with it, by the rule the
+first engine applies: a count, then an optional unit of seconds, minutes, hours,
+days or weeks, where a count alone is minutes, and a month has no answer because
+it is no fixed number of minutes. The planned entries of both tables are absent:
+a name the language does not serve yet is a refusal naming it (OS6004).
 """
 
-from typing import Any, Dict, Optional, Protocol, Tuple
+import re
+from typing import Any, Dict, Mapping, Optional, Protocol, Tuple
 
 from ..values import ABSENT
-from .sessions import SESSION_FACTS
+from .sessions import SESSION_FACT_OF, SESSION_FACTS
 
 #: Section 3.4 against ``host-interface.md`` 4.1: the call, and the fact of the
 #: instrument record it reads. Every one is arity 0, holds no state and has no
@@ -115,13 +117,47 @@ def position_value(name: str, book: Book) -> Any:
 #: 0, hold no state and have no effect, which is what section 2.5's check holds a
 #: program's own library table to. The session's own entry is beside them because
 #: it is read the same way and answered from the bar rather than from a record.
-FACT_NAMES: Tuple[str, ...] = (*CHART_FACTS, CHART_CLOCK, *POSITION_FACTS, *SESSION_FACTS)
+DERIVED_FACTS: Tuple[str, ...] = ("chart.intervalMinutes", "chart.isIntraday")
+
+FACT_NAMES: Tuple[str, ...] = (
+    *CHART_FACTS,
+    CHART_CLOCK,
+    *DERIVED_FACTS,
+    *POSITION_FACTS,
+    *SESSION_FACTS,
+)
+
+#: A count, then an optional unit. A count alone is minutes.
+_INTERVAL = re.compile(r"^(\d+)([smhDWM]?)$")
+
+#: Minutes in one of each unit. A month is absent from it on purpose.
+_MINUTES = {"s": 1 / 60, "": 1, "m": 1, "h": 60, "D": 60 * 24, "W": 60 * 24 * 7}
 
 
-def fact_value(name: str, instrument: Any, now: Any, book: Book, bar: Any) -> Any:
+def interval_minutes(interval: Any) -> Any:
+    """Minutes in an interval code, or absent for one that has no fixed length."""
+    if not isinstance(interval, str):
+        return ABSENT
+    found = _INTERVAL.match(interval)
+    if found is None or found.group(2) not in _MINUTES:
+        return ABSENT
+    return float(int(found.group(1)) * _MINUTES[found.group(2)])
+
+
+def derived_value(name: str, instrument: Any) -> Any:
+    """``chart.intervalMinutes`` or ``chart.isIntraday``, from the stated interval."""
+    minutes = interval_minutes(instrument.get("interval", ABSENT))
+    if name == "chart.intervalMinutes" or minutes is ABSENT:
+        return minutes
+    return minutes < 60 * 24
+
+
+def fact_value(name: str, instrument: Any, now: Any, book: Book, bar: Mapping[str, Any]) -> Any:
     """Whichever of the three namespaces this name belongs to, read once."""
     if name in POSITION_FACTS:
         return position_value(name, book)
     if name in SESSION_FACTS:
-        return bar
+        return bar.get(SESSION_FACT_OF[name], ABSENT)
+    if name in DERIVED_FACTS:
+        return derived_value(name, instrument)
     return chart_value(name, instrument, now)

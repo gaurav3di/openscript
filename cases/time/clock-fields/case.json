@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"time","description":"The hour and minute of a bar time in the chart zone.","id":"time/clock-fields","languageVersion":1,"profile":"chart"}

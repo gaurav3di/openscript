@@ -52,3 +52,22 @@ suite so that the agreement is measured rather than assumed. Until then the
 honest alternative is for the adapter to claim a profile it meets, and there is
 none between `core` and `chart` for it to claim, which is itself worth deciding
 if the list does not empty soon.
+
+## Progress
+
+**2026-09-24: three of the six families closed, nineteen entries.** The date
+namespace, the two session calls and the two chart facts derived from the
+interval are served by the second engine, from tables beside the ones it
+already had: `dates.py` for the fifteen `date.*` entries, the session hours it
+already read for `session.isIn` and `session.isLastBar`, and the interval it is
+handed for `chart.intervalMinutes` and `chart.isIntraday`. Nine cases reach
+them, each with its expected columns computed by the author from an
+implementation neither engine uses, and both engines agree with those columns
+exactly: `time/date-fields`, `time/clock-fields`, `time/day-of-week`,
+`time/week-of-year`, `time/boundaries`, `time/format`, `session/flags`,
+`session/window-spec` and `chart/interval`. `spec/engine-gaps.json` shrank from
+forty two rows to twenty three.
+
+What remains is the three families that are more than a table: grids, drawing
+objects, and the status of a request, which needs the second engine to execute
+a request at all.

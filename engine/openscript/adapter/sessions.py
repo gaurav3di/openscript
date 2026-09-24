@@ -19,16 +19,14 @@ second copy would drift over midnight, or over which day a list of days is read
 against, on the dataset nobody tests. What is here is the record: its three
 refusals, and the two facts derived per bar.
 
-**Both derived facts are computed here and one of them is in the manifest.**
+**Both derived facts are computed here and both are in the manifest.**
 ``session.isFirstBar`` looks backwards, which an engine can answer on the bar it
 is executing. ``session.isLastBar`` is "true on the last bar of the schedule even
 if trading stopped early", so it is a bar slot measured against the scheduled
-close and it needs the interval, which ``intervals.py`` now reads;
-``last_bars`` below is that reading. It is not in ``SESSION_FACTS`` yet, because
-the seam that answers a session fact carries one bar fact to answer it with, and
-a name added to that tuple without a second fact beside it would answer
-``isLastBar`` with ``isFirstBar``'s value, which is worse than the refusal a
-program gets today (OS6004, naming the function).
+close and it needs the interval, which ``intervals.py`` reads; ``last_bars``
+below is that reading. Each reaches the seam as a bar fact of its own name,
+``SESSION_FIRST`` and ``SESSION_LAST``, so neither can be answered with the
+other's value.
 
 **The zone is read as the one this engine can read.** A calendar in any other
 zone is a reader the host supplies, so a case whose record names another zone is
@@ -45,11 +43,17 @@ from ..zones import READABLE as READABLE_ZONE, fields_in
 from .spellings import Malformed
 
 #: ``stdlib.md`` 12.4: the entries of the namespace this engine serves.
-SESSION_FACTS: Tuple[str, ...] = ("session.isFirstBar",)
+SESSION_FACTS: Tuple[str, ...] = ("session.isFirstBar", "session.isLastBar")
 
 #: The bar fact both readers of a session boundary take it from: the namespace
 #: entry above, and ``vwap``, which restarts where the session opened.
 SESSION_FIRST = "isSessionFirst"
+
+#: The bar fact ``session.isLastBar`` is answered from, beside the first.
+SESSION_LAST = "isSessionLast"
+
+#: Each session entry against the bar fact that answers it.
+SESSION_FACT_OF = {"session.isFirstBar": SESSION_FIRST, "session.isLastBar": SESSION_LAST}
 
 #: The record's session is a range of wall clock hours and nothing else, which is
 #: what lets it and a script's own window be one arithmetic.

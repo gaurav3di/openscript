@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"time","description":"session.isIn reads a window the script writes against the bar time in the chart zone.","id":"session/window-spec","languageVersion":1,"profile":"chart"}

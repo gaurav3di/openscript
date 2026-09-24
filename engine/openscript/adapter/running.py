@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..accounting import report_of
 from ..contracts import Bar as EngineBar, BarState
+from ..dates import BAR_TIME, NAMES as DATE_NAMES
 from ..inputs import utc_time
 from ..logbook import Logbook
 from ..run import load_text
@@ -58,7 +59,9 @@ from .sessions import (
     READABLE_ZONE,
     SESSION_FACTS,
     SESSION_FIRST,
+    SESSION_LAST,
     first_bars,
+    last_bars,
     session_from,
 )
 from .spellings import Malformed, as_reported
@@ -219,6 +222,8 @@ def _unreadable_zone(program: Dict[str, Any], instrument: Dict[str, Any]) -> Opt
         return "a time input"
     if any(one["name"] in SESSION_FACTS for one in program["lib"]["functions"]):
         return "a session boundary"
+    if any(one["name"] in DATE_NAMES for one in program["lib"]["functions"]):
+        return "a calendar call"
     return None
 
 
@@ -420,7 +425,10 @@ def _every_bar(
     bars = case.bars or []
     supplied = len(bars)
     when = case.declared.get("now", ABSENT)
-    opens = first_bars([bar.time for bar in bars], session_from(case.instrument))
+    times = [bar.time for bar in bars]
+    session = session_from(case.instrument)
+    opens = first_bars(times, session)
+    closes = last_bars(times, session, case.instrument.get("interval"))
     rows: List[List[Any]] = []
     for index, bar in enumerate(bars):
         desk.fold(index, float(bar.time))
@@ -433,6 +441,8 @@ def _every_bar(
                 "previousClose": previous,
                 "volume": bar.volume,
                 SESSION_FIRST: opens[index],
+                SESSION_LAST: closes[index],
+                BAR_TIME: bar.time,
             },
             index == 0,
         )

@@ -6,74 +6,6 @@
       "reason": "Grids. The second engine has no table surface, and refuses a program that declares one at load with OS6006 naming the tables tag."
     },
     {
-      "entry": "chart.intervalMinutes/0",
-      "reason": "A chart fact derived from the interval. The second engine serves the facts the instrument record states and not the two derived from them."
-    },
-    {
-      "entry": "chart.isIntraday/0",
-      "reason": "A chart fact derived from the interval. The second engine serves the facts the instrument record states and not the two derived from them."
-    },
-    {
-      "entry": "date.day/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.dayOfWeek/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.dayOfYear/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.format/3",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.from/7",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.hour/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.isSameDay/3",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.minute/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.month/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.second/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.startOfDay/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.startOfMonth/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.startOfWeek/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.weekOfYear/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
-      "entry": "date.year/2",
-      "reason": "The date namespace. The second engine has the civil calendar its folds are built on (civil.py, dates.py) and does not expose it as calls yet."
-    },
-    {
       "entry": "draw.box/11",
       "reason": "Drawing objects. The second engine has no object heap, and refuses a program that creates one at load with OS6006 naming the objects tag."
     },
@@ -160,14 +92,6 @@
     {
       "entry": "req.isReady/1",
       "reason": "A call about a request's status. The second engine folds the answer a case supplies and has no status of a read to report."
-    },
-    {
-      "entry": "session.isIn/2",
-      "reason": "A session call the second engine's facts table does not serve: it answers the session facts a bar carries, not a window a script names or the last bar of a session."
-    },
-    {
-      "entry": "session.isLastBar/0",
-      "reason": "A session call the second engine's facts table does not serve: it answers the session facts a bar carries, not a window a script names or the last bar of a session."
     }
   ]
 }

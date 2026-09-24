@@ -51,13 +51,17 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..arrays import CALLS as ARRAY_CALLS
 from ..contracts import CallContext, LibraryEntry
+from ..dates import table as dates_table
 from ..library import BUILDS_A_STRING, MEASURED, stateful_table, table
 from ..library.stateless import Entry
 from ..logbook import LOG_ENTRIES
 from ..values import ABSENT, ArrayValue, Reference, tag
 from .facts import FACT_NAMES, POSITION_FACTS, Book, fact_value
 from .ordering import ORDER_ENTRIES
-from .sessions import SESSION_FIRST
+
+
+#: The one calendar call that builds a string, which the ceiling is spent on.
+DATE_FORMAT = "date.format"
 
 
 class Serving:
@@ -74,7 +78,10 @@ class Serving:
     """
 
     def __init__(self, book: Optional[Book] = None) -> None:
-        self._entries = table()
+        # The calendar's calls are stateless and are joined to the library's own
+        # stateless table rather than kept as a seventh: they take a context and
+        # their arguments, exactly as those do (``dates.py``).
+        self._entries = {**table(), **dates_table()}
         self._stateful = stateful_table()
         self._book = book
         self._bar: Dict[str, Any] = {}
@@ -86,8 +93,9 @@ class Serving:
     def at_bar(self, facts: Dict[str, Any], first: bool) -> None:
         """The bar facts a library call reads, for the execution about to happen.
 
-        Six of them, and each is read by name: ``high``, ``low``, ``close``,
-        ``previousClose``, ``volume`` and ``isSessionFirst``. The names are the
+        Each is read by name: the bar's ``time``, ``high``, ``low``, ``close`` and
+        ``volume``, the ``previousClose``, and the two session facts,
+        ``isSessionFirst`` and ``isSessionLast``. The names are the
         library's, asked for through ``bar``, and a fact the caller does not state
         is absent rather than a value read from somewhere else: a study that
         answered absence for every bar would be a study with a silently empty
@@ -167,7 +175,7 @@ class Serving:
         ceiling would refuse a host its own long instrument name on a script that
         only read it.
         """
-        return name in BUILDS_A_STRING
+        return name in BUILDS_A_STRING or name == DATE_FORMAT
 
     def describe(self, name: str) -> str:
         """What this engine's manifest holds for a name, in OS6004's own words."""
@@ -211,9 +219,7 @@ class Serving:
         if array is not None:
             return array(list(arguments))
         if len(arguments) == 0 and name in self._facts():
-            return fact_value(
-                name, self._instrument(), self._now(), self._book, self._bar.get(SESSION_FIRST, ABSENT)
-            )
+            return fact_value(name, self._instrument(), self._now(), self._book, self._bar)
         return ABSENT
 
     # -- the six members a stateless call may ask for -----------------------
