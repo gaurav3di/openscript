@@ -45,6 +45,7 @@ import type {
   Instrument,
   LedgerRow,
   OrderIntent,
+  RequestProvider,
   RoutedEffect,
   Value,
 } from '../engine/index.js';
@@ -140,6 +141,17 @@ export interface DriveOptions {
   readonly log?: boolean;
   /** Whether to hand back the drawing objects and grids the last bar left, for the same reason. */
   readonly surface?: boolean;
+  /**
+   * Bars for another instrument, `host-interface.md` 5, for a run whose host
+   * serves them.
+   *
+   * Left out, the run holds the chart's own bars and nothing else: a read of
+   * the chart's instrument at a coarser interval is folded from them, and a
+   * program that reads another instrument declares a capability this host does
+   * not have and is refused at load by name. Given, the host serves duty 3 and
+   * the engine asks it once per read, before bar 0.
+   */
+  readonly requestBars?: RequestProvider;
 }
 
 
@@ -230,7 +242,12 @@ function drive(
   const instrument = instrumentFor(settings.contract, options.instrument ?? {});
   const loaded = load(program, {
     settings: settings.inputs,
-    host: hostFor(instrument, settings.now, (effect, bar) => sending?.route(effect, bar)),
+    host: hostFor(
+      instrument,
+      settings.now,
+      (effect, bar) => sending?.route(effect, bar),
+      options.requestBars,
+    ),
   });
   if (!loaded.ok) return { ok: false, diagnostic: loaded.diagnostic };
 
@@ -343,19 +360,21 @@ function instrumentFor(contract: Contract, facts: InstrumentFacts): Instrument {
 /**
  * The host a backtest is: an instrument record, a clock and a destination.
  *
- * Duty 3 is not served. A backtest holds the chart's own bars and nothing else,
- * so a program that reads another instrument declares a capability this host
- * does not have and is refused at load, by name, rather than drawing a line
- * with nothing in it.
+ * Duty 3 is served only when the caller supplied bars for it. A backtest with
+ * none holds the chart's own bars and nothing else, so a program that reads
+ * another instrument declares a capability this host does not have and is
+ * refused at load, by name, rather than drawing a line with nothing in it.
  */
 function hostFor(
   instrument: Instrument,
   now: number | null,
   route: (effect: RoutedEffect, bar: number) => void,
+  requestBars: RequestProvider | undefined,
 ): EngineHost {
   return {
     instrument,
     ...(now === null ? {} : { now }),
     route,
+    ...(requestBars === undefined ? {} : { requestBars }),
   };
 }

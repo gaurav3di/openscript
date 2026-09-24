@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"Inside a read the built-in series are the requested bars, and the expression runs once per requested bar.","id":"req/expression","languageVersion":1,"profile":"chart"}

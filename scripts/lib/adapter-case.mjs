@@ -75,12 +75,19 @@
  * - A compile warning is not in the diagnostics channel, because the record a
  *   harvested case is projected from holds what a run raised; a `warning`
  *   category case is therefore `unsupported`.
- * - `ticks.csv` and a secondary series are `unsupported`: a backtest replays
- *   no intrabar update and serves no series but its own.
+ * - `ticks.csv` is `unsupported`: a backtest replays no intrabar update.
+ *
+ * ## A read of another instrument is the case's file
+ *
+ * Section 3 serves one from `bars.<SYMBOL>.csv`, never from a provider that
+ * reaches outside the directory, and a read whose file is missing is a case
+ * failure. `case-reads.mjs` is that host, handed to the run as its request
+ * provider, and the file it could not serve is this adapter's `error`.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { suiteDefaultFacts } from './case-directory.mjs';
+import { caseReads } from './case-reads.mjs';
 import { readCaseDirectory } from './case-reading.mjs';
 import { compareChannels, toleranceFrom } from './compare.mjs';
 import { readExpectedCsv, reported, valuesAnswer, valuesExpected } from './case-values.mjs';
@@ -149,9 +156,6 @@ export function caseAnswer(directory, engine) {
     );
   }
   if (read.ticks) unsupported.push('ticks.csv (section 3): this backtest replays no intrabar update');
-  for (const name of read.secondary) {
-    unsupported.push(`${name} (section 3): this backtest holds its own bars and serves no other series`);
-  }
   const undelivered = undeliverable(read.frameRows, read.bars);
   if (undelivered !== null) unsupported.push(undelivered);
   if (unsupported.length > 0) return answer({}, unsupported);
@@ -193,8 +197,10 @@ export function caseAnswer(directory, engine) {
   const wantsValues = declared.asserts.includes(VALUES);
   const wantsLog = declared.asserts.includes(LOG);
   const wantsSurface = declared.asserts.includes(DRAWINGS) || declared.asserts.includes(TABLE);
+  const reads = caseReads(directory, read.secondary, engine.vocabulary.barsHeader);
   const driving = {
     sourceText: read.script, instrument: facts, rows: wantsValues, log: wantsLog, surface: wantsSurface,
+    requestBars: reads.provider,
   };
   // Section 3: the file supplies the frames, and a case that holds none is
   // handed none. The second driver delivers what it is given and answers
@@ -203,6 +209,7 @@ export function caseAnswer(directory, engine) {
     read.frameRows === null
       ? engine.core.backtest(compiled.program, read.bars, settings, driving)
       : engine.core.backtestSupplied(compiled.program, read.bars, settings, read.frameRows, driving);
+  if (reads.problem() !== null) return { id, error: reads.problem() };
   if (!run.ok) {
     const capability = missingCapability(run.diagnostic);
     if (capability !== null) {

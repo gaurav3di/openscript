@@ -305,6 +305,14 @@ export class Engine {
   }
 
   /**
+   * The dataset a driver appends one bar at a time, handed to the fold before
+   * bar 0 as `run` hands it, so a `"lookahead"` read reads it as history.
+   */
+  history(bars: readonly HostBar[] | BarColumns): void {
+    if (!this.started) this.known.reset(sourceOf(bars));
+  }
+
+  /**
    * A frame from the destination, `host-interface.md` 7.2. Held until the next
    * bar begins rather than folded where it lands: nothing reaches a running
    * execution, so every position fact is constant for the length of one and a
@@ -420,15 +428,6 @@ export class Engine {
   }
 
   /**
-   * A bar that failed.
-   *
-   * Steps 7 to 11 do not run, the bar's output columns keep whatever the
-   * previous execution published or stay absent, and the engine reports the
-   * error with its code and source position. It does not continue to the next
-   * bar with a half executed state, so the journal is rolled back and the
-   * script is marked stopped.
-   */
-  /**
    * A hand-over the engine refuses, before any of it has been executed.
    *
    * Nothing is rolled back because nothing has run: the bar was never begun,
@@ -450,6 +449,7 @@ export class Engine {
     };
   }
 
+  /** A bar that failed: steps 7 to 11 do not run, the journal rolls back, the script stops. */
   private stopped(thrown: unknown): BarResult {
     const diagnostic =
       thrown instanceof ScriptError ? thrown.diagnostic : unexpected('the bar', thrown);

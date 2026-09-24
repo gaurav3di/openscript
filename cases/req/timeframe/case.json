@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"Day, week and month reads of the chart, folded by the calendar in the instrument's zone.","id":"req/timeframe","languageVersion":1,"profile":"chart"}

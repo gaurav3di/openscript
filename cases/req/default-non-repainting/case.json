@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"A read that names no mode is the confirmed read, and never the bucket still forming.","id":"req/default-non-repainting","languageVersion":1,"profile":"chart"}

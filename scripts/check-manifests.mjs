@@ -79,8 +79,14 @@ if (problems.length > 0) {
   fail(`Manifest check failed with ${problems.length} problem${problems.length === 1 ? '' : 's'}:\n- ${problems.join('\n- ')}`);
 }
 
+// An empty record is a claim too: that the two manifests are the same list. It
+// is said as that rather than as "every one of the 0", which reads as a count
+// of something checked.
+const gaps =
+  recorded.size === 0
+    ? `the second lacks none, which is what ${RECORD} records`
+    : `every one of the ${recorded.size} the second lacks is recorded in ${RECORD} with its reason`;
 console.log(
   `Manifest check passed: the first engine holds ${first.size} library entries and the second ` +
-    `${second.size}, asked of each engine rather than listed here, and every one of the ` +
-    `${recorded.size} the second lacks is recorded in ${RECORD} with its reason.`,
+    `${second.size}, asked of each engine rather than listed here, and ${gaps}.`,
 );

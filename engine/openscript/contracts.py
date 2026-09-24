@@ -73,6 +73,14 @@ class CallContext:
     #: The run's drawing roster and grids (``objects.py``), which the calls of
     #: ``stdlib.md`` 14.3 and 14.4 write into and no other call reads.
     objects: Any = None
+    #: The reads of the machine this call is in (``requests.py``), which
+    #: ``req.isReady`` and ``req.error`` answer about and no other call reads.
+    requests: Any = None
+    #: The bar a call reads, by the names the library asks for, when it is not
+    #: the one the host stated: inside a read's body it is the requested bar
+    #: (``request_body.py``). ``None`` is the chart's own bar, which whatever
+    #: drives the bars states to the library directly.
+    bar: Optional[Mapping[str, Any]] = None
 
 
 @dataclass(frozen=True)

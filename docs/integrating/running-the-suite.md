@@ -121,9 +121,10 @@ surprise, and each is `unsupported` or `error` on the case, never a pass.
 - **A compiler case.** A case whose assertion is a diagnostic raised by
   compiling is `unsupported`: the compiler here is the first engine's, and its
   diagnostics are not the second engine's to claim.
-- **`ticks.csv` and a secondary series.** The machine re-executes a bar and
-  rolls its state back, and how a tick row becomes the newest bar's four prices
-  is written down nowhere, so a replay would be the adapter's invention.
+- **`ticks.csv`.** The machine re-executes a bar and rolls its state back, the
+  fold of every higher timeframe read included, and how a tick row becomes the
+  newest bar's four prices is written down nowhere, so a replay would be the
+  adapter's invention. The rollback is held by the engine's own tests instead.
 - **A frame delivered after the last bar.** Section 3 has a frame delivered
   after the bar it names and folded before the next execution, and the last bar
   has no next execution, so what becomes of such a frame is written down
@@ -131,15 +132,19 @@ surprise, and each is `unsupported` or `error` on the case, never a pass.
   ledger missing whatever the frame said.
 - **`expectedExitCode`.** Section 2 names the field and fixes no shape for it,
   so no shape is read.
-- **A calendar outside the one timezone this engine reads.** A written time and
-  a session boundary are both read in the instrument's zone, and a host with
-  another zone supplies its own reader; this engine has been given none.
-- **The two derived instrument facts, and the planned entries of every
-  namespace.** `chart.intervalMinutes` and `chart.isIntraday` are computed from
-  the interval string, which this engine does not read, and
-  `session.isLastBar` needs the bar's own length to know which bar reaches the
-  scheduled close. Each is refused at load naming the function, which the case
-  reports as the feature.
+- **A calendar outside the one timezone this engine reads.** A written time, a
+  session boundary and a day, week or month read are all dated in the
+  instrument's zone, and a host with another zone supplies its own reader; this
+  engine has been given none. A record that states no zone at all is not this
+  case: both engines leave a calendar read with nothing to date it by absent,
+  and say why through `req.error`.
+- **The planned entries of every namespace.** Each is refused at load naming
+  the function, which the case reports as the feature.
+
+A read of another instrument is not on this list. It is answered from the
+case's own `bars.<SYMBOL>.csv`, as section 3 serves one, and a case whose script
+reads an instrument it holds no file for is `error` naming the file: a missing
+file is a broken case, never an absent series.
 
 ## Running it
 
@@ -263,8 +268,9 @@ list is in its section above.
   `background` or `alerts` is `unsupported`, by name.
 - **A warning case.** The diagnostics a run records are the ones it raised; a
   compile warning is not among them.
-- **`ticks.csv` and a secondary series.** A backtest replays no intrabar
-  update and holds no series but its own.
+- **`ticks.csv`.** A backtest replays no intrabar update. A read of another
+  instrument is served, from the case's own `bars.<SYMBOL>.csv` handed to the
+  run as its host's answer, and a read whose file is missing is `error`.
 - **A per-column tolerance.** Section 6 allows one and fixes no shape for it,
   so none is read.
 - **A strategy case with no `instrument.json`.** Section 3's default
@@ -288,7 +294,11 @@ side of a range, both sized and flattened by the script; the ledger the frames
 of a simulated destination fold to; the trades and the summary folded from those
 fills; a report narrowed to a window inside the bars, with a position open at
 each end of it; a money rounding digit count other than the fixture's; and
-values a host stored for a script's inputs.
+values a host stored for a script's inputs. Beside the strategies, the cases
+under `cases/req` hold a read of the chart's own bars at a coarser interval in
+each of its three modes and by the calendar, a read of another instrument
+served from a file, and the status of a read, each against columns worked out
+from the bars without either engine.
 
 What no case has yet, each with the reason:
 

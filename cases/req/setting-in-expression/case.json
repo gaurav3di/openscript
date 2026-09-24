@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"A setting read inside a read, behind a name and written in place, is the setting the host supplied.","id":"req/setting-in-expression","languageVersion":1,"profile":"chart"}

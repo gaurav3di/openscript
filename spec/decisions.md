@@ -4873,3 +4873,56 @@ it would be a channel two correct engines disagree on.
 first engine's backtest (`surface`); `engine/openscript/objects.py` and
 `adapter/surface.py`; twenty eight cases under `cases/draw`, `cases/obj` and
 `cases/table`.
+
+## 73. A read of another instrument is served from `bars.<SYMBOL>.csv`, and a read of the chart's own from `bars.csv`
+
+**The question.** `conformance.md` section 3 said a higher timeframe or other
+instrument read is served from a file "matched by the name the script asks
+for", with `bars.60.csv` and `bars.1D.csv` beside `bars.OTHER.csv`, and neither
+adapter served one. When the second engine gained the fold (issue 0021) the
+section had to say what a file is named after, which timeframe it holds, what a
+missing one does, and whether a read of the chart's own instrument reads a file
+at all.
+
+**The decision.** A read of the chart's own instrument reads no file: the engine
+folds `bars.csv`, and the whole of it is the history the fold is handed before
+bar 0. A read of another instrument is answered from `bars.<SYMBOL>.csv`, named
+after the instrument the read resolves to whatever exchange it names, with the
+columns of `bars.csv`, holding that instrument's bars at the timeframe the read
+requests. One file answers every read of its instrument. A read whose file is
+missing is the `error` outcome, naming the file. A read whose instrument did not
+resolve at all names no file and is refused with OS6007, as a host refuses it.
+
+**Why a read of the chart's own instrument reads no file.** `host-interface.md`
+5.1 and `compiled-program.md` 2.16.2 have an engine fold the chart's own bars for
+it, and both engines do, whether or not a host serves one. A file for it would
+test a host path neither adapter takes, and a case holding `bars.1D.csv` beside
+`bars.csv` could say two different things about one day with nothing to say
+which of them the engine read.
+
+**Why the symbol alone names the file.** Every read the suite holds names one
+venue per instrument, most of them the chart's by default, so a name carrying
+the exchange as well would be a second word to get right for a fact the case
+already states. A case that needs two venues for one symbol is a case nobody
+has written, and the rule can grow when one is.
+
+**Why the whole dataset is handed over first.** `compiled-program.md` 2.16.2
+makes a `"lookahead"` read the one place an engine's answer depends on how much
+it has been given, and a case is settled history, where `stdlib.md` 15.3 says
+that mode reads a bucket's final value from its first bar. The first engine's
+backtest appended bars one at a time, which answered a lookahead read with the
+bucket so far, the live chart's reading, on history; it now hands the fold the
+dataset before bar 0 as `Engine.run` does, and the second engine's run takes it
+the same way. Confirmed and developing reads stop at the chart bar, so nothing
+else moves.
+
+**Why a missing file is an error and not a refusal.** A refusal is something a
+study draws around, so a suite that turned missing input into one would pass a
+case whose expected column is absent for a reason nobody wrote down: the
+silently empty series the section already refused, arriving by another door.
+
+**Edits.** `conformance.md` sections 2 and 3; the `conf/secondary-series` row of
+`feature-matrix.md`; `scripts/lib/case-reads.mjs` and `adapter-case.mjs`; the
+first engine's backtest drive (`requestBars`) and walk (`Engine.history`);
+`engine/openscript/adapter/secondary.py` and `running.py`; the cases under
+`cases/req`.

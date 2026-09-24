@@ -9,7 +9,7 @@ this adapter carries the join, and it carries it here rather than inside the
 answer so that the day a module in the package does it, one import changes and
 nothing else does.
 
-**Seven tables and not one.** Beside the two halves of the library are the two
+**Eight tables and not one.** Beside the two halves of the library are the two
 namespaces that are not in it: the ``chart`` and ``pos`` facts of ``facts.py``,
 whose answer is the host's record and the strategy's own fills, and the nine
 order calls of ``ordering.py``, which carry an effect and are therefore never
@@ -18,8 +18,10 @@ outside the library because they refuse an index and a size and the library
 refuses nothing, and ``print``, whose one row is ``logbook.py``'s and which
 carries an effect, so it is never called through here either. Last, the drawing
 and grid calls of ``objects.py``, outside the library for the reason the array
-calls are, which write into the run's roster that the context carries. A name in
-none of the seven is a name this engine's manifest does not hold, and a program calling it
+calls are, which write into the run's roster that the context carries, and the
+two status calls of ``requests.py``, which answer about the reads of the machine
+the call is in, carried on the context as well. A name in none of the eight is
+a name this engine's manifest does not hold, and a program calling it
 is refused at load (OS6004) naming the function and what this engine holds
 instead.
 
@@ -32,7 +34,9 @@ grants the oldest bar the library's one exception to absence propagation, so a
 context of three fields cannot answer it. The caller driving the bars knows all
 three, so it states them here before each execution, and a call that arrives
 without them is answered with absence rather than with a value read from
-somewhere else.
+somewhere else. A call inside a read's body is the exception, because the bar it
+reads is a requested bar the caller never sees: the body states that one in the
+context it hands the call (``request_body.py``), and it wins while it is there.
 
 ``roundToTick`` asks the host for the instrument's tick, which ``CallContext``
 does carry, so it is read from there and from nowhere else.
@@ -49,7 +53,7 @@ it is written up in the stage's report; nothing here papers over it, because a
 seam that converted quietly would hide the one place a test can see it.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from ..arrays import CALLS as ARRAY_CALLS
 from ..contracts import CallContext, LibraryEntry
@@ -58,6 +62,7 @@ from ..library import BUILDS_A_STRING, MEASURED, stateful_table, table
 from ..library.stateless import Entry
 from ..logbook import LOG_ENTRIES
 from ..objects import CALLS as OBJECT_CALLS, clears_a_grid
+from ..requests import CALLS as REQUEST_CALLS
 from ..values import ABSENT, ArrayValue, Reference, tag
 from .facts import FACT_NAMES, POSITION_FACTS, Book, fact_value
 from .ordering import ORDER_ENTRIES
@@ -127,7 +132,7 @@ class Serving:
             return LibraryEntry(held.name, held.arity, held.state, held.effect)
         if arity == 0 and name in self._facts():
             return LibraryEntry(name, 0, False, "none")
-        if (name, arity) in ARRAY_CALLS or (name, arity) in OBJECT_CALLS:
+        if (name, arity) in ARRAY_CALLS or (name, arity) in OBJECT_CALLS or (name, arity) in REQUEST_CALLS:
             return LibraryEntry(name, arity, False, "none")
         return ORDER_ENTRIES.get((name, arity)) or LOG_ENTRIES.get((name, arity))
 
@@ -138,20 +143,21 @@ class Serving:
         found |= {arity for (held, arity) in ORDER_ENTRIES if held == name}
         found |= {arity for (held, arity) in ARRAY_CALLS if held == name}
         found |= {arity for (held, arity) in OBJECT_CALLS if held == name}
+        found |= {arity for (held, arity) in REQUEST_CALLS if held == name}
         found |= {arity for (held, arity) in LOG_ENTRIES if held == name}
         if name in self._facts():
             found.add(0)
         return sorted(found)
 
     def manifest(self) -> List[Tuple[str, int]]:
-        """Every name and argument count this engine holds, across all seven tables.
+        """Every name and argument count this engine holds, across all eight tables.
 
         ``scripts/check-manifests.mjs`` compares this against the first engine's
         library, which is how a call one engine has and the other does not is
         found by a build rather than by the first case that happens to reach it.
         """
         held = set(self._entries) | set(self._stateful) | set(ORDER_ENTRIES)
-        held |= set(ARRAY_CALLS) | set(LOG_ENTRIES) | set(OBJECT_CALLS)
+        held |= set(ARRAY_CALLS) | set(LOG_ENTRIES) | set(OBJECT_CALLS) | set(REQUEST_CALLS)
         held |= {(name, 0) for name in self._facts()}
         return sorted(held)
 
@@ -224,17 +230,20 @@ class Serving:
             return ABSENT if context.objects is None else drawn(context.objects, context.bar_index, arguments)
         if name == "clear" and clears_a_grid(arguments):
             return ABSENT
+        asked = REQUEST_CALLS.get((name, len(arguments)))
+        if asked is not None:
+            return asked(context.requests, arguments)
         array = ARRAY_CALLS.get((name, len(arguments)))
         if array is not None:
             return array(list(arguments))
         if len(arguments) == 0 and name in self._facts():
-            return fact_value(name, self._instrument(), self._now(), self._book, self._bar)
+            return fact_value(name, self._instrument(), self._now(), self._book, self._bar_facts())
         return ABSENT
 
     # -- the six members a stateless call may ask for -----------------------
 
     def bar(self, fact: str) -> Any:
-        return self._bar.get(fact, ABSENT)
+        return self._bar_facts().get(fact, ABSENT)
 
     def host(self, fact: str) -> Any:
         if self._context is None:
@@ -242,7 +251,14 @@ class Serving:
         return self._context.instrument.get(fact, ABSENT)
 
     def first_bar(self) -> bool:
+        if self._context is not None and self._context.bar is not None:
+            return self._context.bar_index == 0
         return self._first
+
+    def _bar_facts(self) -> Mapping[str, Any]:
+        """The bar the call reads: a requested bar inside a read, else the caller's."""
+        stated = None if self._context is None else self._context.bar
+        return self._bar if stated is None else stated
 
     def _instrument(self) -> Any:
         """The record the host stated, which is what a ``chart`` fact is read from."""

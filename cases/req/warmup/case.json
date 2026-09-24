@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"Each mode's first present bar, and a warmup inside a read counted in requested bars.","id":"req/warmup","languageVersion":1,"profile":"chart"}

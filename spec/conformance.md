@@ -100,7 +100,7 @@ cases/
 | `instrument.json` | no | Instrument facts: the record of `host-interface.md` 4.1. Defaults in section 3 |
 | `settings.json` | no | Values for the script's inputs. Absent means every input takes its declared default |
 | `backtest.json` | for a strategy case | What the report was folded under and the script never states: the money rounding digits, the charge schedule the host supplied and the report window. Section 3 |
-| `bars.<name>.csv` | no | A secondary bar series, for a higher timeframe or other instrument read |
+| `bars.<name>.csv` | no | A secondary bar series: another instrument's bars, for a read of that instrument. Section 3 |
 | `ticks.csv` | no | Intrabar updates, for a case that tests the moving bar |
 | `frames.csv` | no | Order frames delivered between bars, for a strategy case that asserts the fold |
 | `notes.md` | no | Why the case exists and what it is defending against |
@@ -211,11 +211,29 @@ A case that is about sessions, timezones or instrument facts says so in
 
 ### Secondary series
 
-A higher timeframe or other instrument read is served from a file, never from a
-provider. `bars.60.csv`, `bars.1D.csv` and `bars.OTHER.csv` are matched by the
-name the script asks for. A read whose file is missing is a case failure, not an
-absent series, because a silently empty series is exactly the bug the suite is
-meant to catch.
+A read of the chart's own instrument at a coarser timeframe is folded from
+`bars.csv`, because that is the read `host-interface.md` 5.1 says an engine
+satisfies from the bars it already holds, so a case holds no file for one. The
+whole of `bars.csv` is the history the fold is handed before bar 0, which a
+`"lookahead"` read is the one reading to notice (`compiled-program.md` 2.16.2).
+
+A read of another instrument is served from a file, never from a provider that
+reaches outside the directory. The file is `bars.<SYMBOL>.csv`, named after the
+instrument the read resolves to: the symbol the script wrote, or the value of the
+setting or chart fact it named (`compiled-program.md` 2.16), whatever exchange
+the read names. It has the columns and the rules of `bars.csv` and holds that
+instrument's bars at the timeframe the read requests, oldest first, which is the
+answer `host-interface.md` 5.3 says a host hands back. One file answers every
+read of its instrument and each read folds it into its own buckets
+(`compiled-program.md` 2.16.2), so a case that reads one instrument at two
+timeframes writes the file at the finer of them.
+
+A read whose file is missing is a case failure, not an absent series, because a
+silently empty series is exactly the bug the suite is meant to catch: an adapter
+reports the case `error` (section 9) naming the file, and never hands the study a
+refusal to draw around. A read whose instrument did not resolve at all, a setting
+that held none, names no file; it is refused the way a host refuses it, OS6007
+(`host-interface.md` 5.2), and the study reads that through `req.error`.
 
 ### Intrabar updates
 

@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"A read of another instrument, served from the case file named after it and folded onto the chart by time.","id":"req/symbol","languageVersion":1,"profile":"chart"}

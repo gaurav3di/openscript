@@ -35,6 +35,11 @@ from openscript.verify import capabilities
 #: reason this file is not asking about.
 EVERYTHING = capabilities("orders", "objects", "tables", "req.timeframe", "req.symbol")
 
+#: The record a read is planned against at load: the chart's own interval, which
+#: a leg read writes as its timeframe, and a zone for a read the calendar dates.
+#: One minute, because the bars below are a minute apart.
+CHART = {"symbol": "TEST", "exchange": "TEST", "interval": "1", "timezone": "UTC"}
+
 BARS = 8
 
 
@@ -64,7 +69,7 @@ class EveryProgramInTheCorpus(unittest.TestCase):
             with self.subTest(program=one.name):
                 text = one.read_text(encoding="utf-8").rstrip("\n")
                 raw = json.loads(text)
-                result = load_text(text, {}, mirroring(raw), capabilities=EVERYTHING)
+                result = load_text(text, {}, mirroring(raw), capabilities=EVERYTHING, instrument=CHART)
                 self.assertTrue(result.ok, msg=str(result.diagnostic))
 
     def test_every_one_walks_its_instructions_for_a_run_of_bars(self):
@@ -73,7 +78,7 @@ class EveryProgramInTheCorpus(unittest.TestCase):
             with self.subTest(program=one.name):
                 text = one.read_text(encoding="utf-8").rstrip("\n")
                 raw = json.loads(text)
-                result = load_text(text, {}, mirroring(raw), capabilities=EVERYTHING)
+                result = load_text(text, {}, mirroring(raw), capabilities=EVERYTHING, instrument=CHART)
                 self.assertTrue(result.ok, msg=str(result.diagnostic))
                 for at in range(BARS):
                     out = result.run.execute_bar(at, rising(at), support.confirmed(), supplied=BARS)
@@ -102,7 +107,7 @@ class EveryProgramInTheCorpus(unittest.TestCase):
             with self.subTest(program=one.name):
                 text = one.read_text(encoding="utf-8").rstrip("\n")
                 raw = json.loads(text)
-                result = load_text(text, {}, mirroring(raw), capabilities=EVERYTHING)
+                result = load_text(text, {}, mirroring(raw), capabilities=EVERYTHING, instrument=CHART)
                 out = result.run.execute_bar(0, rising(0), support.confirmed(), supplied=BARS)
                 if not out.ok:
                     continue
@@ -114,21 +119,30 @@ class EveryProgramInTheCorpus(unittest.TestCase):
                     self.assertIn(held, pool, msg=f"channel {at} of {one.name}")
         self.assertGreater(gaps, 10)
 
-    def test_a_program_that_names_a_read_is_refused_where_no_stage_serves_one(self):
-        # The conformance checklist admits an engine that declares neither read
-        # tag and refuses such a program at load, which is what this one does
-        # until the stage that folds a read exists.
-        refused = []
+    def test_a_read_of_another_instrument_is_refused_where_no_provider_serves_one(self):
+        # The conformance checklist admits an engine that declares no req.symbol
+        # and refuses such a program at load, which is what a run handed no
+        # provider does: it holds no other instrument's bars and nobody to ask.
+        # A read of the chart's own instrument is folded from its own bars, so a
+        # program making only those loads with every other tag served.
+        refused, folded = [], []
         for one in self.files:
             text = one.read_text(encoding="utf-8").rstrip("\n")
             raw = json.loads(text)
             if not any(tag.startswith("req.") for tag in raw["requires"]):
                 continue
-            result = load_text(text, {}, mirroring(raw), capabilities=capabilities())
-            self.assertFalse(result.ok)
-            self.assertEqual(result.diagnostic.code, "OS6006")
-            refused.append(one.name)
+            served = capabilities("orders", "objects", "tables")
+            result = load_text(text, {}, mirroring(raw), capabilities=served, instrument=CHART)
+            if "req.symbol" in raw["requires"]:
+                self.assertFalse(result.ok)
+                self.assertEqual(result.diagnostic.code, "OS6006")
+                self.assertEqual(result.diagnostic.values["tag"], "req.symbol")
+                refused.append(one.name)
+            else:
+                self.assertTrue(result.ok, msg=str(result.diagnostic))
+                folded.append(one.name)
         self.assertGreater(len(refused), 0)
+        self.assertGreater(len(folded), 0)
 
 
 class TheProgramsExerciseTheWholeInstructionSet(unittest.TestCase):

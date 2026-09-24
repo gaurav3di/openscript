@@ -43,8 +43,10 @@ from .machine import Machine, PendingEffect
 from .memory import Cells, Channels, Register, States
 from .objects import Grid, Objects
 from .program import LoadedProgram, loaded
+from .request_plan import Plan, Provider, plan_requests
+from .requests import RequestParts, RequestSet
 from .values import ABSENT
-from .verify import MACHINE_CAPABILITIES, VerifyOptions, verify
+from .verify import MACHINE_CAPABILITIES, REQ_SYMBOL, VerifyOptions, verify
 
 
 @dataclass
@@ -56,6 +58,8 @@ class Checkpoint:
     bar: int
     #: The drawing roster as it stood (``objects.py``), restored beside the cells.
     objects: Any = None
+    #: Where each read's fold stood (``requests.py``), restored beside them too.
+    requests: Any = None
 
 
 @dataclass
@@ -106,10 +110,13 @@ class Run:
         inputs: Sequence[ResolvedInput],
         library: Library,
         limits: EngineLimits = DEFAULT_LIMITS,
+        plans: Sequence[Plan] = (),
+        provider: Optional[Provider] = None,
     ) -> None:
         self.program = program
         self.inputs = inputs
         self.limits = limits
+        self.plans = tuple(plans)
         raw = program.raw
         self.cells = Cells(len(raw["cells"]))
         self.states = States(len(raw["states"]))
@@ -120,6 +127,11 @@ class Run:
             program, self.cells, self.states, self.registers, self.channels, self.budget, library
         )
         self.objects = Objects(limits.drawing_objects, self._grids(raw))
+        parts = RequestParts(program, {one.query.id: one for one in plans}, provider, limits, library, inputs)
+        self.requests = RequestSet(parts, raw["requests"])
+        #: The bars this run has been handed, which a read of the chart's own
+        #: instrument folds. Held only by a run that makes a read.
+        self._known: List[Any] = []
         self._live = [at for at, one in enumerate(raw["cells"]) if one["kind"] == "live"]
         self._columns: Dict[int, List[Any]] = {}
         self._checkpoint: Optional[Checkpoint] = None
@@ -154,7 +166,7 @@ class Run:
         """
         kept = copy.deepcopy((self.cells.values, self.cells.ready, self.states.regions))
         lengths = [one.length for one in self.registers]
-        return Checkpoint(kept, lengths, bar, self.objects.mark())
+        return Checkpoint(kept, lengths, bar, self.objects.mark(), self.requests.mark())
 
     def restore(self, mark: Checkpoint) -> None:
         """Section 6.3: everything goes back, except that live cells keep theirs."""
@@ -171,6 +183,22 @@ class Run:
             register.truncate(length)
         if mark.objects is not None:
             self.objects.restore(mark.objects)
+        if mark.requests is not None:
+            self.requests.restore(mark.requests, self._known)
+
+    def history(self, bars: Sequence[Bar]) -> None:
+        """The whole dataset, handed to the fold before bar 0 of a run over it.
+
+        Nothing about a confirmed or a developing read changes, because both
+        stop at the bar being executed. A ``"lookahead"`` read is the one that
+        differs, and the difference is the mode: over settled history it reads
+        the bucket a bar is inside in full, which a live feed cannot supply
+        (`compiled-program.md` 2.16.2). Each bar still executes when it is
+        handed over, and its first execution leaves what is held here as it
+        was; a revision of it, executed again, replaces it.
+        """
+        if self._checkpoint is None and not self.requests.empty:
+            self._known = list(bars)
 
     # -- the bar ------------------------------------------------------------
 
@@ -189,11 +217,13 @@ class Run:
             return BarResult(index, self._columns.get(index, []), [], [], [], refused)
         held = index + 1 if supplied is None else supplied
         self._supplied = held
+        again = self._checkpoint is not None and self._checkpoint.bar == index
+        self._hold(index, bar, again)
 
         # Step 1. On the first execution of this bar the state already is the
         # checkpoint, so nothing is copied; it is recorded instead, because the
         # next execution of the same bar is what needs it.
-        if self._checkpoint is not None and self._checkpoint.bar == index:
+        if again:
             self.restore(self._checkpoint)
         else:
             self._checkpoint = self.checkpoint(index)
@@ -212,12 +242,18 @@ class Run:
             instrument={} if instrument is None else instrument,
             now=now,
             objects=self.objects,
+            requests=self.requests,
         )
         self.machine.begin(index, context)
 
-        # Step 4.
+        # Step 4, the reads' registers included: a body that fails stops the bar.
         facts = facts_for(index, held, state)
         self._fill_registers(bar, facts)
+        try:
+            if not self.requests.empty:
+                self.requests.fill(self.registers, self._known, index, context)
+        except ScriptError as stopped:
+            return BarResult(index, self._columns.get(index, []), [], [], [], stopped.diagnostic)
 
         # Step 5.
         self._fill_inputs()
@@ -275,6 +311,17 @@ class Run:
         self._times[index] = time
         self._times.pop(index - 2, None)
         return None
+
+    def _hold(self, index: int, bar: Bar, again: bool) -> None:
+        """The bar the fold reads at ``index``: a revision replaces it, a first execution adds it."""
+        if self.requests.empty:
+            return
+        while len(self._known) < index:
+            self._known.append(None)
+        if index == len(self._known):
+            self._known.append(bar)
+        elif again:
+            self._known[index] = bar
 
     def _fill_registers(self, bar: Bar, facts: BarFacts) -> None:
         for at, declared in enumerate(self.program.raw["series"]):
@@ -368,24 +415,38 @@ def load(
     limits: EngineLimits = DEFAULT_LIMITS,
     capabilities: Sequence[str] = MACHINE_CAPABILITIES,
     read_time: Optional[TimeReader] = None,
+    instrument: Optional[Mapping[str, Any]] = None,
+    provider: Optional[Provider] = None,
 ) -> LoadResult:
-    """Steps 2 to 8 of section 9.4, then check 10's value half, then a run.
+    """Steps 2 to 8 of section 9.4, then check 10's value half, then the reads, then a run.
 
     An object built in the same process enters here: it was never text and has
     nothing to be canonical about, which is section 9.4 step 1's other half and
     the minute that settled it.
+
+    ``instrument`` is the record the reads are planned against: the chart's
+    interval they are compared with, the zone a calendar read is dated in and
+    the identity a read of the chart's own instrument names. ``provider``
+    answers a read of another instrument, and a run given one serves the
+    ``req.symbol`` tag, which is the only way it does: a read of bars the run
+    does not hold, with nobody to ask for them, is refused at load naming the
+    tag rather than drawn as an empty line.
     """
     served = library if library is not None else NoLibrary()
-    checked = verify(raw, VerifyOptions(capabilities=capabilities, limits=limits, library=served))
+    tags = tuple(capabilities) + ((REQ_SYMBOL,) if provider is not None else ())
+    checked = verify(raw, VerifyOptions(capabilities=tags, limits=limits, library=served))
     if not checked.ok:
         return LoadResult(None, checked.diagnostic)
     resolved = resolve_inputs(checked.program, {} if settings is None else settings, read_time)
     if not resolved.ok:
         return LoadResult(None, resolved.diagnostic)
+    record = {} if instrument is None else instrument
+    plans, refused = plan_requests(checked.program["requests"], resolved.inputs, record)
+    if refused is not None:
+        return LoadResult(None, refused)
     entries = _entries_for(checked.program, served)
-    return LoadResult(
-        Run(loaded(checked.program, entries), resolved.inputs, served, limits), None
-    )
+    program = loaded(checked.program, entries)
+    return LoadResult(Run(program, resolved.inputs, served, limits, plans, provider), None)
 
 
 def load_text(
@@ -395,6 +456,8 @@ def load_text(
     limits: EngineLimits = DEFAULT_LIMITS,
     capabilities: Sequence[str] = MACHINE_CAPABILITIES,
     read_time: Optional[TimeReader] = None,
+    instrument: Optional[Mapping[str, Any]] = None,
+    provider: Optional[Provider] = None,
 ) -> LoadResult:
     """The text boundary: step 1 of section 9.4, then everything ``load`` does.
 
@@ -405,7 +468,7 @@ def load_text(
     parsed, refusal = parse(text)
     if refusal is not None:
         return LoadResult(None, refusal)
-    return load(parsed, settings, library, limits, capabilities, read_time)
+    return load(parsed, settings, library, limits, capabilities, read_time, instrument, provider)
 
 
 def _entries_for(raw: Any, library: Library) -> List[Any]:

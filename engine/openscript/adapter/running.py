@@ -25,7 +25,10 @@ case can assert them.
 **The bars are confirmed and are not live.** A case is a run over a dataset, so
 every execution is a new, confirmed, non-realtime bar with one update, and the
 count supplied is the whole file: that is what makes ``bar.isLast`` true on the
-last row and false everywhere else. An engine that only backtests is handed
+last row and false everywhere else. The whole file is also handed to the fold
+before bar 0, as a history is, which a ``"lookahead"`` read is the one reading
+to notice; a read of another instrument is answered from the case's own file
+(``secondary.py``). An engine that only backtests is handed
 ``isRealtime`` false throughout, which is why no alert is raised here, and
 ``run.py`` reaches the same answer from the other side.
 
@@ -42,7 +45,8 @@ is here is the order the three are asked in.
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..accounting import report_of
-from ..contracts import Bar as EngineBar, BarState
+from ..buckets import is_intraday
+from ..contracts import BarState
 from ..dates import BAR_TIME, NAMES as DATE_NAMES
 from ..inputs import utc_time
 from ..logbook import Logbook
@@ -52,8 +56,9 @@ from ..values import ABSENT
 from ..verify import capabilities
 from .channels import orders_channel, performance_channel, trade_row
 from .ordering import ORDER_ENTRIES, Desk, options_for, unfoldable
-from .reading import Bar, Case
+from .reading import Case
 from .reporting import contract_for, marks_for, schedule_for, settings_problem
+from .secondary import engine_bar, provider_for
 from .serving import Serving, is_reference
 from .sessions import (
     READABLE_ZONE,
@@ -148,19 +153,6 @@ def _unsupported_from(diagnostic: Any) -> Optional[str]:
     return sentence.format(value=value)
 
 
-def _engine_bar(bar: Bar) -> EngineBar:
-    """One row of the file as the engine's own bar. An absent field stays absent."""
-    return EngineBar(
-        time=float(bar.time),
-        open=bar.open,
-        high=bar.high,
-        low=bar.low,
-        close=bar.close,
-        volume=bar.volume,
-        oi=ABSENT,
-    )
-
-
 def _plot_channels(program: Dict[str, Any]) -> Dict[str, int]:
     """Every plot's legend title and its stable key, against its channel.
 
@@ -208,17 +200,24 @@ def _values_channel(
     return out
 
 
-def _unreadable_zone(program: Dict[str, Any], instrument: Dict[str, Any]) -> Optional[str]:
+def _unreadable_zone(run: Any, instrument: Dict[str, Any]) -> Optional[str]:
     """What this program reads in a calendar this engine cannot read, or nothing.
 
     ``stdlib.md`` section 12.1 reads a calendar field in the chart's timezone,
     which the host states; this engine carries a reader for one zone and a host
     with any other supplies its own. A case in another zone whose script takes a
-    written time, or asks where a session begins, is therefore a case this engine
-    would answer under the wrong calendar, and it says so instead.
+    written time, asks where a session begins or folds a read by the calendar
+    (``buckets.py``) is therefore a case this engine would answer under the wrong
+    calendar, and it says so instead.
     """
     if instrument.get("timezone") == READABLE_ZONE:
         return None
+    program = run.program.raw
+    # A day, week or month read is dated in the zone as well. With no zone at
+    # all it is the read neither engine can date, which both answer alike.
+    zoned = instrument.get("timezone") is not None
+    if zoned and any(not is_intraday(one.timeframe) for one in run.plans):
+        return "a day, week or month read"
     if any(one["kind"] == "time" for one in program["inputs"]):
         return "a time input"
     if any(one["name"] in SESSION_FACTS for one in program["lib"]["functions"]):
@@ -245,8 +244,6 @@ def run_case(case: Case, program_text: str) -> Answer:
             "how a tick row becomes the newest bar's four prices is not written down anywhere, so "
             "a replay here would be this adapter's invention"
         )
-    for name in case.secondary:
-        answer.cannot(f"{name} (section 3): this engine is handed one series and reads no other")
     if case.frames is not None and case.bars is not None:
         beyond = unfoldable(case.frames, len(case.bars))
         if beyond:
@@ -273,6 +270,8 @@ def run_case(case: Case, program_text: str) -> Answer:
         serving,
         capabilities=capabilities(ORDERS, *SURFACE_TAGS),
         read_time=utc_time,
+        instrument=case.instrument,
+        provider=provider_for(case),
     )
     if loaded.diagnostic is not None:
         feature = _unsupported_from(loaded.diagnostic)
@@ -287,7 +286,7 @@ def run_case(case: Case, program_text: str) -> Answer:
 
     run = loaded.run
     raw = run.program.raw
-    unreadable = _unreadable_zone(raw, case.instrument)
+    unreadable = _unreadable_zone(run, case.instrument)
     if unreadable is not None:
         answer.cannot(
             f"{unreadable} under the timezone {case.instrument.get('timezone')}: this engine reads "
@@ -435,6 +434,7 @@ def _every_bar(
     opens = first_bars(times, session)
     closes = last_bars(times, session, case.instrument.get("interval"))
     rows: List[List[Any]] = []
+    run.history([engine_bar(one) for one in bars])
     for index, bar in enumerate(bars):
         desk.fold(index, float(bar.time))
         previous = bars[index - 1].close if index > 0 else ABSENT
@@ -453,7 +453,7 @@ def _every_bar(
         )
         result = run.execute_bar(
             index,
-            _engine_bar(bar),
+            engine_bar(bar),
             BarState(is_new=True, is_confirmed=True, is_realtime=False, updates=1.0),
             supplied=supplied,
             instrument=case.instrument,

@@ -7,7 +7,7 @@
  * folded is the whole of what makes a backtest reproducible.
  */
 import type { RecordedFill } from '../accounting/index.js';
-import type { BarResult, Engine, OrderIntent, Value } from '../engine/index.js';
+import type { BarResult, Engine, HostBar, OrderIntent, Value } from '../engine/index.js';
 import type { Delivered, Destination } from './deliver.js';
 import type { ReportWindow } from './range.js';
 import { diagnosticIn } from './record.js';
@@ -55,9 +55,18 @@ export function walk(
   let pending: readonly Delivered[] = [];
   let seq = 0;
 
+  // The bars are a settled history, so the fold is handed all of them before
+  // bar 0 as `Engine.run` hands them. A `"lookahead"` read is the one reading
+  // that can tell (`compiled-program.md` 2.16.2): over history it reads the
+  // bucket a bar is inside in full, and a driver that fed the fold one bar at
+  // a time would answer the bucket so far, which is the live chart's reading.
+  const handed = bars.slice(0, covered.total).map(hostBarOf);
+  engine.history(handed);
+
   for (let index = 0; index < covered.total; index += 1) {
     const bar = bars[index];
-    if (bar === undefined) continue;
+    const held = handed[index];
+    if (bar === undefined || held === undefined) continue;
 
     for (const one of pending) {
       const ref = one.frame.orderRef;
@@ -68,8 +77,7 @@ export function walk(
     pending = [];
 
     const result = engine.append(
-      { time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close,
-        volume: bar.volume, oi: bar.oi },
+      held,
       { isConfirmed: true, isRealtime: false },
       covered.total,
     );
@@ -92,6 +100,14 @@ export function walk(
   }
 
   return { fills, frames, diagnostics, rows, log };
+}
+
+/** A recorded bar as the engine is handed one. */
+function hostBarOf(bar: RecordedBar): HostBar {
+  return {
+    time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close,
+    volume: bar.volume, oi: bar.oi,
+  };
 }
 
 /** What the run is holding while it folds one bar's frames into fills. */
