@@ -71,3 +71,20 @@ forty two rows to twenty three.
 What remains is the three families that are more than a table: grids, drawing
 objects, and the status of a request, which needs the second engine to execute
 a request at all.
+
+**2026-09-24: grids and drawing objects closed, twenty one entries.** The second
+engine now holds a drawing roster and the declared grids (`objects.py`), taken
+into its checkpoint beside the cells so a re-executed bar leaves one object and
+not one per execution, and it refuses a deleted object in a setter (OS4005), a
+cell outside its grid (OS4008) and the object past the ceiling both engines
+state (OS5010). Neither engine answered the `drawings` or `table` channel
+before, because `conformance.md` never said what one element of either holds;
+section 4 now does (decision 72), both adapters answer them, and twenty eight
+cases under `cases/draw`, `cases/obj` and `cases/table` hold both engines to
+expectations worked out by hand from the scripts. `spec/engine-gaps.json` is
+down to two rows.
+
+What remains is `req.isReady` and `req.error`, which need the second engine to
+execute a request at all: a program with one is refused at load today on the
+`req.timeframe` or `req.symbol` tag, and neither conformance adapter serves the
+secondary series `conformance.md` section 3 describes.

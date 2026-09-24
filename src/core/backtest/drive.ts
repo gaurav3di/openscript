@@ -39,7 +39,9 @@ import type { Diagnostic } from '../diagnostics/index.js';
 import type { CompiledProgram } from '../emit/index.js';
 import { load } from '../engine/index.js';
 import type {
+  Drawing,
   EngineHost,
+  Grid,
   Instrument,
   LedgerRow,
   OrderIntent,
@@ -66,8 +68,15 @@ export type BacktestResult =
       readonly record: RunRecord;
       readonly rows?: readonly (readonly Value[])[];
       readonly log?: readonly LogLine[];
+      readonly surface?: Surface;
     }
   | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+/** The drawing objects and the grids the last bar left, `conformance.md` section 4. */
+export interface Surface {
+  readonly drawings: readonly Drawing[];
+  readonly tables: readonly Grid[];
+}
 
 /**
  * The facts of `host-interface.md` 4.1 that the contract does not hold.
@@ -129,6 +138,8 @@ export interface DriveOptions {
   readonly rows?: boolean;
   /** Whether to hand back every line `print` wrote, beside the record, for the same reason. */
   readonly log?: boolean;
+  /** Whether to hand back the drawing objects and grids the last bar left, for the same reason. */
+  readonly surface?: boolean;
 }
 
 
@@ -240,6 +251,7 @@ function drive(
     ok: true,
     ...(options.rows === true ? { rows: run.rows } : {}),
     ...(options.log === true ? { log: run.log } : {}),
+    ...(options.surface === true ? { surface: { drawings: engine.drawings(), tables: engine.tables() } } : {}),
     record: recordOf({
       program: engine.program,
       ...(options.sourceText === undefined ? {} : { sourceText: options.sourceText }),

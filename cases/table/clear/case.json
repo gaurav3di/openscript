@@ -1,0 +1,1 @@
+{"asserts":["table"],"category":"surface","description":"clear(t) empties what this bar wrote so far, and cells written after it remain.","id":"table/clear","languageVersion":1,"profile":"chart"}

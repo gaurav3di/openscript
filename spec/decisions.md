@@ -4837,3 +4837,39 @@ that was partial.
 
 **Edits.** `compiled-program.md` 4.7; `engine/openscript/values.py` and its test;
 `cases/flow/switch-value`.
+
+## 72. The `drawings` and `table` channels, and what names a grid in them
+
+**The question.** `conformance.md` section 2 listed `drawings` and `table` among
+the channels a case may assert and section 4 put both in `expected.json`, and
+nothing said what one element of either holds. No engine answered them, so the
+second engine's drawing objects and grids (issue 0021) had nothing to be
+measured against, and a third engine would have had to guess.
+
+**The decision.** An element of `drawings` is one object the script holds after
+the last bar, oldest first: its `kind`, its `anchors` as a list of `time` and
+`price` objects, and every other property under the name of the argument that
+set it. An element of `table` is one cell the last bar wrote, in write order:
+the grid's `title`, then one field per argument `cell` takes after the grid,
+under that argument's name. Every value is spelled as a cell of the `values`
+channel is.
+
+**Why anchors are a list, when every other element is flat.** It is what
+`compiled-program.md` section 11 already hands a host: a line and a box have two
+points, a label one, and a polyline as many as its path. Flattening them into
+`t1`, `p1` and the rest would give a polyline no spelling at all, or a second
+shape for one kind.
+
+**Why the title and not the key.** The declaration's `key` is the compiler's
+choice, so an expected file written from the script alone could not know it,
+and a case whose expected output needs the compiler that made it is not a case
+a hand can check. The title is the script's own first argument to `table()`.
+
+**Why no identity.** An engine gives each object an identity it keeps while the
+object lives, and nothing outside that engine can name it, so a channel carrying
+it would be a channel two correct engines disagree on.
+
+**Edits.** `conformance.md` section 4; `scripts/lib/case-surface.mjs` and the
+first engine's backtest (`surface`); `engine/openscript/objects.py` and
+`adapter/surface.py`; twenty eight cases under `cases/draw`, `cases/obj` and
+`cases/table`.

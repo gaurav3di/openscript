@@ -70,6 +70,9 @@ class CallContext:
     bar_index: int = 0
     instrument: Mapping[str, Any] = field(default_factory=dict)
     now: Any = ABSENT
+    #: The run's drawing roster and grids (``objects.py``), which the calls of
+    #: ``stdlib.md`` 14.3 and 14.4 write into and no other call reads.
+    objects: Any = None
 
 
 @dataclass(frozen=True)

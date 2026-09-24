@@ -88,7 +88,7 @@ with no compiler is not one of the three profiles a runner accepts.
 The claim is worth reading against the table it is made from, because the table
 and this engine do not line up. A profile there is cumulative, so `strategy`
 reads as "everything `chart` covers, and orders as well", and this engine draws
-nothing: a case asserting a marker or a drawing is answered `unsupported` naming
+no marker, fill or level: a case asserting one is answered `unsupported` naming
 the channel. The alternative is to claim `core` and have every strategy case
 skipped, which is a suite that says nothing about the engine that runs the
 money. So the wider claim is made and every shortfall is named on the case,
@@ -113,11 +113,11 @@ reports.
 **What it does not reach.** Said here so a reader does not discover it as a
 surprise, and each is `unsupported` or `error` on the case, never a pass.
 
-- **Every channel but five.** It answers `diagnostics`, `values`, `orders`,
-  `trades` and `performance`. A case asserting a chart channel, a table, a
-  drawing, an alert or the log is `unsupported` naming the channel, because an
-  empty channel compares equal to an empty expectation and would be a pass
-  nobody earned.
+- **Six of the fourteen channels.** It answers `diagnostics`, `values`, `orders`,
+  `trades`, `performance`, `log`, `drawings` and `table`. A case asserting
+  `markers`, `fills`, `levels`, `barColors`, `background` or `alerts` is
+  `unsupported` naming the channel, because an empty channel compares equal to
+  an empty expectation and would be a pass nobody earned.
 - **A compiler case.** A case whose assertion is a diagnostic raised by
   compiling is `unsupported`: the compiler here is the first engine's, and its
   diagnostics are not the second engine's to claim.
@@ -220,10 +220,11 @@ list is in its section above.
   case is `unsupported` naming the row rather than run with part of its own
   input passed over. Every other `frames.csv` is folded as it is written: this
   engine delivers the rows a case supplies and answers none of its own.
-- **Channels beyond what a run records.** The adapter answers `diagnostics`,
-  `orders`, `trades` and `performance`, which are what a harvested case
-  asserts. A case asserting a per-bar or chart channel is `unsupported`, by
-  name.
+- **Six of the fourteen channels.** The adapter answers `diagnostics`, `orders`,
+  `trades` and `performance`, which a run records, and `values`, `log`,
+  `drawings` and `table`, which a run hands back beside its record when a case
+  asks for them. A case asserting `markers`, `fills`, `levels`, `barColors`,
+  `background` or `alerts` is `unsupported`, by name.
 - **A warning case.** The diagnostics a run records are the ones it raised; a
   compile warning is not among them.
 - **`ticks.csv` and a secondary series.** A backtest replays no intrabar

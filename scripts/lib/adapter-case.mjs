@@ -84,6 +84,7 @@ import { suiteDefaultFacts } from './case-directory.mjs';
 import { readCaseDirectory } from './case-reading.mjs';
 import { compareChannels, toleranceFrom } from './compare.mjs';
 import { readExpectedCsv, reported, valuesAnswer, valuesExpected } from './case-values.mjs';
+import { DRAWINGS, TABLE, drawingsAnswer, tableAnswer } from './case-surface.mjs';
 import { CONTRACT, isStrategy, missingCapability } from './strategy-drive.mjs';
 
 /** The name section 2 fixes for the source inside a case. */
@@ -191,7 +192,10 @@ export function caseAnswer(directory, engine) {
   // case asserting it is run with the rows kept and has that file read.
   const wantsValues = declared.asserts.includes(VALUES);
   const wantsLog = declared.asserts.includes(LOG);
-  const driving = { sourceText: read.script, instrument: facts, rows: wantsValues, log: wantsLog };
+  const wantsSurface = declared.asserts.includes(DRAWINGS) || declared.asserts.includes(TABLE);
+  const driving = {
+    sourceText: read.script, instrument: facts, rows: wantsValues, log: wantsLog, surface: wantsSurface,
+  };
   // Section 3: the file supplies the frames, and a case that holds none is
   // handed none. The second driver delivers what it is given and answers
   // nothing of its own, which is the whole difference between the two.
@@ -228,8 +232,13 @@ export function caseAnswer(directory, engine) {
   if (wantsLog) {
     channels[LOG] = (run.log ?? []).map((line) => ({ barIndex: line.barIndex, time: line.time, value: reported(line.value) }));
   }
+  if (wantsSurface) {
+    const surface = run.surface ?? { drawings: [], tables: [] };
+    if (declared.asserts.includes(DRAWINGS)) channels[DRAWINGS] = drawingsAnswer(surface);
+    if (declared.asserts.includes(TABLE)) channels[TABLE] = tableAnswer(surface, compiled.program);
+  }
   for (const channel of declared.asserts) {
-    if (channel === VALUES || channel === LOG) continue;
+    if (channel === VALUES || channel === LOG || channel in channels) continue;
     if (channel in produced) channels[channel] = produced[channel];
     else unsupported.push(`the ${channel} channel: this engine's projection writes ${Object.keys(produced).join(', ')}`);
   }

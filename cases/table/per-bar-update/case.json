@@ -1,0 +1,1 @@
+{"asserts":["table"],"category":"surface","description":"A grid holds what the last bar wrote and nothing from earlier bars.","id":"table/per-bar-update","languageVersion":1,"profile":"chart"}

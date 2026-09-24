@@ -1,0 +1,1 @@
+{"drawings":[{"align":"center","anchors":[{"price":100.75,"time":1735696800000}],"color":null,"kind":"label","text":"Pivot","textColor":"#ffffffff","tooltip":""},{"align":"left","anchors":[{"price":101.5,"time":1735700400000}],"color":"#0000ffff","kind":"label","text":"Low","textColor":"#000000ff","tooltip":"The low of the bar"}]}

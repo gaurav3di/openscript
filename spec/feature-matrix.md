@@ -266,17 +266,17 @@ identifier rather than one diagnostic having two proofs.
 | `fill` is the only call taking a handle | A handle may be named at the top level and passed to a declaration call that takes one, and nothing else; naming a `fill` or `level` result is legal and does nothing | `specified` | `language.md` 5.4, `stdlib.md` 14.2 | `obj/handle-to-fill` |
 | A handle is a compile-time binding | Section 8.1's per-bar recomputation does not apply to a name bound to a handle: it is bound once and nothing of it is left in the bar loop | `specified` | `language.md` 5.4 | `obj/handle-binding` |
 | `table` is an object with a top-level call site | The call is top level because the grid's shape is fixed, and what it returns is written to per bar, so it is a run-time value | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-is-object` |
-| One table per call site | One `table()` call site returns the same object on every bar | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-same-object` |
-| Objects are references | Two names for one object, and `==` between two of them is identity | `specified` | `language.md` 5.4, `language.md` 9.3 | `obj/identity-equality` |
+| One table per call site | One `table()` call site returns the same object on every bar | `implemented` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-same-object` |
+| Objects are references | Two names for one object, and `==` between two of them is identity | `implemented` | `language.md` 5.4, `language.md` 9.3 | `obj/identity-equality` |
 | Objects in arrays and functions | An object may be held in a `var`, kept in an `array<box>`, passed to a user function and compared against `none`; a handle may do none of that | `specified` | `language.md` 5.4, `language.md` 14.1 | `obj/array-of-objects` |
 | Neither kind takes `[]` | No history operator on a handle or on an object | `specified` | `language.md` 5.4, `errors.md` OS2004 | `unit:obj/no-history` |
-| Object lifetime | An object lives from the bar that created it until the bar that deletes it | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `obj/lifetime` |
-| No collection of unreachable objects | Dropping the last name referring to an object does not delete it; the chart holds it and it keeps drawing | `specified` | `language.md` 5.4 | `obj/no-collection` |
-| Stale handle in a setter | Passing a deleted object to a setter is OS4005, not a silent no operation | `specified` | `language.md` 5.4, `stdlib.md` 14.4, `errors.md` OS4005 | `unit:obj/stale-handle` |
-| Deleting does not remove the array element | A script holding objects in an array deletes the object and then removes the element | `specified` | `language.md` 5.4 | `obj/delete-keeps-element` |
+| Object lifetime | An object lives from the bar that created it until the bar that deletes it | `implemented` | `language.md` 5.4, `stdlib.md` 14.4 | `obj/lifetime` |
+| No collection of unreachable objects | Dropping the last name referring to an object does not delete it; the chart holds it and it keeps drawing | `implemented` | `language.md` 5.4 | `obj/no-collection` |
+| Stale handle in a setter | Passing a deleted object to a setter is OS4005, not a silent no operation | `implemented` | `language.md` 5.4, `stdlib.md` 14.4, `errors.md` OS4005 | `obj/stale-handle` |
+| Deleting does not remove the array element | A script holding objects in an array deletes the object and then removes the element | `implemented` | `language.md` 5.4 | `obj/delete-keeps-element` |
 | A table is never deleted | `clear(t)` empties its cells and the grid lives as long as the study | `specified` | `language.md` 5.4, `stdlib.md` 14.3 | `obj/table-cleared-not-deleted` |
 | Rollback of objects created on a moving bar | The object set is restored to the end of the previous bar before the bar runs again, so a live chart does not gain one object per tick | `specified` | `language.md` 5.4, `language.md` 7.5, `stdlib.md` 14.4 | `obj/rollback` |
-| No object cap in the language | The language fixes no number; the budget is the host's memory, and a host that cannot hold another one says so with OS5010 rather than dropping the oldest | `specified` | `language.md` 5.4, `stdlib.md` 14.4, `errors.md` OS5010 | `obj/no-cap` |
+| No object cap in the language | The language fixes no number; the budget is the host's memory, and a host that cannot hold another one says so with OS5010 rather than dropping the oldest | `implemented` | `language.md` 5.4, `stdlib.md` 14.4, `errors.md` OS5010 | `obj/no-cap` |
 | Object types in the grammar | `type` admits the object types and `array<objectType>` | `specified` | `language.md` 19, `language.md` 14.1 | `obj/grammar-object-types` |
 | Handle types are not in the grammar | They are deliberately absent because a handle type can never be annotated | `specified` | `language.md` 5.4, `language.md` 19 | `unit:obj/no-handle-annotation` |
 
@@ -768,33 +768,33 @@ library manifest, alongside the count of manifest entries that have a case.
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
 | `table(...)` declaration | Declared at the top level because the grid's size and corner are part of the study's fixed shape | `specified` | `stdlib.md` 14.3, `language.md` 5.4, `errors.md` OS3006 | `table/declaration` |
-| Fixed rows, columns and corner | Registered in the contract with its rows, columns, corner and options, so its shape is declaration-time even though its cells are written per bar | `specified` | `compiled-program.md` 2.8, `stdlib.md` 14.3 | `table/fixed-shape` |
-| `cell(t, row, col, text, ...)` | Text, text colour and background colour per cell, written on any bar and from anywhere | `specified` | `stdlib.md` 14.3 | `table/cell-content` |
-| Cell alignment | Per cell, through the `align` argument, which takes `"left"`, `"center"` or `"right"` | `specified` | `stdlib.md` 14.3 | `table/cell-alignment` |
-| A cell outside the grid | OS4008, naming the cell and the grid's size | `implemented` | `errors.md` OS4008 | `unit:table/cell-out-of-range` |
-| `clear(t)` | Empties every cell, so a table can be rebuilt from scratch and a "show table" input can switch it off | `specified` | `stdlib.md` 14.3, `language.md` 5.4 | `table/clear` |
-| `clear` is one overloaded name | `clear(arr)` is the array operation and `clear(t)` is the table one, told apart by the argument's type | `specified` | `stdlib.md` 14.3, `stdlib.md` 2.2, `language.md` 14.1 | `table/clear-overload` |
-| Per-bar update | Cells go to an output buffer cleared at the start of each execution of a bar and committed with the rest, so the last write of the last bar is what is shown | `specified` | `compiled-program.md` 2.8, `compiled-program.md` 5.1 | `table/per-bar-update` |
+| Fixed rows, columns and corner | Registered in the contract with its rows, columns, corner and options, so its shape is declaration-time even though its cells are written per bar | `implemented` | `compiled-program.md` 2.8, `stdlib.md` 14.3 | `table/fixed-shape` |
+| `cell(t, row, col, text, ...)` | Text, text colour and background colour per cell, written on any bar and from anywhere | `implemented` | `stdlib.md` 14.3 | `table/cell-content` |
+| Cell alignment | Per cell, through the `align` argument, which takes `"left"`, `"center"` or `"right"` | `implemented` | `stdlib.md` 14.3 | `table/cell-alignment` |
+| A cell outside the grid | OS4008, naming the cell and the grid's size | `implemented` | `errors.md` OS4008 | `table/cell-out-of-range` |
+| `clear(t)` | Empties every cell, so a table can be rebuilt from scratch and a "show table" input can switch it off | `implemented` | `stdlib.md` 14.3, `language.md` 5.4 | `table/clear` |
+| `clear` is one overloaded name | `clear(arr)` is the array operation and `clear(t)` is the table one, told apart by the argument's type | `implemented` | `stdlib.md` 14.3, `stdlib.md` 2.2, `language.md` 14.1 | `table/clear-overload` |
+| Per-bar update | Cells go to an output buffer cleared at the start of each execution of a bar and committed with the rest, so the last write of the last bar is what is shown | `implemented` | `compiled-program.md` 2.8, `compiled-program.md` 5.1 | `table/per-bar-update` |
 | Cells are not channels | A grid of two hundred cells would otherwise need two hundred channels, almost all absent on almost every bar | `specified` | `compiled-program.md` 2.8 | `table/cells-not-channels` |
-| Absent cell | An absent value renders a blank cell, never a zero | `specified` | `language.md` 6.7, `stdlib.md` 18 | `table/absent-cell` |
+| Absent cell | An absent value renders a blank cell, never a zero | `implemented` | `language.md` 6.7, `stdlib.md` 18 | `table/absent-cell` |
 | Row and column sizing | Widths and heights, or automatic; no argument carries them today | `planned` | `none` | `table/sizing` |
 
 ## 26. Mutable drawing objects
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `draw.line` | A line between two anchors, with optional extension | `specified` | `stdlib.md` 14.4 | `draw/line` |
-| `draw.label` | A text plate at one anchor | `specified` | `stdlib.md` 14.4 | `draw/label` |
-| `draw.box` | A rectangle between two anchors, with an optional fill and caption | `specified` | `stdlib.md` 14.4 | `draw/box` |
-| `draw.polyline` | A path through several anchors, optionally closed and filled | `specified` | `stdlib.md` 14.4 | `draw/polyline` |
-| Two parallel arrays for a path | `draw.polyline` takes times and prices separately because version 1 has no record type, and gets its natural shape when one arrives | `specified` | `stdlib.md` 14.4 | `draw/polyline-arrays` |
-| Time and price anchoring | An anchor is a time and a price, not a bar index, so a shape stays put when history is paged in | `specified` | `stdlib.md` 14.4 | `draw/time-anchored` |
-| Mutation after creation | The setters move, recolour, retext and restyle an object on a later bar | `specified` | `stdlib.md` 14.4 | `draw/mutation` |
-| Line extension | `draw.setExtend` continues a line to the pane edge, left or right | `specified` | `stdlib.md` 14.4 | `draw/extend` |
-| Tooltip | Detail shown while the pointer rests on an object | `specified` | `stdlib.md` 14.4 | `draw/tooltip` |
-| Deletion and counting | `draw.delete`, `draw.deleteAll` and `draw.count` | `specified` | `stdlib.md` 14.4, `language.md` 5.4 | `draw/delete` |
+| `draw.line` | A line between two anchors, with optional extension | `implemented` | `stdlib.md` 14.4 | `draw/line` |
+| `draw.label` | A text plate at one anchor | `implemented` | `stdlib.md` 14.4 | `draw/label` |
+| `draw.box` | A rectangle between two anchors, with an optional fill and caption | `implemented` | `stdlib.md` 14.4 | `draw/box` |
+| `draw.polyline` | A path through several anchors, optionally closed and filled | `implemented` | `stdlib.md` 14.4 | `draw/polyline` |
+| Two parallel arrays for a path | `draw.polyline` takes times and prices separately because version 1 has no record type, and gets its natural shape when one arrives | `implemented` | `stdlib.md` 14.4 | `draw/polyline-arrays` |
+| Time and price anchoring | An anchor is a time and a price, not a bar index, so a shape stays put when history is paged in | `implemented` | `stdlib.md` 14.4 | `draw/time-anchored` |
+| Mutation after creation | The setters move, recolour, retext and restyle an object on a later bar | `implemented` | `stdlib.md` 14.4 | `draw/mutation` |
+| Line extension | `draw.setExtend` continues a line to the pane edge, left or right | `implemented` | `stdlib.md` 14.4 | `draw/extend` |
+| Tooltip | Detail shown while the pointer rests on an object | `implemented` | `stdlib.md` 14.4 | `draw/tooltip` |
+| Deletion and counting | `draw.delete`, `draw.deleteAll` and `draw.count` | `implemented` | `stdlib.md` 14.4, `language.md` 5.4 | `draw/delete` |
 | A deleted object still held | OS8019, warning that a name or an array still refers to an object deleted earlier, because a stale handle in a setter is OS4005 one bar later | `implemented` | `language.md` 5.4, `errors.md` OS8019 | `unit:draw/deleted-still-held` |
-| Identity across bars | An object held in a `var` is the same object next bar | `specified` | `language.md` 5.4, `stdlib.md` 14.4 | `draw/identity` |
+| Identity across bars | An object held in a `var` is the same object next bar | `implemented` | `language.md` 5.4, `stdlib.md` 14.4 | `draw/identity` |
 | Engine capability | A program that creates objects declares the `objects` capability, and an engine without it refuses at load with OS6006 | `specified` | `compiled-program.md` 2.2, `errors.md` OS6006 | `draw/capability` |
 | Hit identity | A click identity on a box or a label, beyond the tooltip | `planned` | `none` | `draw/hit-identity` |
 | Layer replacement | The whole live object set is handed over after every execution and replaces what was handed over before, so a deletion needs no instruction and a re-executed bar leaves no duplicate; the compiled format carries no field for the set because the engine is asked for it | `specified` | `compiled-program.md` 11 | `draw/layer-replacement` |

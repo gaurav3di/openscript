@@ -411,6 +411,27 @@ printed an absent value wrote an absent line. A line is written at step 9 of a
 bar the engine decided (`stdlib.md` section 14.3), so a case of confirmed bars
 holds every line the script wrote, and a bar that failed writes none.
 
+**An element of the `drawings` channel is one drawing object the script holds
+after the last bar**, in the order the script created them, which is the set
+`compiled-program.md` section 11 hands a host: `kind`, one of the four kinds
+`stdlib.md` section 14.4 creates; `anchors`, the object's points in order, each
+an object of `time` and `price`, two for a line and a box, one for a label and
+one per point of a polyline's path; and every other property the object holds,
+under the name of the argument that set it in 14.4. Every value is spelled as a
+cell of the `values` channel is, with absence as `null`. A deleted object is not
+in the channel, and neither is any identity an engine gives an object, because
+nothing outside an engine can name one.
+
+**An element of the `table` channel is one cell the last bar wrote**, in the
+order the bar wrote them: `table`, the grid's `title`, which is the first
+argument of its `table()` call and so is known from the script where the
+declaration's `key` is the compiler's (`compiled-program.md` section 2.8), and
+then one field for each argument of `cell` after the grid it writes into, under
+the name `stdlib.md` section 14.3 gives that argument and spelled as a cell of
+the `values` channel is. Every execution of a bar starts each grid empty, so the
+channel holds the last bar's cells and nothing before them, and a cell written
+twice is two elements in the order they were written.
+
 **`performance` is a list of one flat object**, holding the run's summary
 statistics and nothing nested. The channel is a list for the same reason every
 other one here is, so a reader and a runner need one shape rather than two. The

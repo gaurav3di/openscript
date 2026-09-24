@@ -1,0 +1,1 @@
+{"asserts":["table"],"category":"surface","description":"An absent text or colour reaches the grid absent, never as zero or an empty string.","id":"table/absent-cell","languageVersion":1,"profile":"chart"}

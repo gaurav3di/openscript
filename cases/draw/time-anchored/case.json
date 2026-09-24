@@ -1,0 +1,1 @@
+{"asserts":["drawings"],"category":"surface","description":"An anchor before the first bar or after the last is kept as written.","id":"draw/time-anchored","languageVersion":1,"profile":"chart"}

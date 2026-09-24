@@ -41,6 +41,7 @@ from .diagnostics import Diagnostic, ScriptError, failure
 from .inputs import ResolvedInput, TimeReader, field_value, resolve_inputs
 from .machine import Machine, PendingEffect
 from .memory import Cells, Channels, Register, States
+from .objects import Grid, Objects
 from .program import LoadedProgram, loaded
 from .values import ABSENT
 from .verify import MACHINE_CAPABILITIES, VerifyOptions, verify
@@ -53,6 +54,8 @@ class Checkpoint:
     kept: Tuple[Any, Any, Any]
     lengths: Sequence[int]
     bar: int
+    #: The drawing roster as it stood (``objects.py``), restored beside the cells.
+    objects: Any = None
 
 
 @dataclass
@@ -116,6 +119,7 @@ class Run:
         self.machine = Machine(
             program, self.cells, self.states, self.registers, self.channels, self.budget, library
         )
+        self.objects = Objects(limits.drawing_objects, self._grids(raw))
         self._live = [at for at, one in enumerate(raw["cells"]) if one["kind"] == "live"]
         self._columns: Dict[int, List[Any]] = {}
         self._checkpoint: Optional[Checkpoint] = None
@@ -149,7 +153,8 @@ class Run:
         debugger stepping backwards, leaves it alone.
         """
         kept = copy.deepcopy((self.cells.values, self.cells.ready, self.states.regions))
-        return Checkpoint(kept, [one.length for one in self.registers], bar)
+        lengths = [one.length for one in self.registers]
+        return Checkpoint(kept, lengths, bar, self.objects.mark())
 
     def restore(self, mark: Checkpoint) -> None:
         """Section 6.3: everything goes back, except that live cells keep theirs."""
@@ -164,6 +169,8 @@ class Run:
             self.cells.ready[at] = flag
         for register, length in zip(self.registers, mark.lengths):
             register.truncate(length)
+        if mark.objects is not None:
+            self.objects.restore(mark.objects)
 
     # -- the bar ------------------------------------------------------------
 
@@ -197,10 +204,14 @@ class Run:
 
         # Step 3.
         self.channels.clear()
+        self.objects.clear_grids()
         for register in self.registers:
             register.current = ABSENT
         context = CallContext(
-            bar_index=index, instrument={} if instrument is None else instrument, now=now
+            bar_index=index,
+            instrument={} if instrument is None else instrument,
+            now=now,
+            objects=self.objects,
         )
         self.machine.begin(index, context)
 
@@ -277,11 +288,23 @@ class Run:
         the register it named, for the bar about to run, rather than a value
         settled at load.
         """
+        for slot, grid in self.objects.grids:
+            self.machine.write_slot(slot, grid)
         for one in self.inputs:
             if one.field is None:
                 self.machine.write_slot(one.slot, one.value)
                 continue
             self.machine.write_slot(one.slot, self._register_named(one.field))
+
+    def _grids(self, raw: Dict[str, Any]) -> List[Tuple[int, Grid]]:
+        """Each declared grid with its slot, its shape settled before bar 0 (section 2.8)."""
+        grids = []
+        for one in raw["outputs"]["tables"]:
+            rows = field_value(one["rows"], self.inputs)
+            cols = field_value(one["cols"], self.inputs)
+            shape = [int(value) if isinstance(value, (int, float)) else 0 for value in (rows, cols)]
+            grids.append((one["slot"], Grid(one["key"], one["title"], shape[0], shape[1])))
+        return grids
 
     def _register_named(self, field: str) -> Any:
         for at, declared in enumerate(self.program.raw["series"]):

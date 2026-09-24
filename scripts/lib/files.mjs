@@ -43,7 +43,7 @@
  * a number which drops is something somebody sees rather than something they
  * have to suspect.
  */
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 
 /**
  * Not this project, at any depth.
@@ -64,6 +64,21 @@ import { readdirSync } from 'node:fs';
  * having been used.
  */
 export const NOT_THE_PROJECT = new Set(['.git', 'node_modules', '__pycache__']);
+
+/**
+ * Whether a directory below the root is a checkout of its own.
+ *
+ * A directory holding its own `.git`, a directory for a clone and a file for a
+ * second working copy of this repository, is another tree: version control will
+ * not commit its files into this one, so no rule of this project can be broken
+ * there that reaches a release. Walking it was not harmless either. A second
+ * working copy kept inside this one, which is how a branch is worked on beside
+ * another, made every check read the project twice and fail the copy against
+ * ceilings recorded by path for the original.
+ */
+export function isAnotherCheckout(dir) {
+  return dir !== '' && existsSync(`${dir}/.git`);
+}
 
 /**
  * Built output, which is the project's but is built rather than written.
@@ -96,7 +111,7 @@ export function filesUnder(dir) {
   return walk(dir, []).sort();
 }
 
-/** Every file under a directory, with the two named exclusions applied. */
+/** Every file under a directory, with the named exclusions and any nested checkout left out. */
 function walk(dir, out) {
   let entries;
   try {
@@ -112,6 +127,7 @@ function walk(dir, out) {
     }
     if (NOT_THE_PROJECT.has(entry.name)) continue;
     if (dir === '' && BUILT_OUTPUT.has(entry.name)) continue;
+    if (isAnotherCheckout(full)) continue;
     walk(full, out);
   }
   return out;

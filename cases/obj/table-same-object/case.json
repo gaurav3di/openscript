@@ -1,0 +1,1 @@
+{"asserts":["table","values"],"category":"surface","description":"One table() call site gives the same grid on every bar, so a kept name writes into it.","id":"obj/table-same-object","languageVersion":1,"profile":"chart"}

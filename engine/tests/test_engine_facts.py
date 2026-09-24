@@ -50,8 +50,11 @@ class TheManifest(unittest.TestCase):
 
     def test_a_name_no_table_holds_is_described_rather_than_served(self):
         serving = Serving(book=None)
+        # The wrong arity of a name it holds, and a name it holds under no arity.
         self.assertIsNone(serving.entry("draw.line", 5))
-        self.assertIn("no function called draw.line", serving.describe("draw.line"))
+        self.assertIn("draw.line with 9 arguments", serving.describe("draw.line"))
+        self.assertIsNone(serving.entry("draw.circle", 3))
+        self.assertIn("no function called draw.circle", serving.describe("draw.circle"))
         self.assertIn("6", serving.describe("buy"))
 
 

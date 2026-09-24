@@ -65,6 +65,7 @@ from .sessions import (
     session_from,
 )
 from .spellings import Malformed, as_reported
+from .surface import DRAWINGS, SURFACE_TAGS, TABLE, drawings_channel, table_channel
 
 #: The codes a load raises when the program needs something this engine does not
 #: have, each with the field naming what it was.
@@ -79,7 +80,7 @@ _UNSUPPORTED_CODES = {
 #: assert is named ``unsupported`` on the case rather than answered emptily,
 #: because an empty channel compares equal to an empty expectation and would be a
 #: pass nobody earned.
-ANSWERED = ("diagnostics", "values", "orders", "trades", "performance", "log")
+ANSWERED = ("diagnostics", "values", "orders", "trades", "performance", "log", DRAWINGS, TABLE)
 
 #: ``compiled-program.md`` 2.2's tag for a program that places orders, and the
 #: word the meta uses for a program that is one. This engine serves the tag
@@ -270,7 +271,7 @@ def run_case(case: Case, program_text: str) -> Answer:
         program_text,
         dict(case.settings),
         serving,
-        capabilities=capabilities(ORDERS),
+        capabilities=capabilities(ORDERS, *SURFACE_TAGS),
         read_time=utc_time,
     )
     if loaded.diagnostic is not None:
@@ -346,6 +347,10 @@ def run_case(case: Case, program_text: str) -> Answer:
         # conformance.md section 4: the bar, its time, and the value spelled as a
         # cell of the values channel is, absence included.
         answered["log"] = [dict(one, value=as_reported(one["value"])) for one in logbook.rows()]
+    if DRAWINGS in case.asserts:
+        answered[DRAWINGS] = drawings_channel(run.objects)
+    if TABLE in case.asserts:
+        answered[TABLE] = table_channel(run.objects)
     if "trades" in case.asserts or "performance" in case.asserts:
         report = report_of(
             desk.fills.settled(),

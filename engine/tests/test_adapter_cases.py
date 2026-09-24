@@ -213,14 +213,15 @@ class Running(unittest.TestCase):
         self.assertEqual(found["bound"], "absence")
 
     def test_a_capability_this_engine_does_not_serve_is_named_on_the_case(self):
-        # A table is one of the tags no stage has wired in, and the tag is the
-        # whole of what this asserts: the day one is, this test is about another
-        # tag rather than about a mechanism that stopped working.
+        # A read of another instrument is one of the tags no stage has wired
+        # in, and the tag is the whole of what this asserts: the day one is,
+        # this test is about another tag rather than about a mechanism that
+        # stopped working. It was the tables tag until issue 0021 wired grids in.
         made = doubling()
-        made["requires"] = sorted(set(made["requires"]) | {"tables"})
+        made["requires"] = sorted(set(made["requires"]) | {"req.symbol"})
         found = result_for(self.case(), envelope(made))
         self.assertEqual(found["outcome"], "unsupported")
-        self.assertIn("tables", found["feature"])
+        self.assertIn("req.symbol", found["feature"])
 
     def test_a_library_function_this_engine_has_no_manifest_row_for_is_named(self):
         made = doubling()

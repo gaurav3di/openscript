@@ -1,0 +1,1 @@
+{"asserts":["table"],"category":"surface","description":"A grid's rows are fixed by its declaration before bar 0, an input included.","id":"table/fixed-shape","languageVersion":1,"profile":"chart"}

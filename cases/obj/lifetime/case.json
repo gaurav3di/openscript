@@ -1,0 +1,1 @@
+{"asserts":["drawings","values"],"category":"surface","description":"An object lives from the bar that creates it until the bar that deletes it.","id":"obj/lifetime","languageVersion":1,"profile":"chart"}

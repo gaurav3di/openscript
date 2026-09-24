@@ -1,0 +1,1 @@
+{"asserts":["diagnostics"],"category":"limits","description":"The object past the ceiling is OS5010 at the call that would create it, and nothing is dropped to make room.","id":"obj/no-cap","languageVersion":1,"profile":"chart"}

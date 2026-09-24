@@ -58,8 +58,10 @@ worse than nothing.
 
 What is written runs a strategy end to end: the machine, both halves of the
 library, the order ledger, the money, and the adapter that joins them over a
-case. What it does not have is the chart surface, and a case asserting one is
-answered `unsupported` naming the channel.
+case, and the part of the chart surface a script holds rather than emits: its
+drawing objects and its grids. What it does not have is the rest of the surface,
+markers, fills, levels and paint, and a case asserting one of those is answered
+`unsupported` naming the channel.
 [`running-the-suite.md`](./running-the-suite.md) has the whole list.
 
 ## What a host needs

@@ -1,0 +1,1 @@
+{"asserts":["drawings","values"],"category":"surface","description":"Boxes held in an array, the oldest deleted and removed once three are held.","id":"obj/array-of-objects","languageVersion":1,"profile":"chart"}
