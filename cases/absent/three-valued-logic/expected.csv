@@ -1,0 +1,9 @@
+bar,Absent and false is absent,Absent and true is absent,Absent or true is absent,Absent or false is absent
+0,0,1,0,1
+1,0,0,0,0
+2,0,0,0,0
+3,0,0,0,0
+4,0,0,0,0
+5,0,0,0,0
+6,0,0,0,0
+7,0,0,0,0

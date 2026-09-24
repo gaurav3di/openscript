@@ -181,8 +181,9 @@ plain text input and validate what you get.
 
 ### A number
 
-The workhorse. `min`, `max` and `step` shape the control and are enforced before
-your calculation ever sees the value.
+The workhorse. The bounds and the step that
+[../spec/stdlib.md](../spec/stdlib.md) section 13.3 gives a number input shape
+the control, and are enforced before your calculation ever sees the value.
 
 ```
 atrLen = input(14,  "ATR length",     min = 1,   max = 200, step = 1)
@@ -280,9 +281,9 @@ rows a plot gets for free and what a colour input replaces.
 
 ### A source
 
-A `series` default renders as a dropdown over the price series: `open`, `high`,
-`low`, `close`, `hl2`, `hlc3`, `ohlc4` and `volume`. The script gets a
-`series number` and uses it exactly like `close`.
+A `series` default renders as a dropdown over the price series
+[../spec/stdlib.md](../spec/stdlib.md) section 13.1 lists for a source input.
+The script gets a `series number` and uses it exactly like `close`.
 
 ```
 src = input(hlc3, "Source")
@@ -311,9 +312,10 @@ worth saying in a tooltip, because the reader picking a 1 minute bias on a daily
 chart has made an honest mistake.
 
 **The repaint mode is not an input, and should never be one.** A higher timeframe
-read declares `mode = "confirmed"`, `"developing"` or `"lookahead"` as a literal
-in the source. A setting would let a reader change the honesty of a study without
-reading it, and the point of naming the mode is that it is visible during review.
+read declares its `mode`, one of those [../spec/stdlib.md](../spec/stdlib.md)
+section 15.3 defines, as a literal in the source. A setting would let a reader
+change the honesty of a study without reading it, and the point of naming the
+mode is that it is visible during review.
 
 ### A time
 

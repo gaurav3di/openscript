@@ -37,8 +37,8 @@ plot(value, title,
 | `offset` | `number` | `0` | Bars to shift the drawing right; negative shifts left |
 | `overlay` | `bool` | the declaration's | `true` forces this one column onto the price pane |
 | `precision` | `number` | the declaration's | Decimals on the price scale this plot maps to |
-| `format` | `string` | the declaration's | `"price"`, `"percent"` or `"volume"` on that same scale |
-| `scale` | `string` | `"right"` | `"right"`, `"left"` or `"none"` |
+| `format` | `string` | the declaration's | How that same scale formats its numbers, one of the values [`language.md`](../../spec/language.md) section 13.2 gives `format` |
+| `scale` | `string` | `"right"` | Which side of the pane this column maps to, one of the values [`language.md`](../../spec/language.md) section 13.2 gives `scale` |
 
 `plot` returns a **handle**. You need it only when a `fill` has to name this
 column, and then you keep it in an ordinary top-level name:
@@ -251,7 +251,7 @@ At the study level, in the declaration:
 | Option | Default | Means |
 |---|---|---|
 | `precision` | `4` | Decimals on this study's axis and legend, 0 to 10 |
-| `format` | `"price"` | `"price"`, `"percent"` or `"volume"`. Axis and crosshair formatting |
+| `format` | `"price"` | Axis and crosshair formatting, one of the values [`language.md`](../../spec/language.md) section 13.2 gives it |
 
 ```
 study("Volume", format = "volume", precision = 0)
@@ -398,14 +398,14 @@ if crossDown(fast, slow)
     signal("SELL", at = "above", shape = "triangleDown")
 ```
 
-`at` takes `"above"`, `"below"` or `"price"`, and defaults to `"above"`.
-`shape` takes `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`,
-`"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"` and `"flag"`.
-Say where the marker goes on every call, as both calls above do: no value picks
-the side by reading the text, because a marker whose position depends on its own
-text reads differently on two engines. `at`, `shape` and `color` are fixed
-before the first bar runs, so each must be a literal or an `input()`; a value
-that changes from bar to bar is OS3003.
+`at` defaults to `"above"`. The positions `at` accepts and the shapes `shape`
+accepts are listed in the `signal` entry of
+[drawing.md](../reference/functions/drawing.md). Say where the marker goes on
+every call, as both calls above do: no value picks the side by reading the text,
+because a marker whose position depends on its own text reads differently on two
+engines. Every argument but the text is fixed before the first bar runs, so each
+must be a literal or an `input()`; a value that changes from bar to bar is OS3003
+([`stdlib.md`](../../spec/stdlib.md) section 14.3).
 
 One thing to know before you build on it: `signal` does not fire on a bar that
 is still moving, unless the declaration sets `onUnconfirmed = true`. A marker

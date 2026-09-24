@@ -525,7 +525,7 @@ rounding error that compounds bar after bar.
 ## See also
 
 - [series.md](./series.md) for statistics across bars: `median`, `percentile`, `correlation`
-- [collections.md](./collections.md) for `sum`, `avg`, `min`, `max` and `stdev` over a whole array
+- [collections.md](./collections.md#4-statistics-over-a-whole-array) section 4 for statistics over a whole array
 - [ta.md](./ta.md) for `stdev` and `variance` over a rolling window
 - [string.md](./string.md) for `text(x, decimals)` and turning a string back into a number
 - [strategy.md](./strategy.md) for the sizing helpers that round down by default

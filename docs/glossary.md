@@ -193,8 +193,8 @@ and every `fn` declared in it.
 which must be known before bar 0 so the chart can build a legend, an axis and a
 settings dialog. This is why those calls are top level only.
 
-**Frequency.** The alert argument deciding how often one condition may fire:
-`"oncePerBar"`, `"once"` or `"everyUpdate"`.
+**Frequency.** The alert argument deciding how often one condition may fire.
+[../spec/stdlib.md](../spec/stdlib.md) section 16.2 lists the values it takes.
 
 **Front end.** The tokeniser, parser and checker for one language version. Every
 past front end is kept in the compiler and selected by the file's version
@@ -291,8 +291,9 @@ accepted. Absence propagates through string concatenation, so a message built
 from an absent value is itself absent.
 
 **Mode.** The argument on a higher timeframe read deciding what the read is
-allowed to know: `"confirmed"`, `"developing"` or `"lookahead"`. It is the
-mechanism that makes a repainting study impossible to write by accident.
+allowed to know, one of the modes [../spec/stdlib.md](../spec/stdlib.md) section
+15.3 defines. It is the mechanism that makes a repainting study impossible to
+write by accident.
 
 **Moving bar.** The newest bar of a live chart, which is executed again on every
 update until its interval elapses.
@@ -431,11 +432,13 @@ diagnostic code first appeared.
 **Slippage.** Ticks of adverse price movement applied to every fill in a
 backtest, set on the declaration.
 
-**Source.** The input kind that lets a user choose which price a study reads:
-one of `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4` or `volume`.
+**Source.** The input kind that lets a user choose which price a study reads,
+one of the prices [../spec/stdlib.md](../spec/stdlib.md) section 13.1 lists for
+it.
 
-**Stage.** Where in the pipeline a diagnostic is raised: `lex`, `parse`, `check`,
-`runtime` or `host`. The stage tells you when you find out.
+**Stage.** Where in the pipeline a diagnostic is raised, one of the stages
+[errors/overview.md](./errors/overview.md) lists under "The stage, which tells
+you when it was found". The stage tells you when you find out.
 
 **State slot.** The per-call-site storage a stateful call keeps. State is
 allocated per call site and not per function, which is what makes a stateful
@@ -475,9 +478,10 @@ It is absent rather than guessed when the host has not supplied it.
 **Title.** The name of a study, a plot, a level or an input, used in the legend,
 the settings dialog and the saved layout. Titles must be unique within a file.
 
-**Top level.** The outermost indentation of a file, where the declaration,
-`input`, `plot`, `fill`, `level`, `table` and `fn` must appear, and where a name
-must be assigned for `[]` to read its history.
+**Top level.** The outermost indentation of a file, where the declaration, every
+`fn`, and the calls [../spec/language.md](../spec/language.md) section 15.3 makes
+top level only must appear, and where a name must be assigned for `[]` to read
+its history.
 
 **Truthiness.** The coercion of a non-boolean to a condition. It does not exist
 in OpenScript: `if 1` is an error, and there is no rule to remember.

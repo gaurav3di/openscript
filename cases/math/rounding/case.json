@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"round takes halves away from zero, on both signs.","id":"math/rounding","languageVersion":1,"profile":"core"}

@@ -34,7 +34,7 @@ Here they are in the order you will reach for them.
 | Horizontal levels | `level` | A line straight across the pane at one price |
 | Bar-anchored markers | `signal` | A named mark on one bar |
 | Per-bar paint | `barColor`, `background` | A colour applied to a bar, with no price of its own |
-| Free drawings | `draw.line`, `draw.label`, `draw.box`, `draw.polyline` | Objects anchored to a time and a price, created and mutated over many bars |
+| Free drawings | The constructors of the `draw` namespace, listed in [lines and boxes](./lines-and-boxes.md) | Objects anchored to a time and a price, created and mutated over many bars |
 | The pinned grid | `table`, `cell` | A panel in a corner of the pane, showing one state rather than a history |
 
 Two more calls produce output that is not drawn at all, and they belong in the

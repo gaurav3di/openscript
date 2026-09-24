@@ -19,7 +19,13 @@
  *
  * Using a value is not enumerating a set: `type = "limit"` in an example is one
  * literal, and this only looks at runs of MIN_MEMBERS or more in a single line,
- * which is what a set written out looks like. Two lists that overlap without
+ * which is what a set written out looks like. The same holds for a script's own
+ * option list, `options = ["topLeft", "topRight", ...]`, which is a study's
+ * choice of what to offer and stays true if the language adds a fifth corner,
+ * so code is not read: a fenced block in a page, and a script file. Nor is
+ * `spec/decisions.md`, which says of itself that it is the minutes and not a
+ * source of truth: a set quoted there is the record of an edit made elsewhere,
+ * and rewriting the minutes to cite the page would erase what was decided. Two lists that overlap without
  * being equal are two different sets and are reported separately, which is the
  * right answer, because a subset copy that has silently lost a member is the
  * defect this exists to catch.
@@ -55,8 +61,23 @@ const MEMBER = /`?"([A-Za-z][A-Za-z0-9_.-]{0,40})"`?|`([A-Za-z][A-Za-z0-9_.-]{0,
  */
 const SEPARATOR = /^[\s,`]*(?:or|and|\||,|\/)?[\s,`]*$/;
 
+/** The minutes, which quote what they decided rather than state it. */
+const MINUTES = 'spec/decisions.md';
+
 function files() {
-  return filesMatching(/\.(md|oscript)$/i, SOURCES);
+  return filesMatching(/\.md$/i, SOURCES).filter((file) => file !== MINUTES);
+}
+
+/** Every line that is prose, with fenced code blanked so its line numbers hold. */
+function proseLines(text) {
+  let fenced = false;
+  return text.split('\n').map((line) => {
+    if (line.trimStart().startsWith('```')) {
+      fenced = !fenced;
+      return '';
+    }
+    return fenced ? '' : line;
+  });
 }
 
 /** Every run of MIN_MEMBERS or more quoted values in one line. */
@@ -94,7 +115,7 @@ const allowedKeys = new Map((allowed.exceptions ?? []).map((e) => [e.set, e.reas
 const sets = new Map();
 
 for (const file of files()) {
-  const lines = readFileSync(file, 'utf8').split('\n');
+  const lines = proseLines(readFileSync(file, 'utf8'));
   for (let i = 0; i < lines.length; i++) {
     for (const members of setsIn(lines[i])) {
       const key = keyOf(members);
@@ -131,6 +152,18 @@ for (const [key, v] of duplicated) {
       v.sites.map((s) => `    ${s.file}:${s.line}`).join('\n') +
       `\n    Give it one home and cite that home from the others, or record it in ` +
       `${ALLOW_PATH} with the reason it is legitimately repeated.`,
+  );
+}
+
+// The other direction: a recorded duplication that is no longer written twice is
+// a row that has been earned out, and the list only shrinks.
+for (const [key, reason] of allowedKeys) {
+  const entry = sets.get(key);
+  if (entry !== undefined && entry.sites.length > 1) continue;
+  hits++;
+  console.error(
+    `${ALLOW_PATH} records ${key.split('|').join(', ')} as written out in more than one file, ` +
+      `and it is not any more (${reason.slice(0, 60)}). Delete the row.`,
   );
 }
 

@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"highest and lowest over a window are absent until it is full and then the largest and smallest value in it.","id":"series/extremes","languageVersion":1,"profile":"core"}

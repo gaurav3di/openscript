@@ -139,7 +139,7 @@ out rather than discovering:
 | A helper that | Cannot move, because |
 |---|---|
 | Calls `input()` | `input` is top level only, so the call is already illegal inside a function |
-| Calls `plot`, `fill`, `level` or `table` | Those are top level only for the same reason: the study's fixed surface is built before bar 0 |
+| Calls `plot`, or another call [../../spec/language.md](../../spec/language.md) section 15.3 makes top level only | Those are top level only for the same reason: the study's fixed surface is built before bar 0 |
 | Calls `signal`, `background` or `barColor` | Legal anywhere, but it now paints the consumer's chart, which is the consumer's decision to make |
 | Places an order | Only a `strategy()` file may do that, so the helper has silently made itself untransplantable |
 | Reads `chart.symbol` or another instrument fact and branches on it | Movable, but it now behaves differently per chart, which has to be documented rather than discovered |
@@ -285,7 +285,7 @@ behaves differently depending on whether anyone imported it.
 | Not exportable | Why not |
 |---|---|
 | An `input()` | Inputs build the settings dialog of a study, before bar 0. A library that added rows to a dialog it does not own would make the consumer's settings unpredictable from the consumer's own source |
-| A `plot`, `fill`, `level` or `table` | The fixed surface belongs to the consuming study: its legend, its axis, its saved layout |
+| A `plot`, or another drawing call [../../spec/language.md](../../spec/language.md) section 15.3 makes top level only | The fixed surface belongs to the consuming study: its legend, its axis, its saved layout |
 | An order | Only a strategy trades, and a library that placed orders would be trading somebody else's account from a file they did not read |
 | A file-scope `var` | Shared mutable state between unrelated consumers would make one script's numbers depend on whether another script happened to run first, which no engine could reproduce |
 

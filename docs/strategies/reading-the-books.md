@@ -182,7 +182,7 @@ In a file with one leg, the `pos` namespace is the position:
 | Call | When flat | Means |
 |---|---|---|
 | `pos.size` | `0` | Net position in units, positive long and negative short |
-| `pos.isLong`, `pos.isShort`, `pos.isFlat` | | The sign of `pos.size`, spelled out |
+| The direction tests of `stdlib.md` section 17.4 | | The sign of `pos.size`, spelled out |
 | `pos.avgPrice` | absent | Average price of the open position |
 | `pos.entryTime` (planned) | absent | When the current position was opened |
 | `pos.barsHeld` (planned) | absent | Bars since it was opened, `0` on the entry bar |

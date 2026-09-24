@@ -926,8 +926,8 @@ assigns.
 
 Every library function that reads a window of bars propagates absence: if any bar
 in the window is absent, the result for that bar is absent. Functions that
-deliberately ignore absent values are named for it, and there are exactly three
-in version 1: `sumSkip`, `avgSkip` and `countPresent`.
+deliberately ignore absent values are named for it, and `stdlib.md` section 2.4
+lists the ones version 1 has.
 
 ```
 sma(close, 20)          // none until 20 bars exist, and none after any gap

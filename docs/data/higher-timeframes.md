@@ -170,7 +170,7 @@ A five minute chart, a `"1h"` request, and one hour of trading. The hourly bar
 that runs from 10:00 to 11:00 opens at 100.0, works up to 104.0 and closes
 there. The hour before it closed at 101.0.
 
-| Chart bar | `"confirmed"` | `"developing"` | `"lookahead"` |
+| Chart bar | Confirmed | Developing | Lookahead |
 |---|---|---|---|
 | 10:00 | 101.0 | 100.2 | 104.0 |
 | 10:15 | 101.0 | 100.9 | 104.0 |

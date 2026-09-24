@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"sma over three and five bars is absent until the window is full and then the fresh window sum over the length.","id":"ta/average-simple","languageVersion":1,"profile":"core"}

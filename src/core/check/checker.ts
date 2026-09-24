@@ -144,8 +144,13 @@ export class Checker {
 
   /** Every call site a bar can pass without evaluating, `language.md` 11.4. */
   private readonly conditional: ReadonlySet<Call>;
-  /** The names some line gives a value, read before a `var` is called never. */
-  private readonly givenAValue: ReadonlySet<string>;
+  /**
+   * The names some line gives a value, read before a `var` is called never.
+   *
+   * Built the first time it is asked for, because it is one walk of the whole
+   * tree and almost every file never reads a `var` that is still never.
+   */
+  private givenAValue: ReadonlySet<string> | undefined = undefined;
 
   constructor(file: SourceFile, script: Script, sink: DiagnosticSink) {
     this.file = file;
@@ -154,7 +159,6 @@ export class Checker {
     this.fileScope = { kind: 'file', names: new Map(), parent: undefined, loopVariable: undefined };
     this.scope = this.fileScope;
     this.conditional = conditionalCalls(script);
-    this.givenAValue = namesGivenAValue(script);
   }
 
   /**
@@ -315,6 +319,7 @@ export class Checker {
    */
   warmupOfRead(binding: Binding): Warmup {
     if (binding.warmup.kind !== 'never' || binding.persistence === 'none') return binding.warmup;
+    this.givenAValue ??= namesGivenAValue(this.script);
     return this.givenAValue.has(binding.name) ? weaken(BAR_ZERO) : binding.warmup;
   }
 

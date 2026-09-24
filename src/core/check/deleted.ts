@@ -34,6 +34,8 @@ interface Held {
 }
 
 export function reportDeletedStillHeld(checker: Checker): void {
+  // One walk of the whole tree, paid only by a file that deletes something.
+  if (!checker.calls.some((one) => one.name === 'draw.delete')) return;
   visit(checker, checker.script);
 }
 

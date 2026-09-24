@@ -996,8 +996,8 @@ lower = plot(basis - dev, "Lower", aqua)
 fill(upper, lower, color = fade(aqua, 88))
 ```
 
-`plot`, `plotCandles`, `fill` and `level` each return a declaration handle of
-type `plot`, `plot`, `fill` and `level` (`language.md` section 5.4). A handle may
+`plot`, `plotCandles`, `fill` and `level` each return a declaration handle, of
+the handle type `language.md` section 5.1 names for each call. A handle may
 be assigned to a name at the top level and passed to a declaration call that
 takes one; it may not be stored in a `var`, put in an array, passed to a user
 function or read with `[]`. `fill` is the only call in version 1 that takes one,

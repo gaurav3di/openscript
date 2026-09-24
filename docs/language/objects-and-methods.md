@@ -120,7 +120,7 @@ else's study.
 | `draw.setTextColor(obj, color)` | label, box | Change the text colour |
 | `draw.setFillColor(obj, color)` | box, polyline | Change the fill |
 | `draw.setWidth(obj, width)` | line, box, polyline | Change the thickness |
-| `draw.setStyle(obj, style)` | line | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setStyle(obj, style)` | line | Change the line style, to one of the styles [../../spec/stdlib.md](../../spec/stdlib.md) section 14.4 lists |
 | `draw.setExtend(line, left, right)` | line | Continue the line to the pane edge |
 | `draw.setTooltip(obj, text)` | label, box | Detail shown while the pointer rests on it |
 | `draw.delete(obj)` | all | Remove one object |
@@ -412,7 +412,7 @@ a plot, and it lives as long as the study does.
 |---|---|---|
 | OS4005 | A setter was given an object that was deleted | Set the handle to the absent value when you delete, and guard with `isNone` |
 | OS4008 | A cell outside the table | Declare the table with enough rows and columns, or clamp the index |
-| OS3006 | `plot`, `fill`, `level` or `table` inside a block | Move it to the top level; hide a plot by plotting the absent value |
+| OS3006 | A `plot`, or another call [../../spec/language.md](../../spec/language.md) section 15.3 files under OS3006, inside a block | Move it to the top level; hide a plot by plotting the absent value |
 | OS8014 | A persistent value holds a bar index | Store `time` instead; indices shift when history loads |
 | OS5002 | An array of handles grew past the element ceiling | Cap it, and delete the objects as you drop the handles |
 

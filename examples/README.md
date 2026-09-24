@@ -178,10 +178,9 @@ the answer now lives, and the scripts have been brought to it.
 - **`close` means two things.** `stdlib.md` section 3.2. The bare name is the
   series, the call form is the order function, and the checker tells them apart
   by syntax. Scripts 10, 11 and 12 use both spellings in one file.
-- **The repaint mode is not named.** `stdlib.md` section 15.3 names
-  `"confirmed"`, `"developing"` and `"lookahead"`, makes `"confirmed"` the
-  default and attaches a warning to the other two. Script 7 states its mode as a
-  literal.
+- **The repaint mode is not named.** `stdlib.md` section 15.3 names the modes,
+  makes `"confirmed"` the default and attaches a warning to the others. Script 7
+  states its mode as a literal.
 - **Nothing reads equity.** `stdlib.md` section 17.4 carries `pos.equity`,
   `pos.netProfit` and `pos.openProfit`, with `pos.maxDrawdown` named and planned
   beside them.
@@ -231,25 +230,20 @@ the answer now lives, and the scripts have been brought to it.
   `fn f(color = red)` is OS1019. Scripts 4 and 9 write `color =` on that
   rule, and every input in the folder writes `min =` and `max =` on it too.
 - **Drawing objects and tables have no type.** `language.md` section 5.4 splits
-  the two kinds that were one word. `line`, `label`, `box`, `polyline` and
-  `table` are runtime objects: ordinary values that go in a name inside a block,
-  in a `var`, in an array and through a function. `plot`, `plotCandles`, `fill`
-  and `level` return a declaration handle, a compile-time value that may be
-  named at the top level and passed to `fill` and nowhere else. Section 19's
-  `type` rule admits the object types and `array<objectType>`, and section 14.1
-  gives an empty literal its element type from an annotation or from the first
-  `push`, `unshift`, `insert` or `set`, which is what script 9's five untyped
-  `[]` declarations rely on.
-- **The placement lists disagree.** `language.md` section 15.3,
-  `stdlib.md` section 14.1 and `errors.md` OS3006 now carry the same two sets:
-  `plot`, `plotCandles`, `fill`, `level` and `table` are top level only under
-  OS3006 and `input` under OS3007; `signal`, `alert`, `background`,
-  `barColor`, `cell`, `clear`, `print`, the `draw` namespace and every order
-  function may appear anywhere. Script 8 writes `cell` inside an `if` on the
-  strength of all three rather than one. `plotCandles` is top level only because
-  it declares a column and returns a plot handle, and `clear` is on the anywhere
-  list in both its forms, the grid one and the array one; no script here calls
-  either.
+  the two kinds that were one word, and names the calls that return each. A
+  runtime object is an ordinary value that goes in a name inside a block, in a
+  `var`, in an array and through a function. A declaration handle is a
+  compile-time value that may be named at the top level and passed to `fill`
+  and nowhere else. Section 19's `type` rule admits the object types and
+  `array<objectType>`, and section 14.1 gives an empty literal its element type
+  from an annotation or from the first call that puts an element into it, which
+  is what script 9's five untyped `[]` declarations rely on.
+- **The placement lists disagree.** Both lists are now written down in
+  `language.md` section 15.3, which `stdlib.md` section 14.1 and `errors.md`
+  OS3006 both cite. Script 8 writes `cell` inside an `if` on the strength of
+  that section. `plotCandles` is top level only because it declares a column
+  and returns a plot handle, and `clear` is on the anywhere list in both its
+  forms, the grid one and the array one; no script here calls either.
 - **A blank line inside a block is undefined.** `language.md` section 3.10: a
   blank line and a comment only line carry no token and no indentation at all,
   so they never open a block, never close one, are never OS1003, accept any

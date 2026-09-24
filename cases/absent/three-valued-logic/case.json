@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"and and or over an absent operand follow the table of language.md 6.6: absence is absorbed only where the other operand decides alone.","id":"absent/three-valued-logic","languageVersion":1,"profile":"core"}

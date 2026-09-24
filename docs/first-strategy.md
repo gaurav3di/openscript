@@ -113,11 +113,11 @@ below acts on the chart's instrument.
 would take it through zero is sent as, is the position model of `stdlib.md`
 section 17.1.
 
-With neither `limit` nor `stop`, `buy` and `sell` place a market order. With
+A `buy` or `sell` with neither `limit` nor `stop` places a market order. With
 `limit` alone, a limit order. With `stop` alone, a stop order. With both, a
-stop-limit order. One function with optional prices, rather than six named ones,
-because the decision you are making is direction and the price is a qualifier on
-it.
+stop-limit order (`stdlib.md` section 17.2). One function with optional prices,
+rather than six named ones, because the decision you are making is direction and
+the price is a qualifier on it.
 
 What you can read back about the position, all of it reflecting **fills rather
 than intentions**:
@@ -129,7 +129,7 @@ than intentions**:
 | `pos.avgPrice` | absent |
 | `pos.barsHeld`, `pos.entryTime` (planned) | absent |
 | `pos.openProfit`, `pos.openProfitPercent` (planned) | absent |
-| `pos.equity`, `pos.netProfit`, `pos.tradeCount` (planned) | a number from bar 0 |
+| `pos.equity` and the other run totals of `stdlib.md` section 17.4 (planned) | a number from bar 0 |
 
 `pos.size` is `0` while flat because zero is the true size and a script adding it
 to something should get the right answer. `pos.avgPrice` is **absent** while flat

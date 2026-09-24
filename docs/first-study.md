@@ -159,7 +159,7 @@ comes first and the label second:
 | `input(20, "Length", min = 2, max = 500)` | Number field with a stepper | `number` |
 | `input(true, "Show the band")` | Checkbox | `bool` |
 | `input(aqua, "Band colour")` | Colour swatch | `color` |
-| `input(close, "Source")` | Source picker over `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4`, `volume` | `series number` |
+| `input(close, "Source")` | Source picker over the prices [../spec/stdlib.md](../spec/stdlib.md) section 13.1 lists for a source input | `series number` |
 | `input("fast", "Mode", options = ["fast", "slow"])` | Menu | `string` |
 | `input("60", "Bias timeframe", kind = "interval")` | Interval menu | `string` |
 
@@ -323,7 +323,7 @@ part of the study's fixed shape. Its arguments:
 | `text` | required | What the marker says |
 | colour | none | The marker's colour |
 | `at` | `"above"` | `"above"`, `"below"` or `"price"` |
-| `shape` | `"label"` | `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"`, `"flag"` |
+| `shape` | `"label"` | One of the shapes the `signal` entry of [reference/functions/drawing.md](./reference/functions/drawing.md) lists |
 
 Both calls above say where the marker goes, and yours should too: a call that
 names no `at` sits above the bar whatever its text says, and no value places it

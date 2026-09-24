@@ -969,7 +969,7 @@ fourteen period reading and the other a fifty.
 | `bool` | `true` or `false` |
 | `string`, `select` | A string. A `select` value must be one of the declared `options` |
 | `color` | `#rrggbbaa`, eight lower case hex digits, the spelling of `conformance.md` section 4 after the alpha conversion of `compiled-program.md` section 3.1 |
-| `source` | One of `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4`, `volume` |
+| `source` | One of the series a source input may select, `stdlib.md` section 13.1 |
 | `interval` | A canonical timeframe string (`stdlib.md` section 15.2) |
 | `time` | A wall clock string in the chart's zone, which is what lets a saved layout restore to the same wall clock in another timezone (`stdlib.md` section 13.3) |
 

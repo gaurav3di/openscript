@@ -20,7 +20,7 @@ expensive mistake on this page.
 
 | | A level the engine holds | A rule in the script |
 |---|---|---|
-| Written as | `exit(...)`, `leg.stop`, `leg.target`, `leg.trail`, the `book` rules | `if ... close()` |
+| Written as | `exit(...)`, or a leg level or `book` rule of `stdlib.md` section 17.9 | `if ... close()` |
 | Evaluated | Once per bar, after the script's own statements, in a fixed order | Wherever you wrote it, in source order |
 | When it acts | On the bar the level is reached, at the level | On the bar the condition is true, at the declaration's fill point |
 | Sends | A stop order or a limit order at its level | An ordinary market order |
@@ -152,8 +152,8 @@ is easier to hold in the head than the same rule written two ways.
 script last wrote, which is why you plot the readback rather than your own
 variable when you want to see what is really protecting the position.
 
-`leg.stop`, `leg.target` and `leg.trail` each name their leg, so a file that wants
-a standing trail declares its leg even when it trades a single contract:
+Every per-leg level of `stdlib.md` section 17.9 names its leg, so a file that
+wants a standing trail declares its leg even when it trades a single contract:
 
 ```
 version 1
@@ -202,7 +202,7 @@ strategy realised since the book was last flat.
 | `book.target(amount)` (planned) | Square off every leg when the book's profit reaches `amount` |
 | `book.lockProfit(activateAt, lock, step = none, advance = none)` (planned) | Activate a floor at a profit, then advance it as profit grows |
 | `book.trailStopsToEntry(at)` (planned) | Move every leg's stop to its own entry once the book is `at` in profit |
-| `book.direction(filter)` (planned) | `"long"`, `"short"` or `"both"`: which sides an entry may take |
+| `book.direction(filter)` (planned) | Which sides an entry may take, `filter` being one of the values `stdlib.md` section 17.9 gives it |
 
 | Call | Reads |
 |---|---|
@@ -243,9 +243,10 @@ The end of day square off is not a call here. It is the declaration's
 `closeOnSessionEnd` option, which already exists, and it is named below for the
 event it emits. One spelling of one rule.
 
-A `filter` that is not `"long"`, `"short"` or `"both"`, a window that does not
-parse, and a time that is not four digits are each OS3008: a value outside the set
-selects no rule, and defaulting quietly would change what the script does.
+A `filter` outside the values `stdlib.md` section 17.9 gives `book.direction`, a
+window that does not parse, and a time that is not four digits are each OS3008: a
+value outside the set selects no rule, and defaulting quietly would change what
+the script does.
 
 Two notes that save a day each. `book.dailyLoss` tests `book.dayProfit`, which is
 measured from this session's open rather than from the start of the run, so the
@@ -440,9 +441,9 @@ So the language refuses the combination rather than defining it:
   exit is refused at compile time. A leg entered outside the unit leaves the book
   holding a position it did not enter as a unit, and the measurement stops being
   the trade.
-- A file that calls `book.stop`, `book.target`, `book.lockProfit` or
-  `book.trailStopsToEntry` without calling `book.enter` is refused at compile time,
-  with the fix naming `leg.stop` and `leg.target`.
+- A file that calls one of the combined rules `stdlib.md` section 17.12 names
+  without calling `book.enter` is refused at compile time, with the fix naming
+  `leg.stop` and `leg.target`.
 
 Both refusals hold in a one-leg file as well, although nothing there could go
 wrong. One rule that is always true is easier to hold in the head than one rule

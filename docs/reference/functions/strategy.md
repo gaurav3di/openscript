@@ -47,23 +47,12 @@ before the first bar.
 
 ## Trading options on the declaration
 
-`strategy()` accepts every option `study()` accepts and adds these. All of them
-must be compile-time constants: a literal, arithmetic over literals, or an
-`input()`.
-
-| Option | Type | Default | Means |
-|---|---|---|---|
-| `capital` | `number` | `100000` | Starting equity for the backtest |
-| `currency` | `string` | `""` | Display label for money in the report |
-| `qty` | `number` | `1` | Default order size when an order names none |
-| `qtyType` | `string` | `"units"` | `"units"`, `"lots"`, `"cash"` or `"equityPercent"` |
-| `product` | `string` | `"intraday"` | `"intraday"` or `"overnight"` |
-| `fillOn` | `string` | `"nextOpen"` | `"nextOpen"` or `"close"`, where a signalled order is filled |
-| `slippage` | `number` | `0` | Ticks of adverse slippage applied to every fill |
-| `commission` | `number` | `0` | Cost per the `commissionType` unit |
-| `commissionType` | `string` | `"perTrade"` | `"perTrade"`, `"perUnit"` or `"percent"` |
-| `pyramiding` | `number` | `1` | Maximum entries in one direction before entries are refused |
-| `closeOnSessionEnd` | `bool` | `false` | Flatten at the session close |
+`strategy()` accepts every option `study()` accepts and adds the ones in the
+table of `language.md` section 13.3, which gives each option's type, default and
+accepted values. All of them must be compile-time constants: a literal,
+arithmetic over literals, or an `input()`. What each accepted string value means
+is under [Order, product and strategy vocabularies](../constants.md#order-product-and-strategy-vocabularies)
+in the constants reference.
 
 `fillOn` defaults to `"nextOpen"` rather than `"close"` because a decision made
 from a bar's close cannot be filled at that same close in the real market, and a
@@ -99,18 +88,10 @@ Returns nothing.
 sell(qty = lots * chart.lotSize)
 ```
 
-With neither `limit` nor `stop`, `buy` and `sell` place a market order. With
-`limit` alone they place a limit order, with `stop` alone a stop order, and with
-both a stop-limit order. One function with optional prices rather than six named
-functions, because the trader's decision is direction and the price is a
-qualifier on it.
-
-| `limit` | `stop` | Order placed |
-|---|---|---|
-| absent | absent | Market |
-| given | absent | Limit |
-| absent | given | Stop |
-| given | given | Stop-limit |
+Which kind of order a `buy` or a `sell` places follows from which of its two
+prices it is given. `stdlib.md` section 17.2 sets out each combination, and why
+one function takes optional prices rather than there being a named function for
+each kind of order.
 
 ### `close(tag = none, qty = none, leg = the only leg)`
 

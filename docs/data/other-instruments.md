@@ -17,7 +17,7 @@ req.symbol(symbol, timeframe, expr, exchange = chart.exchange, mode = "confirmed
 | `timeframe` | `string` | The interval to read it at, written as in [timeframes.md](./timeframes.md) |
 | `expr` | any | An expression computed on that instrument's bars |
 | `exchange` | `string` | Where it trades, defaulting to the chart's exchange |
-| `mode` | `string` | `"confirmed"`, `"developing"` or `"lookahead"`, as in [higher-timeframes.md](./higher-timeframes.md) |
+| `mode` | `string` | One of the modes [higher-timeframes.md](./higher-timeframes.md) lists |
 
 ```
 // The same interval the chart is on, on the chart's own exchange.

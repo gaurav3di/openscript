@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"The remainder operator follows the sign of its left operand, and a remainder by zero is absent.","id":"expr/remainder","languageVersion":1,"profile":"core"}

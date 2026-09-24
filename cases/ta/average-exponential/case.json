@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"ema is seeded on the first full window with its simple mean and then follows the recurrence of stdlib.md 20.2.2.","id":"ta/average-exponential","languageVersion":1,"profile":"core"}

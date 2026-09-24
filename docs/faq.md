@@ -189,8 +189,9 @@ not by wrapping it in a branch. That is OS3006. See
 plotting. See [visuals/labels-and-shapes.md](./visuals/labels-and-shapes.md).
 
 **How do I draw a line between two points and move it later?**
-The `draw` namespace: `draw.line`, `draw.label`, `draw.box`, `draw.polyline`, and
-the setters that move them. Objects are anchored to a time and a price, so they
+The `draw` namespace: `draw.line`, or another of the creation calls
+[../spec/stdlib.md](../spec/stdlib.md) section 18 lists, and the setters that
+move them. Objects are anchored to a time and a price, so they
 stay where you put them when more history loads. See
 [visuals/lines-and-boxes.md](./visuals/lines-and-boxes.md).
 

@@ -184,8 +184,8 @@ other = input("", "Compare with", kind = "symbol")
 
 A price the user sets by clicking the chart.
 Parameters: `n` `number` required, the default price; `title` `string` default
-the variable's name; `kind` `string`, here `"price"`; `min`, `max` and `step` as
-for a number input; plus the shared arguments.
+the variable's name; `kind` `string`, here `"price"`; the arguments section 3
+lists for the price kind; plus the shared arguments.
 Returns `number`. Renders as a number field the chart can fill in.
 
 ```
@@ -250,7 +250,7 @@ atrLen = input(14, "ATR length", group = "Risk",
 | `min`, `max` | number, price | The range the dialog enforces; a value outside it is OS3004 |
 | `step` | number, price | The increment of the dialog's stepper |
 | `options` | string | The list a menu offers; supplying it makes the input a `select` |
-| `kind` | string, number | Names the control where the type alone cannot: `"interval"`, `"time"`, `"symbol"`, `"price"`, `"session"` |
+| `kind` | string, number | Names the control where the type alone cannot, with a value the `kind` row of [`stdlib.md`](../../../spec/stdlib.md) section 13.3 lists |
 
 Set `min` on every length. A length of 0 or below is an argument error at the
 call that receives it, and catching it in the dialog turns a study that stops

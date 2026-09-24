@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"orElse gives the fallback while the value is absent and the value once it is present.","id":"absent/or-else","languageVersion":1,"profile":"core"}

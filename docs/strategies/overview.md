@@ -44,22 +44,9 @@ thing on the screen. One file cannot drift from itself.
 ## The strategy options
 
 Every `study()` option (`title`, `short`, `overlay`, `precision`, `format`,
-`range`, `scale`, `group`, `onUnconfirmed`) applies to a strategy too. These are
-the additions:
-
-| Option | Type | Default | Means |
-|---|---|---|---|
-| `capital` | `number` | `100000` | Starting equity for the backtest |
-| `currency` | `string` | `""` | Display label for money in the report |
-| `qty` | `number` | `1` | Default order size when an order names none |
-| `qtyType` | `string` | `"units"` | `"units"`, `"lots"`, `"cash"` or `"equityPercent"` |
-| `product` | `string` | `"intraday"` | `"intraday"` or `"overnight"` |
-| `fillOn` | `string` | `"nextOpen"` | `"nextOpen"` or `"close"`, where a signalled order is filled |
-| `slippage` | `number` | `0` | Ticks of adverse slippage applied to every fill |
-| `commission` | `number` | `0` | Cost per the `commissionType` unit |
-| `commissionType` | `string` | `"perTrade"` | `"perTrade"`, `"perUnit"` or `"percent"` |
-| `pyramiding` | `number` | `1` | Maximum entries in one direction before entries are refused |
-| `closeOnSessionEnd` | `bool` | `false` | Flatten at the session close |
+`range`, `scale`, `group`, `onUnconfirmed`) applies to a strategy too. The options
+a strategy adds are tabled in [`language.md`](../../spec/language.md) section
+13.3, each with its type, its default, the values it accepts and what it means.
 
 Every option value must be a compile-time constant: a literal, arithmetic over
 literals, or a call to `input()`. The settings dialog and the legend are built

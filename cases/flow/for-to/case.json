@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"A for loop over a range includes both ends, and one with a step reaches every value the step lands on.","id":"flow/for-to","languageVersion":1,"profile":"core"}

@@ -88,10 +88,12 @@ where you want it present.
 
 ### 5. The compiler refused my plot inside an if
 
-**Cause.** OS3006. `plot`, `fill`, `level`, `input` and `table` define the fixed
-shape of the study, and that shape has to be known before bar 0 so the chart can
-build a legend, an axis and a settings dialog. A plot inside a branch would add a
-column on some bars and not others, and there would be nothing stable to name.
+**Cause.** OS3006. `plot` and the other calls
+[../spec/language.md](../spec/language.md) section 15.3 makes top level only
+define the fixed shape of the study, and that shape has to be known before bar 0
+so the chart can build a legend, an axis and a settings dialog. A plot inside a
+branch would add a column on some bars and not others, and there would be
+nothing stable to name.
 
 **Fix.** Move it to the top level and hide it per bar with the absent value.
 
@@ -296,10 +298,11 @@ id, and remember that history fires nothing. See [alerts.md](./alerts.md).
 `at = "above"`. A marker's side is never inferred from what the marker says: a
 marker whose position depends on its own text reads differently on two engines.
 
-**Fix.** Say which: `at = "above"`, `"below"` or `"price"`, and pick a `shape`
-rather than accepting the default label. The value has to be a literal or an
-`input()`, because the marker's declaration is fixed before bar 0; a per-bar one
-is OS3003.
+**Fix.** Say which with `at`, and pick a `shape` rather than accepting the
+default label: the `signal` entry of
+[reference/functions/drawing.md](./reference/functions/drawing.md) lists the
+values each one takes. The value has to be a literal or an `input()`, because
+the marker's declaration is fixed before bar 0; a per-bar one is OS3003.
 
 ## Higher timeframe and other instruments
 

@@ -108,7 +108,8 @@ Reading it back:
   it is the option you will set most often.
 - `close` is a built-in series: one value per bar, the bar's closing price. So
   are `open`, `high`, `low`, `volume`, `time`, and the convenience averages
-  `hl2`, `hlc3`, `ohlc4` and `hlcc4`.
+  such as `hl2` that [../spec/language.md](../spec/language.md) section 15.1
+  lists with them.
 - `plot(value, title, colour)` draws one column of numbers. The title is what the
   legend shows and what the settings dialog calls that line. The colour is
   optional; drop it and the host picks one.
@@ -205,7 +206,7 @@ drawing call in the language lands in exactly one field of it.
 | `barColor(...)` | The colour of the instrument's own candles, per bar |
 | `background(...)` | The shading behind the pane, per bar |
 | `table(...)`, `cell(...)` | The grid pinned to a corner |
-| `draw.line`, `draw.label`, `draw.box`, `draw.polyline` | Free drawings, one entry per live object |
+| `draw.line` and the other creation calls [../spec/stdlib.md](../spec/stdlib.md) section 18 lists | Free drawings, one entry per live object |
 | `alert(...)` | One watched condition, with its id and message |
 | Orders | No field at all. Orders go to the order route, not to the chart |
 

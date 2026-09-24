@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"A read of the bar before and of two bars before is absent until the history holds that many bars.","id":"persist/history-read","languageVersion":1,"profile":"core"}

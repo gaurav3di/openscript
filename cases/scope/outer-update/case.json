@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"An assignment inside a block to a name declared outside it updates that name rather than declaring a new one.","id":"scope/outer-update","languageVersion":1,"profile":"core"}

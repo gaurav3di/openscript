@@ -79,14 +79,15 @@ and the whole program becomes a list of instructions.
 
 **Execution happens once per bar.** Every instruction runs again for every bar.
 
-Some statements sit in both worlds. `plot`, `fill`, `level`, `table` and
-`input` are read once, at compile time, because they declare the fixed shape of
-the study: how many columns there are, what they are called, what the legend
-says, which rows the settings dialog has. Their **arguments**, however, are
-evaluated on every bar. That is how one `plot` statement produces one value per
-bar.
+Some statements sit in both worlds. `plot`, `input` and the other calls that
+[../../spec/language.md](../../spec/language.md) section 15.3, "Where a call may
+appear", makes top level only are read once, at compile time, because they
+declare the fixed shape of the study: how many columns there are, what they are
+called, what the legend says, which rows the settings dialog has. Their
+**arguments**, however, are evaluated on every bar. That is how one `plot`
+statement produces one value per bar.
 
-This is why those five calls must be at the top level of the file. Putting one
+This is why those calls must be at the top level of the file. Putting a `plot`
 inside an `if` is error OS3006:
 
 ```
@@ -102,10 +103,9 @@ The fix the compiler names is always the same one: plot `none` on the bars you
 want hidden. An absent value reaching a drawing surface is a gap, never a zero,
 so a plot that is absent on a bar simply breaks its line there.
 
-Everything else may appear anywhere: `signal`, `alert`, `background`,
-`barColor`, `cell`, `print`, the whole `draw` namespace and every order
-function. They are per-bar events or per-bar paint, so they belong inside the
-per-bar logic.
+Everything else may appear anywhere. The calls on the second list in that same
+section, `signal` among them, are per-bar events or per-bar paint, so they
+belong inside the per-bar logic.
 
 ---
 

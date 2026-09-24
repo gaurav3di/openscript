@@ -265,8 +265,9 @@ It is the wrong tool when the fallback is a price, a quantity or anything a
 comparison will later treat as data. `orElse(stop, 0)` turns "we have no stop" into
 "our stop is zero", and every `close > stop` after that line is true.
 
-Three library functions ignore absence deliberately, and they say so in their
-names, which is the whole convention: `sumSkip`, `avgSkip` and `countPresent`.
+A few library functions ignore absence deliberately, and they say so in their
+names, which is the whole convention: `avgSkip` is one, and
+[../../spec/stdlib.md](../../spec/stdlib.md) section 2.4 names the others.
 Everything else that reads a window propagates, so if any bar in the window is
 absent, that bar's result is absent.
 

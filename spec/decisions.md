@@ -4805,3 +4805,35 @@ every other declaration, was measured and keeps its reference.
 **Edits.** `errors.md` and `errors.json` OS3026; `language.md` 13.4;
 `src/core/check/library.ts` (`written`), `library-output.ts` and `calls.ts`;
 `docs/inputs.md`; `tests/unit/check-plot-options.test.ts`.
+
+## 71. The `AND` and `OR` tables are total
+
+**The question.** `compiled-program.md` 4.7 gave each logic instruction only the
+rows its short-circuit leaves to it, on the ground that a `false` left operand
+under `and` and a `true` one under `or` never reach the instruction. The compiler
+emits a bare `OR` for the values of a `switch` case, with no `OR_SHORT` before it,
+because neither operand can have an effect. So a `true` left operand did reach
+`OR`, on a row the page did not have.
+
+**How it was found.** The first `values` case written for `switch`,
+`cases/flow/switch-value`, with `case 1, 2`. The first engine answered the row the
+only way `language.md` 6.6 allows and took the arm; the second answered absence,
+as its table said a row the page never wrote should be answered, and took the
+default. Two engines each faithful to a page disagreed because the page and the
+compiler disagreed.
+
+**The decision.** The tables are total. Every pair of two booleans or absences
+has a row, and the rows a short-circuit decides carry the answers `language.md`
+6.6 gives, so a program that took the short-circuit and one that did not compute
+the same value. The compiler is unchanged, so no stored program's bytes or hash
+move, and no program's value changes on the first engine, which already answered
+these rows this way.
+
+**Why not change the compiler instead.** Emitting `OR_SHORT` for a `switch` case
+would make every program with a multi-value case a different program, change the
+hash of every stored run of one, and leave the second engine's reading of the
+page one compiler change away from the same disagreement. The page was the thing
+that was partial.
+
+**Edits.** `compiled-program.md` 4.7; `engine/openscript/values.py` and its test;
+`cases/flow/switch-value`.

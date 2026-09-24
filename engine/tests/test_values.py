@@ -83,8 +83,8 @@ class TheLogicTablesArePages(unittest.TestCase):
         self.disjunction = page_rows("### 4.7 Logic", "a or b")
 
     def test_both_tables_were_actually_read(self):
-        self.assertEqual(len(self.conjunction), 6)
-        self.assertEqual(len(self.disjunction), 6)
+        self.assertEqual(len(self.conjunction), 9)
+        self.assertEqual(len(self.disjunction), 9)
 
     def test_every_conjunction_row_is_what_this_engine_answers(self):
         for left, right, answer in self.conjunction:
@@ -96,15 +96,15 @@ class TheLogicTablesArePages(unittest.TestCase):
             with self.subTest(row=f"{left} or {right}"):
                 self.assertIs(disjunction(as_value(left), as_value(right)), as_value(answer))
 
-    def test_a_pair_the_short_circuit_never_leaves_is_absent(self):
-        # Neither table holds a false left operand under and, or a true one
-        # under or, because the short circuit decided those before the
-        # combining instruction ran. A program that reached one anyway is
-        # corrupt, and it gets absence rather than a row the page never wrote.
-        # The operator's own commutativity is a property of the pair of
-        # instructions, and tests/test_machine.py is where it is measured.
-        self.assertIs(conjunction(False, True), ABSENT)
-        self.assertIs(disjunction(True, False), ABSENT)
+    def test_a_row_the_short_circuit_decides_answers_as_the_language_does(self):
+        # The compiler emits a bare OR for the values of a switch case, so a
+        # true left operand does reach the instruction. This file once answered
+        # it with absence, and `case 1, 2` then matched only its last value:
+        # cases/flow/switch-value is the case that found it.
+        self.assertIs(conjunction(False, True), False)
+        self.assertIs(conjunction(False, ABSENT), False)
+        self.assertIs(disjunction(True, False), True)
+        self.assertIs(disjunction(True, ABSENT), True)
 
 
 class OrderingPropagatesAbsence(unittest.TestCase):

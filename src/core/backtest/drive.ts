@@ -46,6 +46,7 @@ import type {
   LedgerRow,
   OrderIntent,
   RoutedEffect,
+  Value,
 } from '../engine/index.js';
 import { declarationOf } from './declaration.js';
 import type { RunDeclaration } from './declaration.js';
@@ -67,7 +68,7 @@ import type { BacktestSettings } from './settings.js';
 
 /** What a run came to, or why it could not be carried out at all. */
 export type BacktestResult =
-  | { readonly ok: true; readonly record: RunRecord }
+  | { readonly ok: true; readonly record: RunRecord; readonly rows?: readonly (readonly Value[])[] }
   | { readonly ok: false; readonly diagnostic: Diagnostic };
 
 /**
@@ -117,6 +118,17 @@ export interface DriveOptions {
    * written into a case that could never make its own expected output.
    */
   readonly sourceText?: string;
+  /**
+   * Whether to hand back every channel's value on every bar that ran, beside
+   * the record rather than inside it.
+   *
+   * A conformance case that asserts `values` compares one value per bar per
+   * plot, and the record holds none of them: it is the reproducible run, and a
+   * curve per plot is bytes it would carry for every run to serve the few cases
+   * that ask. So the rows are asked for, and a run that does not ask pays
+   * nothing. A bar that failed has no row, as in the second engine.
+   */
+  readonly rows?: boolean;
 }
 
 /**
@@ -219,12 +231,13 @@ function drive(
   const destination = choose(declared, schedule);
   sending = destination;
 
-  const run = walk(engine, destination, bars, framed.covered);
+  const run = walk(engine, destination, bars, framed.covered, options.rows === true);
   const ordinals = ordinalsOf(destination.intents);
   const marks = marksFor(bars, framed.covered);
 
   return {
     ok: true,
+    ...(options.rows === true ? { rows: run.rows } : {}),
     record: recordOf({
       program: engine.program,
       ...(options.sourceText === undefined ? {} : { sourceText: options.sourceText }),
@@ -259,6 +272,7 @@ interface Walked {
   readonly fills: readonly RecordedFill[];
   readonly frames: readonly Delivered[];
   readonly diagnostics: readonly RecordedDiagnostic[];
+  readonly rows: readonly (readonly Value[])[];
 }
 
 /**
@@ -273,8 +287,10 @@ function walk(
   destination: Destination,
   bars: readonly RecordedBar[],
   covered: ReportWindow,
+  keepRows: boolean,
 ): Walked {
   const fills: RecordedFill[] = [];
+  const rows: (readonly Value[])[] = [];
   const frames: Delivered[] = [];
   const diagnostics: RecordedDiagnostic[] = [];
   const intents = new Map<number, OrderIntent>();
@@ -310,11 +326,12 @@ function walk(
       diagnostics.push(diagnosticIn(result.diagnostic, index));
       break;
     }
+    if (keepRows) rows.push([...result.columns]);
 
     pending = destination.answers(index);
   }
 
-  return { fills, frames, diagnostics };
+  return { fills, frames, diagnostics, rows };
 }
 
 /** What the run is holding while it folds one bar's frames into fills. */
