@@ -39,6 +39,7 @@ import type { SourceFile } from '../../core/index.js';
 import { hostBar, hostNow, stateFor } from './bars.js';
 import type { ChartBar, ChartCalcContext, ChartSettings, ChartStore } from './contract.js';
 import { refused, stopped } from './errors.js';
+import { undrawable } from './undrawable.js';
 import { stationIn, stationOf } from './requests.js';
 import { engineSettings, signatureOf } from './settings.js';
 import { answersFor, needsVenue, routeInto, venueFor } from './venue.js';
@@ -334,6 +335,11 @@ function start(
   const withRoute: ChartAdapterOptions = simulate
     ? { ...options, orders: routeInto(holder) }
     : options;
+
+  // What this chart has no room for is refused before the engine is asked,
+  // because a study drawn without it is a study that looks broken.
+  const narrower = undrawable(program);
+  if (narrower !== undefined) throw refused(narrower);
 
   const loaded = load(program, {
     settings: engineSettings(program, settings),

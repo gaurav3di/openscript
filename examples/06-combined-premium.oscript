@@ -28,6 +28,8 @@ putPrice  = req.symbol(putLeg,  chart.interval, close, exchange = chart.exchange
 // That is the whole reason absence propagates through arithmetic: a missing leg
 // has to be visible as a gap in the line, not absorbed into a smaller number
 // that looks like a profit.
+// chart.lotSize is absent, not 1, when the host has not said what a lot is, so
+// on such a host the money line is a gap rather than a figure sized by a guess.
 premium = callPrice + putPrice
 money   = premium * lots * chart.lotSize
 

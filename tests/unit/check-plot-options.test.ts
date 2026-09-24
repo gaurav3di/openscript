@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { checkRaw, codes, rawCodes } from './check-support.js';
+import { checkBody, checkRaw, codes, rawCodes } from './check-support.js';
 
 /**
  * The options a plot carries that reach past the plot itself. `language.md`
@@ -31,4 +31,43 @@ test('OS8007 is at the plot and names its title and the option it set', () => {
   const found = checkRaw(text).diagnostics.find((one) => one.code === 'OS8007');
   assert.equal(found === undefined ? undefined : `${found.span.line}:${found.span.column}+${found.span.length}`, '4:1+41');
   assert.deepEqual(found?.values, { title: '"Upper"', option: 'precision' });
+});
+
+// Catches a checker that treats arithmetic over a setting as a constant. The
+// compiled program has no form for it, so the emitter met it with nothing to
+// write and blamed itself with OS6018 (issue 0003).
+test('arithmetic over an input in a fixed field is OS3025 at the argument', () => {
+  const body = 'w = input(1, "Width")\nplot(close, "Close", aqua, width = w + 1)';
+  assert.deepEqual(codes(body), ['OS3025']);
+  const found = checkBody(body).diagnostics.find((one) => one.code === 'OS3025');
+  assert.equal(found?.span.line, 4);
+  assert.deepEqual(found?.values, { option: 'width' });
+});
+
+// The shape the issue was filed over, and a colour computed from a setting,
+// which reached the same emitter gap through a foldable call.
+test('a ternary or a colour call over an input in a fixed field is OS3025 as well', () => {
+  const band = 'shade = input(true, "Shade")\nh = plot(high, "H")\nl = plot(low, "L")\nfill(h, l, aqua, opacity = shade ? 1 : 0)';
+  assert.deepEqual(codes(band), ['OS3025']);
+  assert.deepEqual(codes('t = input(80, "T")\nlevel(100, "L", fade(aqua, t))'), ['OS3025']);
+});
+
+// Catches the overreach: one setting as the whole of the value is the form the
+// program carries, and arithmetic over literals is folded.
+test('an input as the whole value, or arithmetic over literals, is not OS3025', () => {
+  assert.deepEqual(codes('w = input(2, "Width")\nplot(close, "Close", aqua, width = w)'), []);
+  assert.deepEqual(codes('plot(close, "Close", aqua, width = input(2, "Width"))'), []);
+  assert.deepEqual(codes('plot(close, "Close", aqua, width = 1 + 1)'), []);
+});
+
+// Catches an input whose default is another setting, which the emitter wrote
+// out as an absent default with nothing said.
+test("an input's default or bound read from another input is OS3025", () => {
+  assert.deepEqual(codes('n = input(2, "N")\nm = input(n, "M")\nplot(close, "C", width = m)'), ['OS3025']);
+  assert.deepEqual(codes('n = input(9, "N")\nm = input(2, "M", max = n)\nplot(close, "C", width = m)'), ['OS3025']);
+});
+
+// Bar data is still OS3003, whose message is about bar data and true of it.
+test('a value that depends on bar data is still OS3003, not OS3025', () => {
+  assert.deepEqual(codes('w = input(1, "Width")\nplot(close, "Close", aqua, width = w + close)'), ['OS3003']);
 });

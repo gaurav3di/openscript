@@ -459,24 +459,3 @@ plot(close, "Close")
   assert.equal(watched.message?.({ ...surface, index: 0 }), 'up at 101.00');
   assert.equal(watched.message?.({ ...surface, index: 1 }), 'Went up', 'a falling bar wrote none');
 });
-
-// Catches an adapter that carries the second declared grid nowhere and says
-// nothing about it. One hook draws one grid; what is dropped and why is recorded
-// in spec/chart-narrowings.json and checked by scripts/check-chart-surface.mjs.
-test('a study declaring two grids draws the first one', () => {
-  const descriptor = descriptorOfSource(`version 1
-
-study("Two grids")
-
-first = table("First", 1, 1, position = "topLeft")
-second = table("Second", 1, 1, position = "bottomRight")
-cell(first, 0, 0, "one")
-cell(second, 0, 0, "two")
-
-plot(close, "Close")
-`);
-  const surface = run(descriptor, alternating(3), instance(), contextOf(3, {}));
-  const grid = descriptor.table?.(surface) as ChartGrid;
-  assert.equal(grid.rows[0]?.[0]?.text, 'one', 'the first declared grid, paired by its own key');
-  assert.equal(grid.options?.position, 'top-left');
-});

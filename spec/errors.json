@@ -1175,7 +1175,7 @@
       "placeholders": {
         "option": "the option that was given a bar-dependent value"
       },
-      "cause": "The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built. The rule covers more than the declaration's own options: every argument that lands in a declaration fixed before bar 0 arrives here too, signal's at, shape and color, table's position, rows and cols, and a plot's style arguments among them. An input() counts as a constant for this purpose, because the engine resolves inputs at load and substitutes the resolved value before bar 0 runs.",
+      "cause": "The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input() written as the whole of the value; an expression over an input is OS3025. A value that changes per bar has no single answer at the moment the dialog is built. The rule covers more than the declaration's own options: every argument that lands in a declaration fixed before bar 0 arrives here too, signal's at, shape and color, table's position, rows and cols, and a plot's style arguments among them. An input() counts as a constant for this purpose, because the engine resolves inputs at load and substitutes the resolved value before bar 0 runs.",
       "fix": "Use a literal, or make it tunable with an input(): {option} = input(2, \"{option}\").",
       "autofix": false,
       "example": {
@@ -1643,6 +1643,27 @@
       "spec": "language.md 13.4, host-interface.md 8.1",
       "refines": "OS3021",
       "test": "tests/unit/check-calls.test.ts"
+    },
+    {
+      "code": "OS3025",
+      "title": "A setting is part of a larger expression here",
+      "severity": "error",
+      "stage": "check",
+      "since": 1,
+      "message": "{option} is fixed before the first bar and holds an input() only as the whole of its value, so it cannot hold an expression over one.",
+      "placeholders": {
+        "option": "the option or field whose value reads a setting as part of something larger"
+      },
+      "cause": "A field fixed before bar 0 is written into the compiled program as one of two things: the value itself, which the compiler folds, or a reference to one input, which the engine resolves once at load (compiled-program.md 2.3). An expression over a setting is neither. The compiler cannot fold it, because the setting's value is not known until the host resolves the settings, and the program has no form for an expression evaluated at load, because that would be a second evaluator every engine has to agree on before the first bar. An input's own default, bounds and step are the same kind of field and are held tighter still: they are what the settings dialog shows before anybody has chosen, so none of them may read another setting at all.",
+      "fix": "Declare the setting as the value itself, with an input() written as the whole of {option}, or write the value out as a literal.",
+      "autofix": false,
+      "example": {
+        "before": "w = input(1, \"Width\")\nplot(close, \"Close\", aqua, width = w + 1)",
+        "after": "w = input(2, \"Width\")\nplot(close, \"Close\", aqua, width = w)"
+      },
+      "spec": "language.md 13.2",
+      "refines": null,
+      "test": "tests/unit/check-plot-options.test.ts"
     },
     {
       "code": "OS4001",
@@ -2427,17 +2448,18 @@
       "since": 1,
       "message": "The host did not supply {fact} for {symbol}.",
       "placeholders": {
-        "fact": "the missing fact: tick size, lot size, session or timezone",
+        "fact": "what the instrument record lacks for something that cannot default it: a timezone for the session it states, a timezone the calendar can read, a session spelled HH:MM, or session days numbered 1 to 7",
         "symbol": "the instrument it is missing for"
       },
-      "cause": "Tick size, lot size, the session and the timezone come from the instrument record (host-interface.md 4.1), not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.",
-      "fix": "Supply {fact} in the host's instrument record, or stop depending on it: round with a number the script chooses rather than chart.tickSize.",
+      "cause": "An instrument fact the host did not state is absent, and a bare read of one, chart.tickSize or chart.lotSize among them, returns the absent value a script can test with isNone (stdlib.md 3.4). This error is the other case: something that needs the fact and has no way to proceed without it. A session with no timezone is a window with no clock to read it in, so every session test on that host would answer absence on every bar and every session study would draw nothing with nothing said. The engine refuses the record at load instead, before any bar runs, because the fact comes from the instrument record (host-interface.md 4.1) and not from the bars, and a guessed zone is silently wrong for half the year anywhere a clock changes with the season.",
+      "fix": "Supply {fact} in the host's instrument record for {symbol}, or leave the session out of the record, which makes every session read absent rather than wrong.",
       "autofix": false,
       "example": {
-        "before": "qty = lots * chart.lotSize",
-        "after": "lotSize = input(1, \"Lot size\", min = 1)\nqty = lots * lotSize"
+        "kind": "transcript",
+        "before": "host instrument record:\n  session   09:15 to 15:30, days 1 to 5\n  timezone  not stated",
+        "after": "host instrument record:\n  session   09:15 to 15:30, days 1 to 5\n  timezone  UTC"
       },
-      "spec": "language.md 15.2",
+      "spec": "host-interface.md 4.5",
       "refines": null,
       "test": "tests/engine/requests-host.test.ts"
     },
@@ -2696,6 +2718,29 @@
       "spec": "language.md 13.3; stdlib.md 17.1",
       "refines": null,
       "test": "tests/backtest/settings.test.ts"
+    },
+    {
+      "code": "OS6024",
+      "title": "The host cannot draw something this study declares",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "This host cannot draw {what}: {limit}.",
+      "placeholders": {
+        "what": "the declaration that will not be drawn, named by its title where it has one",
+        "limit": "the host's own sentence for why, which is the only part a host writes"
+      },
+      "cause": "A compiled program carries every output the language can express, and a host draws what its own surface has room for. The two are allowed to differ, and what is not allowed is the difference being invisible: a study whose second panel never appears looks like a study with a bug in its cells, and a band drawn in a colour the script did not choose looks like a script that chose it. So a host states its limit before any bar runs, rather than drawing part of the study and saying nothing. The compiled program carries no source position for a declaration, which is why the refusal names the declaration by its title rather than pointing at a line.",
+      "fix": "Declare what this host draws, or run the study on a host that draws {what}.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "study declares:\n  table \"Summary\", 2 rows, 2 columns\n  table \"Detail\", 4 rows, 2 columns\nhost draws: one grid per pane",
+        "after": "study declares:\n  table \"Summary\", 6 rows, 2 columns\nhost draws: one grid per pane"
+      },
+      "spec": "compiled-program.md 11",
+      "refines": null,
+      "test": "tests/adapters/charts/undrawable.test.ts"
     },
     {
       "code": "OS7001",

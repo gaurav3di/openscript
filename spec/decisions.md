@@ -4646,3 +4646,105 @@ label. That is a language question and is not answered here.
 
 **Edits.** `src/adapters/charts/venue.ts` (new), `run.ts`;
 `tests/adapters/charts/calc.test.ts`; `CHANGELOG.md`.
+
+## 66. A bare read of an instrument fact the host did not state is absent, and never OS6012
+
+**The question.** `stdlib.md` 3.4 says `chart.tickSize` is `none` when the host
+has not said, and the catalogue's OS6012 said a bare read of a fact the host did
+not supply stops the bar, with `qty = lots * chart.lotSize` as its example. Both
+cannot be true of one read (issue 0002).
+
+**The decision.** The first. A bare read of an instrument fact the host did not
+state returns the absent value, a script may test it with `isNone` or give it a
+fallback with `orElse`, and nothing stops the bar. OS6012 belongs only to
+something that needs a fact and cannot default it, which in version 1 is the
+instrument record refused at load: a session stated with no timezone, a timezone
+the calendar cannot read, a session whose clock times are not `HH:MM`, or session
+days outside one to seven. A request that dates its buckets by a timezone the host
+did not state is not refused either: it is absent, and `req.error` carries
+OS6012's sentence as its reason.
+
+**Why.** It is the reading that leaves every sentence of `stdlib.md` standing,
+including `roundToTick`'s absence rule, which the other reading made
+unobservable. It is what the engine already did: nothing raised OS6012 on a
+bare read, and the load refusal was the only site. And it is the one under which
+a script can degrade: a study that sizes in lots guards the read and still draws
+on a host that leaves the lot size out, where the other reading turns the guard
+into dead code and the study into an error on every such host.
+
+**Edits.** `errors.md` and `errors.json` OS6012: the `fact` gloss names what the
+record lacks for something that cannot default it, the cause says a bare read is
+absent, the fix names the record, the example is the host input that fails and
+the one that passes, and the reference is `host-interface.md` 4.5.
+`host-interface.md` 4.5 states the settlement. `feature-matrix.md`: the preamble
+paragraph and the row `chart/tick-and-lot` state one behaviour.
+`docs/data/other-instruments.md` stops teaching the refusal.
+`examples/06-combined-premium.oscript` says what its bare read does on a host
+that states no lot size. `tests/engine/instrument-facts.test.ts` holds the read.
+
+## 67. An input in a field fixed before bar 0 is the whole of the value or nothing
+
+**The question.** `language.md` 13.2 admitted "a call to `input()`" in an option
+without saying whether that meant the whole value or a term inside one, and the
+compiled format carries only the value or `{ "input": "<key>" }` (issue 0003).
+
+**What was found.** It was not a gap in prose alone. The checker accepted
+`precision = input(2, "Decimals") + 1`, `opacity = shade ? 1 : 0` over a
+checkbox, `fade(aqua, t)` with `t` a setting in a level's colour, and an input
+whose default or bound was another input. The emitter then had nothing to write
+for the first three and refused the program with OS6018, which tells the reader
+the compiler is broken; for the last it wrote the default as absent and said
+nothing.
+
+**The decision.** Option 1 of the issue. An `input()`, or a name holding one, is
+admissible as the whole of a field fixed before bar 0 and never as a term inside a
+larger expression; an input's own default, bounds and step read no setting at
+all. The refusal is a code of its own, OS3025, rather than OS3003, whose message
+says the value depends on bar data, which is untrue of a setting.
+
+**Why not the fourth form.** An expression folded at load is what a reader
+expects to write, and it is a second evaluator outside the machine with its own
+admissible calls, its own errors and its own place in the load sequence. Two
+engines that implement that subset differently disagree before the first bar.
+It is a language change with a compiled home to design, and belongs to a language
+version rather than to a repair.
+
+**Edits.** `errors.md` and `errors.json`: OS3025, and OS3003's cause names it.
+`language.md` 13.2 says the rule. `docs/inputs.md` teaches it in the section on
+options and in both tables. `feature-matrix.md` row `input/option-from-input`.
+`src/core/check/constant.ts` holds the predicate; `calls.ts` and
+`call-sites.ts` report it. `tests/unit/check-plot-options.test.ts`.
+
+## 68. A host refuses what it cannot draw, with OS6024, before any bar runs
+
+**The question.** A compiled program carries every output the language can
+express and a host's surface can be narrower. The chart adapter drew the first
+of two declared grids and dropped the second, and drew a band whose colour the
+script computes per bar in the first plot's colour faded, both with nothing
+said, because the catalogue had no code for a host that cannot draw something a
+program declares (issue 0011).
+
+**The decision.** OS6024, "The host cannot draw something this study declares",
+host stage, with the message `This host cannot draw {what}: {limit}.`, where
+`limit` is the only part a host writes. A host that cannot draw a declaration
+refuses the program before any bar runs, naming the declaration, rather than
+drawing part of the study. `compiled-program.md` section 11 states the rule.
+
+**Where the caret goes.** Nowhere in the source. The issue asked for the
+declaration's own call as the span, and the compiled program carries no source
+position for a declaration: `debug.pos` maps instructions, and a grid is a
+declaration rather than an instruction. So the refusal names the declaration by
+its title, which is what a reader sees in the legend, and its span is the load's
+own, like every other refusal at load. Giving declarations positions is a format
+change and is not made for this.
+
+**Why a refusal and not a warning.** Every OS6xxx code is an error, and a study
+drawn with its second panel missing is exactly the failure a warning beside a
+drawn chart would be read past.
+
+**Edits.** `errors.md` and `errors.json` OS6024; `compiled-program.md` 11;
+`src/adapters/charts/undrawable.ts` (new) and `run.ts`; `tables.ts`' header;
+`spec/chart-narrowings.json` replaces its `counts` entry with `refused`;
+`scripts/check-chart-surface.mjs` and `scripts/lib/chart-refusals.mjs` (new)
+prove each refusal with a study that declares it; `docs/visuals/tables.md` and
+`fills.md`; `tests/adapters/charts/undrawable.test.ts`.

@@ -1,6 +1,6 @@
 # 0003 A declaration field fixed before bar 0 has no form for a value computed from an input
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Against: `spec/language.md` section 13.2 and `spec/compiled-program.md` sections
 2.3 and 3.5
@@ -130,3 +130,26 @@ change with a compiled home to design; it belongs to a language version rather
 than to a repair. This issue exists so that whoever takes it takes it deliberately
 and not by widening a sentence in `language.md` until the contradiction stops
 showing.
+
+## How it closed
+
+Option 1, recorded as decision 67, with the refusal given a code of its own.
+
+Measuring before deciding showed the problem was not only prose. The checker
+accepted every shape this issue describes, and the emitter then had nothing to
+write: `precision = input(2, "Decimals") + 1`, the example's own
+`opacity = shade ? 1 : 0` and `fade(aqua, t)` over a setting in a level's colour
+were each refused with OS6018, the code that tells a reader the compiler is
+defective. An input whose default was another input, `m = input(n, "M")`,
+compiled, and its default was written as absent with nothing said.
+
+OS3025, "A setting is part of a larger expression here", is raised at the
+argument for all four. An `input()` or a name holding one is admissible as the
+whole of the value, and an input's own default, bounds and step read no setting
+at all. OS3003 keeps bar data, which its message is about, and its cause now
+names OS3025 for the other case. `language.md` 13.2 says the rule in the
+paragraph under the one this issue quoted, and `docs/inputs.md` teaches it.
+
+Tests: `tests/unit/check-plot-options.test.ts` holds each of the four shapes,
+the whole-input and literal-arithmetic forms that must pass, and bar data still
+reported as OS3003.

@@ -182,13 +182,13 @@ up is not renumbered.
 |---|---|---|---|---|
 | OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 29 |
 | OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 20 |
-| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 24 |
+| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 25 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
-| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 23 |
+| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 24 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 19 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **157** |
+| | | | **Total** | **159** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -1817,7 +1817,7 @@ Severity error. Stage checker. Since language version 1. Reference language.md 1
 
 - `{option}` is the option that was given a bar-dependent value.
 
-**Cause.** The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input(). A value that changes per bar has no single answer at the moment the dialog is built. The rule covers more than the declaration's own options: every argument that lands in a declaration fixed before bar 0 arrives here too, signal's at, shape and color, table's position, rows and cols, and a plot's style arguments among them. An input() counts as a constant for this purpose, because the engine resolves inputs at load and substitutes the resolved value before bar 0 runs.
+**Cause.** The declaration builds the legend, the axis and the settings dialog before bar 0 runs, so its options must be literals, arithmetic over literals, or an input() written as the whole of the value; an expression over an input is OS3025. A value that changes per bar has no single answer at the moment the dialog is built. The rule covers more than the declaration's own options: every argument that lands in a declaration fixed before bar 0 arrives here too, signal's at, shape and color, table's position, rows and cols, and a plot's style arguments among them. An input() counts as a constant for this purpose, because the engine resolves inputs at load and substitutes the resolved value before bar 0 runs.
 
 **Fix.** Use a literal, or make it tunable with an input(): {option} = input(2, "{option}").
 
@@ -2380,6 +2380,32 @@ After:
 
 ```
 study("Range", precision = input(2, "Precision"))
+```
+
+### OS3025 A setting is part of a larger expression here
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.2. Test `tests/unit/check-plot-options.test.ts`.
+
+**Message.** `{option} is fixed before the first bar and holds an input() only as the whole of its value, so it cannot hold an expression over one.`
+
+- `{option}` is the option or field whose value reads a setting as part of something larger.
+
+**Cause.** A field fixed before bar 0 is written into the compiled program as one of two things: the value itself, which the compiler folds, or a reference to one input, which the engine resolves once at load (compiled-program.md 2.3). An expression over a setting is neither. The compiler cannot fold it, because the setting's value is not known until the host resolves the settings, and the program has no form for an expression evaluated at load, because that would be a second evaluator every engine has to agree on before the first bar. An input's own default, bounds and step are the same kind of field and are held tighter still: they are what the settings dialog shows before anybody has chosen, so none of them may read another setting at all.
+
+**Fix.** Declare the setting as the value itself, with an input() written as the whole of {option}, or write the value out as a literal.
+
+Before:
+
+```
+w = input(1, "Width")
+plot(close, "Close", aqua, width = w + 1)
+```
+
+After:
+
+```
+w = input(2, "Width")
+plot(close, "Close", aqua, width = w)
 ```
 ---
 
@@ -3359,28 +3385,33 @@ host input:
 
 ### OS6012 An instrument fact is not known
 
-Severity error. Stage host. Since language version 1. Reference language.md 15.2. Test `tests/engine/requests-host.test.ts`.
+Severity error. Stage host. Since language version 1. Reference host-interface.md 4.5. Test `tests/engine/requests-host.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
 
 **Message.** `The host did not supply {fact} for {symbol}.`
 
-- `{fact}` is the missing fact: tick size, lot size, session or timezone.
+- `{fact}` is what the instrument record lacks for something that cannot default it: a timezone for the session it states, a timezone the calendar can read, a session spelled HH:MM, or session days numbered 1 to 7.
 - `{symbol}` is the instrument it is missing for.
 
-**Cause.** Tick size, lot size, the session and the timezone come from the instrument record (host-interface.md 4.1), not from the bars. A script that rounds to a tick or sizes in lots cannot invent them, and guessing would produce orders the exchange rejects.
+**Cause.** An instrument fact the host did not state is absent, and a bare read of one, chart.tickSize or chart.lotSize among them, returns the absent value a script can test with isNone (stdlib.md 3.4). This error is the other case: something that needs the fact and has no way to proceed without it. A session with no timezone is a window with no clock to read it in, so every session test on that host would answer absence on every bar and every session study would draw nothing with nothing said. The engine refuses the record at load instead, before any bar runs, because the fact comes from the instrument record (host-interface.md 4.1) and not from the bars, and a guessed zone is silently wrong for half the year anywhere a clock changes with the season.
 
-**Fix.** Supply {fact} in the host's instrument record, or stop depending on it: round with a number the script chooses rather than chart.tickSize.
+**Fix.** Supply {fact} in the host's instrument record for {symbol}, or leave the session out of the record, which makes every session read absent rather than wrong.
 
 Before:
 
 ```
-qty = lots * chart.lotSize
+host instrument record:
+  session   09:15 to 15:30, days 1 to 5
+  timezone  not stated
 ```
 
 After:
 
 ```
-lotSize = input(1, "Lot size", min = 1)
-qty = lots * lotSize
+host instrument record:
+  session   09:15 to 15:30, days 1 to 5
+  timezone  UTC
 ```
 
 ### OS6013 The request changed after the first bar
@@ -3697,6 +3728,38 @@ declaration: commission 0, per trade
 host: charge schedule supplied, 4 lines
 ```
 
+
+### OS6024 The host cannot draw something this study declares
+
+Severity error. Stage host. Since language version 1. Reference compiled-program.md 11. Test `tests/adapters/charts/undrawable.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `This host cannot draw {what}: {limit}.`
+
+- `{what}` is the declaration that will not be drawn, named by its title where it has one.
+- `{limit}` is the host's own sentence for why, which is the only part a host writes.
+
+**Cause.** A compiled program carries every output the language can express, and a host draws what its own surface has room for. The two are allowed to differ, and what is not allowed is the difference being invisible: a study whose second panel never appears looks like a study with a bug in its cells, and a band drawn in a colour the script did not choose looks like a script that chose it. So a host states its limit before any bar runs, rather than drawing part of the study and saying nothing. The compiled program carries no source position for a declaration, which is why the refusal names the declaration by its title rather than pointing at a line.
+
+**Fix.** Declare what this host draws, or run the study on a host that draws {what}.
+
+Before:
+
+```
+study declares:
+  table "Summary", 2 rows, 2 columns
+  table "Detail", 4 rows, 2 columns
+host draws: one grid per pane
+```
+
+After:
+
+```
+study declares:
+  table "Summary", 6 rows, 2 columns
+host draws: one grid per pane
+```
 ---
 
 ## 8.7 OS7xxx Orders

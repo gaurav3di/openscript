@@ -106,10 +106,10 @@ function hoursOf(stated: SessionHours | undefined): Hours | null {
  *
  * Each of the three is reported at load rather than answered with absence,
  * because absence there is indistinguishable from the honest case and the honest
- * case is the one a reader will assume. This decides nothing about what a bare
- * read of an instrument fact returns, which is issue 0002 and is open: a record
- * the host contradicts itself in is a different question from a fact it did not
- * state.
+ * case is the one a reader will assume. A bare read of an instrument fact the
+ * host did not state is a different question with the opposite answer: it is
+ * absent and never refused (`host-interface.md` 4.5, decision 66), because a
+ * record the host contradicts itself in is not a fact it left out.
  */
 export function recordProblem(
   stated: SessionHours | undefined,

@@ -407,18 +407,21 @@ disagree with the rest of the same chart.
 ### 4.5 When the host cannot answer
 
 A fact the host does not state is absent, and a bare read of it returns the absent
-value (`stdlib.md` section 3.4, decision 6 in `decisions.md`). OS6012 exists for a
-call that needs a fact and cannot default it.
+value (`stdlib.md` section 3.4, decision 6 in `decisions.md`). `chart.tickSize`,
+`chart.lotSize` and every other fact on the table above read as `none`, a script
+can test that with `isNone`, and nothing stops the bar.
 
-**Which reads raise OS6012 and which return absence is an open question**,
-recorded in `issues/0002-os6012-versus-an-absent-instrument-fact.md` and left open
-deliberately in `decisions.md`. This document does not settle it in passing, and a
-host must not depend on either answer.
+OS6012 belongs to the other case and only to it: something that needs a fact and
+cannot default it. In version 1 that is the instrument record itself, refused at
+load when it states a session with no timezone to read it in, a timezone the
+calendar cannot read, a session whose clock times are not `HH:MM`, or session days
+outside one to seven (section 4.3). A read that dates its buckets by a timezone
+the host did not state is not refused: it is absent, and `req.error` carries
+OS6012's sentence as the reason. Decision 66 in `decisions.md` records the
+settlement.
 
-What follows for a host whichever way it settles: **state every fact you have.**
-Withholding a fact the host holds is choosing between two behaviours, an error and
-an absent value, when the user wanted neither and the host could have supplied the
-number.
+**State every fact you have.** Withholding a fact the host holds gives the user
+an absent value where the host could have supplied the number.
 
 **Optional is not the same for every fact on that table.** Withholding
 `tickSize` gives a script an absent value it can test and a user a study that
@@ -427,8 +430,8 @@ removes a family of per-bar facts and every study anchored to them, and the
 result on the screen is an empty pane. The record cannot tell the two apart after
 the fact, so the interface splits them before it: a session with nothing to read
 it in is refused at load, section 4.3, and a host that holds a schedule states
-it, conformance item 3. Neither is a decision about what a bare read of an
-instrument fact returns, which is the open question above.
+it, conformance item 3. A bare read of an instrument fact is never refused, which
+is the rule above.
 
 ---
 

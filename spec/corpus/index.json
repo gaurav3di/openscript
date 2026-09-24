@@ -4,62 +4,62 @@
     {
       "example": "examples/01-ema-cross.oscript",
       "file": "01-ema-cross.json",
-      "programHash": "sha256:ff23e76466e20bbbacbad8b170aac285923614baa1eb7b734605c8b2ac0c2266"
+      "programHash": "sha256:f8112d850b6ea9f0ce19ca8a864e54560910966d03c6a5eb387bc3f813970e8e"
     },
     {
       "example": "examples/02-supertrend.oscript",
       "file": "02-supertrend.json",
-      "programHash": "sha256:c03f587c947c1eff8c3973d9930aa108abea454ef566287350e403ab66dd6f2c"
+      "programHash": "sha256:7a97264ed51ddfa58991e27d440e0fa2bbdb96dff2c653fbaed996af037d676d"
     },
     {
       "example": "examples/03-anchored-vwap.oscript",
       "file": "03-anchored-vwap.json",
-      "programHash": "sha256:ea55c4e2777131e2d761490a18a0af02b24e60216fbd2ed06fb80c51a7bbf0c8"
+      "programHash": "sha256:b9ea4743f46bd222ab5b6e99b8cd651f3d179fbc509a3c933765fdaf13ecac41"
     },
     {
       "example": "examples/04-rsi-divergence.oscript",
       "file": "04-rsi-divergence.json",
-      "programHash": "sha256:528b46ed05c1feceffa9673d920b53f1afce3a36e866acaf149136f8cbeeedeb"
+      "programHash": "sha256:7054d9be24f5b5385a6320e984b60c22e2043a29dc82749c03f2ff9d90fc411d"
     },
     {
       "example": "examples/05-opening-range.oscript",
       "file": "05-opening-range.json",
-      "programHash": "sha256:b7b53bcda0454e7307dd497775d8b2b5f0b65444be258bf928e1ee6929bd4e3f"
+      "programHash": "sha256:0256932d35d4dea341fb0cf2a62adc1358b7e0eb74cb1e43ddf80c51e363787f"
     },
     {
       "example": "examples/06-combined-premium.oscript",
       "file": "06-combined-premium.json",
-      "programHash": "sha256:2b6a117c801c24e3ad1daf2ea558d1e2f8c2cc9c95e66360a5137ba91297bb2a"
+      "programHash": "sha256:eefdeb37f50d84236ef0df2f67ab1abc4eb47571fe98380e1159e70952939b2c"
     },
     {
       "example": "examples/07-higher-timeframe-bias.oscript",
       "file": "07-higher-timeframe-bias.json",
-      "programHash": "sha256:1bc66436a19f49a7d21d16eac53400e45f9cc6ca72bb079063c90efcc7fd44ff"
+      "programHash": "sha256:d0108cfd2548b12b72c6539deeaebe744e4db22b7b11cc0d1abe824ca7780659"
     },
     {
       "example": "examples/08-dashboard-table.oscript",
       "file": "08-dashboard-table.json",
-      "programHash": "sha256:950e73d9a60cab7810fb7604fd91019cabb4898cafdc2090553f138da6fe7a8c"
+      "programHash": "sha256:1ebaf879efe37557d4c140a2523362a479b1ecfe3d8c7305286a350f2c752de0"
     },
     {
       "example": "examples/09-supply-demand-zones.oscript",
       "file": "09-supply-demand-zones.json",
-      "programHash": "sha256:185e925f6a213a1e1bf43f4132eea387d103f65ff8811efb117652fd8326844a"
+      "programHash": "sha256:2353c68b21c3f719da2e0ebeba7b7d376347dd8fe5b29bc0eeecc42975efe0ec"
     },
     {
       "example": "examples/10-strategy-ema-cross.oscript",
       "file": "10-strategy-ema-cross.json",
-      "programHash": "sha256:56f508518bde1ea94c602df50914b13a7fe21317874b0e579131ae2522493eaf"
+      "programHash": "sha256:e08a7f84bc04114dbe503929575288a4a4acef56528f7e04cfbb7451e9fcd79e"
     },
     {
       "example": "examples/11-strategy-opening-range.oscript",
       "file": "11-strategy-opening-range.json",
-      "programHash": "sha256:4bb085b9f956ee1ed05cc8410e1831f5b9983a272979996dabc9b706d35e5fca"
+      "programHash": "sha256:c8c47cd92576b65447d61974bee62de09e2c14531522117892c605a355c374e5"
     },
     {
       "example": "examples/12-strategy-short-premium.oscript",
       "file": "12-strategy-short-premium.json",
-      "programHash": "sha256:5d6a5a729ae389e26d732ef9f20203d7b81c00f15fbd4bed512e466b0ad23bf2"
+      "programHash": "sha256:50413ec87fbb8b368fe853492ab559c9684e59d00bec34a639c213e91ed85fb9"
     }
   ]
 }

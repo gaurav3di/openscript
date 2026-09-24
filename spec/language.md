@@ -1809,6 +1809,18 @@ literals, or a call to `input()`. An option that depends on a bar's data is OS30
 because a settings dialog and a legend are built before the first bar runs. An
 `input()` is a constant for this purpose, because it is resolved before bar 0.
 
+**An `input()` counts as the whole of the value and not as a term inside a larger
+one.** `precision = input(2, "Decimals")` and `precision = decimals`, where
+`decimals` holds an input, are admissible. `precision = decimals + 1` and
+`opacity = shade ? 1 : 0` are not, and are OS3025: the compiled program carries a
+field fixed before bar 0 as its value or as a reference to one input
+(`compiled-program.md` 2.3), and an expression over a setting is neither. The
+resolved value then has to be one the field accepts, which is checked at load
+(OS6019). A script that wants a tunable field declares the setting as that field:
+a slider for the opacity rather than a switch computed into one. The same holds
+for every field fixed before bar 0, wherever it is written, and more tightly for
+an input's own default, bounds and step, which read no setting at all.
+
 | Option | Type | Default | Means |
 |---|---|---|---|
 | `title` | `string` | required | The name in the legend and the picker. First positional argument |

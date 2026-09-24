@@ -19,7 +19,7 @@ import type { ParameterShape } from './arguments.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
 import type { CheckedCall } from './checked.js';
-import { isCompileTimeConstant } from './constant.js';
+import { isCompileTimeConstant, readsInputInPart } from './constant.js';
 import { refuseHandle } from './handles.js';
 import type { LibraryEntry } from './library.js';
 import { literalNumber, literalString } from './literals.js';
@@ -244,8 +244,12 @@ export function validateArguments(
       });
     }
 
-    if (entry.constant.includes(parameter.name) && !isCompileTimeConstant(checker, argument.value)) {
-      checker.report('OS3003', span, { option: parameter.name });
+    if (entry.constant.includes(parameter.name)) {
+      if (!isCompileTimeConstant(checker, argument.value)) {
+        checker.report('OS3003', span, { option: parameter.name });
+      } else if (readsInputInPart(checker, argument.value, entry.name !== 'input')) {
+        checker.report('OS3025', span, { option: parameter.name });
+      }
     }
   }
 

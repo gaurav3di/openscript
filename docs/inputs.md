@@ -83,6 +83,12 @@ reader gets to change something the declaration decides:
 study("Oscillator", precision = input(2, "Decimals", min = 0, max = 10))
 ```
 
+The input has to be the whole of the value. `precision = decimals + 1`, or
+`opacity = shade ? 1 : 0` over a checkbox, is OS3025: an option fixed before the
+first bar holds a value or one setting, and an expression over a setting is
+neither. Declare the setting as the option itself instead, a slider from 0 to 1
+for an opacity rather than a checkbox computed into one.
+
 It may also be written inside the expression argument of a higher timeframe read,
 where a setting is the one thing from this file that has a meaning: it resolves
 before bar 0 and holds for the run, while a value computed on this chart's bars
@@ -383,7 +389,7 @@ only the first two can catch it before the study draws anything.
 
 | Moment | Checked | Failure |
 |---|---|---|
-| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries | OS3007, OS3003, OS3018, OS3017, OS3021, OS3024, OS3022. The script does not compile |
+| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries; and every option written from an input, which has to be the whole of the value | OS3007, OS3003, OS3025, OS3018, OS3017, OS3021, OS3024, OS3022. The script does not compile |
 | Load | The reader's saved value against the input's type, `min`, `max` and `options` | The study reports the row and the bound, and does not run |
 | Bar | A legal setting that becomes an illegal argument: a length computed to zero, a colour channel out of range, a name that is not one of a function's accepted values | OS4003, OS4009, OS4012. The bar stops and the study is marked as errored |
 
@@ -487,6 +493,8 @@ setting the reader can flip is a claim the script no longer makes.
 | A row with no name and an empty title | OS3024 | Give the title something to say |
 | A title that spells another input's name | OS3022 | Retitle this one, or rename the other input |
 | A `var` holding an input used as an option | OS3003 | Drop the `var`, or pass the setting the `var` started from |
+| An option computed from an input, `width = w + 1` | OS3025 | Declare the setting as the option itself, `width = w` |
+| An input whose default or bound is another input | OS3025 | Write the default out as a literal |
 | A select default outside its list | OS3018 | Add it to `options`, or pick a listed value |
 | `range = [100, 0]` on the declaration | OS3016 | Write two numbers, lowest first |
 | A row nobody reads | OS8018, warning | Use the name, or delete the input and its row |

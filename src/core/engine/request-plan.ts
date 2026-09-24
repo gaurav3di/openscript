@@ -218,9 +218,9 @@ export function undatable(plan: RequestPlan): boolean {
  *
  * OS6012's own message, because the zone is an instrument fact the host did not
  * supply and that is exactly what this read needs and cannot default. Nothing
- * is raised: a fact the host did not state leaves the read absent, and this is
- * the sentence that explains the absence rather than a second answer to the
- * question `host-interface.md` 4.5 leaves open.
+ * is raised: a fact the host did not state leaves the read absent, as
+ * `host-interface.md` 4.5 settles it, and this is the sentence that explains
+ * the absence rather than a second answer to it.
  */
 export function undatableReason(query: RequestQuery): string {
   return diagnosticFor('OS6012', NO_POSITION, { fact: 'a timezone', symbol: named(query) }).message;

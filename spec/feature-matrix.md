@@ -139,14 +139,12 @@ from cells and from strategy state. `language.md` is right and that line of
 the language, and a reachability test would erase a line the moment a script
 reused the variable holding it.
 
-**A fact the host did not supply.** `errors.md` OS6012 says that reading an
-instrument fact the host cannot supply, naming tick size and lot size among them,
-is an error, while `stdlib.md` section 3.4 says a bare read of `chart.tickSize`
-is absent and section 8.1 says `roundToTick` returns absence on the strength of
-it. Both cannot be true of one read. Which of them is right is not settled here:
-it is `issues/0002`. Until that issue closes the row `chart/tick-and-lot` in
-section 16 states both halves, and the row `math/round-to-tick` in section 17
-rests on the absent one.
+**A fact the host did not supply.** A bare read of an instrument fact the host
+did not state is absent, `stdlib.md` section 3.4, and `roundToTick` returns
+absence on the strength of it. OS6012 is raised only by something that needs a
+fact and cannot default it, which in version 1 is the instrument record refused
+at load (`host-interface.md` 4.5, decision 66). The row `chart/tick-and-lot` in
+section 16 states the one behaviour.
 
 ## Test identifiers
 
@@ -521,7 +519,7 @@ identifier rather than one diagnostic having two proofs.
 | Two rows on one key | A title spelling another input's name is OS3022, and two inputs carrying one title are OS3017, because a host stores one value per key | `specified` | `host-interface.md` 8.1, `errors.md` OS3022, `errors.md` OS3017 | `unit:input/key-taken` |
 | `var` in front of an input | An ordinary `var` initialised from the setting on the first bar, which is how a running total starts from one; the row is keyed by the name either way, and the name is not a compile-time constant | `specified` | `language.md` 13.4, `language.md` 8.2 | `input/var-from-input` |
 | Non-constant default | OS3003, because the dialog is built before bar 0 | `specified` | `stdlib.md` 13.2, `errors.md` OS3003 | `unit:input/non-constant-default` |
-| An input as an option value | A fixed-shape option may be written with an input(), and the compiled program carries the reference until the engine resolves inputs at load | `specified` | `language.md` 13.2, `compiled-program.md` 2.3, `errors.md` OS3003 | `input/option-from-input` |
+| An input as an option value | A fixed-shape option may be written with an input() as the whole of its value, and the compiled program carries the reference until the engine resolves inputs at load; an expression over one is OS3025 | `specified` | `language.md` 13.2, `compiled-program.md` 2.3, `errors.md` OS3003, `errors.md` OS3025 | `input/option-from-input` |
 | A reference the field refuses | Check 10 at load: a key no input declares is OS6018, and a resolved value the field will not take is OS6019, because that value came from the host's settings rather than from the program | `specified` | `compiled-program.md` 3.5, `errors.md` OS6018, `errors.md` OS6019 | `input/option-reference-checked` |
 | An expression over an input as an option value | Has no form as the documents stand: a field fixed before bar 0 carries a literal or a reference to one input, and a value computed from an input is neither. What refuses it, and whether the language should carry it at all, is open in `issues/0003` | `planned` | `none` | `unit:input/option-expression-rejected` |
 | Out-of-range value | A supplied value outside `min` and `max` is refused before the first bar: OS3004 for a literal, OS6019 for a host setting | `specified` | `stdlib.md` 13.3, `errors.md` OS3004, `errors.md` OS6019 | `input/out-of-range` |
@@ -593,7 +591,7 @@ identifier rather than one diagnostic having two proofs.
 | `chart.symbol`, `chart.exchange` | The instrument being charted | `specified` | `stdlib.md` 3.4 | `chart/instrument-identity` |
 | `chart.interval` and friends | The canonical interval string, `chart.intervalMinutes` and `chart.isIntraday` | `specified` | `stdlib.md` 3.4, `stdlib.md` 15.2 | `chart/interval` |
 | `chart.timezone` | The chart's IANA zone, which every calendar conversion uses | `specified` | `stdlib.md` 3.4, `stdlib.md` 12.1 | `chart/timezone` |
-| `chart.tickSize`, `chart.lotSize`, `chart.pointValue` | Instrument facts a strategy needs for rounding and sizing, absent rather than guessed when the host has not said; reading one the host cannot supply is OS6012 | `specified` | `stdlib.md` 3.4, `errors.md` OS6012 | `chart/tick-and-lot` |
+| `chart.tickSize`, `chart.lotSize`, `chart.pointValue` | Instrument facts a strategy needs for rounding and sizing, absent rather than guessed when the host has not said, and never an error on a bare read | `specified` | `stdlib.md` 3.4, `host-interface.md` 4.5 | `chart/tick-and-lot` |
 | `chart.currency`, `chart.instrumentType`, `chart.hasVolume` | The remaining constant facts a script reads from the instrument record | `specified` | `stdlib.md` 3.4, `host-interface.md` 4.1 | `chart/instrument-facts` |
 | `chart.now()` | The only wall clock, supplied by the host and fixed by a conformance case | `specified` | `language.md` 7.6, `stdlib.md` 3.4 | `chart/now` |
 | `timeClose` | The instant a bar's interval ends | `planned` | `stdlib.md` 3.1 | `bar/time-close` |

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 import {
@@ -10,10 +11,17 @@ import {
   slotsIn,
 } from '../../src/core/catalogue/index.js';
 
+// The count is read from the file the catalogue is generated from rather than
+// written here, because a number in a test is a second copy of a fact that the
+// next added code makes wrong: what this catches is a generator that drops one.
+const SOURCE = JSON.parse(
+  readFileSync(new URL('../../../spec/errors.json', import.meta.url), 'utf8'),
+) as { readonly entries: readonly unknown[] };
+
 test('the whole catalogue is generated, in ascending order', () => {
   const codes = allCodes();
 
-  assert.equal(codes.length, 157);
+  assert.equal(codes.length, SOURCE.entries.length);
   assert.deepEqual([...codes].sort(), [...codes]);
 });
 

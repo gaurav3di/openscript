@@ -2561,6 +2561,16 @@ colourings while both studies keep recomputing. A host that draws the study list
 in the other order applies the rule in that order: what is fixed is that the rule
 is the order the user sees, stated, rather than whichever study ran last.
 
+**A host draws what its surface has room for, and refuses what it does not.** The
+table above is what a program can carry, and a host's surface may be narrower: a
+chart pane with one grid, a band drawn in one colour for the whole run. The
+difference is allowed and invisible is not. A host that cannot draw a declaration
+refuses the program before any bar runs with OS6024, naming the declaration and
+its own reason, rather than drawing part of the study and saying nothing. A host
+that can draw all of it refuses nothing, which is why this is a host's refusal and
+never the compiler's: the program is correct, and another host may draw every
+line of it.
+
 ---
 
 ## 12. A worked example

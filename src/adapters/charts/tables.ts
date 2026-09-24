@@ -28,25 +28,12 @@
  * direction: a cell nothing was written into is blank, never a zero.
  *
  * **A chart pane holds one grid and the language declares as many as it likes.**
- * The descriptor has one `table` hook, so the first declared grid is the one
- * drawn and any after it are not. That is a gap in the chart's own contract
- * rather than a choice worth making here: there is no second hook to write to,
- * and merging two grids into one would put cells somewhere the script never
- * asked for.
- *
- * **What ought to happen is a refusal, and it cannot be written yet.** A study
- * whose second grid never appears is a study with no explanation, so the second
- * `table()` should be refused where it is written, naming the limit. Every
- * diagnostic in this project carries a catalogue code and the catalogue has
- * none for "the chart cannot draw something this study declares"; inventing one
- * here is the one thing that is not allowed, so the gap is reported instead, in
- * `issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md`, with the
- * sentence it should carry.
- *
- * Until it lands, the drop is at least no longer silent inside this repository:
- * it is recorded in `spec/chart-narrowings.json` with its reason, and
- * `scripts/check-chart-surface.mjs` fails the build if this adapter ever drops
- * anything else a compiled program declares without recording it there.
+ * The descriptor has one `table` hook, and merging two grids into it would put
+ * cells somewhere the script never asked for. So a program declaring a second
+ * grid never reaches this file: `undrawable.ts` refuses it before any bar runs,
+ * with OS6024, and this reads the one grid a program that runs can have.
+ * `spec/chart-narrowings.json` records the refusal and
+ * `scripts/check-chart-surface.mjs` proves it with a study that declares two.
  */
 import type { CompiledProgram, Grid as DeclaredGrid } from '../../core/emit/index.js';
 import type { Grid, GridCell } from '../../core/engine/index.js';

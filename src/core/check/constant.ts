@@ -93,6 +93,63 @@ export function isCompileTimeConstant(checker: Checker, expression: Expression):
 }
 
 /**
+ * Whether a constant reads a setting as part of something larger, OS3025.
+ *
+ * `compiled-program.md` 2.3 gives a field fixed before bar 0 two forms: the
+ * effective value, which the compiler folds, and `{ "input": "<key>" }`, one
+ * setting resolved at load. `precision = input(2, "Decimals") + 1` and
+ * `opacity = shade ? 1 : 0` are neither: the compiler cannot fold them, because
+ * the setting's value is not known until the host resolves it, and the program
+ * has no form for an expression evaluated at load. Nothing refused them, so the
+ * emitter met them with no way to write them and reported a defect in itself.
+ *
+ * `wholeOnly` is false for an input's own options: a default, a bound or a
+ * step is what the settings dialog shows before anybody has chosen, and a
+ * setting that took its default from another setting would have none to show.
+ */
+export function readsInputInPart(
+  checker: Checker,
+  expression: Expression,
+  wholeOnly: boolean,
+): boolean {
+  if (!readsInput(checker, expression)) return false;
+  return !wholeOnly || !isWholeInput(checker, expression);
+}
+
+/** Whether a setting is read anywhere inside the expression. */
+function readsInput(checker: Checker, expression: Expression): boolean {
+  if (isWholeInput(checker, expression)) return true;
+  const inner = withoutGrouping(expression);
+  switch (inner.kind) {
+    case 'arrayLiteral':
+      return inner.elements.some((element) => readsInput(checker, element));
+    case 'unary':
+      return readsInput(checker, inner.operand);
+    case 'binary':
+      return readsInput(checker, inner.left) || readsInput(checker, inner.right);
+    case 'ternary':
+      return (
+        readsInput(checker, inner.condition) ||
+        readsInput(checker, inner.whenTrue) ||
+        readsInput(checker, inner.whenFalse)
+      );
+    case 'call':
+      return inner.args.some((argument) => readsInput(checker, argument.value));
+    default:
+      return false;
+  }
+}
+
+/** One setting and nothing else: an `input()` call, or a name that holds one. */
+function isWholeInput(checker: Checker, expression: Expression): boolean {
+  const inner = withoutGrouping(expression);
+  if (inner.kind === 'call') return calleeName(inner.callee) === 'input';
+  if (inner.kind !== 'nameReference') return false;
+  const binding = checker.lookup(inner.name);
+  return binding !== undefined && inputHeldBy(binding) !== undefined;
+}
+
+/**
  * Whether the expression names one of the price series an `input` may default
  * to, `stdlib.md` 13.1.
  *

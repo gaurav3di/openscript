@@ -119,8 +119,10 @@ const SOURCE_ROOTS = ['src'];
  * belongs to only one of the two. `host` reaches two more directories, because
  * what a host states about a run is no longer only bars and frames: a run is
  * carried out under settings, a charge schedule among them, and the money layer
- * is where a schedule that cannot be carried out is refused. `check` is the
- * checker alone, and
+ * is where a schedule that cannot be carried out is refused. And a host is
+ * more than the engine it drives: a host's surface can be narrower than a
+ * program, and the adapter that builds that surface is where it says so, OS6024
+ * among them, so `src/adapters` is a host's too. `check` is the checker alone, and
  * not the emitter behind it: the emitter has refusals of its own and a code only
  * it can raise is a code the catalogue is describing to the wrong reader.
  */
@@ -129,7 +131,7 @@ const STAGE_SOURCE = {
   parse: ['src/core/parse'],
   check: ['src/core/check'],
   runtime: ['src/core/engine'],
-  host: ['src/core/engine', 'src/core/accounting', 'src/core/backtest'],
+  host: ['src/core/engine', 'src/core/accounting', 'src/core/backtest', 'src/adapters'],
 };
 
 /** Shorter than this is a flag rather than a reason, whatever it says. */
