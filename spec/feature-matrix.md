@@ -803,18 +803,18 @@ library manifest, alongside the count of manifest entries that have a case.
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| `req.timeframe(tf, expr, mode)` | An expression computed on a coarser interval and folded onto this chart's bars | `specified` | `stdlib.md` 15.1, `language.md` 15.2 | `req/timeframe` |
+| `req.timeframe(tf, expr, mode)` | An expression computed on a coarser interval and folded onto this chart's bars | `implemented` | `stdlib.md` 15.1, `language.md` 15.2 | `req/timeframe` |
 | `req.symbol(...)` | An expression computed on another instrument, with its own request and attach lifecycle in the contract | `specified` | `stdlib.md` 15.1 | `req/symbol` |
 | Timeframe strings | A count and a unit, case sensitive so `"1M"` is a month and `"1m"` a minute, with a bare number read as minutes; an unrecognised one is OS6001 | `specified` | `stdlib.md` 15.2, `errors.md` OS6001 | `req/timeframe-strings` |
 | A timeframe finer than the chart's | OS6002, and a timeframe that does not fold into the chart's is OS6015, since folding cannot invent bars that were never loaded | `specified` | `stdlib.md` 15.2, `errors.md` OS6002, `errors.md` OS6015 | `req/finer-timeframe` |
-| The mode is part of the call | One of the modes `stdlib.md` 15.3 defines, written on the line that causes the behaviour rather than set somewhere else | `specified` | `stdlib.md` 15.3 | `req/mode` |
-| The default never repaints | `"confirmed"` is the default and the other two must be written out, so a script that says nothing cannot repaint | `specified` | `stdlib.md` 15.3 | `req/default-non-repainting` |
+| The mode is part of the call | One of the modes `stdlib.md` 15.3 defines, written on the line that causes the behaviour rather than set somewhere else | `implemented` | `stdlib.md` 15.3 | `req/mode` |
+| The default never repaints | `"confirmed"` is the default and the other two must be written out, so a script that says nothing cannot repaint | `implemented` | `stdlib.md` 15.3 | `req/default-non-repainting` |
 | Warning on a developing read | OS8002, naming the line and what the study will now do | `specified` | `stdlib.md` 15.3, `errors.md` OS8002 | `unit:req/os8002-warning` |
 | Warning on a lookahead read | OS8005, and the compiled study is marked repainting so the host shows it in the legend | `specified` | `stdlib.md` 15.3, `errors.md` OS8005 | `unit:req/os8005-warning` |
-| Warmup per mode | Each mode's first present bar is stated, so alignment is not left to the engine | `specified` | `stdlib.md` 15.3 | `req/warmup` |
-| What an expression means inside a read | Compiled as a separate program over the requested bars, where the built-in series are the requested instrument's at the requested timeframe, and evaluated once per requested bar | `specified` | `stdlib.md` 15.4, `compiled-program.md` 2.16.1 | `req/expression` |
+| Warmup per mode | Each mode's first present bar is stated, so alignment is not left to the engine | `implemented` | `stdlib.md` 15.3 | `req/warmup` |
+| What an expression means inside a read | Compiled as a separate program over the requested bars, where the built-in series are the requested instrument's at the requested timeframe, and evaluated once per requested bar | `implemented` | `stdlib.md` 15.4, `compiled-program.md` 2.16.1 | `req/expression` |
 | A per-bar name inside a read | OS6003, because a value computed on this chart's bars has no counterpart on the requested bars | `specified` | `stdlib.md` 15.4, `errors.md` OS6003 | `unit:req/per-bar-name` |
-| A setting inside a read | An `input()` read there, written in place or behind a name, resolved in the enclosing program before the body runs and filled into a register of the body's own table | `specified` | `stdlib.md` 15.4, `compiled-program.md` 2.16 | `req/setting-in-expression` |
+| A setting inside a read | An `input()` read there, written in place or behind a name, resolved in the enclosing program before the body runs and filled into a register of the body's own table | `implemented` | `stdlib.md` 15.4, `compiled-program.md` 2.16 | `req/setting-in-expression` |
 | A `var` holding a setting inside a read | OS6003, because the cell is the setting only until something assigns to it | `specified` | `stdlib.md` 15.4, `errors.md` OS6003 | `unit:req/var-setting-in-read` |
 | An order or a surface call inside a read | OS7003 for an order function, OS3006 for a drawing or alert call | `specified` | `stdlib.md` 15.4, `errors.md` OS7003, `errors.md` OS3006 | `unit:req/order-in-read` |
 | Waiting for the host | The read is absent until the answer arrives, the study reports itself loading, and the rest of it keeps drawing | `specified` | `stdlib.md` 15.5 | `req/waiting` |
@@ -823,7 +823,7 @@ library manifest, alongside the count of manifest entries that have a case.
 | A request that changes after bar 0 | OS6013, because the set of requests is part of the program's shape | `deferred` | `errors.md` OS6013 | `unit:req/request-stable` |
 | Too many outstanding requests | OS5006, with the count named rather than a quiet cap | `specified` | `errors.md` OS5006 | `req/request-budget` |
 | A feed that does not offer a timeframe | OS6014, distinct from a timeframe the language does not know | `specified` | `errors.md` OS6014 | `req/feed-timeframe` |
-| Alignment onto the chart's bars | Which chart bar each higher timeframe value first appears on: a bucket is keyed by a bar's open instant, and a confirmed read steps on the first chart bar of the next bucket | `specified` | `compiled-program.md` 2.16.2 | `req/alignment` |
+| Alignment onto the chart's bars | Which chart bar each higher timeframe value first appears on: a bucket is keyed by a bar's open instant, and a confirmed read steps on the first chart bar of the next bucket | `implemented` | `compiled-program.md` 2.16.2 | `req/alignment` |
 | Calendar mismatch | How bars align when two instruments have different sessions or holidays | `planned` | `none` | `req/calendar-mismatch` |
 | `req.candle`, `req.events` | A whole higher timeframe bar at once, and scheduled events; named and not defined | `planned` | `stdlib.md` 15.1 | `req/planned-reads` |
 
@@ -1046,7 +1046,7 @@ from a `study()` file is OS7001.
 | `case.json` | The file a case declares itself in, from the case's file set | `specified` | `conformance.md` 2 | `conf/case-json` |
 | How bars are supplied | `bars.csv`, which is how a case supplies the bars a program runs over | `specified` | `conformance.md` 3 | `conf/bars` |
 | Instrument facts | `instrument.json`, which is how a case supplies the instrument record | `specified` | `conformance.md` 3, `host-interface.md` 4.1 | `conf/instrument-facts` |
-| Secondary series and intrabar updates | `bars.<name>.csv` for another instrument or timeframe, `ticks.csv` for a moving bar | `specified` | `conformance.md` 3 | `conf/secondary-series` |
+| Secondary series and intrabar updates | `bars.<name>.csv` for another instrument, `ticks.csv` for a moving bar | `specified` | `conformance.md` 3 | `conf/secondary-series` |
 | Order frames | `frames.csv` in the case directory, delivered between bars, so a repeated frame, a crossed frame and a fill after a terminal status can each be handed to an engine | `specified` | `conformance.md` 2, `conformance.md` 3 | `conf/frames` |
 | Expected output | `expected.csv` for a columnar assertion and `expected.json` for everything else a case may assert | `specified` | `conformance.md` 4 | `conf/expected` |
 | Runner determinism | What a runner may not do if its results are to mean anything | `specified` | `conformance.md` 5 | `conf/runner-determinism` |

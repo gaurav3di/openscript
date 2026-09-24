@@ -16,7 +16,9 @@ What is where, for somebody reading this engine rather than running it:
                       memory regions and their lifetimes, the values, the bars,
                       the inputs, the verification done before the first bar,
                       the execution budget, the canonical encoding, the
-                      diagnostics and the two version numbers.
+                      diagnostics and the two version numbers, and the reads
+                      of section 2.16: a timeframe's buckets, a read's plan
+                      and body, and the fold that puts its value on the chart.
 - ``library/``        the functions of ``spec/stdlib.md``, each accumulating in
                       the order that page fixes, in the two halves that page
                       divides them into: the calls that remember nothing and

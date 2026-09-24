@@ -213,15 +213,16 @@ class Running(unittest.TestCase):
         self.assertEqual(found["bound"], "absence")
 
     def test_a_capability_this_engine_does_not_serve_is_named_on_the_case(self):
-        # A read of another instrument is one of the tags no stage has wired
-        # in, and the tag is the whole of what this asserts: the day one is,
-        # this test is about another tag rather than about a mechanism that
-        # stopped working. It was the tables tag until issue 0021 wired grids in.
+        # Every tag section 2.2 lists is served now: req.symbol was the last,
+        # until issue 0021 served a read of another instrument from the case's
+        # own file. So the tag is one a later minor could add (section 9.2),
+        # which is the case this mechanism exists for, and the tag is the whole
+        # of what this asserts.
         made = doubling()
-        made["requires"] = sorted(set(made["requires"]) | {"req.symbol"})
+        made["requires"] = sorted(set(made["requires"]) | {"later.feature"})
         found = result_for(self.case(), envelope(made))
         self.assertEqual(found["outcome"], "unsupported")
-        self.assertIn("req.symbol", found["feature"])
+        self.assertIn("later.feature", found["feature"])
 
     def test_a_library_function_this_engine_has_no_manifest_row_for_is_named(self):
         made = doubling()

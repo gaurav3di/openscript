@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"external","description":"A confirmed hourly read steps on the first chart bar of the next hour, whatever the gaps between bars.","id":"req/alignment","languageVersion":1,"profile":"chart"}

@@ -1,6 +1,6 @@
 # 0021 The second engine lacks forty two library entries and claims a profile that covers them
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-24
 Found by: closing issue 0020, and then asking the two engines for their
 manifests rather than waiting for a case to reach the difference
@@ -88,3 +88,42 @@ What remains is `req.isReady` and `req.error`, which need the second engine to
 execute a request at all: a program with one is refused at load today on the
 `req.timeframe` or `req.symbol` tag, and neither conformance adapter serves the
 secondary series `conformance.md` section 3 describes.
+
+**2026-09-24: the status of a request closed, the last two entries, and the
+issue with them.** The second engine executes reads. `buckets.py` is the
+timeframe grammar and `compiled-program.md` 2.16.2's keys, dated with the
+calendar `civil.py` and `zones.py` already had; `request_plan.py` settles each
+read's identity at load and raises OS6001, OS6002 and OS6015 there;
+`request_body.py` runs a read's expression once per requested bar over its own
+tables, on the same machine; and `requests.py` is the fold in its three modes,
+the value landing in the read's register, and `req.isReady` and `req.error`. A
+re-executed moving bar restores where each fold stood when the bar began, taken
+into `run.py`'s checkpoint beside the drawing roster, and rebuilds the bucket
+then forming from the revision. A run serves `req.timeframe` always, because it
+folds its own bars, and `req.symbol` only when it is handed a provider, as the
+first engine's `capabilitiesFor` does. The sentence `req.error` hands a script is
+the catalogue's own message, carried in `reasons.py` and held to
+`spec/errors.json` by a test, because a value two engines spell differently is a
+disagreement on every bar that reads it.
+
+Both adapters serve a read of another instrument from the case's own
+`bars.<SYMBOL>.csv`, and a read whose file is missing is `error` naming the
+file. `conformance.md` section 3 now says what the file is named after, which
+timeframe it holds and that a read of the chart's own instrument reads no file
+(decision 73). The first engine's backtest drive takes the provider as an option
+and behaves as before without one; its walk now hands the fold the whole dataset
+before bar 0, because a `"lookahead"` read over history reads a bucket in full
+(`stdlib.md` 15.3, `compiled-program.md` 2.16.2) and the walk had been answering
+it with the bucket so far. Nine cases under `cases/req` hold both engines to
+columns computed from the bars without either engine, and both agree with them
+exactly; seven of their feature rows are `implemented`, and `req/symbol` and
+`req/status` stay `specified` because a case's host cannot show a request's
+lifecycle, a host still fetching or a host's refusal, which the engine's own
+tests reach instead. `spec/engine-gaps.json` is empty: each engine holds 251
+library entries, and they are the same 251.
+
+What this does not close, recorded where each lives: the second engine's
+adapter still declines `ticks.csv`, so the rollback of a read's fold on a moving
+bar is held by `engine/tests/test_requests.py` rather than by a case; and a
+calendar read in a zone other than UTC is `unsupported` there, for the reason
+`zones.py` gives.

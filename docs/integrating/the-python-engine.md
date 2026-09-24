@@ -59,9 +59,14 @@ worse than nothing.
 What is written runs a strategy end to end: the machine, both halves of the
 library, the order ledger, the money, and the adapter that joins them over a
 case, and the part of the chart surface a script holds rather than emits: its
-drawing objects and its grids. What it does not have is the rest of the surface,
-markers, fills, levels and paint, and a case asserting one of those is answered
-`unsupported` naming the channel.
+drawing objects and its grids. It executes reads as well: a read of the chart's
+own instrument at a coarser interval is folded from the bars a run is handed, in
+each of the three modes, and a read of another instrument is folded from the
+bars a host's provider answers with, which is the one way a run serves the
+`req.symbol` tag. Its library is the first engine's, entry for entry, which
+`scripts/check-manifests.mjs` measures on every build. What it does not have is
+the rest of the surface, markers, fills, levels and paint, and a case asserting
+one of those is answered `unsupported` naming the channel.
 [`running-the-suite.md`](./running-the-suite.md) has the whole list.
 
 ## What a host needs
@@ -108,6 +113,15 @@ pushed at it one at a time. `load_text` takes the canonical text a host stored,
 are the rollback a re-executed bar rests on, exposed for a host that has to
 replay one itself, and the order calls a decided bar left behind come back on the
 result for the host to send.
+
+A program that reads another interval or instrument needs two more things at
+load: the instrument record, which its reads are planned against (the interval
+they are compared with, the zone a day is dated in), and, for a read of another
+instrument, a provider that answers each read with bars, a refusal or a wait.
+`load_text` takes both, and a run handed no provider refuses such a program at
+load naming `req.symbol`. `Run.history` hands a run over a history the whole
+dataset before bar 0, which is what a `"lookahead"` read reads; a live runner
+does not call it.
 
 That is what a live runner and a server-side backtest use, and neither of them
 has a case directory to hand.
