@@ -1,0 +1,23 @@
+version 1
+
+study("Trend band", overlay = true)
+
+factor = input(3.0, "Factor", step = 0.1)
+atrPeriod = input(10, "ATR period")
+
+supertrendResult = supertrend(factor, atrPeriod)
+line = supertrendResult[0]
+direction = supertrendResult[1]
+
+bodyMid = plot((open + close) / 2, "Body")
+upLine = plot(direction < 0 ? line : none, "Up trend", green)
+downLine = plot(direction < 0 ? none : line, "Down trend", red)
+
+fill(bodyMid, upLine, color = fade(green, 90))
+fill(bodyMid, downLine, color = fade(red, 90))
+
+flipped = direction != direction[1]
+if flipped and direction < 0
+    signal("Up", shape = "label", at = "below", color = green)
+if flipped and direction > 0
+    signal("Down", shape = "label", at = "above", color = red)

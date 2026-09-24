@@ -4932,3 +4932,46 @@ sentence was not: a host withholds `req.symbol` only.
 first engine's backtest drive (`requestBars`) and walk (`Engine.history`);
 `engine/openscript/adapter/secondary.py` and `running.py`; the cases under
 `cases/req`.
+
+## 74. What the importer translates, and where its findings live
+
+**The question.** Phase 7 asks for an importer for scripts written in other
+chart languages. A translation can be close in spelling and far in meaning, and
+the two languages differ exactly where a reader does not look: comparing an
+absent value, the order `and` evaluates in, which way a loop counts, how an
+order is sized, and the capital a strategy starts with.
+
+**The decision.** The importer reads one language, the version-annotated chart
+dialect at versions 5 and 6, and a top-level statement is translated with the
+source's meaning, or translated with a warning that states how the meaning
+differs, or kept as comment lines with an error saying why. The unit is the
+whole top-level statement, because a block with one line missing means
+something else. The output is compiled before it is returned, and a statement
+the compiler refuses is kept as a comment with OS9012, so what a host is handed
+always compiles.
+
+**A range of its own, OS9xxx, holding both severities.** Its findings are about
+a script in another language, not an OpenScript file, so a bare code in a log
+has to say which part of the system produced it, which is what section 4 of
+`errors.md` says a range is for. Errors are statements not translated; warnings
+are translations with a stated difference. A sixth stage, `import`, is checked
+against `src/core/importer` by `check-raises.mjs`.
+
+**Worked examples.** A new example kind, `import`: the before block is proved by
+the importer and the after block is compiled like every other. It is required
+on the stage and refused elsewhere, because neither existing state was honest:
+a transcript's after block must fail to compile, and `unexercised` says the code
+cannot be reached. Each section prints one fixed sentence saying the before
+block is source dialect, and the whole-section comparison of `catalogue-page.mjs`
+renders it, so it cannot drift.
+
+**What this does not settle.** No number is compared with the source platform,
+because nothing here can run the source dialect, so windowed built-ins and
+orders warn rather than claim equality, and the facts about the source dialect
+the importer relies on are listed in its page rather than proved.
+
+**Edits.** `src/core/importer/` (new), `src/core/index.ts`,
+`src/core/catalogue/types.ts`, `spec/errors.json` and `spec/errors.md`,
+`scripts/check-raises.mjs`, `scripts/check-examples-compile.mjs`,
+`scripts/lib/example-import.mjs`, `scripts/lib/catalogue-page.mjs`,
+`tests/importer/`, `docs/writing/importing-a-script.md`.

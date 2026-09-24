@@ -125,6 +125,8 @@ const SOURCE_ROOTS = ['src'];
  * among them, so `src/adapters` is a host's too. `check` is the checker alone, and
  * not the emitter behind it: the emitter has refusals of its own and a code only
  * it can raise is a code the catalogue is describing to the wrong reader.
+ * `import` is the importer alone: it reads another language's script, and a
+ * code it raises points into that script rather than into an OpenScript file.
  */
 const STAGE_SOURCE = {
   lex: ['src/core/lex'],
@@ -132,6 +134,7 @@ const STAGE_SOURCE = {
   check: ['src/core/check'],
   runtime: ['src/core/engine'],
   host: ['src/core/engine', 'src/core/accounting', 'src/core/backtest', 'src/adapters'],
+  import: ['src/core/importer'],
 };
 
 /** Shorter than this is a flag rather than a reason, whatever it says. */

@@ -63,6 +63,6 @@ test('a brace that is not a slot is left alone', () => {
 
 test('a string from a log is only a code when the catalogue has it', () => {
   assert.equal(isDiagnosticCode('OS1001'), true);
-  assert.equal(isDiagnosticCode('OS9999'), false);
+  assert.equal(isDiagnosticCode('OS0999'), false);
   assert.equal(isDiagnosticCode('toString'), false);
 });

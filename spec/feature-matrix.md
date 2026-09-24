@@ -972,7 +972,7 @@ from a `study()` file is OS7001.
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|
-| Code ranges | OS1xxx syntax, OS2xxx names and types, OS3xxx arguments, OS4xxx runtime, OS5xxx limits, OS6xxx data, OS7xxx orders, OS8xxx warnings | `specified` | `language.md` 16, `errors.md` 4 | `err/code-ranges` |
+| Code ranges | OS1xxx syntax, OS2xxx names and types, OS3xxx arguments, OS4xxx runtime, OS5xxx limits, OS6xxx data, OS7xxx orders, OS8xxx warnings, OS9xxx the importer | `specified` | `language.md` 16, `errors.md` 4 | `err/code-ranges` |
 | Diagnostic shape | Every diagnostic carries a code, a line, a column, a message and a fix | `specified` | `language.md` 16, `errors.md` 2 | `err/diagnostic-shape` |
 | Caret under the text | The reported column points at the offending characters | `specified` | `errors.md` 2 | `unit:err/caret` |
 | Warnings do not stop | OS8xxx never halts compilation or a bar; it is reported on the line | `specified` | `language.md` 16, `errors.md` 4 | `err/warning-does-not-stop` |

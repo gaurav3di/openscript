@@ -71,6 +71,16 @@ const HOST_INPUT =
   'rather than a script, because this code is about what the engine was handed and not ' +
   'about what anybody wrote.';
 
+/**
+ * The paragraph a section prints where the example is a script in the source
+ * dialect the importer reads, for the same reason: `kind: "import"` says it once
+ * per entry and the page says what it means.
+ */
+const IMPORTED =
+  '**Imported source.** The before block below is a script in the source dialect, which ' +
+  'the importer reads rather than the compiler, and the after block is the OpenScript that ' +
+  'script becomes once the fix is applied.';
+
 /** One section of part 8, from its heading to the next one. */
 export function sectionsOf(text) {
   const sections = new Map();
@@ -114,7 +124,8 @@ function headerFor(entry, stageLabels) {
  *
  * In the order every section prints: the heading, the first line, the deferral
  * or the unexercised sentence where the entry has one, the host input paragraph
- * where the example is a transcript, the message and its placeholders, the
+ * where the example is a transcript or the imported source one where it is a
+ * script in the source dialect, the message and its placeholders, the
  * cause, the fix, and the two blocks. Markdown, because it is the text of
  * `errors.md` and the site renders it with the same renderer as that page.
  */
@@ -123,6 +134,7 @@ export function sectionFor(entry, stageLabels) {
   if (entry.deferred != null) parts.push(`**Deferred.** ${entry.deferred}`);
   if (entry.unexercised != null) parts.push(`**Not exercised.** ${entry.unexercised}`);
   if (entry.example?.kind === 'transcript') parts.push(HOST_INPUT);
+  if (entry.example?.kind === 'import') parts.push(IMPORTED);
   parts.push(`**Message.** \`${entry.message}\``);
   const glosses = Object.entries(entry.placeholders ?? {}).map(([key, text]) => glossOf(key, text));
   if (glosses.length > 0) parts.push(glosses.join('\n'));
@@ -385,6 +397,14 @@ export function pageSelfTest() {
   for (const [what, text, wanted] of cases) {
     const found = ran(text);
     if (found !== wanted) broken.push(`${what}: ${found} reported, ${wanted} expected`);
+  }
+  const imported = { ...entry, example: { ...entry.example, kind: 'import' } };
+  const ranImported = (text) => entryProblems(imported, sectionsOf(text), stageLabels).length;
+  if (ranImported(page('A message.', 'the name', 'A cause.', { host: IMPORTED })) !== 0) {
+    broken.push('an imported source paragraph that matches');
+  }
+  if (ranImported(page('A message.', 'the name', 'A cause.')) !== 1) {
+    broken.push('the host input paragraph printed for an imported example');
   }
 
   const catalogue = {

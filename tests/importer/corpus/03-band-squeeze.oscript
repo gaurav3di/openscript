@@ -1,0 +1,26 @@
+version 1
+
+study("Band squeeze", overlay = true)
+
+length = input(20, "Length")
+mult = input(2.0, "Deviations", step = 0.5)
+lookback = input(120, "Squeeze lookback")
+
+bollingerResult = bollinger(close, length, mult)
+basis = bollingerResult[0]
+upper = bollingerResult[1]
+lower = bollingerResult[2]
+width = (upper - lower) / basis
+narrowest = lowest(width, lookback)
+squeeze = width <= narrowest
+
+upperPlot = plot(upper, "Upper", teal)
+lowerPlot = plot(lower, "Lower", teal)
+plot(basis, "Basis", gray, width = 1)
+fill(upperPlot, lowerPlot, color = squeeze ? fade(yellow, 80) : fade(teal, 92))
+
+rangeHigh = highest(high, length)
+rangeLow = lowest(low, length)
+barColor(squeeze ? yellow : close > basis ? lime : red)
+plot(rangeHigh, "Range high", fade(green, 50), style = "step")
+plot(rangeLow, "Range low", fade(red, 50), style = "step")

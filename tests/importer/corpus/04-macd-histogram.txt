@@ -1,0 +1,19 @@
+//@version=5
+indicator("MACD histogram", format = format.price, precision = 4)
+
+fastLength = input.int(12, "Fast")
+slowLength = input.int(26, "Slow")
+signalLength = input.int(9, "Signal")
+
+[macdLine, signalLine, hist] = ta.macd(close, fastLength, slowLength, signalLength)
+
+rising = hist > hist[1]
+histColor = hist >= 0 ? (rising ? color.lime : color.green) : (rising ? color.maroon : color.red)
+
+hline(0, "Zero", color = color.gray)
+plot(hist, "Histogram", color = histColor, style = plot.style_histogram)
+plot(macdLine, "MACD", color = color.blue)
+plot(signalLine, "Signal", color = color.orange)
+
+crossUp = ta.crossover(macdLine, signalLine)
+plotshape(crossUp and macdLine < 0, title = "Turn", style = shape.circle, location = location.bottom, color = color.lime)

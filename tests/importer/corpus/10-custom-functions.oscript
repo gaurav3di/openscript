@@ -1,0 +1,55 @@
+version 1
+
+study("Custom functions")
+
+mode = input("Weighted", "Average", options = ["Simple", "Weighted", "Hull"])
+length = input(21, "Length")
+stepValue = input(3, "Spacing")
+
+// A moving average chosen by name.
+fn f_average(src, len) =>
+    result = none
+    switch mode
+        case "Simple"
+            result = sma(src, len)
+        case "Weighted"
+            result = wma(src, len)
+        default
+            result = hma(src, len)
+    result
+
+fn f_range(len) => highest(high, len) - lowest(low, len)
+
+fn f_ladder(base, gap) =>
+    total = 0.0
+    for i2 = 1 to 3
+        total = total + base + i2 * gap
+    total / 3
+
+average = f_average(close, length)
+spread = f_range(length)
+
+// A label for the regime, written by a switch with no subject.
+regime = 0
+switch
+    case close > average + spread / 2
+        regime = 2
+    case close > average
+        regime = 1
+    default
+        regime = -1
+
+countValue = 0
+i = 0
+while i < 5 and close[i] > average
+    countValue = countValue + 1
+    i = i + 1
+
+if regime > 0
+    levelValue = average + spread
+    countValue = countValue + (close > levelValue ? 1 : 0)
+
+plot(average, "Average", blue)
+plot(f_ladder(average, stepValue), "Ladder", gray)
+plot(regime, "Regime", orange, style = "step")
+plot(countValue, "Run", fuchsia, style = "histogram")

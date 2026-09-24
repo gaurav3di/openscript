@@ -313,7 +313,8 @@ No. Sandbox mode is the default and live is a deliberate act. See
 **What does a code like OS2002 mean?**
 The first digit is the kind: OS1xxx syntax, OS2xxx names and types, OS3xxx
 arguments, OS4xxx runtime, OS5xxx limits, OS6xxx data, OS7xxx orders, OS8xxx
-warnings. See [errors/overview.md](./errors/overview.md).
+warnings, and OS9xxx the importer's findings about a script in another chart
+language. See [errors/overview.md](./errors/overview.md).
 
 **Do I have to fix the warnings?**
 Nothing stops if you do not. Every OS8xxx warning describes a shape whose

@@ -1,0 +1,32 @@
+version 1
+
+strategy("Channel breakout", overlay = true, capital = 200000, qtyType = "units", qty = 5, commission = 20, slippage = 2, commissionType = "perTrade")
+
+entryLength = input(20, "Entry channel")
+exitLength = input(10, "Exit channel")
+
+upperEntry = highest(high, entryLength)[1]
+lowerEntry = lowest(low, entryLength)[1]
+upperExit = highest(high, exitLength)[1]
+lowerExit = lowest(low, exitLength)[1]
+
+if close > upperEntry
+    if pos.size < 0
+        close()
+    if pos.size <= 0
+        buy(tag = "Long")
+if close < lowerEntry
+    if pos.size > 0
+        close()
+    if pos.size >= 0
+        sell(tag = "Short")
+
+if pos.size >= 0
+    exit(tag = "Long exit", stop = lowerExit)
+if pos.size <= 0
+    exit(tag = "Short exit", stop = upperExit)
+
+plot(upperEntry, "Upper entry", green)
+plot(lowerEntry, "Lower entry", red)
+plot(pos.size > 0 ? lowerExit : none, "Long stop", orange)
+plot(pos.size < 0 ? upperExit : none, "Short stop", orange)

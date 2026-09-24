@@ -1,0 +1,24 @@
+version 1
+
+study("MACD histogram", format = "price", precision = 4)
+
+fastLength = input(12, "Fast")
+slowLength = input(26, "Slow")
+signalLength = input(9, "Signal")
+
+macdResult = macd(close, fastLength, slowLength, signalLength)
+macdLine = macdResult[0]
+signalLine = macdResult[1]
+hist = macdResult[2]
+
+risingValue = hist > hist[1]
+histColor = hist >= 0 ? (risingValue ? lime : green) : (risingValue ? maroon : red)
+
+level(0, "Zero", color = gray)
+plot(hist, "Histogram", histColor, style = "histogram")
+plot(macdLine, "MACD", blue)
+plot(signalLine, "Signal", orange)
+
+crossUpValue = crossUp(macdLine, signalLine)
+if crossUpValue and macdLine < 0
+    signal("Turn", shape = "circle", color = lime)

@@ -351,6 +351,7 @@ serious it is:
 | OS6xxx | Data | OS6001, an unknown timeframe |
 | OS7xxx | Orders | OS7002, an order argument that was absent |
 | OS8xxx | Warnings | OS8001, a stateful call inside a branch |
+| OS9xxx | Import | OS9003, a built-in the importer has no mapping for |
 
 The five you are most likely to see in your first hour:
 

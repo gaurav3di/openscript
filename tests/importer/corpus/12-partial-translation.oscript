@@ -1,0 +1,25 @@
+version 1
+
+study("Partly translatable", overlay = true)
+
+length = input(20, "Length")
+
+basis = sma(close, length)
+// not translated (OS9003): rank = ta.percentrank(close, length)
+// not translated (OS9005): smoothRank = ta.sma(rank, 5)
+// not translated (OS9003): daily = request.security("ABC", "D", close)
+
+// Version 5 lets a number stand where a condition is expected.
+// not translated (OS9012): traded = volume ? 1 : 0
+
+var marker = none
+// not translated (OS9003): if ta.crossover(close, basis)
+// not translated (OS9003):     marker := label.new(bar_index, high, "Cross")
+
+// not translated (OS9002): lastCross = basis == na ? 0 : 1
+
+plot(basis, "Basis", blue)
+// not translated (OS9005): plot(smoothRank, "Rank", color = color.gray)
+// not translated (OS9005): plot(daily, "Daily", color = color.orange)
+// not translated (OS9005): plot(traded, "Traded", color = color.silver)
+// not translated (OS9005): plot(lastCross, "Crossed", color = color.purple)
