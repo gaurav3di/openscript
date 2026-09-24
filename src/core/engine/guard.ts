@@ -10,7 +10,7 @@
  * catalogue has: an array past its element ceiling is OS5002, a string past its
  * character ceiling is OS5008, one more drawing object than the host will hold
  * is OS5010, an argument outside its contract is OS4003, an index outside an
- * array is OS4004, a change to an object a script already deleted is OS4005,
+ * array is OS4004, a cell outside a table's declared shape is OS4008, a change to an object a script already deleted is OS4005,
  * and a timezone name the host's table does not hold is OS6005.
  */
 import type { Span } from '../span/index.js';
@@ -50,6 +50,17 @@ export function guardFor(budget: Budget): Guard {
 
     badIndex(span: Span, name: string, index: string, size: number): never {
       raise('OS4004', span, { index, name, size });
+    },
+
+    /**
+     * A cell outside the grid its table declared, OS4008.
+     *
+     * Not OS4004, which is about an array and would name an index and a
+     * flattened element count: a table's shape is two numbers the declaration
+     * fixed, and the fix is to declare the shape the script writes.
+     */
+    badCell(span: Span, row: number, column: number, rows: number, columns: number): never {
+      raise('OS4008', span, { row, column, rows, columns });
     },
 
     deleted(span: Span, kind: string, bar: number): never {

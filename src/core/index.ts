@@ -289,6 +289,19 @@ export { LANGUAGE_VERSIONS, capabilitiesFor, verify } from './engine/index.js';
 export type { VerifyOptions, VerifyResult } from './engine/index.js';
 
 /**
+ * The importer: a script written in another chart language in, OpenScript text
+ * and findings out (`docs/writing/importing-a-script.md`).
+ *
+ * It sits beside the compiler because it is the same kind of thing, a pure
+ * function from text to text with diagnostics, and because it compiles its own
+ * output before returning it so that what it hands back compiles. Every finding
+ * carries a catalogue code in the OS9xxx range and a position in the text that
+ * was imported, not in the text that came out.
+ */
+export { importScript } from './importer/index.js';
+export type { ImportOptions, ImportResult } from './importer/index.js';
+
+/**
  * The money, and the run it is folded from (`stdlib.md` 17.1, 17.7).
  *
  * Two modules rather than one, and the line between them is the design. The

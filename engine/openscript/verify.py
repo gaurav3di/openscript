@@ -35,14 +35,20 @@ from .version import FORMAT, LANGUAGE_VERSIONS, format_major
 
 #: What this engine can do on its own, as the tags of section 2.2.
 #:
-#: Five of the ten, and the five that are the machine's. The others are not
-#: refusals of this module's making: ``orders`` needs an order route and a
-#: ledger, ``objects`` and ``tables`` need the library calls that build one, and
-#: the two read tags need bars this engine is not given. Each is added by the
-#: stage that serves it, through ``capabilities`` below, so a program that needs
-#: one is refused at load naming the feature rather than drawing a study with a
-#: silently empty line through it.
-MACHINE_CAPABILITIES: Tuple[str, ...] = ("core.1", "arrays", "functions", "loops", "alerts")
+#: Six of the ten, the five that are the machine's and ``req.timeframe``: a read
+#: of the chart's own instrument at a coarser interval is folded from the bars a
+#: run is handed (``requests.py``), so there is nothing for a host to supply and
+#: nothing for it to decline. The others are not refusals of this module's
+#: making: ``orders`` needs an order route and a ledger, ``objects`` and
+#: ``tables`` need the library calls that build one, and ``req.symbol`` needs
+#: bars for another instrument, which a run serves only when it is handed a
+#: provider to ask (``run.load``). Each is added by the stage that serves it, so
+#: a program that needs one is refused at load naming the feature rather than
+#: drawing a study with a silently empty line through it.
+MACHINE_CAPABILITIES: Tuple[str, ...] = ("core.1", "arrays", "functions", "loops", "alerts", "req.timeframe")
+
+#: The tag a read of another instrument declares, served with a provider only.
+REQ_SYMBOL = "req.symbol"
 
 
 def capabilities(*served: str) -> Tuple[str, ...]:

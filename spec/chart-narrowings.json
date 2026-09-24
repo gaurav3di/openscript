@@ -72,7 +72,7 @@
       "narrowed": [
         {
           "field": "colorUpChannel",
-          "why": "A per-bar band colour. The chart's band takes a fixed colour or a settings key and is drawn once, so there is no per-bar channel to point it at. A script that computes a band colour from the bar is drawn in the first plot's colour faded, which is what a band that declares no colour takes. It should be refused where it is written, and needs the same catalogue entry the second grid does: issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md."
+          "why": "A per-bar band colour. The chart's band takes a fixed colour or a settings key and is drawn once, so there is no per-bar channel to point it at. A program whose band carries one is refused before any bar runs, with OS6024: see refused below."
         },
         {
           "field": "colorDownChannel",
@@ -134,11 +134,16 @@
     "barColor": { "carried": ["channel"], "narrowed": [] },
     "background": { "carried": ["channel"], "narrowed": [] }
   },
-  "counts": [
+  "refused": [
     {
-      "output": "tables",
-      "carries": 1,
-      "why": "The descriptor has one table hook, so one grid per study reaches the pane and a second declared grid is dropped. What ought to happen instead is a refusal naming the limit where the second table() is written, and writing one needs a catalogue code that does not exist: the gap is reported in issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md, with the sentence it should carry."
+      "key": "tables.count",
+      "code": "OS6024",
+      "why": "The descriptor has one table hook, so one grid per study reaches the pane. A study declaring a second is refused before any bar runs, naming the second grid, rather than drawn with its second panel missing."
+    },
+    {
+      "key": "fills.colorChannel",
+      "code": "OS6024",
+      "why": "The chart's band takes one colour for the whole run. A band whose colour the script computes per bar is refused before any bar runs rather than drawn in a colour the script did not choose."
     }
   ]
 }

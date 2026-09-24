@@ -1,6 +1,6 @@
 # 0011 A second declared grid is dropped, and no code exists to refuse it
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Found by: the phase three review, reading the chart adapter against a study that
 declares two grids
@@ -112,3 +112,25 @@ The catalogue entry is written with a test, the chart adapter refuses the second
 grid at its declaration's span, `spec/chart-narrowings.json` loses its `tables`
 count entry, the check keeps refusing every other silent narrowing, and this file
 goes.
+
+## How it closed
+
+The entry described above is OS6024, recorded as decision 68, with the title,
+message, placeholders, cause and fix this file proposed. One part is different
+and the entry says why: the compiled program carries no source position for a
+declaration, so the refusal names the declaration by its title rather than
+pointing a caret at its call. `compiled-program.md` section 11 states the rule
+for every host.
+
+`src/adapters/charts/undrawable.ts` refuses both instances this file found,
+before any bar runs and as a condition a reader can act on: a second declared
+grid, naming it, and a band whose colour is computed per bar. The second grid's
+`counts` entry in `spec/chart-narrowings.json` became a `refused` entry, the band
+colour's narrowing says it is refused, and `scripts/check-chart-surface.mjs`
+proves each refusal with a study that declares exactly that thing. Every other
+silent narrowing is still refused by the same check.
+
+`docs/visuals/tables.md` and `docs/visuals/fills.md` tell a reader what this
+chart refuses and that another host may draw it.
+`tests/adapters/charts/undrawable.test.ts` holds both refusals and a study with
+one grid and a one colour band that runs.

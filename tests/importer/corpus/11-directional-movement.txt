@@ -1,0 +1,30 @@
+//@version=5
+indicator("Directional movement", precision = 1)
+
+diLength = input.int(14, "DI length")
+smoothing = input.int(14, "ADX smoothing")
+threshold = input.int(25, "Trend threshold")
+
+[plusDI, minusDI, adx] = ta.dmi(diLength, smoothing)
+
+// Two whole-number constants: version 5 divides them without a fraction.
+const int bands = 5
+half = threshold / 2
+middleBand = bands / 2
+
+spreadDI = math.abs(plusDI - minusDI)
+momentum = ta.change(adx, 3)
+energy = math.sqrt(math.pow(plusDI, 2) + math.pow(minusDI, 2))
+trueRange = ta.tr(true)
+drift = ta.cum(ta.change(close)) / math.max(bar_index, 1)
+
+strong = adx > threshold and not (plusDI < minusDI)
+
+hline(threshold, "Threshold", color = color.gray)
+plot(adx, "ADX", color = strong ? color.green : color.gray, linewidth = 2)
+plot(plusDI, "+DI", color = color.teal)
+plot(minusDI, "-DI", color = color.red)
+plot(spreadDI > half ? momentum : na, "Momentum", color = color.orange)
+plot(adx / 10 > middleBand ? 1 : 0, "Band", color = color.maroon, style = plot.style_columns)
+plot(energy, "Energy", color = color.navy)
+plot(trueRange + drift, "Range and drift", color = color.silver)

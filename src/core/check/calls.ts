@@ -19,7 +19,7 @@ import type { ParameterShape } from './arguments.js';
 import type { Checker, Placement } from './checker.js';
 import { reportStrategyOnly } from './checker.js';
 import type { CheckedCall } from './checked.js';
-import { isCompileTimeConstant } from './constant.js';
+import { isCompileTimeConstant, readsInputInPart } from './constant.js';
 import { refuseHandle } from './handles.js';
 import type { LibraryEntry } from './library.js';
 import { literalNumber, literalString } from './literals.js';
@@ -244,8 +244,14 @@ export function validateArguments(
       });
     }
 
-    if (entry.constant.includes(parameter.name) && !isCompileTimeConstant(checker, argument.value)) {
-      checker.report('OS3003', span, { option: parameter.name });
+    if (entry.constant.includes(parameter.name)) {
+      if (!isCompileTimeConstant(checker, argument.value)) {
+        checker.report('OS3003', span, { option: parameter.name });
+      } else if (readsInputInPart(checker, argument.value, entry.name !== 'input')) {
+        checker.report('OS3025', span, { option: parameter.name });
+      } else if (entry.written.includes(parameter.name) && readsInputInPart(checker, argument.value, false)) {
+        checker.report('OS3026', span, { option: parameter.name });
+      }
     }
   }
 
@@ -331,7 +337,10 @@ export function resolveLibraryCall(
     checker.report('OS2010', call.span, {
       name,
       type: held === undefined ? typeText(UNKNOWN) : typeText(held.returns),
-      suggestion: checker.suggestionFor(name),
+      suggestion: checker.callSuggestionFor(
+        name,
+        call.args.map((one) => checker.textOf(one.span)),
+      ),
     });
     return unresolved(call, name);
   }

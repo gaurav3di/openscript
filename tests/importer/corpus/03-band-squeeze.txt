@@ -1,0 +1,22 @@
+//@version=6
+indicator("Band squeeze", overlay = true)
+
+length = input.int(20, "Length")
+mult = input.float(2.0, "Deviations", step = 0.5)
+lookback = input.int(120, "Squeeze lookback")
+
+[basis, upper, lower] = ta.bb(close, length, mult)
+width = (upper - lower) / basis
+narrowest = ta.lowest(width, lookback)
+squeeze = width <= narrowest
+
+upperPlot = plot(upper, "Upper", color = color.teal)
+lowerPlot = plot(lower, "Lower", color = color.teal)
+plot(basis, "Basis", color = color.gray, linewidth = 1)
+fill(upperPlot, lowerPlot, color = squeeze ? color.new(color.yellow, 80) : color.new(color.teal, 92))
+
+rangeHigh = ta.highest(high, length)
+rangeLow = ta.lowest(low, length)
+barcolor(squeeze ? color.yellow : close > basis ? color.lime : color.red)
+plot(rangeHigh, "Range high", color = color.new(color.green, 50), style = plot.style_stepline)
+plot(rangeLow, "Range low", color = color.new(color.red, 50), style = plot.style_stepline)

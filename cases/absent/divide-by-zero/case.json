@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"Division by zero is absent on the bar the divisor is zero and a quotient on every other bar.","id":"absent/divide-by-zero","languageVersion":1,"profile":"core"}

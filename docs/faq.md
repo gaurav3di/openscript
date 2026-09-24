@@ -189,8 +189,9 @@ not by wrapping it in a branch. That is OS3006. See
 plotting. See [visuals/labels-and-shapes.md](./visuals/labels-and-shapes.md).
 
 **How do I draw a line between two points and move it later?**
-The `draw` namespace: `draw.line`, `draw.label`, `draw.box`, `draw.polyline`, and
-the setters that move them. Objects are anchored to a time and a price, so they
+The `draw` namespace: `draw.line`, or another of the creation calls
+[../spec/stdlib.md](../spec/stdlib.md) section 18 lists, and the setters that
+move them. Objects are anchored to a time and a price, so they
 stay where you put them when more history loads. See
 [visuals/lines-and-boxes.md](./visuals/lines-and-boxes.md).
 
@@ -312,7 +313,8 @@ No. Sandbox mode is the default and live is a deliberate act. See
 **What does a code like OS2002 mean?**
 The first digit is the kind: OS1xxx syntax, OS2xxx names and types, OS3xxx
 arguments, OS4xxx runtime, OS5xxx limits, OS6xxx data, OS7xxx orders, OS8xxx
-warnings. See [errors/overview.md](./errors/overview.md).
+warnings, and OS9xxx the importer's findings about a script in another chart
+language. See [errors/overview.md](./errors/overview.md).
 
 **Do I have to fix the warnings?**
 Nothing stops if you do not. Every OS8xxx warning describes a shape whose

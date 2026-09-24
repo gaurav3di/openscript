@@ -1,0 +1,1 @@
+{"asserts":["diagnostics"],"category":"log","description":"A print on every iteration of a loop that runs exactly the declared budget charges that budget nothing, so no bar is stopped.","id":"log/no-side-effect","languageVersion":1,"profile":"core"}

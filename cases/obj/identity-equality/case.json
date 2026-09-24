@@ -1,0 +1,1 @@
+{"asserts":["drawings","values"],"category":"surface","description":"Two names for one object are equal and two objects with the same properties are not.","id":"obj/identity-equality","languageVersion":1,"profile":"chart"}

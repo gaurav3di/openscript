@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"The value form of switch takes the first matching case and the default otherwise, with no fall through.","id":"flow/switch-value","languageVersion":1,"profile":"core"}

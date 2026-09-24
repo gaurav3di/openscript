@@ -17,7 +17,7 @@ req.symbol(symbol, timeframe, expr, exchange = chart.exchange, mode = "confirmed
 | `timeframe` | `string` | The interval to read it at, written as in [timeframes.md](./timeframes.md) |
 | `expr` | any | An expression computed on that instrument's bars |
 | `exchange` | `string` | Where it trades, defaulting to the chart's exchange |
-| `mode` | `string` | `"confirmed"`, `"developing"` or `"lookahead"`, as in [higher-timeframes.md](./higher-timeframes.md) |
+| `mode` | `string` | One of the modes [higher-timeframes.md](./higher-timeframes.md) lists |
 
 ```
 // The same interval the chart is on, on the chart's own exchange.
@@ -295,9 +295,10 @@ lotSize = input(1, "Lot size of the legs", min = 1)
 qty = lots * lotSize
 ```
 
-A host that has not supplied a fact reports OS6012 rather than guessing, because
-a script rounding to a tick or sizing in lots cannot invent one and a guess
-produces orders the exchange rejects.
+A fact the host has not supplied reads as `none` rather than a guess, because a
+script rounding to a tick or sizing in lots cannot invent one and a guess produces
+orders the exchange rejects. `orElse(chart.lotSize, 1)` says what the script
+assumes in the open, and an input says it in the settings dialog.
 
 ## A worked example: two legs, one number
 

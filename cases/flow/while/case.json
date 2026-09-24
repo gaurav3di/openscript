@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"A while loop runs while its condition holds, checked before each iteration.","id":"flow/while","languageVersion":1,"profile":"core"}

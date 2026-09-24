@@ -1,0 +1,1 @@
+{"asserts":["diagnostics"],"category":"limits","description":"An array that holds exactly a million elements takes no more: the append past the ceiling raises OS5002 on the bar it happened.","id":"array/element-limit","languageVersion":1,"profile":"core"}

@@ -234,12 +234,7 @@ export const OBJECT_ENTRIES: readonly ManifestEntry[] = [
     const col = wholeAt(ctx, 'cell', 'col', args, 2);
     if (row === null || col === null) return null;
     if (row >= object.rows || col >= object.cols) {
-      ctx.guard.badIndex(
-        ctx.span,
-        ctx.nameOf(valueAt(args, 0)),
-        `${row}, ${col}`,
-        object.rows * object.cols,
-      );
+      ctx.guard.badCell(ctx.span, row, col, object.rows, object.cols);
     }
     const written: GridCell = {
       row,

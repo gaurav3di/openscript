@@ -35,13 +35,14 @@ import type {
   Mutable,
   Storage,
 } from './checked.js';
+import { namesGivenAValue } from './assigned.js';
 import { conditionalCalls } from './conditional.js';
-import { libraryNames } from './surface.js';
+import { libraryFunctionNames, libraryNames } from './surface.js';
 import { closestName } from './suggest.js';
 import type { Type } from './types.js';
 import { UNKNOWN } from './types.js';
 import type { Warmup } from './warmup.js';
-import { BAR_ZERO } from './warmup.js';
+import { BAR_ZERO, weaken } from './warmup.js';
 
 /**
  * One nesting of names, `language.md` 12.1.
@@ -143,6 +144,13 @@ export class Checker {
 
   /** Every call site a bar can pass without evaluating, `language.md` 11.4. */
   private readonly conditional: ReadonlySet<Call>;
+  /**
+   * The names some line gives a value, read before a `var` is called never.
+   *
+   * Built the first time it is asked for, because it is one walk of the whole
+   * tree and almost every file never reads a `var` that is still never.
+   */
+  private givenAValue: ReadonlySet<string> | undefined = undefined;
 
   constructor(file: SourceFile, script: Script, sink: DiagnosticSink) {
     this.file = file;
@@ -300,6 +308,21 @@ export class Checker {
     return this.types.get(expression) ?? UNKNOWN;
   }
 
+  /**
+   * The warmup a read of this name sees, here.
+   *
+   * A `var` that is still never at this line but that a later line gives a
+   * value is not never: the later line wrote it on the bar before, or on an
+   * earlier pass of the same loop. The honest answer is a floor of bar 0,
+   * which claims nothing and withdraws the claim OS8009 is built on, where an
+   * exact bar would need the later line's warmup before it has been read.
+   */
+  warmupOfRead(binding: Binding): Warmup {
+    if (binding.warmup.kind !== 'never' || binding.persistence === 'none') return binding.warmup;
+    this.givenAValue ??= namesGivenAValue(this.script);
+    return this.givenAValue.has(binding.name) ? weaken(BAR_ZERO) : binding.warmup;
+  }
+
   warmupOf(expression: Expression): Warmup {
     return this.warmups.get(expression) ?? BAR_ZERO;
   }
@@ -316,6 +339,20 @@ export class Checker {
 
   suggestionFor(written: string): string {
     return closestName(written, this.namesInScope());
+  }
+
+  /**
+   * OS2010's suggestion: the closest function, called with what was written.
+   *
+   * The catalogue documents the slot as the library function whose name is
+   * closest, with its first argument filled in, so `volume(20)` is offered a
+   * function over `volume` and the arguments the reader already wrote,
+   * rather than a name that cannot be called either.
+   */
+  callSuggestionFor(written: string, args: readonly string[]): string {
+    const inStrategy = this.declaration?.form === 'strategy';
+    const name = closestName(written, libraryFunctionNames(inStrategy));
+    return `${name}(${[written, ...args].join(', ')})`;
   }
 
   /** A state region for one call site, `compiled-program.md` 2.11. */

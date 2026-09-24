@@ -42,7 +42,7 @@ that reads naturally is also a script that compiles.
 | 8 | Calculations | The library calls and the arithmetic | Unconditional, at the top level, so state advances on every bar |
 | 9 | State | `var` declarations and the blocks that update them | After the values they are computed from |
 | 10 | Decisions | The `if` blocks that turn numbers into conclusions | After the numbers, before the output |
-| 11 | Outputs | `plot`, `fill`, `level`, `table` | Top level only, and they are what the reader scrolls to when a line looks wrong |
+| 11 | Outputs | `plot` and the other drawing calls `language.md` section 15.3 makes top level only | Top level only, and they are what the reader scrolls to when a line looks wrong |
 | 12 | Events and paint | `signal`, `alert`, `barColor`, `background`, `draw`, orders | Last, because they are consequences |
 
 Sections 11 and 12 can be interleaved where a marker belongs next to the

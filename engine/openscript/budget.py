@@ -61,6 +61,9 @@ class EngineLimits:
     states: Optional[int] = None
     #: Reads one file may make, OS5006 at load.
     requests: Optional[int] = None
+    #: Drawing objects a script may hold at once, OS5010. The first engine's
+    #: number, for the reason the string ceiling above is.
+    drawing_objects: int = 10_000
 
 
 DEFAULT_LIMITS = EngineLimits()

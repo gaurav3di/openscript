@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"time","description":"The calendar fields of a bar time read in the chart zone, across a day, a month and a year boundary.","id":"time/date-fields","languageVersion":1,"profile":"chart"}

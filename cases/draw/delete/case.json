@@ -1,0 +1,1 @@
+{"asserts":["drawings","values"],"category":"surface","description":"delete, deleteAll and count: a deleted object leaves the set and the count, and deleting twice is not an error.","id":"draw/delete","languageVersion":1,"profile":"chart"}

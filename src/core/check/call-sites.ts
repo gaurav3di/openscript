@@ -21,7 +21,7 @@ import { bindArguments } from './arguments.js';
 import { remember, resolveLibraryCall, unresolved } from './calls.js';
 import type { Checker, Placement } from './checker.js';
 import type { CheckedCall, InputKind, RequestMode } from './checked.js';
-import { calleeNameOf, isCompileTimeConstant, isSourceName } from './constant.js';
+import { calleeNameOf, isCompileTimeConstant, isSourceName, readsInputInPart } from './constant.js';
 import { checkExpression } from './expressions.js';
 import { ensureChecked } from './functions.js';
 import { allowHandle, refuseHandle } from './handles.js';
@@ -59,7 +59,10 @@ export function resolveCall(checker: Checker, call: Call, placement: Placement):
     checker.report('OS2010', call.span, {
       name: checker.textOf(call.callee.span),
       type: typeText(UNKNOWN),
-      suggestion: checker.suggestionFor(checker.textOf(call.callee.span)),
+      suggestion: checker.callSuggestionFor(
+        checker.textOf(call.callee.span),
+        call.args.map((one) => checker.textOf(one.span)),
+      ),
     });
     return record(checker, call, unresolved(call, 'call'));
   }
@@ -220,8 +223,12 @@ function checkInput(checker: Checker, call: Call, checked: CheckedCall): Checked
   const options = argumentOf(checked, 'options');
   const title = literalOf(checked, 'title');
 
-  if (value !== undefined && !isSourceName(value.value) && !isCompileTimeConstant(checker, value.value)) {
-    checker.report('OS3003', value.span, { option: 'value' });
+  if (value !== undefined && !isSourceName(value.value)) {
+    if (!isCompileTimeConstant(checker, value.value)) {
+      checker.report('OS3003', value.span, { option: 'value' });
+    } else if (readsInputInPart(checker, value.value, false)) {
+      checker.report('OS3025', value.span, { option: 'value' });
+    }
   }
   if (kind !== undefined && PLANNED_KINDS.has(kind)) {
     checker.report('OS2001', call.span, {

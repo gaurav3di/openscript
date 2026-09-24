@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"time","description":"isFirstBar is true on the first bar inside the session and isLastBar on the bar whose slot reaches the scheduled close.","id":"session/flags","languageVersion":1,"profile":"chart"}

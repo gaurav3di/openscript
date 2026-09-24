@@ -1,0 +1,1 @@
+{"asserts":["diagnostics"],"category":"log","description":"A script that prints a number, a bar fact, a string, a bool and two absent values runs every bar to the end with no diagnostic.","id":"log/print","languageVersion":1,"profile":"core"}

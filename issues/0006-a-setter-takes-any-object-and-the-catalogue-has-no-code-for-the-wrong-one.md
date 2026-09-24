@@ -1,7 +1,7 @@
 # 0006 A setter takes any object, and nothing can refuse the wrong one
 
-Status: closed 2026-09-20, for the defect it names. The two neighbours at the
-foot of the file are untouched and still open; nothing else records them.
+Status: closed 2026-09-20 for the defect it names, and 2026-09-24 for the two
+neighbours at the foot of the file.
 Opened: 2026-09-20
 Against: `src/core/check/library-output.ts`, the `draw` setters, and
 `src/core/check/types.ts`, which has no union type
@@ -11,8 +11,8 @@ Severity: a script that is wrong in one of the two ways below compiles, runs,
 draws nothing and reports nothing. Neither is a compiler defect and both are
 input a user can write.
 
-**Not raised yet.** OS8019 is in the catalogue and nothing raises it: the
-checker does not follow a reference to a deleted object.
+OS8019 was not raised when this was filed, because the checker did not follow a
+reference to a deleted object. It is now: see the neighbours' closing below.
 
 ## What is wrong
 
@@ -91,7 +91,7 @@ read "Cell (3, 4) is outside a table of 7 rows and 2 columns". The call site is
 `src/core/engine/library/objects.ts`, in the table half of that file rather than
 the drawing half.
 
-**Not raised yet.** OS8019 and OS4008 are in the catalogue and nothing raises
+When this was filed, OS8019 and OS4008 were in the catalogue and nothing raised
 them. The checker does not follow a reference to a deleted object. A cell
 outside the declared grid raises the broader OS4004, which names an index rather
 than the shape.
@@ -121,3 +121,27 @@ All three steps, in that order.
 Tests: `tests/unit/check-calls.test.ts` drives a setter with a kind it does not
 take, with a number, with a handle and with `none`, and asserts the code and the
 argument's span.
+
+## How the two neighbours closed
+
+**OS4008.** `cell()` in `src/core/engine/library/objects.ts` raises it through a
+guard of its own, `badCell`, naming the row, the column and the shape the
+declaration fixed, in place of the array code it borrowed.
+`tests/engine/tables.test.ts` holds a cell past the last row and past the last
+column, and the last cell the shape holds written with nothing raised. The
+second engine has no tables yet and refuses a program that declares one at
+load, with OS6006 naming the `tables` capability tag, which is the honest answer
+and is not this code.
+
+**OS8019.** `src/core/check/deleted.ts` follows a `draw.delete` on the one path
+it is written on. Deleting a `var` name is cleared by a later statement of the
+same block that assigns the name again; deleting `element(arr, i)` or `arr[i]` of
+a persistent array is cleared by a later statement of the same block that
+shifts, pops, removes or clears it. A plain name is not followed, because it is
+recomputed on the next bar and cannot carry a stale object into it. What the
+pass does not see, and its header says so: a clearing line inside a nested
+block, and a deletion through a function's parameter. `tests/unit/check-deleted.test.ts`
+holds each warning beside the fix the entry offers.
+
+Both entries lost their `deferred` sentence, both feature matrix rows are
+`implemented`, and the notes that said neither was raised are gone.

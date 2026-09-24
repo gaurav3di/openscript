@@ -1,0 +1,1 @@
+{"asserts":["drawings"],"category":"surface","description":"setExtend writes both extension flags, and the last write wins.","id":"draw/extend","languageVersion":1,"profile":"chart"}

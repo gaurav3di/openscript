@@ -1,6 +1,6 @@
 # 0001 Specification examples declare names the library already owns
 
-Status: closed 2026-09-20, one edit outstanding
+Status: closed 2026-09-20
 Opened: 2026-09-20
 Decided: 2026-09-20, `spec/decisions.md` entry 22
 Against: `spec/language.md` sections 3.10, 5.2, 7.5, 8.1, 8.2 and 11.4, and

@@ -32,8 +32,9 @@ them there is no value to state.
 
 All of them live in the `draw` namespace and may appear anywhere a statement
 may: inside an `if`, inside a loop, inside a function. They are not part of the
-study's fixed shape, so the top-level rule that governs `plot`, `fill`, `level`
-and `table` (OS3006) does not apply to them.
+study's fixed shape, so they are on the anywhere list of
+[`language.md`](../../spec/language.md) section 15.3 and the top-level rule
+(OS3006) does not apply to them.
 
 | Call | Returns |
 |---|---|
@@ -116,20 +117,20 @@ forever.
 
 | Call | Moves or changes |
 |---|---|
-| `draw.setFrom(obj: line | box, t, p)` | A line's or box's first anchor |
-| `draw.setTo(obj: line | box, t, p)` | Its second anchor |
-| `draw.setBounds(obj: line | box, t1, p1, t2, p2)` | Both anchors in one call |
+| `draw.setFrom(obj: line \| box, t, p)` | A line's or box's first anchor |
+| `draw.setTo(obj: line \| box, t, p)` | Its second anchor |
+| `draw.setBounds(obj: line \| box, t1, p1, t2, p2)` | Both anchors in one call |
 | `draw.setAt(label, t, p)` | A label's anchor |
 | `draw.setPoints(polyline, times, prices)` | A polyline's whole path |
-| `draw.setText(obj: label | box, text)` | A label's or box's caption |
-| `draw.setColor(obj: line | label | box | polyline, color)` | The line or border colour |
-| `draw.setTextColor(obj: label | box, color)` | The text colour |
-| `draw.setFillColor(obj: box | polyline, color)` | A box's or polyline's fill |
-| `draw.setWidth(obj: line | box | polyline, width)` | Line thickness |
-| `draw.setStyle(obj: line, style)` | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setText(obj: label \| box, text)` | A label's or box's caption |
+| `draw.setColor(obj: line \| label \| box \| polyline, color)` | The line or border colour |
+| `draw.setTextColor(obj: label \| box, color)` | The text colour |
+| `draw.setFillColor(obj: box \| polyline, color)` | A box's or polyline's fill |
+| `draw.setWidth(obj: line \| box \| polyline, width)` | Line thickness |
+| `draw.setStyle(obj: line, style)` | The line's style, one of those [`stdlib.md`](../../spec/stdlib.md) section 14.4 lists |
 | `draw.setExtend(line, left, right)` | Whether the line continues to the pane edge |
-| `draw.setTooltip(obj: label | box, text)` | The detail shown on hover |
-| `draw.delete(obj: line | label | box | polyline)` | Removes one object |
+| `draw.setTooltip(obj: label \| box, text)` | The detail shown on hover |
+| `draw.delete(obj: line \| label \| box \| polyline)` | Removes one object |
 | `draw.deleteAll()` | Removes every object this script created |
 | `draw.count()` | How many objects this script currently holds |
 

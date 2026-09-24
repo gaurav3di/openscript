@@ -84,33 +84,51 @@ unknown one are different facts. The engine derives `hl2`, `hlc3`, `ohlc4` and
 and what the engine refuses, is in
 [`spec/host-interface.md`](../../spec/host-interface.md) section 3.
 
+**`run` also takes the history as columns**, one array per field, which is the
+form to reach for over a long range:
+
+```ts
+engine.run({ time, open, high, low, close, volume })
+```
+
+Each is any array-like of numbers, a typed array included, so a store that holds
+bars as columns can hand over views of its own buffers with nothing parsed. A
+typed array cannot hold `null`, so in a column `NaN` is absence as well as
+`null`, and a `NaN` time is a bar with no time. The number of bars is the length
+of `time`, and a shorter column reads as absent past its end. A request's answer
+may arrive as columns in the same shape. `append` and `update` take records,
+because a live bar arrives one at a time.
+
 `run` takes the whole history in one call. `append` adds a bar that has closed,
 and `update` hands the newest bar back with new values, which the engine
 re-executes from the checkpoint at the start of that bar, so a moving bar updated
 ten times gives the same answer as one that arrived once.
 
-**Two things about a series the engine refuses rather than runs on.** A run over
-no bars is OS6010, because a blank pane says nothing and a sentence does. A bar
-whose `time` is not strictly after the one before it is OS6011, naming that bar,
-whether it arrives in a dataset or one at a time: a repeated timestamp and a
-swapped pair both make the history operator, warmup and every session test mean
-something other than what they say, and the study would go on computing and
-drawing. The engine does not sort, deduplicate or repair what it is given, so
-whichever of the two it reports is a fix on your side of the boundary. The cost
+**Three things about a series the engine refuses rather than runs on.** A run
+over no bars is OS6010, because a blank pane says nothing and a sentence does. A
+bar handed over with no `time` at all is OS6025, naming that bar, because a bar
+dated nothing cannot be put in order and would otherwise draw a gap where you
+have data. A bar whose `time` is not strictly after the one before it is OS6011,
+naming that bar, whether it arrives in a dataset or one at a time: a repeated
+timestamp and a swapped pair both make the history operator, warmup and every
+session test mean something other than what they say, and the study would go on
+computing and drawing. The engine does not sort, deduplicate, date or repair what
+it is given, so whichever of the three it reports is a fix on your side of the
+boundary. The cost
 of the check is one comparison per bar handed over, paid where the bars arrive
 and not on every execution.
 
-**This representation costs memory at long ranges, and the cost is known.** One
-object per bar is around three times the memory of columnar typed arrays over a
-decade of one minute data, and it allocates one object per bar for the collector
-to walk. Whether that decides against a long backtest inside a browser tab, and
-what a columnar surface would have to look like instead, is measured and left
-open in
+**Over a long range, hand over columns.** Measured on this engine over 900,000
+one minute bars, about ten years of one market: the records held 104 MB against
+43 MB for six columns of doubles, and a run of a one line study over them peaked
+at 877 MB of heap against 346 MB and took 9.7 seconds against 5.0, most of the
+difference being the collector walking a million objects it could not free.
+Inside a browser tab that is the difference between a backtest that runs and one
+that does not; on a server at that size it decides little. The measurement and
+how it was taken are in
 [`issues/0005-bars-arrive-one-object-per-bar.md`](../../issues/0005-bars-arrive-one-object-per-bar.md).
-Read it before you build a browser backtest over years of minute bars. On a
-server, at the sizes that issue describes, it decides nothing.
 
-Two things worth doing whichever way that goes:
+Two things worth doing whichever form you hand over:
 
 - **Do not hold the parse and the result at once.** Peak memory doubles where a
   response is parsed into one shape and then copied into another. Build the bar

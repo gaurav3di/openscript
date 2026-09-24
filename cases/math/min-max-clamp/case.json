@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"min and max of two values, and clamp of a value between two bounds.","id":"math/min-max-clamp","languageVersion":1,"profile":"core"}

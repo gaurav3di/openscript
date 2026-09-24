@@ -1,0 +1,4 @@
+{
+  "why": "Every library entry the first engine holds and the second does not, as name/arity, each with the reason. Read by scripts/check-manifests.mjs, which compares the two manifests on every build and fails on a gap this file does not record, on a recorded gap that has closed, and on a row with no reason. The list only shrinks, and it is empty: issue 0021 recorded the forty two entries the second engine lacked while it claimed the strategy profile, and closed when the last of them was served. A gap that opens again is a build failure until it is either implemented or recorded here with its reason, and a program calling a recorded entry is refused by the second engine at load with OS6004.",
+  "missing": []
+}

@@ -29,7 +29,10 @@ export interface Civil {
 /** Days from 1970-01-01 to this civil date. */
 export function dayNumber(year: number, month: number, day: number): number {
   const shifted = month <= 2 ? year - 1 : year;
-  const era = Math.floor((shifted >= 0 ? shifted : shifted - 399) / 400);
+  // A floor division, and nothing added to it: the published form subtracts 399
+  // from a negative year so that a truncating division floors, and this one
+  // already does. Doing both put every date before about 1 BCE one day early.
+  const era = Math.floor(shifted / 400);
   const yearOfEra = shifted - era * 400;
   const dayOfYear = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
   const dayOfEra = yearOfEra * 365 + Math.floor(yearOfEra / 4) - Math.floor(yearOfEra / 100) + dayOfYear;
@@ -39,7 +42,7 @@ export function dayNumber(year: number, month: number, day: number): number {
 /** The civil date a day number names, the exact inverse of `dayNumber`. */
 export function dateOfDay(days: number): { year: number; month: number; day: number } {
   const shifted = days + 719468;
-  const era = Math.floor((shifted >= 0 ? shifted : shifted - 146096) / 146097);
+  const era = Math.floor(shifted / 146097);
   const dayOfEra = shifted - era * 146097;
   const yearOfEra = Math.floor(
     (dayOfEra - Math.floor(dayOfEra / 1460) + Math.floor(dayOfEra / 36524) - Math.floor(dayOfEra / 146096)) / 365,

@@ -22,6 +22,7 @@ have a bug rather than an optimisation.
 import math
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
+from .arrays import Refused, element, literal
 from .budget import Budget
 from .contracts import CallContext, Library
 from .diagnostics import NO_POSITION, Position, raise_at
@@ -29,13 +30,11 @@ from .memory import Cells, Channels, Frame, Register, States, read_history
 from .program import LoadedProgram
 from .values import (
     ABSENT,
-    ArrayValue,
     conjunction,
     disjunction,
     equal,
     finite,
     is_number,
-    is_whole,
     negation,
     ordered,
     stored,
@@ -411,31 +410,18 @@ class Machine:
         count = instruction[1]
         held = frame.stack[len(frame.stack) - count :] if count else []
         del frame.stack[len(frame.stack) - count :]
-        # A new array every time it executes, which is why an array literal is
-        # not a constant pool entry.
-        frame.stack.append(ArrayValue(list(held)))
+        frame.stack.append(self._positioned(literal, held))
 
     def _element(self, frame: Frame, instruction: Sequence[Any]) -> None:
         index = frame.stack.pop()
-        array = frame.stack.pop()
-        size = len(array.elements) if isinstance(array, ArrayValue) else 0
-        usable = (
-            isinstance(array, ArrayValue)
-            and is_whole(index)
-            and 0 <= index < size
-        )
-        if not usable:
-            # The opposite of a history read past the start of the dataset, and
-            # the difference is the point: an array has an extent the script
-            # chose, so an index outside it is a mistake.
-            raise_at(
-                "OS4004",
-                self.here(),
-                index="none" if index is ABSENT else str(index),
-                name="the array",
-                size=size,
-            )
-        frame.stack.append(array.elements[int(index)])
+        frame.stack.append(self._positioned(element, frame.stack.pop(), index))
+
+    def _positioned(self, call: Callable[..., Any], *arguments: Any) -> Any:
+        """An array refusal (``arrays.py``) given the position of the instruction."""
+        try:
+            return call(*arguments)
+        except Refused as refused:
+            return raise_at(refused.code, self.here(), **refused.values)
 
     # -- calls -------------------------------------------------------------------
 
@@ -457,7 +443,7 @@ class Machine:
         # back a string it did not make, and refusing that would refuse the host
         # its own symbol for being long.
         self.budget.measured(self.here(), self.library.length_of(entry.name, arguments))
-        answer = self.library.call(entry.name, list(arguments), region, self.context)
+        answer = self._positioned(self.library.call, entry.name, list(arguments), region, self.context)
         if isinstance(answer, str) and self.library.builds_a_string(entry.name):
             self.budget.text(self.here(), answer)
         frame.stack.append(stored(answer))

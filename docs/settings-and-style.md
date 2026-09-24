@@ -15,7 +15,7 @@ the compiler fixes before bar 0.
 | Half | Built from | Changes |
 |---|---|---|
 | Inputs | Your `input()` calls, in source order | The values the calculation reads |
-| Style | The fixed drawing surface: every `plot`, `fill`, `level` and `table` | How the same numbers look |
+| Style | The fixed drawing surface: every `plot`, and every other drawing call [../spec/language.md](../spec/language.md) section 15.3 makes top level only | How the same numbers look |
 
 The split is the point. The Inputs half changes what the study computes, so a
 value there belongs to the script's author, who chose its bounds and its default.
@@ -45,16 +45,9 @@ Every value here is a compile-time constant, because the pane, the axis and the
 legend exist before the first bar runs. An `input()` counts as a constant, so any
 of these can be handed to the reader.
 
-| Option | Type | Default | Decides |
-|---|---|---|---|
-| `title` | `string` | required | The name in the legend and in the picker |
-| `short` | `string` | `title` | A shorter legend name, for a crowded chart |
-| `overlay` | `bool` | `false` | `true` draws on the price pane, `false` gives the study its own pane |
-| `precision` | `number` | `4` | Decimals on this study's axis and legend, 0 to 10 |
-| `format` | `string` | `"price"` | `"price"`, `"percent"` or `"volume"` formatting on the axis and crosshair |
-| `range` | `array<number>` | absent | `[min, max]` to fix the pane's scale, as in `[0, 100]` |
-| `scale` | `string` | `"right"` | `"right"`, `"left"` or `"none"` |
-| `group` | `string` | `""` | Category in the picker |
+The options themselves, with the type, the default and the meaning of each, are
+the table in [../spec/language.md](../spec/language.md) section 13.2, "study
+options".
 
 ```
 version 1

@@ -26,7 +26,7 @@
  * ## A number outside every declared block is not a code
  *
  * `errors.json` declares which thousand blocks exist, and no entry is ever
- * numbered outside them. So OS0001 and OS9999 are not codes that have gone
+ * numbered outside them. So OS0001 and OS0999 are not codes that have gone
  * missing: they are numbers the catalogue could never hold. Four checks in this
  * repository need exactly that, because each tests its own rules against a
  * fabricated entry on every run, and a fabricated entry taken from the real

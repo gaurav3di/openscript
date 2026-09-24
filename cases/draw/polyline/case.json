@@ -1,0 +1,1 @@
+{"asserts":["drawings"],"category":"surface","description":"A polyline copies its path from two arrays at the call, and a later push does not move it.","id":"draw/polyline","languageVersion":1,"profile":"chart"}

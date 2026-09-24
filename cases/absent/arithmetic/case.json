@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"Arithmetic with an absent operand is absent, and the same expression is a number once both operands are present.","id":"absent/arithmetic","languageVersion":1,"profile":"core"}

@@ -111,3 +111,25 @@ test('a position 5.4 does not list refuses a handle as well', () => {
   assert.deepEqual(codes(`${PLOT}p`), ['OS2003']);
   assert.deepEqual(codes(`${PLOT}x = orElse(p, none)\nprint(x)`), ['OS2003']);
 });
+
+// Catches a checker that treats a declaration handle like any other value: the
+// catalogue's OS8010 cause exempts one, and a three rail study that names all
+// three rails alike is the shape `stdlib.md` 14.2 calls legal. A checker that
+// exempted only fill and level, the two that sentence names, fails the plot.
+test('a named handle nothing reads is not OS8010, whichever call made it', () => {
+  const body = [
+    'topRail = plot(high, "Top", red)',
+    'lowRail = plot(low, "Low", blue)',
+    'middle = plot(hl2, "Middle", orange)',
+    'shade = fill(topRail, lowRail, gray)',
+    'mark = level(100, "Mark", gray)',
+  ].join('\n');
+  assert.deepEqual(codes(body), []);
+});
+
+// Catches the exemption swallowing the warning it sits beside: a value that is
+// computed on every bar and never read is still OS8010.
+test('an unread value next to unread handles is still OS8010', () => {
+  const body = 'middle = plot(hl2, "Middle", orange)\nunused = close * 2';
+  assert.deepEqual(codes(body), ['OS8010']);
+});

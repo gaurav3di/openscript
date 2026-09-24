@@ -1,6 +1,6 @@
 # 0004 Sixty-six value sets are written out in more than one file
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Against: `spec/` and `docs/`
 Severity: no document contradicts another today, and several will as soon as one
@@ -122,3 +122,36 @@ closes when only the eight vocabulary entries remain.
 - `pos.isFlat`, `pos.isLong`, `pos.isShort`
 - `short`, `string`, `title`
 - `teal`, `white`, `yellow`
+
+## How it closed
+
+Every one of the sixty six sets has one home, and `spec/value-set-exceptions.json`
+holds the eight vocabulary entries and nothing else, which is the condition this
+file set.
+
+Three things were done, in this order.
+
+**The check was held to its own rule first.** Its header already said that using
+a value is not enumerating a set, and it read code anyway: a study's own option
+list, `options = ["topLeft", "topRight", ...]`, is a script's choice of what to
+offer and stays true if the language adds a fifth corner. So a fenced block and a
+script file are no longer read. Nor is `spec/decisions.md`, which says of itself
+that it is the minutes and not a source of truth: a set quoted there is the
+record of an edit made elsewhere, and rewriting the minutes to cite the page
+would erase what was decided. Those two exclusions retired nine of the sixty six
+without an edit, and each is stated in the check's header.
+
+**The check gained the other direction.** A recorded set that is no longer
+written out twice now fails the build, so a row that has been earned out cannot
+stay in the file. Before, nothing said so and the list could only be trusted as
+far as someone remembered to prune it.
+
+**Then the rest were given homes.** A set's home is the page that defines it,
+the specification before the documentation, and every other site cites it by
+document and section rather than restating it, and does not replace the list
+with a count of its members either, because the count is the same fact. Where a
+documentation table was a copy of a specification table, the options of
+`study()` and of `strategy()`, the copy became one sentence citing it. The six
+incompatible versions of the list of top level calls all cite `language.md` 15.3,
+which says of itself that it is the only place those lists are written down; two
+of the six had drifted from it, one filing `input` under the wrong code.

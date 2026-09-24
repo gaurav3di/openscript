@@ -20,6 +20,12 @@
  * would write are the channels this engine answers. A channel the case asserts
  * and that file does not hold is reported `unsupported`, by name.
  *
+ * The one exception is `values`, which section 4 puts in `expected.csv` and a
+ * record does not hold: a curve per plot is bytes every run would carry to serve
+ * the few cases that ask. So a case asserting it is run with the rows kept
+ * beside the record, and `case-values.mjs` projects them, to the second engine's
+ * rules, which that adapter wrote first.
+ *
  * ## The frames are the case's, and this engine folds them
  *
  * Section 3 says `frames.csv` supplies order frames the way `bars.csv` supplies
@@ -69,14 +75,23 @@
  * - A compile warning is not in the diagnostics channel, because the record a
  *   harvested case is projected from holds what a run raised; a `warning`
  *   category case is therefore `unsupported`.
- * - `ticks.csv` and a secondary series are `unsupported`: a backtest replays
- *   no intrabar update and serves no series but its own.
+ * - `ticks.csv` is `unsupported`: a backtest replays no intrabar update.
+ *
+ * ## A read of another instrument is the case's file
+ *
+ * Section 3 serves one from `bars.<SYMBOL>.csv`, never from a provider that
+ * reaches outside the directory, and a read whose file is missing is a case
+ * failure. `case-reads.mjs` is that host, handed to the run as its request
+ * provider, and the file it could not serve is this adapter's `error`.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { suiteDefaultFacts } from './case-directory.mjs';
+import { caseReads } from './case-reads.mjs';
 import { readCaseDirectory } from './case-reading.mjs';
 import { compareChannels, toleranceFrom } from './compare.mjs';
+import { readExpectedCsv, reported, valuesAnswer, valuesExpected } from './case-values.mjs';
+import { DRAWINGS, TABLE, drawingsAnswer, tableAnswer } from './case-surface.mjs';
 import { CONTRACT, isStrategy, missingCapability } from './strategy-drive.mjs';
 
 /** The name section 2 fixes for the source inside a case. */
@@ -91,6 +106,12 @@ const BACKTEST = 'backtest.json';
 
 /** The three fields that file holds, and no other. */
 const BACKTEST_FIELDS = ['digits', 'costs', 'range'];
+
+/** Section 4's one columnar channel, written in `expected.csv` rather than `expected.json`. */
+const VALUES = 'values';
+
+/** The lines `print` wrote, which a record does not hold either. */
+const LOG = 'log';
 
 /** The category whose diagnostics this engine's record does not carry. */
 const WARNING = 'warning';
@@ -121,13 +142,8 @@ export function caseAnswer(directory, engine) {
   if (!read.ok) return { id: null, error: read.reason };
   const { declared } = read;
   const id = declared.id;
-  const answer = (channels, unsupported) => ({
-    id,
-    declared,
-    expected: read.expected,
-    channels,
-    unsupported,
-  });
+  let expected = read.expected;
+  const answer = (channels, unsupported) => ({ id, declared, expected, channels, unsupported });
 
   const unsupported = [];
   if (!engine.core.LANGUAGE_VERSIONS.includes(declared.languageVersion)) {
@@ -140,9 +156,6 @@ export function caseAnswer(directory, engine) {
     );
   }
   if (read.ticks) unsupported.push('ticks.csv (section 3): this backtest replays no intrabar update');
-  for (const name of read.secondary) {
-    unsupported.push(`${name} (section 3): this backtest holds its own bars and serves no other series`);
-  }
   const undelivered = undeliverable(read.frameRows, read.bars);
   if (undelivered !== null) unsupported.push(undelivered);
   if (unsupported.length > 0) return answer({}, unsupported);
@@ -179,7 +192,16 @@ export function caseAnswer(directory, engine) {
     range: folded.value.range,
     ...(declared.now === undefined ? {} : { now: declared.now }),
   });
-  const driving = { sourceText: read.script, instrument: facts };
+  // Section 4 puts the values channel in expected.csv, one row per bar, so a
+  // case asserting it is run with the rows kept and has that file read.
+  const wantsValues = declared.asserts.includes(VALUES);
+  const wantsLog = declared.asserts.includes(LOG);
+  const wantsSurface = declared.asserts.includes(DRAWINGS) || declared.asserts.includes(TABLE);
+  const reads = caseReads(directory, read.secondary, engine.vocabulary.barsHeader);
+  const driving = {
+    sourceText: read.script, instrument: facts, rows: wantsValues, log: wantsLog, surface: wantsSurface,
+    requestBars: reads.provider,
+  };
   // Section 3: the file supplies the frames, and a case that holds none is
   // handed none. The second driver delivers what it is given and answers
   // nothing of its own, which is the whole difference between the two.
@@ -187,6 +209,7 @@ export function caseAnswer(directory, engine) {
     read.frameRows === null
       ? engine.core.backtest(compiled.program, read.bars, settings, driving)
       : engine.core.backtestSupplied(compiled.program, read.bars, settings, read.frameRows, driving);
+  if (reads.problem() !== null) return { id, error: reads.problem() };
   if (!run.ok) {
     const capability = missingCapability(run.diagnostic);
     if (capability !== null) {
@@ -202,7 +225,27 @@ export function caseAnswer(directory, engine) {
   const columns = columnProblem(read.frames, made.files[FRAMES] ?? null);
   if (columns !== null) return { id, error: columns };
   const channels = {};
+  if (wantsValues) {
+    const csv = read.expectedCsv === null ? null : readExpectedCsv(read.expectedCsv);
+    if (csv === null) return { id, error: 'the case asserts values and holds no expected.csv, which section 4 says is where they are written' };
+    if (!csv.ok) return { id, error: csv.reason };
+    const projected = valuesAnswer(csv.columns, compiled.program, run.rows ?? []);
+    unsupported.push(...projected.unsupported);
+    channels[VALUES] = projected.values;
+    const wanted = valuesExpected(csv, compiled.program);
+    if (wanted.ok) expected = { ...(expected !== null && typeof expected === 'object' ? expected : {}), [VALUES]: wanted.values };
+    else if (!wanted.ok && projected.unsupported.length === 0) return { id, error: wanted.reason };
+  }
+  if (wantsLog) {
+    channels[LOG] = (run.log ?? []).map((line) => ({ barIndex: line.barIndex, time: line.time, value: reported(line.value) }));
+  }
+  if (wantsSurface) {
+    const surface = run.surface ?? { drawings: [], tables: [] };
+    if (declared.asserts.includes(DRAWINGS)) channels[DRAWINGS] = drawingsAnswer(surface);
+    if (declared.asserts.includes(TABLE)) channels[TABLE] = tableAnswer(surface, compiled.program);
+  }
   for (const channel of declared.asserts) {
+    if (channel === VALUES || channel === LOG || channel in channels) continue;
     if (channel in produced) channels[channel] = produced[channel];
     else unsupported.push(`the ${channel} channel: this engine's projection writes ${Object.keys(produced).join(', ')}`);
   }

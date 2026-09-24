@@ -43,7 +43,7 @@
  * a number which drops is something somebody sees rather than something they
  * have to suspect.
  */
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 
 /**
  * Not this project, at any depth.
@@ -62,8 +62,29 @@ import { readdirSync } from 'node:fs';
  * was worse than useless: the second engine's own documented command wrote 40
  * of them and the next `npm test` refused the tree, so the gate failed for
  * having been used.
+ *
+ * A name here is left out whether it is a directory or a file. In a second
+ * working tree of the same repository, `.git` is a one-line file pointing at the
+ * store rather than the store itself, and walking it as a file put version
+ * control's pointer in front of every check: the no-eval check refused the tree
+ * as holding a file it could not place.
  */
 export const NOT_THE_PROJECT = new Set(['.git', 'node_modules', '__pycache__']);
+
+/**
+ * Whether a directory below the root is a checkout of its own.
+ *
+ * A directory holding its own `.git`, a directory for a clone and a file for a
+ * second working copy of this repository, is another tree: version control will
+ * not commit its files into this one, so no rule of this project can be broken
+ * there that reaches a release. Walking it was not harmless either. A second
+ * working copy kept inside this one, which is how a branch is worked on beside
+ * another, made every check read the project twice and fail the copy against
+ * ceilings recorded by path for the original.
+ */
+export function isAnotherCheckout(dir) {
+  return dir !== '' && existsSync(`${dir}/.git`);
+}
 
 /**
  * Built output, which is the project's but is built rather than written.
@@ -72,8 +93,14 @@ export const NOT_THE_PROJECT = new Set(['.git', 'node_modules', '__pycache__']);
  * the no-eval check reads it because it is what a runtime really executes, and
  * refuses to pass if it is not there. The rules about how a file is written
  * apply to the file somebody wrote, not to the compiler's rendering of it.
+ *
+ * `site` is the documentation site `npm run site` writes: pages and one
+ * stylesheet rendered from `docs/`, `spec/` and the error catalogue, each of
+ * which every check that reads the tree reads at its source. Nothing in it
+ * runs, and `check-site.mjs` builds its own copy in memory rather than trusting
+ * whatever was last written there, so no check walks it.
  */
-export const BUILT_OUTPUT = new Set(['dist', 'dist-test']);
+export const BUILT_OUTPUT = new Set(['dist', 'dist-test', 'site']);
 
 /**
  * Every file in the project: written or generated, committed or not.
@@ -96,7 +123,7 @@ export function filesUnder(dir) {
   return walk(dir, []).sort();
 }
 
-/** Every file under a directory, with the two named exclusions applied. */
+/** Every file under a directory, with the named exclusions and any nested checkout left out. */
 function walk(dir, out) {
   let entries;
   try {
@@ -106,12 +133,13 @@ function walk(dir, out) {
   }
   for (const entry of entries) {
     const full = dir === '' ? entry.name : `${dir}/${entry.name}`;
+    if (NOT_THE_PROJECT.has(entry.name)) continue;
     if (!entry.isDirectory()) {
       out.push(full);
       continue;
     }
-    if (NOT_THE_PROJECT.has(entry.name)) continue;
     if (dir === '' && BUILT_OUTPUT.has(entry.name)) continue;
+    if (isAnotherCheckout(full)) continue;
     walk(full, out);
   }
   return out;

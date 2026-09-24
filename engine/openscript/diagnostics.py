@@ -9,6 +9,12 @@ the sentences out again would be a second place for them to be wrong. A host
 that wants the prose has the catalogue; what the conformance suite compares is
 the code, the line, the column and the severity, and those are all here.
 
+The one place a sentence is carried is ``reasons.py``, and it is not a
+diagnostic: ``req.error`` hands a script the reason a read failed as a string
+value, the first engine's is the catalogue's message, and a value two engines
+spell differently is a disagreement on every bar that reads it. Six templates,
+each held to ``spec/errors.json`` by ``tests/test_request_host.py``.
+
 The placeholder names are held to the catalogue by a test rather than by
 attention: a name this engine invents is a message with a hole in it, and the
 hole would only ever be seen by the user it was written for.

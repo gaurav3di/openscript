@@ -1,6 +1,6 @@
 # 0012 A bar with no time is accepted and the catalogue has no code for it
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Against: `spec/host-interface.md` sections 3.1 and 3.5, `spec/errors.json`
 entries OS6010 and OS6011, and `src/core/engine/series.ts`
@@ -63,3 +63,21 @@ together.
 A bar handed over with no time, through the page host's own shape, asserted on
 the code and on the bar it names. The test cannot be written until the case has a
 code, which is the whole of this issue.
+
+## How it closed
+
+Option 1, recorded as decision 69: OS6025, "A bar has no time", raised as the bar
+is handed over and before any step runs, naming the bar, with the fix this file
+proposed. A time that is not a finite number is no time either. The answer is the
+opposite of issue 0002's, and the decision says why: a bar's time is the one
+field of section 3.1 with no absent case, where an instrument fact is optional by
+the table that lists it.
+
+Writing it found that the second engine raised neither this nor OS6011: its
+`execute_bar` ran whatever it was handed. Both refusals are now in
+`engine/openscript/run.py`, with the same values as the first engine's, so the
+two agree about a series the suite has no case for.
+
+Tests: `tests/engine/series.test.ts` holds a dataset with an undated bar and a
+revision that loses its time, and `engine/tests/test_hand_over.py` holds both
+codes, a revision held to the bar before it, and an ordinary series accepted.

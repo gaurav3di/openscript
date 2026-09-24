@@ -151,25 +151,30 @@ def ordered(left: Any, right: Any) -> Any:
 #: The three valued conjunction of ``language.md`` section 6.6, as a table.
 #:
 #: Written out rather than computed so that the page and the code are read side
-#: by side. Each table holds only the cases its short circuit leaves to it:
-#: ``AND_SHORT`` has already decided a false left operand, ``OR_SHORT`` a true
-#: one, and absence on the left short circuits neither because the other side
-#: can still decide the answer by itself. A pair neither table holds cannot
-#: arise once the short circuit has run, and a program that produced one is
-#: corrupt rather than unusual, so it is answered with absence rather than with
-#: a row this page never wrote.
+#: by side. Both tables are total, as ``compiled-program.md`` section 4.7 now
+#: states: the compiler emits ``AND`` and ``OR`` with no short circuit before
+#: them where neither operand can have an effect, the values of a ``switch``
+#: case among them, so the rows a short circuit would have decided do arrive
+#: here. They once did not exist in this file, and a ``case 1, 2`` matched only
+#: its last value, because ``true or false`` answered absence.
 _ABSENT_KEY = "absent"
 
 _AND = {
     (True, True): True,
     (True, False): False,
     (True, _ABSENT_KEY): ABSENT,
+    (False, True): False,
+    (False, False): False,
+    (False, _ABSENT_KEY): False,
     (_ABSENT_KEY, True): ABSENT,
     (_ABSENT_KEY, False): False,
     (_ABSENT_KEY, _ABSENT_KEY): ABSENT,
 }
 
 _OR = {
+    (True, True): True,
+    (True, False): True,
+    (True, _ABSENT_KEY): True,
     (False, True): True,
     (False, False): False,
     (False, _ABSENT_KEY): ABSENT,

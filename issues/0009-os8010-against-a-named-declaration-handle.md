@@ -1,6 +1,6 @@
 # 0009 OS8010 is reported for a named declaration handle the catalogue exempts
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Found by: the phase three gate, writing a band study whose three rails are named
 symmetrically
@@ -78,3 +78,18 @@ Every band study in `tests/gate/studies/` names only the handles it passes to
 `fill` and leaves the middle rail's `plot` call unnamed. That is a workaround
 for this issue and not a preference, and it should be reverted when this is
 fixed.
+
+## How it closed
+
+The check gained the exemption the catalogue describes, and by type rather than
+by call: `reportNamesNeverRead` in `src/core/check/check.ts` skips a binding
+whose type is a declaration handle, which covers `plot`, `plotCandles`, `fill`
+and `level` alike, as `language.md` 5.4 gives them one kind of value. The
+catalogue and `stdlib.md` 14.2 needed no edit, because they already said this.
+
+The workaround is reverted: the six three rail studies under
+`tests/gate/studies/scripts/` name their middle rail `basisRail`, and the gate
+compiles every one of them with nothing reported, which is now the regression
+test from the outside. `tests/unit/check-handles.test.ts` holds all four handle
+kinds named and unread with no warning, and an unread value beside them still
+reported as OS8010.

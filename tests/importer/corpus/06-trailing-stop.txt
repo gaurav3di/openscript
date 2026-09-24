@@ -1,0 +1,30 @@
+//@version=5
+indicator("ATR trailing stop", overlay = true)
+
+atrLength = input.int(14, "ATR length")
+multiplier = input.float(2.5, "Multiplier")
+useWicks = input.bool(false, "Trail from wicks")
+
+atr = ta.atr(atrLength)
+longSource = useWicks ? low : close
+shortSource = useWicks ? high : close
+
+var float stop = na
+var int trend = 1
+
+if trend == 1
+    stop := math.max(nz(stop, longSource - multiplier * atr), longSource - multiplier * atr)
+    if close < stop
+        trend := -1
+        stop := shortSource + multiplier * atr
+else
+    stop := math.min(nz(stop, shortSource + multiplier * atr), shortSource + multiplier * atr)
+    if close > stop
+        trend := 1
+        stop := longSource - multiplier * atr
+
+// A fresh signal only counts when volume confirms it, measured on every bar.
+confirmed = trend != trend[1] and volume > ta.sma(volume, 20)
+
+plot(stop, "Stop", color = trend == 1 ? color.green : color.red, linewidth = 2, style = plot.style_linebr)
+plotshape(confirmed, title = "Flip", style = shape.diamond, location = location.abovebar, color = color.yellow)

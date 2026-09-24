@@ -13,8 +13,9 @@ background(color)       // shade the full height of this bar's column, behind ev
 ```
 
 Both may appear anywhere: inside an `if`, inside a loop, inside a function. They
-are per-bar paint, not part of the study's fixed shape, so the top level rule
-that governs `plot`, `fill`, `level` and `table` does not apply to them.
+are per-bar paint, not part of the study's fixed shape, so they are on the
+anywhere list of [`language.md`](../../spec/language.md) section 15.3 and the top
+level rule (OS3006) does not apply to them.
 
 | | `barColor(color)` | `background(color)` |
 |---|---|---|

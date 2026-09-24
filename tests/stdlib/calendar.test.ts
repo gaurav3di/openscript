@@ -53,6 +53,27 @@ test('a day number and a civil date are exact inverses of each other', () => {
   }
 });
 
+test('every year is its own length on both sides of year zero, and a day number reads back', () => {
+  // Catches a floor applied twice to a negative era: the published algorithm
+  // subtracts 399 so that a truncating division floors, and doing that on top
+  // of a division that already floors put every date before about 1 BCE one
+  // day early and let the inverse name the wrong date, while every modern date
+  // stayed right. The second engine counted those days correctly, so the two
+  // disagreed about a script that dated anything that far back.
+  const leap = (year: number): boolean => (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  for (let year = -1200; year <= 1200; year += 1) {
+    const length = dayNumber(year + 1, 1, 1) - dayNumber(year, 1, 1);
+    assert.equal(length, leap(year) ? 366 : 365, `the length of year ${year}`);
+  }
+  // Year zero is a leap year in the proleptic calendar, and 1 March of it is
+  // the day the algorithm's internal count begins.
+  assert.equal(dayNumber(0, 3, 1), -719468);
+  for (const days of [-719468, -719469, -720199, -865565, -1000000, -146097 * 3 - 1]) {
+    const { year, month, day } = dateOfDay(days);
+    assert.equal(dayNumber(year, month, day), days, `day ${days}`);
+  }
+});
+
 test('the epoch was a Thursday and the week numbers Monday as 1', () => {
   assert.equal(weekdayOfDay(dayNumber(1970, 1, 1)), 4);
   // A whole week, so a run of seven covers every day exactly once and the wrap

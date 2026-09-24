@@ -499,19 +499,19 @@ The `frequency` argument of `alert`.
 
 ## Library vocabularies
 
-Small closed sets that belong to one function each, gathered so a reader does not
-have to find the function first.
+Small closed sets that belong to one function each. Where the specification
+writes a set out, the row says where rather than copying it.
 
 | Vocabulary | Values | Used by |
 |---|---|---|
-| Moving average type | `"sma"`, `"ema"`, `"wma"`, `"rma"`, `"hma"`, `"vwma"` | `ma(src, len, type)` |
+| Moving average type | The types the `ma` row of [`stdlib.md`](../../spec/stdlib.md) section 4 names | `ma(src, len, type)` |
 | Keltner basis type | `"ema"` and the same set | `keltner(..., maType)` |
 | Sort order | `"asc"`, `"desc"` | `sort(arr, order)` |
-| Input kind | `"interval"`, `"time"`, `"symbol"`, `"price"`, `"session"` | `input(..., kind)` |
+| Input kind | The kinds the `kind` row of [`stdlib.md`](../../spec/stdlib.md) section 13.3 names | `input(..., kind)` |
 
 `ma(src, len, type = "sma")` exists precisely so that a `select` input can switch
-the shape of a study without the script writing a `switch` over six calls, each of
-which would be its own call site with its own state.
+the shape of a study without the script writing a `switch` over one call per type,
+each of which would be its own call site with its own state.
 
 ```
 version 1

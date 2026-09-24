@@ -85,6 +85,8 @@ do.
   front of traders: what the language gives it and what stays yours
 - [library-vectors.md](./library-vectors.md), for checking a library written in
   another language against this engine, bit for bit, before the suite
+- [the-documentation-site.md](./the-documentation-site.md), for building these
+  pages and the specification into a website you can serve beside your own help
 - [`spec/host-interface.md`](../../spec/host-interface.md), the contract
 - [`spec/conformance.md`](../../spec/conformance.md), how you prove an
   implementation is correct

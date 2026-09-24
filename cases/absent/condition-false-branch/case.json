@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"A condition that is absent takes the false branch of an if and of a ternary.","id":"absent/condition-false-branch","languageVersion":1,"profile":"core"}

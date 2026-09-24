@@ -203,9 +203,10 @@ plot(avg(window), "Rolling mean of the last 500 bars", aqua)
 Two neighbouring errors have the same root and are worth knowing together.
 OS4004 is an index outside the array, which is an error rather than absence
 because an array has an extent the script chose. OS4006 is taking an element
-from an empty array with `pop`, `shift`, `min`, `max` or `avg`, which has no
-answer; returning absence there would let a script drain an array without
-noticing.
+from an empty array, which has no answer; returning absence there would let a
+script drain an array without noticing.
+[../language/collections.md](../language/collections.md) names the calls it
+covers, under "The errors, and why an index is an error".
 
 **Not raised yet.** OS4006 is in the catalogue and nothing raises it: an element
 taken from an empty array raises the broader OS4004, and summarising one returns

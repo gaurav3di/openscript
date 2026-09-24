@@ -1,0 +1,1 @@
+{"asserts":["log"],"category":"log","description":"Every line print writes carries the index and the time of the bar it was written on, in the order the bars wrote them, an absent value included.","id":"log/bar-context","languageVersion":1,"profile":"core"}

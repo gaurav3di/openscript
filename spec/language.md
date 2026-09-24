@@ -926,8 +926,8 @@ assigns.
 
 Every library function that reads a window of bars propagates absence: if any bar
 in the window is absent, the result for that bar is absent. Functions that
-deliberately ignore absent values are named for it, and there are exactly three
-in version 1: `sumSkip`, `avgSkip` and `countPresent`.
+deliberately ignore absent values are named for it, and `stdlib.md` section 2.4
+lists the ones version 1 has.
 
 ```
 sma(close, 20)          // none until 20 bars exist, and none after any gap
@@ -1809,6 +1809,18 @@ literals, or a call to `input()`. An option that depends on a bar's data is OS30
 because a settings dialog and a legend are built before the first bar runs. An
 `input()` is a constant for this purpose, because it is resolved before bar 0.
 
+**An `input()` counts as the whole of the value and not as a term inside a larger
+one.** `precision = input(2, "Decimals")` and `precision = decimals`, where
+`decimals` holds an input, are admissible. `precision = decimals + 1` and
+`opacity = shade ? 1 : 0` are not, and are OS3025: the compiled program carries a
+field fixed before bar 0 as its value or as a reference to one input
+(`compiled-program.md` 2.3), and an expression over a setting is neither. The
+resolved value then has to be one the field accepts, which is checked at load
+(OS6019). A script that wants a tunable field declares the setting as that field:
+a slider for the opacity rather than a switch computed into one. The same holds
+for every field fixed before bar 0, wherever it is written, and more tightly for
+an input's own default, bounds and step, which read no setting at all.
+
 | Option | Type | Default | Means |
 |---|---|---|---|
 | `title` | `string` | required | The name in the legend and the picker. First positional argument |
@@ -1906,6 +1918,12 @@ mid-run (`host-interface.md` section 8.2), so a `var` nothing assigns to holds
 exactly what the plain form holds; what the word buys is the assignment. A `var`
 is therefore not a compile-time constant: it is OS3003 in a declaration option
 and OS6003 inside a read's expression, like any other per-bar name.
+
+**One option it cannot reach.** A plot's `style` is carried in the compiled
+program as a plain string rather than as a value or an input reference
+(`compiled-program.md` section 2.3), so an input written into it has nowhere to
+go: it is OS3026, and the style is written out. Every other declaration option
+takes a setting as the whole of its value (section 13.2).
 
 **Its title names it.** The title is the row's label in the settings dialog and,
 for an input written where a value belongs, its settings key
@@ -2140,6 +2158,11 @@ the diagnostic.
 
 Codes OS1xxx to OS7xxx stop compilation or stop the bar. OS8xxx warnings never
 stop anything; they are reported on the line and in the editor's gutter.
+
+One more range, OS9xxx, is not about an OpenScript file at all. It is the
+importer's, which reads a script written in another chart language and writes
+it as OpenScript, and its findings point into the script it read. The language
+defines nothing there; `errors.md` part 8.9 catalogues the codes.
 
 `errors.md` is the catalogue and the authority. The build fails if the compiler can
 emit a code with no catalogue entry, or if an entry has no test that produces it,

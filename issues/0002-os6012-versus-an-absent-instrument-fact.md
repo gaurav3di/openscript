@@ -1,6 +1,6 @@
 # 0002 OS6012 and an absent instrument fact cannot both describe one read
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Against: `spec/errors.md` OS6012 with `spec/errors.json` entry OS6012, and
 `spec/stdlib.md` sections 3.4 and 8.1
@@ -85,3 +85,21 @@ source of the facts is decided and the behaviour of the read is not.
 Option 1 is recommended, and it is one edit to one catalogue entry in two files
 plus the matrix row. It is written here rather than applied because the entry and
 the row belong to different owners and the decision record reserved it.
+
+## How it closed
+
+Option 1, recorded as decision 66 in `spec/decisions.md`. A bare read of an
+instrument fact the host did not state is absent and never OS6012; OS6012 is
+raised only by something that cannot default the fact, which in version 1 is the
+instrument record refused at load. The engine needed no change, because that is
+what it already did: the catalogue entry, the page around it and the matrix row
+were the only things on the other side.
+
+The entry in both catalogue files now names what the record lacks, says in its
+cause that a bare read is absent, and shows the host input that fails and the one
+that passes, since the refusal is about a record rather than a script. The
+matrix preamble paragraph that named this issue and the row `chart/tick-and-lot`
+state one behaviour. `examples/06-combined-premium.oscript` keeps its bare read
+and says, in a comment, that on a host with no lot size its money line is a gap.
+`tests/engine/instrument-facts.test.ts` holds a bare read of both facts with
+neither stated, answering `none` and stopping nothing.

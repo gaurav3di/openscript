@@ -129,10 +129,12 @@ class Capabilities(unittest.TestCase):
         self.assertEqual(found.values["location"], "requires")
         self.assertIn("arrays", found.values["reason"])
 
-    def test_the_machine_serves_five_tags_and_names_the_rest_as_someone_elses(self):
+    def test_the_machine_serves_six_tags_and_names_the_rest_as_someone_elses(self):
+        # req.timeframe is the machine's because a run folds its own bars for
+        # it; req.symbol is not, because only a provider can serve it.
         self.assertEqual(
             sorted(MACHINE_CAPABILITIES),
-            ["alerts", "arrays", "core.1", "functions", "loops"],
+            ["alerts", "arrays", "core.1", "functions", "loops", "req.timeframe"],
         )
 
 

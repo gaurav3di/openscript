@@ -23,8 +23,9 @@
  *
  * 2. **Does the descriptor carry as many of each as the program declares?** A
  *    smaller number is allowed only where the record states the limit and says
- *    why. One grid out of two is the real case, and it is the chart's own
- *    contract that has one hook rather than a decision made here.
+ *    why, and what the chart has no room for at all, a second grid or a band
+ *    coloured per bar, is refused with OS6024 by a probe of its own in
+ *    `lib/chart-refusals.mjs` rather than dropped.
  *
  * 3. **Does a setting the host stored reach the declaration it was written
  *    into?** An `input()` may be a declaration option, and until this check was
@@ -55,6 +56,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { CHART_ADAPTER_MODULE as ADAPTER_MODULE, CORE_MODULE, EMITTER_MODULE, fromRoot } from './lib/built.mjs';
+import { refusalProblems } from './lib/chart-refusals.mjs';
 
 const RECORD_PATH = 'spec/chart-narrowings.json';
 
@@ -87,10 +89,8 @@ if close < open
     signal("DOWN", shape = "triangleDown", at = "above", color = red)
 
 first = table("First", 1, 2, position = "topLeft", bgColor = navy, borderWidth = 1)
-second = table("Second", 1, 1, position = "bottomRight")
 cell(first, 0, 0, "close", textColor = white)
 cell(first, 0, 1, text(close, 2))
-cell(second, 0, 0, text(open, 2))
 
 if close > open
     alert("up at " + text(close, 2), id = "up", title = "Went up")
@@ -288,6 +288,7 @@ for (const output of limits.keys()) {
     problems.push(`${RECORD_PATH} limits outputs.${output}, which this check does not count.`);
   }
 }
+problems.push(...refusalProblems({ core, emitter, adapter, record, recordPath: RECORD_PATH, bars: data, ctx }));
 
 /**
  * 3. What was carried is read back out of a run.
@@ -463,6 +464,7 @@ if (process.argv.includes('--list')) {
   for (const one of record.counts ?? []) {
     console.log(`${one.output}: ${one.carries} of however many are declared. ${one.why}`);
   }
+  for (const one of record.refused ?? []) console.log(`refused ${one.key}, ${one.code}: ${one.why}`);
 }
 
 if (problems.length > 0) {
@@ -479,7 +481,8 @@ const narrowings = Object.values(record.outputs ?? {}).reduce(
 console.log(
   `Chart surface: every field of ${Object.keys(program.outputs).length} outputs is accounted for, ` +
     `${narrowings} of them recorded as narrowings, ${(record.counts ?? []).length} count limit ` +
-    'recorded, and the descriptor read back what it was asked for. A stored setting reached a ' +
+    `recorded, ${(record.refused ?? []).length} refusals proved by a study that declares each, ` +
+    'and the descriptor read back what it was asked for. A stored setting reached a ' +
     `declaration option at build and another at the call, over ${atBuild.size + perCall.size} ` +
     'members recorded as one or the other, and three stored values the input forbids reached ' +
     'the declared default in the shape and OS6019 from the run.',

@@ -700,8 +700,9 @@ citation survived.
 - `feature-matrix.md` section 26, after the row "Deletion and counting":
   `| A deleted object still held | OS8019, warning that a name or an array still refers to an object deleted earlier, because a stale handle in a setter is OS4005 one bar later | `specified` | `language.md` 5.4, `errors.md` OS8019 | `unit:draw/deleted-still-held` |`
 
-  **Not raised yet.** OS8019 is in the catalogue and nothing raises it: the
-  checker does not follow a reference to a deleted object.
+  When this was decided nothing raised OS8019, because the checker did not
+  follow a reference to a deleted object. It does since issue 0006's two
+  neighbours were closed, and the row is `implemented`.
 
 ---
 
@@ -4645,3 +4646,332 @@ label. That is a language question and is not answered here.
 
 **Edits.** `src/adapters/charts/venue.ts` (new), `run.ts`;
 `tests/adapters/charts/calc.test.ts`; `CHANGELOG.md`.
+
+## 66. A bare read of an instrument fact the host did not state is absent, and never OS6012
+
+**The question.** `stdlib.md` 3.4 says `chart.tickSize` is `none` when the host
+has not said, and the catalogue's OS6012 said a bare read of a fact the host did
+not supply stops the bar, with `qty = lots * chart.lotSize` as its example. Both
+cannot be true of one read (issue 0002).
+
+**The decision.** The first. A bare read of an instrument fact the host did not
+state returns the absent value, a script may test it with `isNone` or give it a
+fallback with `orElse`, and nothing stops the bar. OS6012 belongs only to
+something that needs a fact and cannot default it, which in version 1 is the
+instrument record refused at load: a session stated with no timezone, a timezone
+the calendar cannot read, a session whose clock times are not `HH:MM`, or session
+days outside one to seven. A request that dates its buckets by a timezone the host
+did not state is not refused either: it is absent, and `req.error` carries
+OS6012's sentence as its reason.
+
+**Why.** It is the reading that leaves every sentence of `stdlib.md` standing,
+including `roundToTick`'s absence rule, which the other reading made
+unobservable. It is what the engine already did: nothing raised OS6012 on a
+bare read, and the load refusal was the only site. And it is the one under which
+a script can degrade: a study that sizes in lots guards the read and still draws
+on a host that leaves the lot size out, where the other reading turns the guard
+into dead code and the study into an error on every such host.
+
+**Edits.** `errors.md` and `errors.json` OS6012: the `fact` gloss names what the
+record lacks for something that cannot default it, the cause says a bare read is
+absent, the fix names the record, the example is the host input that fails and
+the one that passes, and the reference is `host-interface.md` 4.5.
+`host-interface.md` 4.5 states the settlement. `feature-matrix.md`: the preamble
+paragraph and the row `chart/tick-and-lot` state one behaviour.
+`docs/data/other-instruments.md` stops teaching the refusal.
+`examples/06-combined-premium.oscript` says what its bare read does on a host
+that states no lot size. `tests/engine/instrument-facts.test.ts` holds the read.
+
+## 67. An input in a field fixed before bar 0 is the whole of the value or nothing
+
+**The question.** `language.md` 13.2 admitted "a call to `input()`" in an option
+without saying whether that meant the whole value or a term inside one, and the
+compiled format carries only the value or `{ "input": "<key>" }` (issue 0003).
+
+**What was found.** It was not a gap in prose alone. The checker accepted
+`precision = input(2, "Decimals") + 1`, `opacity = shade ? 1 : 0` over a
+checkbox, `fade(aqua, t)` with `t` a setting in a level's colour, and an input
+whose default or bound was another input. The emitter then had nothing to write
+for the first three and refused the program with OS6018, which tells the reader
+the compiler is broken; for the last it wrote the default as absent and said
+nothing.
+
+**The decision.** Option 1 of the issue. An `input()`, or a name holding one, is
+admissible as the whole of a field fixed before bar 0 and never as a term inside a
+larger expression; an input's own default, bounds and step read no setting at
+all. The refusal is a code of its own, OS3025, rather than OS3003, whose message
+says the value depends on bar data, which is untrue of a setting.
+
+**Why not the fourth form.** An expression folded at load is what a reader
+expects to write, and it is a second evaluator outside the machine with its own
+admissible calls, its own errors and its own place in the load sequence. Two
+engines that implement that subset differently disagree before the first bar.
+It is a language change with a compiled home to design, and belongs to a language
+version rather than to a repair.
+
+**Edits.** `errors.md` and `errors.json`: OS3025, and OS3003's cause names it.
+`language.md` 13.2 says the rule. `docs/inputs.md` teaches it in the section on
+options and in both tables. `feature-matrix.md` row `input/option-from-input`.
+`src/core/check/constant.ts` holds the predicate; `calls.ts` and
+`call-sites.ts` report it. `tests/unit/check-plot-options.test.ts`.
+
+## 68. A host refuses what it cannot draw, with OS6024, before any bar runs
+
+**The question.** A compiled program carries every output the language can
+express and a host's surface can be narrower. The chart adapter drew the first
+of two declared grids and dropped the second, and drew a band whose colour the
+script computes per bar in the first plot's colour faded, both with nothing
+said, because the catalogue had no code for a host that cannot draw something a
+program declares (issue 0011).
+
+**The decision.** OS6024, "The host cannot draw something this study declares",
+host stage, with the message `This host cannot draw {what}: {limit}.`, where
+`limit` is the only part a host writes. A host that cannot draw a declaration
+refuses the program before any bar runs, naming the declaration, rather than
+drawing part of the study. `compiled-program.md` section 11 states the rule.
+
+**Where the caret goes.** Nowhere in the source. The issue asked for the
+declaration's own call as the span, and the compiled program carries no source
+position for a declaration: `debug.pos` maps instructions, and a grid is a
+declaration rather than an instruction. So the refusal names the declaration by
+its title, which is what a reader sees in the legend, and its span is the load's
+own, like every other refusal at load. Giving declarations positions is a format
+change and is not made for this.
+
+**Why a refusal and not a warning.** Every OS6xxx code is an error, and a study
+drawn with its second panel missing is exactly the failure a warning beside a
+drawn chart would be read past.
+
+**Edits.** `errors.md` and `errors.json` OS6024; `compiled-program.md` 11;
+`src/adapters/charts/undrawable.ts` (new) and `run.ts`; `tables.ts`' header;
+`spec/chart-narrowings.json` replaces its `counts` entry with `refused`;
+`scripts/check-chart-surface.mjs` and `scripts/lib/chart-refusals.mjs` (new)
+prove each refusal with a study that declares it; `docs/visuals/tables.md` and
+`fills.md`; `tests/adapters/charts/undrawable.test.ts`.
+
+## 69. A bar handed over with no time is OS6025, in both engines
+
+**The question.** `host-interface.md` 3.1 states `time` for every bar, and the
+two refusals of section 3.5 did not cover a bar with none: OS6011 compares two
+instants, so a bar dated nothing passed it, read its time as absent, stepped over
+every calendar fold and made every session fact absent for a bar that was on the
+chart (issue 0012). Whether a fact the host did not state is an error or an
+absence is the question decision 66 answered for instrument facts, and it has the
+other answer here.
+
+**The decision.** A code of its own, OS6025, "A bar has no time", raised as the
+bar is handed over and before any step runs, naming the bar. Not the absent
+value, because `time` is the one field of 3.1 with no absent case and the order
+rule is built on it; an instrument fact is optional by the table that lists it
+and a bar's time is not. Not OS6011, whose sentence is about an order nobody
+violated.
+
+**Both engines.** The second engine did not raise OS6011 either: its
+`execute_bar` ran whatever it was handed, so the two engines disagreed about a
+series no conformance case supplies. It now refuses both, with the same values,
+at the same point. OS6010 has no counterpart there, because it has no entry point
+that is handed a whole dataset: a host that has no bars never calls it.
+
+**Edits.** `errors.md` and `errors.json` OS6025; `host-interface.md` 3.5;
+`src/core/engine/series.ts` and `engine.ts`; `engine/openscript/run.py`;
+`docs/integrating/running-the-engine.md` and `running-a-strategy.md`;
+`tests/engine/series.test.ts` and `engine/tests/test_hand_over.py`.
+
+## 70. A plot's style written from an input is OS3026, and the format is not widened
+
+**The question.** `language.md` 13.4 lets an `input()` be written as a
+declaration option, and every plot option carries the reference into the
+compiled program except `style`: `Plot.type` is a plain string, so the emitter
+folded the input to its default, the settings row it declared moved nothing, and
+a select whose options were not styles at all was accepted (issue 0018).
+
+**The decision.** The issue's second answer: a refusal where it is written,
+OS3026, "This option cannot be a setting", with a fix that tells the reader to
+write the style out. The library entry names the one argument the format carries
+as a plain value, so the rule is a fact about `plot` stated where `plot` is
+declared rather than a list in the checker.
+
+**Why not widen the field.** Section 9.2 of `compiled-program.md` lets a minor
+bump add a field and forbids everything else it does not list, and turning
+`plots[].type` from a string into a `Field` changes a field's type rather than
+adding one. An engine written against format 1.1 would read an object where it
+expects a string and refuse the program at verification, which is a major bump
+wearing a minor number. A style a reader can choose is a feature worth a format
+change, and it is worth one made on purpose, recorded in
+`spec/format-history.json` and landed in both engines and the chart adapter at
+once, rather than inside a repair. Every other plot option, and every option of
+every other declaration, was measured and keeps its reference.
+
+**Edits.** `errors.md` and `errors.json` OS3026; `language.md` 13.4;
+`src/core/check/library.ts` (`written`), `library-output.ts` and `calls.ts`;
+`docs/inputs.md`; `tests/unit/check-plot-options.test.ts`.
+
+## 71. The `AND` and `OR` tables are total
+
+**The question.** `compiled-program.md` 4.7 gave each logic instruction only the
+rows its short-circuit leaves to it, on the ground that a `false` left operand
+under `and` and a `true` one under `or` never reach the instruction. The compiler
+emits a bare `OR` for the values of a `switch` case, with no `OR_SHORT` before it,
+because neither operand can have an effect. So a `true` left operand did reach
+`OR`, on a row the page did not have.
+
+**How it was found.** The first `values` case written for `switch`,
+`cases/flow/switch-value`, with `case 1, 2`. The first engine answered the row the
+only way `language.md` 6.6 allows and took the arm; the second answered absence,
+as its table said a row the page never wrote should be answered, and took the
+default. Two engines each faithful to a page disagreed because the page and the
+compiler disagreed.
+
+**The decision.** The tables are total. Every pair of two booleans or absences
+has a row, and the rows a short-circuit decides carry the answers `language.md`
+6.6 gives, so a program that took the short-circuit and one that did not compute
+the same value. The compiler is unchanged, so no stored program's bytes or hash
+move, and no program's value changes on the first engine, which already answered
+these rows this way.
+
+**Why not change the compiler instead.** Emitting `OR_SHORT` for a `switch` case
+would make every program with a multi-value case a different program, change the
+hash of every stored run of one, and leave the second engine's reading of the
+page one compiler change away from the same disagreement. The page was the thing
+that was partial.
+
+**Edits.** `compiled-program.md` 4.7; `engine/openscript/values.py` and its test;
+`cases/flow/switch-value`.
+
+## 72. The `drawings` and `table` channels, and what names a grid in them
+
+**The question.** `conformance.md` section 2 listed `drawings` and `table` among
+the channels a case may assert and section 4 put both in `expected.json`, and
+nothing said what one element of either holds. No engine answered them, so the
+second engine's drawing objects and grids (issue 0021) had nothing to be
+measured against, and a third engine would have had to guess.
+
+**The decision.** An element of `drawings` is one object the script holds after
+the last bar, oldest first: its `kind`, its `anchors` as a list of `time` and
+`price` objects, and every other property under the name of the argument that
+set it. An element of `table` is one cell the last bar wrote, in write order:
+the grid's `title`, then one field per argument `cell` takes after the grid,
+under that argument's name. Every value is spelled as a cell of the `values`
+channel is.
+
+**Why anchors are a list, when every other element is flat.** It is what
+`compiled-program.md` section 11 already hands a host: a line and a box have two
+points, a label one, and a polyline as many as its path. Flattening them into
+`t1`, `p1` and the rest would give a polyline no spelling at all, or a second
+shape for one kind.
+
+**Why the title and not the key.** The declaration's `key` is the compiler's
+choice, so an expected file written from the script alone could not know it,
+and a case whose expected output needs the compiler that made it is not a case
+a hand can check. The title is the script's own first argument to `table()`.
+
+**Why no identity.** An engine gives each object an identity it keeps while the
+object lives, and nothing outside that engine can name it, so a channel carrying
+it would be a channel two correct engines disagree on.
+
+**Edits.** `conformance.md` section 4; `scripts/lib/case-surface.mjs` and the
+first engine's backtest (`surface`); `engine/openscript/objects.py` and
+`adapter/surface.py`; twenty eight cases under `cases/draw`, `cases/obj` and
+`cases/table`.
+
+## 73. A read of another instrument is served from `bars.<SYMBOL>.csv`, and a read of the chart's own from `bars.csv`
+
+**The question.** `conformance.md` section 3 said a higher timeframe or other
+instrument read is served from a file "matched by the name the script asks
+for", with `bars.60.csv` and `bars.1D.csv` beside `bars.OTHER.csv`, and neither
+adapter served one. When the second engine gained the fold (issue 0021) the
+section had to say what a file is named after, which timeframe it holds, what a
+missing one does, and whether a read of the chart's own instrument reads a file
+at all.
+
+**The decision.** A read of the chart's own instrument reads no file: the engine
+folds `bars.csv`, and the whole of it is the history the fold is handed before
+bar 0. A read of another instrument is answered from `bars.<SYMBOL>.csv`, named
+after the instrument the read resolves to whatever exchange it names, with the
+columns of `bars.csv`, holding that instrument's bars at the timeframe the read
+requests. One file answers every read of its instrument. A read whose file is
+missing is the `error` outcome, naming the file. A read whose instrument did not
+resolve at all names no file and is refused with OS6007, as a host refuses it.
+
+**Why a read of the chart's own instrument reads no file.** `host-interface.md`
+5.1 and `compiled-program.md` 2.16.2 have an engine fold the chart's own bars for
+it, and both engines do, whether or not a host serves one. A file for it would
+test a host path neither adapter takes, and a case holding `bars.1D.csv` beside
+`bars.csv` could say two different things about one day with nothing to say
+which of them the engine read.
+
+**Why the symbol alone names the file.** Every read the suite holds names one
+venue per instrument, most of them the chart's by default, so a name carrying
+the exchange as well would be a second word to get right for a fact the case
+already states. A case that needs two venues for one symbol is a case nobody
+has written, and the rule can grow when one is.
+
+**Why the whole dataset is handed over first.** `compiled-program.md` 2.16.2
+makes a `"lookahead"` read the one place an engine's answer depends on how much
+it has been given, and a case is settled history, where `stdlib.md` 15.3 says
+that mode reads a bucket's final value from its first bar. The first engine's
+backtest appended bars one at a time, which answered a lookahead read with the
+bucket so far, the live chart's reading, on history; it now hands the fold the
+dataset before bar 0 as `Engine.run` does, and the second engine's run takes it
+the same way. Confirmed and developing reads stop at the chart bar, so nothing
+else moves.
+
+**Why a missing file is an error and not a refusal.** A refusal is something a
+study draws around, so a suite that turned missing input into one would pass a
+case whose expected column is absent for a reason nobody wrote down: the
+silently empty series the section already refused, arriving by another door.
+
+**And a sentence that said the opposite.** `host-interface.md` 5.1 said a host
+that serves no requests gives its engine neither read tag, while 5.2,
+`compiled-program.md` 2.16.2 and both engines serve `req.timeframe` always,
+because the engine folds the chart's own bars. The engines were right and the
+sentence was not: a host withholds `req.symbol` only.
+
+**Edits.** `host-interface.md` 5.1; `conformance.md` sections 2 and 3; the
+`conf/secondary-series` row of `feature-matrix.md`; `scripts/lib/case-reads.mjs` and `adapter-case.mjs`; the
+first engine's backtest drive (`requestBars`) and walk (`Engine.history`);
+`engine/openscript/adapter/secondary.py` and `running.py`; the cases under
+`cases/req`.
+
+## 74. What the importer translates, and where its findings live
+
+**The question.** Phase 7 asks for an importer for scripts written in other
+chart languages. A translation can be close in spelling and far in meaning, and
+the two languages differ exactly where a reader does not look: comparing an
+absent value, the order `and` evaluates in, which way a loop counts, how an
+order is sized, and the capital a strategy starts with.
+
+**The decision.** The importer reads one language, the version-annotated chart
+dialect at versions 5 and 6, and a top-level statement is translated with the
+source's meaning, or translated with a warning that states how the meaning
+differs, or kept as comment lines with an error saying why. The unit is the
+whole top-level statement, because a block with one line missing means
+something else. The output is compiled before it is returned, and a statement
+the compiler refuses is kept as a comment with OS9012, so what a host is handed
+always compiles.
+
+**A range of its own, OS9xxx, holding both severities.** Its findings are about
+a script in another language, not an OpenScript file, so a bare code in a log
+has to say which part of the system produced it, which is what section 4 of
+`errors.md` says a range is for. Errors are statements not translated; warnings
+are translations with a stated difference. A sixth stage, `import`, is checked
+against `src/core/importer` by `check-raises.mjs`.
+
+**Worked examples.** A new example kind, `import`: the before block is proved by
+the importer and the after block is compiled like every other. It is required
+on the stage and refused elsewhere, because neither existing state was honest:
+a transcript's after block must fail to compile, and `unexercised` says the code
+cannot be reached. Each section prints one fixed sentence saying the before
+block is source dialect, and the whole-section comparison of `catalogue-page.mjs`
+renders it, so it cannot drift.
+
+**What this does not settle.** No number is compared with the source platform,
+because nothing here can run the source dialect, so windowed built-ins and
+orders warn rather than claim equality, and the facts about the source dialect
+the importer relies on are listed in its page rather than proved.
+
+**Edits.** `src/core/importer/` (new), `src/core/index.ts`,
+`src/core/catalogue/types.ts`, `spec/errors.json` and `spec/errors.md`,
+`scripts/check-raises.mjs`, `scripts/check-examples-compile.mjs`,
+`scripts/lib/example-import.mjs`, `scripts/lib/catalogue-page.mjs`,
+`tests/importer/`, `docs/writing/importing-a-script.md`.

@@ -1,0 +1,1 @@
+{"asserts":["drawings"],"category":"surface","description":"Two arrays of different lengths are paired by index over the longer, and a missing price is a gap.","id":"draw/polyline-arrays","languageVersion":1,"profile":"chart"}

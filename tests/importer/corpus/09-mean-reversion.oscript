@@ -1,0 +1,31 @@
+version 1
+
+strategy("Mean reversion", overlay = false, capital = 100000)
+
+rsiLength = input(2, "RSI length")
+entryLevel = input(10.0, "Entry below")
+exitLevel = input(70.0, "Exit above")
+maxBars = input(8, "Longest hold, in bars")
+
+fn f_oversold(src, len, levelValue) => rsi(src, len) < levelValue
+
+osc = rsi(close, rsiLength)
+oversold = f_oversold(close, rsiLength, entryLevel)
+trend = close > sma(close, 200)
+
+barsIn = barsSince(orElse(pos.size > 0 and pos.size[1] == 0, false))
+lastEntryClose = valueWhen(orElse(oversold and trend, false), close, 0)
+
+if oversold and trend
+    if pos.size < 0
+        close()
+    if pos.size <= 0
+        buy(tag = "Dip")
+
+if osc > exitLevel or (pos.size > 0 and barsIn >= maxBars)
+    close()
+
+level(entryLevel, "Entry", color = green)
+level(exitLevel, "Exit", color = red)
+plot(osc, "RSI", purple)
+plot(orElse(lastEntryClose, 0) > 0 ? osc : none, "Armed", gray)

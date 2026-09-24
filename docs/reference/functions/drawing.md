@@ -12,7 +12,7 @@ This is the first thing to get right, because the compiler enforces it.
 | Call | Where it may appear | Why |
 |---|---|---|
 | `plot`, `plotCandles`, `fill`, `level`, `table` | Top level only | They define the fixed shape of the study: the set of columns, bands, levels and grids has to be known before bar 0 so the legend, the axis and the settings dialog can exist |
-| `signal`, `barColor`, `background`, `cell`, `clear`, `print`, `alert`, every `draw` call | Anywhere | They are per-bar events or per-bar paint |
+| The calls on the anywhere list of [`language.md`](../../../spec/language.md) section 15.3 | Anywhere | They are per-bar events, per-bar paint or per-bar decisions |
 
 A `plot` inside an `if` is OS3006. Hide a plot on some bars by giving it `none`,
 never by wrapping it:
@@ -50,8 +50,8 @@ Returns `plot`, a handle `fill` can name.
 plot(ema(close, 21), "EMA 21", orange, width = 2)
 ```
 
-`style` accepts `"line"`, `"lineWithMarkers"`, `"step"`, `"area"`, `"histogram"`
-and `"column"`. These are the styles that make sense for a single column of
+`style` accepts the values [`stdlib.md`](../../../spec/stdlib.md) section 14.2
+lists for it. These are the styles that make sense for a single column of
 values, and they are the same set the host's own style menu offers, so a user
 can change any plot's style after the fact without editing the script.
 
@@ -159,9 +159,10 @@ Say where the marker goes. A call that names no `at` sits above the bar whatever
 its text says, and no value places it by reading that text, because a marker
 whose position depends on its own text reads differently on two engines.
 
-`at`, `shape` and `color` are part of the marker's declaration, which is fixed
-before bar 0, so each must be a compile-time constant: a literal or an
-`input()`. A bar-dependent one is OS3003. Only the `text` is read per bar.
+The arguments that make up the marker's declaration are the ones
+[`stdlib.md`](../../../spec/stdlib.md) section 14.3 names. The declaration is
+fixed before bar 0, so each of them must be a compile-time constant: a literal
+or an `input()`. A bar-dependent one is OS3003. Only the `text` is read per bar.
 
 A signal does not fire on a bar that is still moving unless the declaration sets
 `onUnconfirmed = true`. The deferred call fires when the bar closes, and if the
@@ -374,20 +375,20 @@ compatibility promise means this form keeps working when it does.
 
 | Call | Returns | For |
 |---|---|---|
-| `draw.setFrom(obj: line | box, t, p)` | nothing | Move a line's or box's first anchor |
-| `draw.setTo(obj: line | box, t, p)` | nothing | Move its second anchor |
-| `draw.setBounds(obj: line | box, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
+| `draw.setFrom(obj: line \| box, t, p)` | nothing | Move a line's or box's first anchor |
+| `draw.setTo(obj: line \| box, t, p)` | nothing | Move its second anchor |
+| `draw.setBounds(obj: line \| box, t1, p1, t2, p2)` | nothing | Move both anchors in one call |
 | `draw.setAt(label, t, p)` | nothing | Move a label |
 | `draw.setPoints(polyline, times, prices)` | nothing | Replace a polyline's path |
-| `draw.setText(obj: label | box, text)` | nothing | Change a label's or box's caption |
-| `draw.setColor(obj: line | label | box | polyline, color)` | nothing | Change the line or border colour |
-| `draw.setTextColor(obj: label | box, color)` | nothing | Change the text colour |
-| `draw.setFillColor(obj: box | polyline, color)` | nothing | Change a box's or polyline's fill |
-| `draw.setWidth(obj: line | box | polyline, width)` | nothing | Change the line thickness |
-| `draw.setStyle(obj: line, style)` | nothing | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setText(obj: label \| box, text)` | nothing | Change a label's or box's caption |
+| `draw.setColor(obj: line \| label \| box \| polyline, color)` | nothing | Change the line or border colour |
+| `draw.setTextColor(obj: label \| box, color)` | nothing | Change the text colour |
+| `draw.setFillColor(obj: box \| polyline, color)` | nothing | Change a box's or polyline's fill |
+| `draw.setWidth(obj: line \| box \| polyline, width)` | nothing | Change the line thickness |
+| `draw.setStyle(obj: line, style)` | nothing | Change a line's style, to a value the `draw.setStyle` row of [`stdlib.md`](../../../spec/stdlib.md) section 14.4 lists |
 | `draw.setExtend(line, left, right)` | nothing | Continue a line to the pane edge |
-| `draw.setTooltip(obj: label | box, text)` | nothing | Detail shown while the pointer rests on the object |
-| `draw.delete(obj: line | label | box | polyline)` | nothing | Remove one object |
+| `draw.setTooltip(obj: label \| box, text)` | nothing | Detail shown while the pointer rests on the object |
+| `draw.delete(obj: line \| label \| box \| polyline)` | nothing | Remove one object |
 | `draw.deleteAll()` | nothing | Remove every object this script created |
 | `draw.count()` | `number` | How many objects this script currently holds |
 

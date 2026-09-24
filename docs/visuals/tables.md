@@ -58,21 +58,18 @@ the chart the user has, not on the study.
 ### One grid reaches a chart pane
 
 The language lets a study declare as many grids as it likes and the compiled
-program carries all of them. A chart pane has room for one, and the chart adapter
-in this repository draws the **first** one declared: a second `table()` compiles,
-its cells are written on every bar, and nothing is drawn for it.
+program carries all of them. A chart pane has room for one, so the chart adapter
+in this repository refuses a study that declares a second, before any bar runs,
+with OS6024 naming the second grid. It used to draw the first and say nothing
+about the rest, which is a study whose second panel never appears and whose
+cells look broken.
 
 So declare one grid per study and give it the rows you need. If you want two
 panels, that is two studies, and a user can put them in different corners.
 
-This is a limit of the drawing surface rather than of the language, and it is the
-wrong kind of limit: it should be refused where the second `table()` is written,
-saying that only one is drawn. It is not yet, because a refusal carries a
-catalogue code and the catalogue has none for a host that cannot draw something a
-study declares. The gap is recorded in
-[issues/0011](../../issues/0011-a-second-declared-grid-is-dropped-with-nothing-said.md),
-and what every host does and does not draw is recorded in
-[spec/chart-narrowings.json](../../spec/chart-narrowings.json).
+This is a limit of the drawing surface rather than of the language: another host
+may draw every grid. What every host in this repository does and does not draw
+is recorded in [spec/chart-narrowings.json](../../spec/chart-narrowings.json).
 
 ## Writing cells
 
@@ -373,7 +370,7 @@ place for it.
 | The chart is slow with a table on it | Cells written on every bar of history | Write inside `if bar.isLast` |
 | OS2003 on a `cell` call | A number passed where a string is expected | `text(value, decimals)` |
 | The panel hides the candles under it | A solid `bgColor` | `fade(black, 25)` or similar |
-| A second panel never appears | A chart pane draws the first declared grid | Declare one grid, or split the study in two |
+| OS6024 naming a second table | A chart pane draws one grid | Declare one grid, or split the study in two |
 | Numbers do not line up | Left aligned by default | `align = "right"` on the value column |
 
 ## See also

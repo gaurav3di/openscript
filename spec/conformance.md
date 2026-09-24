@@ -100,7 +100,7 @@ cases/
 | `instrument.json` | no | Instrument facts: the record of `host-interface.md` 4.1. Defaults in section 3 |
 | `settings.json` | no | Values for the script's inputs. Absent means every input takes its declared default |
 | `backtest.json` | for a strategy case | What the report was folded under and the script never states: the money rounding digits, the charge schedule the host supplied and the report window. Section 3 |
-| `bars.<name>.csv` | no | A secondary bar series, for a higher timeframe or other instrument read |
+| `bars.<name>.csv` | no | A secondary bar series: another instrument's bars, for a read of that instrument. Section 3 |
 | `ticks.csv` | no | Intrabar updates, for a case that tests the moving bar |
 | `frames.csv` | no | Order frames delivered between bars, for a strategy case that asserts the fold |
 | `notes.md` | no | Why the case exists and what it is defending against |
@@ -211,11 +211,29 @@ A case that is about sessions, timezones or instrument facts says so in
 
 ### Secondary series
 
-A higher timeframe or other instrument read is served from a file, never from a
-provider. `bars.60.csv`, `bars.1D.csv` and `bars.OTHER.csv` are matched by the
-name the script asks for. A read whose file is missing is a case failure, not an
-absent series, because a silently empty series is exactly the bug the suite is
-meant to catch.
+A read of the chart's own instrument at a coarser timeframe is folded from
+`bars.csv`, because that is the read `host-interface.md` 5.1 says an engine
+satisfies from the bars it already holds, so a case holds no file for one. The
+whole of `bars.csv` is the history the fold is handed before bar 0, which a
+`"lookahead"` read is the one reading to notice (`compiled-program.md` 2.16.2).
+
+A read of another instrument is served from a file, never from a provider that
+reaches outside the directory. The file is `bars.<SYMBOL>.csv`, named after the
+instrument the read resolves to: the symbol the script wrote, or the value of the
+setting or chart fact it named (`compiled-program.md` 2.16), whatever exchange
+the read names. It has the columns and the rules of `bars.csv` and holds that
+instrument's bars at the timeframe the read requests, oldest first, which is the
+answer `host-interface.md` 5.3 says a host hands back. One file answers every
+read of its instrument and each read folds it into its own buckets
+(`compiled-program.md` 2.16.2), so a case that reads one instrument at two
+timeframes writes the file at the finer of them.
+
+A read whose file is missing is a case failure, not an absent series, because a
+silently empty series is exactly the bug the suite is meant to catch: an adapter
+reports the case `error` (section 9) naming the file, and never hands the study a
+refusal to draw around. A read whose instrument did not resolve at all, a setting
+that held none, names no file; it is refused the way a host refuses it, OS6007
+(`host-interface.md` 5.2), and the study reads that through `req.error`.
 
 ### Intrabar updates
 
@@ -402,6 +420,35 @@ ordered list, and each element is a flat object of named fields.
 
 An element of the `orders` channel is a ledger row of `stdlib.md` section 17.7,
 compared on the fields the case names and no others.
+
+**An element of the `log` channel is one line `print` wrote**, in the order the
+run wrote them: `barIndex`, the bar it was written on; `time`, that bar's open
+instant as `bars.csv` states it; and `value`, what the script passed, spelled as
+a cell of the `values` channel is, with absence as `null` because a script that
+printed an absent value wrote an absent line. A line is written at step 9 of a
+bar the engine decided (`stdlib.md` section 14.3), so a case of confirmed bars
+holds every line the script wrote, and a bar that failed writes none.
+
+**An element of the `drawings` channel is one drawing object the script holds
+after the last bar**, in the order the script created them, which is the set
+`compiled-program.md` section 11 hands a host: `kind`, one of the four kinds
+`stdlib.md` section 14.4 creates; `anchors`, the object's points in order, each
+an object of `time` and `price`, two for a line and a box, one for a label and
+one per point of a polyline's path; and every other property the object holds,
+under the name of the argument that set it in 14.4. Every value is spelled as a
+cell of the `values` channel is, with absence as `null`. A deleted object is not
+in the channel, and neither is any identity an engine gives an object, because
+nothing outside an engine can name one.
+
+**An element of the `table` channel is one cell the last bar wrote**, in the
+order the bar wrote them: `table`, the grid's `title`, which is the first
+argument of its `table()` call and so is known from the script where the
+declaration's `key` is the compiler's (`compiled-program.md` section 2.8), and
+then one field for each argument of `cell` after the grid it writes into, under
+the name `stdlib.md` section 14.3 gives that argument and spelled as a cell of
+the `values` channel is. Every execution of a bar starts each grid empty, so the
+channel holds the last bar's cells and nothing before them, and a cell written
+twice is two elements in the order they were written.
 
 **`performance` is a list of one flat object**, holding the run's summary
 statistics and nothing nested. The channel is a list for the same reason every
@@ -1061,7 +1108,7 @@ declares" mean the same thing for both engines.
 
 ```json
 {
-  "suiteRevision": "2026.1",
+  "suiteRevision": "1.0.0+4f0c2a9d1e7b",
   "engine": { "name": "...", "version": "...", "profile": "chart" },
   "languageVersions": [1],
   "schemaVersion": "1.0",
@@ -1141,7 +1188,20 @@ the specification said. Loosening a tolerance is not on the list.
 ## 11. Suite versioning
 
 The suite is released with a revision, and a result is only meaningful against
-one. Between revisions:
+one.
+
+**A revision is written as the package version, a plus sign, and the first
+twelve hexadecimal digits of a SHA-256 over every file under the suite root.**
+The files are taken in the order of their paths relative to the root, written
+with forward slashes and sorted by code unit, and each contributes its path, a
+zero byte, its length in bytes written in decimal, a zero byte, and its bytes.
+The version says which release the cases shipped with; the digest says which
+cases they are, because cases are added between releases and a version alone
+would give two different suites one name. Anybody holding the cases a result
+names can recompute its revision, so a result claimed against a suite that was
+edited, even by one byte, names a revision the published suite does not have.
+
+Between revisions:
 
 - Cases may be added at any time.
 - A case may be corrected only with the reviewed explanation above.
@@ -1201,4 +1261,3 @@ passing implementation on everything the suite covers, to the bit.
 A badge carries four things and is not valid without all four: the implementation
 and its version, the suite revision, the profile, and a link to the result
 document. Everything else on a badge is decoration.
-</content>

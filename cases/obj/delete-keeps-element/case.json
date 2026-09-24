@@ -1,0 +1,1 @@
+{"asserts":["drawings","values"],"category":"surface","description":"Deleting an object held in an array does not remove the element.","id":"obj/delete-keeps-element","languageVersion":1,"profile":"chart"}

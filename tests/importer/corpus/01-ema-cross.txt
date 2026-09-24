@@ -1,0 +1,21 @@
+// Two exponential averages and the band between them, with a marker where
+// they cross.
+//@version=5
+indicator("EMA cross", shorttitle = "EMAX", overlay = true, precision = 2)
+
+fastLen = input.int(9, "Fast length", minval = 1, maxval = 500)
+slowLen = input.int(21, "Slow length", minval = 1, maxval = 500)
+src = input.source(close, "Source")
+
+fast = ta.ema(src, fastLen)
+slow = ta.ema(src, slowLen)
+
+up = ta.crossover(fast, slow)
+down = ta.crossunder(fast, slow)
+
+fastPlot = plot(fast, "Fast", color = color.aqua, linewidth = 2)
+slowPlot = plot(slow, "Slow", color = color.orange, linewidth = 2)
+fill(fastPlot, slowPlot, color = color.new(color.aqua, 90))
+
+plotshape(up, title = "Buy", style = shape.triangleup, location = location.belowbar, color = color.lime)
+plotshape(down, title = "Sell", style = shape.triangledown, location = location.abovebar, color = color.red)

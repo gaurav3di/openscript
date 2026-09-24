@@ -262,3 +262,40 @@ test('a descending range with a positive step runs zero times', () => {
   );
   assert.equal(engine.append(flat(10), { isConfirmed: true }).columns[0], 0);
 });
+
+test('a length computed to a fraction is OS4003 on the bar, naming the call and the parameter', () => {
+  // Catches an engine that truncates the length or rounds it silently: the
+  // average would then be over a window the script never asked for, and it
+  // would draw a plausible line. OS3004 is the literal half of this and cannot
+  // see a value computed on the bar, which is why this is the engine's.
+  const engine = running(
+    [
+      'version 1',
+      '',
+      'study("Half")',
+      '',
+      'len = bar.index + 3',
+      's = sma(close, len / 2)',
+      'plot(s, "S", aqua)',
+    ].join('\n'),
+  );
+  const result = engine.append(flat(10), { isConfirmed: true });
+  assert.equal(result.diagnostic?.code, 'OS4003');
+  assert.equal(result.diagnostic?.span.line, 6);
+  assert.equal(result.diagnostic?.values['name'], 'sma');
+});
+
+test('the same length rounded first runs, which is the fix OS4003 offers', () => {
+  const engine = running(
+    [
+      'version 1',
+      '',
+      'study("Half")',
+      '',
+      'len = bar.index + 3',
+      's = sma(close, floor(len / 2))',
+      'plot(s, "S", aqua)',
+    ].join('\n'),
+  );
+  assert.equal(engine.append(flat(10), { isConfirmed: true }).diagnostic, undefined);
+});

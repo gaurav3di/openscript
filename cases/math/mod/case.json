@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"mod follows the sign of its right operand, and a modulus of zero is absent.","id":"math/mod","languageVersion":1,"profile":"core"}

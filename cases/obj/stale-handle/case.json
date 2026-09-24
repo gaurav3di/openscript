@@ -1,0 +1,1 @@
+{"asserts":["diagnostics"],"category":"runtime","description":"A setter given a line deleted two bars earlier is OS4005 at the setter, not a silent no operation.","id":"obj/stale-handle","languageVersion":1,"profile":"chart"}

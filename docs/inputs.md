@@ -83,6 +83,12 @@ reader gets to change something the declaration decides:
 study("Oscillator", precision = input(2, "Decimals", min = 0, max = 10))
 ```
 
+The input has to be the whole of the value. `precision = decimals + 1`, or
+`opacity = shade ? 1 : 0` over a checkbox, is OS3025: an option fixed before the
+first bar holds a value or one setting, and an expression over a setting is
+neither. Declare the setting as the option itself instead, a slider from 0 to 1
+for an opacity rather than a checkbox computed into one.
+
 It may also be written inside the expression argument of a higher timeframe read,
 where a setting is the one thing from this file that has a meaning: it resolves
 before bar 0 and holds for the run, while a value computed on this chart's bars
@@ -175,8 +181,9 @@ plain text input and validate what you get.
 
 ### A number
 
-The workhorse. `min`, `max` and `step` shape the control and are enforced before
-your calculation ever sees the value.
+The workhorse. The bounds and the step that
+[../spec/stdlib.md](../spec/stdlib.md) section 13.3 gives a number input shape
+the control, and are enforced before your calculation ever sees the value.
 
 ```
 atrLen = input(14,  "ATR length",     min = 1,   max = 200, step = 1)
@@ -274,9 +281,9 @@ rows a plot gets for free and what a colour input replaces.
 
 ### A source
 
-A `series` default renders as a dropdown over the price series: `open`, `high`,
-`low`, `close`, `hl2`, `hlc3`, `ohlc4` and `volume`. The script gets a
-`series number` and uses it exactly like `close`.
+A `series` default renders as a dropdown over the price series
+[../spec/stdlib.md](../spec/stdlib.md) section 13.1 lists for a source input.
+The script gets a `series number` and uses it exactly like `close`.
 
 ```
 src = input(hlc3, "Source")
@@ -305,9 +312,10 @@ worth saying in a tooltip, because the reader picking a 1 minute bias on a daily
 chart has made an honest mistake.
 
 **The repaint mode is not an input, and should never be one.** A higher timeframe
-read declares `mode = "confirmed"`, `"developing"` or `"lookahead"` as a literal
-in the source. A setting would let a reader change the honesty of a study without
-reading it, and the point of naming the mode is that it is visible during review.
+read declares its `mode`, one of those [../spec/stdlib.md](../spec/stdlib.md)
+section 15.3 defines, as a literal in the source. A setting would let a reader
+change the honesty of a study without reading it, and the point of naming the
+mode is that it is visible during review.
 
 ### A time
 
@@ -383,7 +391,7 @@ only the first two can catch it before the study draws anything.
 
 | Moment | Checked | Failure |
 |---|---|---|
-| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries | OS3007, OS3003, OS3018, OS3017, OS3021, OS3024, OS3022. The script does not compile |
+| Compile | The input declaration itself: placement, a constant default, a default inside `options`, a title of its own, and a key no other input carries; and every option written from an input, which has to be the whole of the value | OS3007, OS3003, OS3025, OS3018, OS3017, OS3021, OS3024, OS3022. The script does not compile |
 | Load | The reader's saved value against the input's type, `min`, `max` and `options` | The study reports the row and the bound, and does not run |
 | Bar | A legal setting that becomes an illegal argument: a length computed to zero, a colour channel out of range, a name that is not one of a function's accepted values | OS4003, OS4009, OS4012. The bar stops and the study is marked as errored |
 
@@ -487,6 +495,9 @@ setting the reader can flip is a claim the script no longer makes.
 | A row with no name and an empty title | OS3024 | Give the title something to say |
 | A title that spells another input's name | OS3022 | Retitle this one, or rename the other input |
 | A `var` holding an input used as an option | OS3003 | Drop the `var`, or pass the setting the `var` started from |
+| An option computed from an input, `width = w + 1` | OS3025 | Declare the setting as the option itself, `width = w` |
+| An input whose default or bound is another input | OS3025 | Write the default out as a literal |
+| A plot's `style` written from an input | OS3026 | Write the style out; it is the one option a setting cannot reach |
 | A select default outside its list | OS3018 | Add it to `options`, or pick a listed value |
 | `range = [100, 0]` on the declaration | OS3016 | Write two numbers, lowest first |
 | A row nobody reads | OS8018, warning | Use the name, or delete the input and its row |

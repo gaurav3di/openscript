@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"crossUp is true on the bar a series goes from at or below another to above it, and absent while either is absent.","id":"series/crossover","languageVersion":1,"profile":"core"}

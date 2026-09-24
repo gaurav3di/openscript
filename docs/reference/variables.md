@@ -162,7 +162,7 @@ entry here is a **single value**, fixed for the whole run, so none of it accepts
 | `chart.lotSize` | `number` | No | Units in one lot, absent when the host has not said |
 | `chart.pointValue` | `number` | No | Money per one point of price per unit, absent when unknown |
 | `chart.currency` | `string` | No | Currency label for money in a report |
-| `chart.instrumentType` | `string` | No | One of `"equity"`, `"future"`, `"option"`, `"index"`, `"currency"`, `"commodity"` or `"other"` |
+| `chart.instrumentType` | `string` | No | The kind of instrument, a value the `chart.instrumentType` row of [`stdlib.md`](../../spec/stdlib.md) section 3.4 lists |
 | `chart.hasVolume` | `bool` | No | The host supplies volume for this instrument |
 | `chart.now()` | `number` | No | The chart's wall clock, UTC milliseconds |
 | `chart.isReplay` | `bool` | No | The bars are being replayed rather than loaded whole. Planned |

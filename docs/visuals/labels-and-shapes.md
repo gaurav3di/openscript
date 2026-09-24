@@ -42,18 +42,18 @@ result is a line of code that cannot be read without the reference open.
 |---|---|---|
 | `text` | `string` | The marker's label and its payload. No text written on a bar means no marker on that bar |
 | `color` | `color` | The plate colour. Absent means the host's default for a marker |
-| `at` | `"above"`, `"below"`, `"price"` | Where the marker sits relative to the bar. `"above"` is the default |
-| `shape` | `"label"`, `"arrowUp"`, `"arrowDown"`, `"triangleUp"`, `"triangleDown"`, `"circle"`, `"square"`, `"diamond"`, `"cross"`, `"flag"` | The mark itself |
+| `at` | `string` | Where the marker sits relative to the bar, one of the positions the `signal` entry of [drawing.md](../reference/functions/drawing.md) lists. `"above"` is the default |
+| `shape` | `string` | The mark itself, one of the shapes the `signal` entry of [drawing.md](../reference/functions/drawing.md) lists. `"label"` is the default |
 
 **Say where the marker goes.** `at` defaults to `"above"`, so a call that names
 no side sits above the bar whatever its text says. There is no value that picks
 the side by reading the marker's own text, because a marker whose position
 depends on its own text reads differently on two engines.
 
-`at`, `shape` and `color` are part of the marker's declaration, which is fixed
-before the first bar runs, so each must be a compile-time constant: a literal or
-an `input()`. A value that changes from bar to bar is OS3003. Only the `text` is
-read per bar.
+Only the `text` is read per bar. Every other argument is part of the marker's
+declaration, which is fixed before the first bar runs, so each must be a
+compile-time constant: a literal or an `input()`. A value that changes from bar
+to bar is OS3003 ([`stdlib.md`](../../spec/stdlib.md) section 14.3).
 
 ```
 version 1

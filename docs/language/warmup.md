@@ -239,7 +239,7 @@ whole of it in one table.
 | `and`, `or`, `not` | Three-valued logic, with absence meaning unknown |
 | An `if`, `while` or ternary condition | The false branch is taken |
 | A windowed library function | If any bar of the window is absent, that bar's result is absent |
-| `sumSkip`, `avgSkip`, `countPresent` | Absent bars are ignored. These three, and only these three |
+| A function [../../spec/stdlib.md](../../spec/stdlib.md) section 2.4 names as ignoring absence, and only those | Absent bars are ignored |
 | A plot | The line breaks. A fill stops. A level is not drawn |
 | `barColor`, `background` | The bar keeps its own colour; nothing is painted |
 | A table cell | The cell is blank |

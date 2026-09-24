@@ -59,6 +59,20 @@ test('the sentence a hover shows is the cell the specification prints', () => {
   assert.equal(held?.warmup, cells[3], 'the warmup is the row\'s warmup cell');
 });
 
+test('a row whose call writes a union of kinds gives its own last cell, not a piece of the call', () => {
+  // Catches a generator that splits a row on every pipe: the union inside the
+  // call's code span then cut the row early, and the hover for draw.setFrom
+  // said "nothing" and the one for draw.delete said "box". The row's last cell
+  // is found here by its position from the end, which the union cannot move.
+  const page = readFileSync(STDLIB, 'utf8');
+  for (const name of ['draw.setFrom', 'draw.delete', 'draw.setWidth']) {
+    const row = page.split(/\r?\n/).find((line) => line.startsWith(`| \`${name}(obj: `));
+    assert.ok(row !== undefined, `the specification still has a row for ${name}`);
+    const last = row.slice(0, row.lastIndexOf('|')).split(' | ').at(-1)?.trim();
+    assert.equal(proseFor(name)?.summary, last, name);
+  }
+});
+
 test('every name the library holds is described, or is one of the nineteen colours', () => {
   // Catches the two ways the manifest and the specification drift apart: a
   // function added to one and not the other. Both directions fail here, and a

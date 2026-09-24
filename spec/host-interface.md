@@ -151,6 +151,15 @@ columns for exactly this reason). An absent price propagates: what it feeds turn
 absent, a plot gaps rather than dropping to zero, and a comparison against it is
 absent rather than false.
 
+**The fields are the interface and the representation is the host's.** A history
+may be handed over as one record per bar or as one array per field, and an
+engine reads the same bars from either. The two are not equal over a long range:
+a decade of one minute bars held as records costs more than twice the memory of
+the same bars as columns of doubles, and a run over them allocates in proportion.
+A column that cannot hold an absent value writes it as a floating point
+not-a-number, which is absence here and nowhere a number. A bar that arrives
+live, one at a time, is a record.
+
 ### 3.2 The order they arrive in, and what the engine will not do to them
 
 - Oldest first. Position 0 is the oldest bar the host has supplied, and that
@@ -223,11 +232,12 @@ moving bar ten times give the same answer as executing it once.
 |---|---|
 | No bars at all | OS6010. A script cannot run over nothing, and an empty pane with no message is indistinguishable from a study that drew nothing |
 | A bar whose time does not follow the one before it | OS6011, naming the first such bar. An engine may not reorder what it is given |
+| A bar with no time at all | OS6025, naming the bar. It is the shape of section 3.1 that is broken rather than the order of section 3.2, and the fix is to date the bar |
 | A price or a volume the host does not have | The absent value, sections 3.1 and 3.3 |
 | Fewer bars than the study's warmup needs | Not an error. Warmup is absence (`compiled-program.md` section 7): the study is absent until it has enough bars, and it draws from the first bar it can |
 | A feed that is behind | Not an error. The engine runs over what it has, and later bars arrive as updates |
 
-**The first two are checked as the bars are handed over, and nowhere else.** The
+**The first three are checked as the bars are handed over, and nowhere else.** The
 engine compares a bar's `time` against the one before it once, at the moment the
 host states that bar, and never again: a bar handed back a hundred times as it
 forms is compared a hundred times, and a bar of settled history exactly once. So
@@ -407,18 +417,21 @@ disagree with the rest of the same chart.
 ### 4.5 When the host cannot answer
 
 A fact the host does not state is absent, and a bare read of it returns the absent
-value (`stdlib.md` section 3.4, decision 6 in `decisions.md`). OS6012 exists for a
-call that needs a fact and cannot default it.
+value (`stdlib.md` section 3.4, decision 6 in `decisions.md`). `chart.tickSize`,
+`chart.lotSize` and every other fact on the table above read as `none`, a script
+can test that with `isNone`, and nothing stops the bar.
 
-**Which reads raise OS6012 and which return absence is an open question**,
-recorded in `issues/0002-os6012-versus-an-absent-instrument-fact.md` and left open
-deliberately in `decisions.md`. This document does not settle it in passing, and a
-host must not depend on either answer.
+OS6012 belongs to the other case and only to it: something that needs a fact and
+cannot default it. In version 1 that is the instrument record itself, refused at
+load when it states a session with no timezone to read it in, a timezone the
+calendar cannot read, a session whose clock times are not `HH:MM`, or session days
+outside one to seven (section 4.3). A read that dates its buckets by a timezone
+the host did not state is not refused: it is absent, and `req.error` carries
+OS6012's sentence as the reason. Decision 66 in `decisions.md` records the
+settlement.
 
-What follows for a host whichever way it settles: **state every fact you have.**
-Withholding a fact the host holds is choosing between two behaviours, an error and
-an absent value, when the user wanted neither and the host could have supplied the
-number.
+**State every fact you have.** Withholding a fact the host holds gives the user
+an absent value where the host could have supplied the number.
 
 **Optional is not the same for every fact on that table.** Withholding
 `tickSize` gives a script an absent value it can test and a user a study that
@@ -427,8 +440,8 @@ removes a family of per-bar facts and every study anchored to them, and the
 result on the screen is an empty pane. The record cannot tell the two apart after
 the fact, so the interface splits them before it: a session with nothing to read
 it in is refused at load, section 4.3, and a host that holds a schedule states
-it, conformance item 3. Neither is a decision about what a bare read of an
-instrument fact returns, which is the open question above.
+it, conformance item 3. A bare read of an instrument fact is never refused, which
+is the rule above.
 
 ---
 
@@ -445,10 +458,13 @@ reported, and what happens when the asking study goes away. Which reads become
 requests is the engine's decision under `stdlib.md` section 15, and a host answers
 the requests it is given.
 
-This duty is optional. A host that serves no requests gives its engine neither the
-`req.symbol` nor the `req.timeframe` capability, and a program that needs one is
-refused at load with OS6006 naming the tag, rather than drawing a study with a
-silently empty line through it.
+This duty is optional. A host that serves no requests gives its engine no
+`req.symbol` capability, and a program that reads another instrument is refused
+at load with OS6006 naming the tag, rather than drawing a study with a silently
+empty line through it. `req.timeframe` is not the host's to withhold: a read of
+the chart's own instrument at a coarser interval is one the engine folds from the
+bars it already holds, so an engine serves that tag whether or not its host
+answers requests (section 5.2 says what a host that does answer one may do).
 
 ### 5.2 The request
 
@@ -956,7 +972,7 @@ fourteen period reading and the other a fifty.
 | `bool` | `true` or `false` |
 | `string`, `select` | A string. A `select` value must be one of the declared `options` |
 | `color` | `#rrggbbaa`, eight lower case hex digits, the spelling of `conformance.md` section 4 after the alpha conversion of `compiled-program.md` section 3.1 |
-| `source` | One of `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4`, `volume` |
+| `source` | One of the series a source input may select, `stdlib.md` section 13.1 |
 | `interval` | A canonical timeframe string (`stdlib.md` section 15.2) |
 | `time` | A wall clock string in the chart's zone, which is what lets a saved layout restore to the same wall clock in another timezone (`stdlib.md` section 13.3) |
 

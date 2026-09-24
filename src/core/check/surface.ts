@@ -73,6 +73,22 @@ export function libraryNames(): readonly string[] {
   return [...INDEX.keys()];
 }
 
+/**
+ * Every name the library lets a script call, for OS2010's suggestion.
+ *
+ * OS2010 is a call to something that is not a function, so the name it offers
+ * has to be one that is: offering `blue` for `volume(20)` would hand the reader
+ * a second OS2010. A planned name is left out too, because calling it is OS2020,
+ * and so is an order function outside a strategy, because calling it is OS7001.
+ */
+export function libraryFunctionNames(inStrategy: boolean): readonly string[] {
+  return [...INDEX.entries()]
+    .filter(([, entries]) =>
+      entries.some((one) => one.callable && !one.planned && (inStrategy || !one.strategyOnly)),
+    )
+    .map(([name]) => name);
+}
+
 /** The members of one namespace, spelled bare, for OS2009's suggestion. */
 export function membersOf(namespace: string): readonly string[] {
   const prefix = `${namespace}.`;

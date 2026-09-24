@@ -18,6 +18,6 @@ share = percent / 100
 // Named, because a band joins two declared columns and takes their declaration
 // handles rather than the series behind them.
 upperRail = plot(basis * (1 + share), "Upper", aqua)
-plot(basis, "Basis", orange, width = 2)
+basisRail = plot(basis, "Basis", orange, width = 2)
 lowerRail = plot(basis * (1 - share), "Lower", aqua)
 fill(upperRail, lowerRail, fade(aqua, 88))

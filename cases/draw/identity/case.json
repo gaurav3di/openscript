@@ -1,0 +1,1 @@
+{"asserts":["drawings","values"],"category":"surface","description":"An object held in a var is the same object on every bar, so moving it never makes a second one.","id":"draw/identity","languageVersion":1,"profile":"chart"}

@@ -156,6 +156,12 @@ export interface LibraryEntry {
   readonly whole: Readonly<Record<string, WholeRange>>;
   /** Arguments read once before bar 0, so a bar-dependent one is OS3003. */
   readonly constant: readonly string[];
+  /**
+   * Arguments the compiled format carries as a plain value, with no input
+   * reference beside it, so a setting written into one is OS3026 rather than
+   * folded to its default with nothing said.
+   */
+  readonly written: readonly string[];
   /** Pairs that set the same thing two ways, so giving both is OS3010. */
   readonly conflicts: readonly (readonly [string, string])[];
 }
@@ -171,6 +177,7 @@ export interface EntryOptions {
   readonly undeclared?: readonly string[];
   readonly whole?: Readonly<Record<string, WholeRange>>;
   readonly constant?: readonly string[];
+  readonly written?: readonly string[];
   readonly conflicts?: readonly (readonly [string, string])[];
 }
 
@@ -327,6 +334,7 @@ export function entry(signature: string, options: EntryOptions = {}): LibraryEnt
     undeclared: options.undeclared ?? [],
     whole: options.whole ?? {},
     constant: options.constant ?? [],
+    written: options.written ?? [],
     conflicts: options.conflicts ?? [],
   };
 }

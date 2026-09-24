@@ -254,14 +254,33 @@ this phase sets. Twenty three `core` cases now exist across `lexical`, `syntax`,
 errors. No change to the runner was needed for that: its rule was already right,
 and what was missing was cases for it to apply.
 
-**Two things that remain, and the second is the larger.** The suite still has no
-case asserting a per-bar value, because this engine's own projection has no
-channel for one (`caseFilesFrom` writes diagnostics, orders, trades and
-performance). So `semantics` and `numerics`, which are the categories section 1
-of `conformance.md` says the suite exists for, cannot be written against the
-reference implementation yet. And the gate itself needs an engine written by
-somebody who has not read this implementation, which nobody inside this
-repository can supply.
+**Every deliverable that can be built inside this repository is built, and the
+gate is the one thing left.** Where each stands on 2026-09-24:
+
+- **The per-bar values.** `conformance.md` section 4 defines the `values`,
+  `log`, `drawings` and `table` channels and both engines answer them. The suite
+  holds 106 cases, 52 of them `core`, and `semantics`, `numerics`, `time`,
+  `surface` and `external` hold real cases, each with its expected values
+  computed independently of both engines. The two engines agree on all 87 that
+  both can run, exactly, and hold the same 251 library entries.
+- **The importer.** `importScript` reads the version-annotated chart dialect,
+  versions 5 and 6, and translates each statement with its meaning, with a
+  stated difference, or not at all, with a finding under OS9001 to OS9012
+  (decision 74). Other chart languages are not read.
+- **The documentation site.** `npm run site` builds it from the specification,
+  the guides and the error catalogue, one page per code, and
+  `scripts/check-site.mjs` holds every link and anchor on it to a page that
+  exists. Publishing it somewhere is what remains of that item.
+- **The versioned format.** Format 1.1, with the compatibility promise of
+  `compiled-program.md` section 9 held by `check-format-additive.mjs` and the
+  corpus.
+- **The badge.** `npm run badge` makes one from a passing result document, and
+  the suite revision it names is the version and a digest of the cases
+  (`conformance.md` section 11). None is shown for this repository, for the
+  reason the gate gives.
+- **The third engine.** Not started, and not startable from here: the gate asks
+  for somebody who has not read this implementation, and every contributor to
+  this repository has.
 
 An importer for scripts written in other chart languages, a documentation site
 generated from the specification and the error catalogue, a versioned compiled

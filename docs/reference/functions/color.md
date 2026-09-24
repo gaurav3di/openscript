@@ -18,15 +18,9 @@ that draws something and a prefix on a fixed vocabulary of nineteen words is
 pure noise. Each name is an ordinary global of type `color` at full opacity, so
 the standard library can add more without a grammar change.
 
-The nineteen names:
-
-| | | | |
-|---|---|---|---|
-| `aqua` | `black` | `blue` | `brown` |
-| `fuchsia` | `gray` | `green` | `lime` |
-| `maroon` | `navy` | `olive` | `orange` |
-| `pink` | `purple` | `red` | `silver` |
-| `teal` | `white` | `yellow` | |
+The names are the table under
+[The nineteen named colours](../constants.md#the-nineteen-named-colours) in the
+constants reference.
 
 Their exact channel values are fixed in the library manifest and are part of the
 conformance suite, so a study looks the same on every engine. That is the point
@@ -196,7 +190,7 @@ opacity field to keep in step.
 | `barColor(c)` | the instrument's own candle for that bar |
 | `background(c)` | the pane background for that bar's column |
 | `cell(..., textColor = ..., bgColor = ...)` | that cell's text and background |
-| `draw.line`, `draw.label`, `draw.box`, `draw.polyline` | the object's line, fill or text colour |
+| any `draw` constructor, as the chart contract map in [`stdlib.md`](../../../spec/stdlib.md) section 18 lists them | the object's line, fill or text colour |
 
 **An absent colour is not an error and is not black.** `background(none)` and
 `barColor(none)` leave the bar alone, which is how a conditional paint switches

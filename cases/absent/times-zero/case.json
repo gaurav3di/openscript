@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"An absent value multiplied by zero is absent, not zero.","id":"absent/times-zero","languageVersion":1,"profile":"core"}

@@ -335,7 +335,7 @@ function claimSelfTest() {
     { text: ['// "lookahead" carries OS8005 and marks the study as repainting.'], wrong: 0 },
     { text: ['// "confirmed" is the default, and it never repaints.'], wrong: 0 },
     { text: ['// "developing" carries OS8002.'], wrong: 1 },
-    { text: ['// See OS9999 for the rule this example breaks.'], wrong: 1 },
+    { text: ['// See OS0999 for the rule this example breaks.'], wrong: 1 },
   ];
   const broken = [];
   for (const one of cases) {

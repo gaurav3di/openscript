@@ -1,0 +1,1 @@
+{"asserts":["diagnostics"],"category":"runtime","description":"A read at the bar's own index into a rolling window of three elements raises OS4004 on the first bar whose index is past the window.","id":"array/out-of-range","languageVersion":1,"profile":"core"}

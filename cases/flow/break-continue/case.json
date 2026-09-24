@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"continue skips the rest of an iteration and break ends the loop.","id":"flow/break-continue","languageVersion":1,"profile":"core"}

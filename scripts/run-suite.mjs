@@ -55,9 +55,10 @@
  * The profile order (section 8), the outcome vocabulary (section 9) and the
  * channel names (section 2) are read out of `spec/conformance.md`, so the
  * runner refuses an adapter that claims a profile the page does not list and
- * an answer whose outcome the page does not name. The suite revision has no
- * place the page fixes yet, so the document carries the package version the
- * cases shipped with, and says so here rather than inventing a spelling. A
+ * an answer whose outcome the page does not name. The suite revision is
+ * section 11's, the package version and a digest of every file under the
+ * suite root this run walked (`lib/suite-revision.mjs`), so a document names
+ * the cases it was run against and not only the release they shipped in. A
  * per-column tolerance is not read, for the reason in `lib/compare.mjs`.
  *
  * `caseDirectories` in `lib/case-directory.mjs` walks the repository's own
@@ -79,6 +80,7 @@ import {
   profileOrder,
 } from './lib/conformance-page.mjs';
 import { nothingFound } from './lib/files.mjs';
+import { suiteRevision } from './lib/suite-revision.mjs';
 
 /** This repository's own adapter, which is what a bare run is measured with. */
 const OWN_ADAPTER = 'scripts/adapter.mjs';
@@ -296,9 +298,13 @@ for (const one of found) {
 const summary = { total: rows.length };
 for (const outcome of outcomes) summary[outcome] = rows.filter((row) => row.outcome === outcome).length;
 
-const identity = ({ name, version, profile }) => ({ name, version, profile });
+// Section 8: an engine-only implementation's report says so, so the flag is
+// carried where it is true and nowhere else.
+const identity = ({ name, version, profile, engineOnly }) => ({
+  name, version, profile, ...(engineOnly === true ? { engineOnly } : {}),
+});
 const document = {
-  suiteRevision: JSON.parse(readFileSync(PACKAGE, 'utf8')).version,
+  suiteRevision: suiteRevision(options.cases, JSON.parse(readFileSync(PACKAGE, 'utf8')).version),
   engine: identity(engine),
   ...(against === null ? {} : { against: identity(against) }),
   languageVersions: engine.languageVersions,

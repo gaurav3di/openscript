@@ -34,41 +34,50 @@
  * loop and the same record.
  */
 import { reportOf, scheduleFromDeclaration } from '../accounting/index.js';
-import type { ChargeSchedule, Contract, RecordedFill } from '../accounting/index.js';
+import type { ChargeSchedule, Contract } from '../accounting/index.js';
 import type { Diagnostic } from '../diagnostics/index.js';
 import type { CompiledProgram } from '../emit/index.js';
 import { load } from '../engine/index.js';
 import type {
-  BarResult,
-  Engine,
+  Drawing,
   EngineHost,
+  Grid,
   Instrument,
   LedgerRow,
   OrderIntent,
+  RequestProvider,
   RoutedEffect,
+  Value,
 } from '../engine/index.js';
 import { declarationOf } from './declaration.js';
 import type { RunDeclaration } from './declaration.js';
 import { Delivery, framedAs, ordinalsOf } from './deliver.js';
-import type { Delivered, Destination } from './deliver.js';
+import type { Destination } from './deliver.js';
 import { marksFor, windowFor } from './range.js';
-import type { ReportWindow } from './range.js';
-import { diagnosticIn, orderIn, recordOf } from './record.js';
-import type {
-  RecordedBar,
-  RecordedDiagnostic,
-  RecordedFrame,
-  RecordedOrder,
-  RunRecord,
-} from './record.js';
+import { orderIn, recordOf } from './record.js';
+import type { RecordedBar, RecordedFrame, RecordedOrder, RunRecord } from './record.js';
 import { Simulator } from './simulate.js';
 import { checkSettings } from './settings.js';
+import { walk } from './walk.js';
+import type { LogLine } from './walk.js';
 import type { BacktestSettings } from './settings.js';
 
 /** What a run came to, or why it could not be carried out at all. */
 export type BacktestResult =
-  | { readonly ok: true; readonly record: RunRecord }
+  | {
+      readonly ok: true;
+      readonly record: RunRecord;
+      readonly rows?: readonly (readonly Value[])[];
+      readonly log?: readonly LogLine[];
+      readonly surface?: Surface;
+    }
   | { readonly ok: false; readonly diagnostic: Diagnostic };
+
+/** The drawing objects and the grids the last bar left, `conformance.md` section 4. */
+export interface Surface {
+  readonly drawings: readonly Drawing[];
+  readonly tables: readonly Grid[];
+}
 
 /**
  * The facts of `host-interface.md` 4.1 that the contract does not hold.
@@ -117,7 +126,34 @@ export interface DriveOptions {
    * written into a case that could never make its own expected output.
    */
   readonly sourceText?: string;
+  /**
+   * Whether to hand back every channel's value on every bar that ran, beside
+   * the record rather than inside it.
+   *
+   * A conformance case that asserts `values` compares one value per bar per
+   * plot, and the record holds none of them: it is the reproducible run, and a
+   * curve per plot is bytes it would carry for every run to serve the few cases
+   * that ask. So the rows are asked for, and a run that does not ask pays
+   * nothing. A bar that failed has no row, as in the second engine.
+   */
+  readonly rows?: boolean;
+  /** Whether to hand back every line `print` wrote, beside the record, for the same reason. */
+  readonly log?: boolean;
+  /** Whether to hand back the drawing objects and grids the last bar left, for the same reason. */
+  readonly surface?: boolean;
+  /**
+   * Bars for another instrument, `host-interface.md` 5, for a run whose host
+   * serves them.
+   *
+   * Left out, the run holds the chart's own bars and nothing else: a read of
+   * the chart's instrument at a coarser interval is folded from them, and a
+   * program that reads another instrument declares a capability this host does
+   * not have and is refused at load by name. Given, the host serves duty 3 and
+   * the engine asks it once per read, before bar 0.
+   */
+  readonly requestBars?: RequestProvider;
 }
+
 
 /**
  * One run against a simulated destination, from a compiled program to a record.
@@ -206,7 +242,12 @@ function drive(
   const instrument = instrumentFor(settings.contract, options.instrument ?? {});
   const loaded = load(program, {
     settings: settings.inputs,
-    host: hostFor(instrument, settings.now, (effect, bar) => sending?.route(effect, bar)),
+    host: hostFor(
+      instrument,
+      settings.now,
+      (effect, bar) => sending?.route(effect, bar),
+      options.requestBars,
+    ),
   });
   if (!loaded.ok) return { ok: false, diagnostic: loaded.diagnostic };
 
@@ -219,12 +260,15 @@ function drive(
   const destination = choose(declared, schedule);
   sending = destination;
 
-  const run = walk(engine, destination, bars, framed.covered);
+  const run = walk(engine, destination, bars, framed.covered, options);
   const ordinals = ordinalsOf(destination.intents);
   const marks = marksFor(bars, framed.covered);
 
   return {
     ok: true,
+    ...(options.rows === true ? { rows: run.rows } : {}),
+    ...(options.log === true ? { log: run.log } : {}),
+    ...(options.surface === true ? { surface: { drawings: engine.drawings(), tables: engine.tables() } } : {}),
     record: recordOf({
       program: engine.program,
       ...(options.sourceText === undefined ? {} : { sourceText: options.sourceText }),
@@ -252,140 +296,6 @@ function simulated(venue: Simulator): Destination {
       venue.framesFor(barIndex).map((frame) => ({ frame, afterBar: barIndex, row: null })),
     intents: venue.intents,
   };
-}
-
-/** What one walk of the bars produced. */
-interface Walked {
-  readonly fills: readonly RecordedFill[];
-  readonly frames: readonly Delivered[];
-  readonly diagnostics: readonly RecordedDiagnostic[];
-}
-
-/**
- * The bars, in order, with the venue answering between them.
- *
- * The one ordering rule: deliver, then append, then collect what the append
- * reported, then ask the venue what this bar did. A driver that asked the venue
- * before appending would price a fill against a bar the strategy had not seen.
- */
-function walk(
-  engine: Engine,
-  destination: Destination,
-  bars: readonly RecordedBar[],
-  covered: ReportWindow,
-): Walked {
-  const fills: RecordedFill[] = [];
-  const frames: Delivered[] = [];
-  const diagnostics: RecordedDiagnostic[] = [];
-  const intents = new Map<number, OrderIntent>();
-  const refs = new Map<number, string>();
-  const sizes = new Map<number, number>();
-
-  let pending: readonly Delivered[] = [];
-  let seq = 0;
-
-  for (let index = 0; index < covered.total; index += 1) {
-    const bar = bars[index];
-    if (bar === undefined) continue;
-
-    for (const one of pending) {
-      const ref = one.frame.orderRef;
-      if (typeof ref === 'string') refs.set(one.frame.intentId, ref);
-      engine.deliver(one.frame);
-      frames.push(one);
-    }
-    pending = [];
-
-    const result = engine.append(
-      { time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close,
-        volume: bar.volume, oi: bar.oi },
-      { isConfirmed: true, isRealtime: false },
-      covered.total,
-    );
-
-    for (const intent of intentsIn(result)) intents.set(intent.intentId, intent);
-    seq = settle(result, index, bar, { intents, refs, sizes }, fills, seq);
-
-    if (result.diagnostic !== undefined) {
-      diagnostics.push(diagnosticIn(result.diagnostic, index));
-      break;
-    }
-
-    pending = destination.answers(index);
-  }
-
-  return { fills, frames, diagnostics };
-}
-
-/** What the run is holding while it folds one bar's frames into fills. */
-interface Books {
-  readonly intents: ReadonlyMap<number, OrderIntent>;
-  readonly refs: ReadonlyMap<number, string>;
-  readonly sizes: Map<number, number>;
-}
-
-/**
- * The fills one bar's fold settled.
- *
- * **The position sizes either side of step 6 are kept here and not read back
- * from the engine**, because the engine reports a leg's net and a fill settles
- * against one position reference: the two are different numbers whenever a leg
- * holds more than one position, which is every flip. They are folded in the
- * order the frames were folded in, from the same deltas, so they are the same
- * arithmetic the position book did rather than a second reading of its result.
- * When `FrameOutcome` carries them, these two lines come from the engine and
- * this fold keeps only the sequence number.
- *
- * A refused frame settles nothing and is not a fill. Today the fold reports the
- * refusal as a word rather than a code, so nothing here can write it into the
- * record as a diagnostic; that is OS7018 and OS7019, and both are deferred.
- */
-function settle(
-  result: BarResult,
-  index: number,
-  bar: RecordedBar,
-  books: Books,
-  fills: RecordedFill[],
-  from: number,
-): number {
-  let seq = from;
-  for (const outcome of result.frames) {
-    if (outcome.refused !== undefined) continue;
-    if (outcome.delta <= 0 || outcome.price === null) continue;
-    const intent = books.intents.get(outcome.intentId);
-    if (intent === undefined || intent.side === null) continue;
-
-    const before = books.sizes.get(intent.positionRef) ?? 0;
-    const after = before + (intent.side === 'sell' ? -outcome.delta : outcome.delta);
-    books.sizes.set(intent.positionRef, after);
-    seq += 1;
-
-    fills.push({
-      seq,
-      intentId: outcome.intentId,
-      orderRef: books.refs.get(outcome.intentId) ?? '',
-      tag: intent.tag,
-      positionRef: intent.positionRef,
-      side: intent.side,
-      units: outcome.delta,
-      price: outcome.price,
-      // The bar the fold happened at, which is the bar the position exists
-      // from. Where the fill itself traded is the bar before it or this bar's
-      // own open, and neither is a bar the strategy could have acted on it in.
-      barIndex: index,
-      barTime: bar.time,
-      refSizeBefore: before,
-      refSizeAfter: after,
-    });
-  }
-  return seq;
-}
-
-/** Every intent one bar handed over, in the order the bar applied them. */
-function intentsIn(result: BarResult): readonly OrderIntent[] {
-  const out: OrderIntent[] = [];
-  for (const effect of result.effects) for (const intent of effect.intents) out.push(intent);
-  return out;
 }
 
 /** The ledger at the end, copied out of the engine's own array. */
@@ -450,19 +360,21 @@ function instrumentFor(contract: Contract, facts: InstrumentFacts): Instrument {
 /**
  * The host a backtest is: an instrument record, a clock and a destination.
  *
- * Duty 3 is not served. A backtest holds the chart's own bars and nothing else,
- * so a program that reads another instrument declares a capability this host
- * does not have and is refused at load, by name, rather than drawing a line
- * with nothing in it.
+ * Duty 3 is served only when the caller supplied bars for it. A backtest with
+ * none holds the chart's own bars and nothing else, so a program that reads
+ * another instrument declares a capability this host does not have and is
+ * refused at load, by name, rather than drawing a line with nothing in it.
  */
 function hostFor(
   instrument: Instrument,
   now: number | null,
   route: (effect: RoutedEffect, bar: number) => void,
+  requestBars: RequestProvider | undefined,
 ): EngineHost {
   return {
     instrument,
     ...(now === null ? {} : { now }),
     route,
+    ...(requestBars === undefined ? {} : { requestBars }),
   };
 }

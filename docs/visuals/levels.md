@@ -267,8 +267,8 @@ one to reach for.
 | Want | Set | Where |
 |---|---|---|
 | How many decimals | `precision`, 0 to 10 | The declaration, or a plot |
-| Whether it reads as a price, a percentage or a volume | `format`, one of `"price"`, `"percent"`, `"volume"` | The declaration, or a plot |
-| Which side of the pane a column maps to | `scale`, one of `"right"`, `"left"`, `"none"` | A plot |
+| What kind of number it reads as | `format`, one of the values [`language.md`](../../spec/language.md) section 13.2 gives it | The declaration, or a plot |
+| Which side of the pane a column maps to | `scale`, one of the values [`language.md`](../../spec/language.md) section 13.2 gives it | A plot |
 | The fixed extent of the scale | `range = [min, max]` | The declaration |
 
 ```

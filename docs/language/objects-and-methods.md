@@ -120,7 +120,7 @@ else's study.
 | `draw.setTextColor(obj, color)` | label, box | Change the text colour |
 | `draw.setFillColor(obj, color)` | box, polyline | Change the fill |
 | `draw.setWidth(obj, width)` | line, box, polyline | Change the thickness |
-| `draw.setStyle(obj, style)` | line | `"solid"`, `"dashed"` or `"dotted"` |
+| `draw.setStyle(obj, style)` | line | Change the line style, to one of the styles [../../spec/stdlib.md](../../spec/stdlib.md) section 14.4 lists |
 | `draw.setExtend(line, left, right)` | line | Continue the line to the pane edge |
 | `draw.setTooltip(obj, text)` | label, box | Detail shown while the pointer rests on it |
 | `draw.delete(obj)` | all | Remove one object |
@@ -403,10 +403,6 @@ appear anywhere. A cell reference outside the declared rows and columns is
 OS4008, which names the grid's size, and `clear(panel)` empties every cell so a
 table can be rebuilt from scratch.
 
-**Not raised yet.** OS4008 is in the catalogue and nothing raises it: a cell
-outside the declared grid raises the broader OS4004, which names an index rather
-than the shape.
-
 There is no `draw.delete` for a table. It is a fixed surface of the study, like
 a plot, and it lives as long as the study does.
 
@@ -416,14 +412,12 @@ a plot, and it lives as long as the study does.
 |---|---|---|
 | OS4005 | A setter was given an object that was deleted | Set the handle to the absent value when you delete, and guard with `isNone` |
 | OS4008 | A cell outside the table | Declare the table with enough rows and columns, or clamp the index |
-| OS3006 | `plot`, `fill`, `level` or `table` inside a block | Move it to the top level; hide a plot by plotting the absent value |
+| OS3006 | A `plot`, or another call [../../spec/language.md](../../spec/language.md) section 15.3 files under OS3006, inside a block | Move it to the top level; hide a plot by plotting the absent value |
 | OS8014 | A persistent value holds a bar index | Store `time` instead; indices shift when history loads |
 | OS5002 | An array of handles grew past the element ceiling | Cap it, and delete the objects as you drop the handles |
 
-**Not raised yet.** OS4008 and OS8014 are in the catalogue and nothing raises
-them. A cell outside the declared grid raises the broader OS4004, which names an
-index rather than the shape. The checker does not follow a bar index into a
-persistent value.
+**Not raised yet.** OS8014 is in the catalogue and nothing raises it. The
+checker does not follow a bar index into a persistent value.
 
 ## See also
 

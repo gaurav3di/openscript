@@ -30,6 +30,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tableCells } from './lib/table-cells.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'src', 'core', 'check');
@@ -94,7 +95,8 @@ function describedIn(text, columns) {
       header = null;
       continue;
     }
-    const cells = line.split('|').map((one) => one.trim());
+    // A leading empty cell keeps the column numbers the header is read by.
+    const cells = ['', ...tableCells(line)];
     if (cells[1] === 'Call') {
       header = cells;
       continue;

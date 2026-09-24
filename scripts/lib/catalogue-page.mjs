@@ -36,6 +36,22 @@
  * that tried to hold them to the file would be a check nobody could keep green.
  * That reach is stated here rather than implied, because a check that overstates
  * what it covers is worse than a small one that says so.
+ *
+ * ## And now something does render it
+ *
+ * The documentation site gives every code a page of its own, and the page is
+ * `sectionFor`, below: one whole part 8 section written from one entry, out of
+ * the same pieces the comparisons above read back. So there is one renderer of a
+ * section, and it is this file's, rather than a second one in the site that
+ * would drift from the page it imitates.
+ *
+ * Every section is then compared with that rendering as a whole, once each
+ * field has been found equal. That reaches what the field comparisons cannot:
+ * the order of the paragraphs, the one sentence the transcript entries print
+ * that no field holds, the blank lines, and anything a section says that the
+ * file does not. When all of it holds, part 8 is character for character the
+ * text the site prints on each code's own page, which is what the introduction
+ * to `errors.md` has promised since before anything rendered it.
  */
 
 /** The sentence a section prints where no test names the code. */
@@ -43,6 +59,27 @@ const NO_TEST = 'No test in this repository names this code.';
 
 /** The sentence a section prints where an editor can apply the fix. */
 const AUTOFIX = 'The editor can apply the fix.';
+
+/**
+ * The paragraph a section prints where the example is the host's input.
+ *
+ * No field holds it, because it is the same for every such entry: the entry
+ * says `kind: "transcript"` and the page says what that means to a reader.
+ */
+const HOST_INPUT =
+  '**Host input.** The example below is the input that fails and the input that passes ' +
+  'rather than a script, because this code is about what the engine was handed and not ' +
+  'about what anybody wrote.';
+
+/**
+ * The paragraph a section prints where the example is a script in the source
+ * dialect the importer reads, for the same reason: `kind: "import"` says it once
+ * per entry and the page says what it means.
+ */
+const IMPORTED =
+  '**Imported source.** The before block below is a script in the source dialect, which ' +
+  'the importer reads rather than the compiler, and the after block is the OpenScript that ' +
+  'script becomes once the fix is applied.';
 
 /** One section of part 8, from its heading to the next one. */
 export function sectionsOf(text) {
@@ -80,6 +117,44 @@ function headerFor(entry, stageLabels) {
     `Since language version ${entry.since}. Reference ${entry.spec}. ${test}` +
     (entry.autofix === true ? ` ${AUTOFIX}` : '')
   );
+}
+
+/**
+ * One whole part 8 section, written from one entry.
+ *
+ * In the order every section prints: the heading, the first line, the deferral
+ * or the unexercised sentence where the entry has one, the host input paragraph
+ * where the example is a transcript or the imported source one where it is a
+ * script in the source dialect, the message and its placeholders, the
+ * cause, the fix, and the two blocks. Markdown, because it is the text of
+ * `errors.md` and the site renders it with the same renderer as that page.
+ */
+export function sectionFor(entry, stageLabels) {
+  const parts = [`### ${entry.code} ${entry.title}`, headerFor(entry, stageLabels)];
+  if (entry.deferred != null) parts.push(`**Deferred.** ${entry.deferred}`);
+  if (entry.unexercised != null) parts.push(`**Not exercised.** ${entry.unexercised}`);
+  if (entry.example?.kind === 'transcript') parts.push(HOST_INPUT);
+  if (entry.example?.kind === 'import') parts.push(IMPORTED);
+  parts.push(`**Message.** \`${entry.message}\``);
+  const glosses = Object.entries(entry.placeholders ?? {}).map(([key, text]) => glossOf(key, text));
+  if (glosses.length > 0) parts.push(glosses.join('\n'));
+  parts.push(`**Cause.** ${entry.cause}`, `**Fix.** ${entry.fix}`);
+  for (const [label, block] of [
+    ['Before:', entry.example?.before],
+    ['After:', entry.example?.after],
+  ]) {
+    parts.push(label, `\`\`\`\n${block}\n\`\`\``);
+  }
+  return `${parts.join('\n\n')}\n`;
+}
+
+/**
+ * A section as it stands on the page, without what follows the last entry of a
+ * range: the rule under it and the next range's heading.
+ */
+function standing(text) {
+  const trimmed = text.trimEnd().replace(/\n## [^\n]*$/, '').trimEnd();
+  return `${trimmed.replace(/\n---$/, '').trimEnd()}\n`;
 }
 
 /**
@@ -145,6 +220,24 @@ export function entryProblems(entry, sections, stageLabels, where) {
     for (let i = 0; i < wanted.length; i += 1) differs('placeholder line', glosses[i], wanted[i]);
   }
 
+  // Every field agrees, so what is left to differ is what no field holds. Run
+  // only then, because a changed cause would otherwise be reported twice, once
+  // by name above and once here as a line that is not the rendering.
+  if (problems.length > 0) return problems;
+  const page = standing(section.text).split('\n');
+  const rendered = sectionFor(entry, stageLabels).split('\n');
+  const lines = Array.from({ length: Math.max(page.length, rendered.length) }, (_, i) => i);
+  const first = lines.find((i) => page[i] !== rendered[i]);
+  if (first !== undefined) {
+    problems.push(
+      `${prose}:${section.line + first}: ${entry.code}'s section is not the rendering of its entry ` +
+        `in ${catalogue}, though every field compares equal. The site prints that rendering on the ` +
+        "code's own page, so part 8 and the page would show a reader two texts. The first line " +
+        'that differs:\n' +
+        `    page:      ${JSON.stringify(page[first])}\n` +
+        `    rendering: ${JSON.stringify(rendered[first])}`,
+    );
+  }
   return problems;
 }
 
@@ -275,14 +368,21 @@ export function pageSelfTest() {
     placeholders: { name: 'the name' },
     cause: 'A cause.',
     fix: 'A fix.',
+    example: { before: 'a = 1', after: 'b = 1', kind: 'transcript' },
   };
-  const page = (message, gloss, cause) =>
-    `### OS0001 A fabricated entry\n\n` +
-    `Severity error. Stage checker. Since language version 1. Reference nowhere.md 1. ${NO_TEST}\n\n` +
-    `**Message.** \`${message}\`\n\n` +
-    `- \`{name}\` is ${gloss}.\n\n` +
-    `**Cause.** ${cause}\n\n` +
-    `**Fix.** A fix.\n\n`;
+  const blocks = 'Before:\n\n```\na = 1\n```\n\nAfter:\n\n```\nb = 1\n```\n';
+  const page = (message, gloss, cause, over = {}) => {
+    const reasons = [`**Cause.** ${cause}\n\n`, '**Fix.** A fix.\n\n'];
+    if (over.swapped) reasons.reverse();
+    return (
+      `### OS0001 A fabricated entry\n\n` +
+      `Severity error. Stage checker. Since language version 1. Reference nowhere.md 1. ${NO_TEST}\n\n` +
+      `${over.host ?? HOST_INPUT}\n\n` +
+      `**Message.** \`${message}\`\n\n` +
+      `- \`{name}\` is ${gloss}.\n\n` +
+      `${reasons.join('')}${blocks}${over.after ?? '\n'}`
+    );
+  };
 
   const ran = (text) => entryProblems(entry, sectionsOf(text), stageLabels).length;
   const cases = [
@@ -290,10 +390,21 @@ export function pageSelfTest() {
     ['a message changed by one word', page('A messages.', 'the name', 'A cause.'), 1],
     ['a placeholder gloss changed', page('A message.', 'the title', 'A cause.'), 1],
     ['a cause changed', page('A message.', 'the name', 'Another cause.'), 1],
+    ['the last section of a range', page('A message.', 'the name', 'A cause.', { after: '\n---\n\n## 8.2 Next\n\n' }), 0],
+    ['the host input paragraph changed', page('A message.', 'the name', 'A cause.', { host: '**Host input.** A script.' }), 1],
+    ['the cause printed after the fix', page('A message.', 'the name', 'A cause.', { swapped: true }), 1],
   ];
   for (const [what, text, wanted] of cases) {
     const found = ran(text);
     if (found !== wanted) broken.push(`${what}: ${found} reported, ${wanted} expected`);
+  }
+  const imported = { ...entry, example: { ...entry.example, kind: 'import' } };
+  const ranImported = (text) => entryProblems(imported, sectionsOf(text), stageLabels).length;
+  if (ranImported(page('A message.', 'the name', 'A cause.', { host: IMPORTED })) !== 0) {
+    broken.push('an imported source paragraph that matches');
+  }
+  if (ranImported(page('A message.', 'the name', 'A cause.')) !== 1) {
+    broken.push('the host input paragraph printed for an imported example');
   }
 
   const catalogue = {

@@ -26,8 +26,9 @@ execution; see [Phase 6](./ROADMAP.md#phase-6-the-second-engine-and-live-running
 
 ## Status
 
-**`0.5.0` runs studies, backtests strategies, draws a strategy on a chart, and
-ships the language intelligence an editor needs.** The Python engine is on PyPI
+**`0.6.0` runs studies, backtests strategies, draws a strategy on a chart,
+imports scripts from another chart language, and ships the language
+intelligence an editor needs.** The Python engine is on PyPI
 as `openscript`, at the same version, and the two are released together.
 
 What an install gets you today: the compiler, the engine, the chart adapter and
@@ -43,6 +44,15 @@ reruns to the same bytes, and `npm test` proves it over the shipped strategy
 examples on every run rather than asserting it in a page. Two records can be put
 beside each other, and a pair over different bars is reported incomparable
 instead of being subtracted into a table that reads like a result.
+
+**New in `0.6.0`:** `importScript`
+imports a script written in the version-annotated chart dialect, translating
+each statement with its meaning or saying why not; `engine.run` takes a history
+as columns as well as one record per bar; `npm run site` builds a documentation
+site from the specification and the error catalogue; and the Python engine
+holds every library entry the first one does. [`CHANGELOG.md`](./CHANGELOG.md)
+says what changed under a deployment, including a `"lookahead"` read in a
+backtest.
 
 What it does **not** do yet, stated plainly because the registry page is the
 first thing a stranger reads:
@@ -76,31 +86,28 @@ first thing a stranger reads:
   writes the files a suite runs from straight out of a record, which is where the
   strategy cases under [`cases/`](./cases) came from.
 
-  There are 31 cases now: 8 in the `strategy` profile and 23 in `core`.
-  **Until the `core` ones existed the suite could not fail an engine that
-  implemented nothing.** Every case declared `strategy`, so an engine claiming
-  `core` was handed none of them, and the runner reported a pass with nothing
-  behind it. That is fixed, and the fix was cases rather than code: the runner's
-  rules were already right and had nothing to apply to.
+  There are 106 cases now: 52 in the `core` profile, 46 in `chart` and 8 in
+  `strategy`. They assert eight of the channels section 4 of
+  [`spec/conformance.md`](./spec/conformance.md) defines: diagnostics, a value
+  per bar per plot, the log, drawing objects, grid cells, orders, trades and the
+  report. Markers, fills, levels, paint and alerts have no case yet, and neither
+  engine's adapter answers them. So the `semantics` and
+  `numerics` categories, which are the reason the suite exists, now hold real
+  cases, each with expected values computed independently of both engines.
 
-  `npm run suite:agree` reports 12 pass and 19 skipped of 31 between the two
-  engines, the skips being the compiler-diagnostic cases the Python engine
-  rightly has no compiler for. What that run does not prove is the thing the
-  suite exists for: both engines were written in this repository, from the same
-  specification, by the same hands, so their agreement is evidence about this
-  repository rather than about the specification. Until an engine written by
-  somebody who had only the specification passes these cases, portability is a
-  design with one corroborating implementation, not a result.
+  `npm run suite:agree` reports 87 pass and 19 skipped of 106 between the two
+  engines, exactly, the skips being the compiler-diagnostic cases the Python
+  engine rightly has no compiler for. The two engines hold the same 251 library
+  entries, which a check asks each of them for on every build. What that run
+  does not prove is the thing the suite exists for: both engines were written
+  in this repository, from the same specification, by the same hands, so their
+  agreement is evidence about this repository rather than about the
+  specification. Until an engine written by somebody who had only the
+  specification passes these cases, portability is a design with one
+  corroborating implementation, not a result. That is why no conformance badge
+  is shown here, though `npm run badge` will make one for an engine that passes.
 
-  And the suite still reaches less than it sounds like. **No case asserts a
-  per-bar value**, because the projection above writes diagnostics, orders,
-  trades and performance and has no channel for one. So the `semantics` and
-  `numerics` categories, which are the reason
-  [`spec/conformance.md`](./spec/conformance.md) gives for the suite existing at
-  all, cannot be written against this engine yet. Two engines can agree on every
-  case here and still disagree on what a moving average is.
-
-The version is `0.5.0` rather than `1.0` because of that list. The studies
+The version is `0.6.0` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The
@@ -155,10 +162,11 @@ OpenScript is the opposite of that:
 - **Connected.** Designed to route orders through your own broker connection,
   with sandbox testing before live execution. The live runner is planned.
 - **Open.** Apache-2.0, a written specification, and a conformance suite anyone
-  can run against their own implementation. It covers the compiler's
-  diagnostics, the runtime errors and the limits today; the per-bar values are
-  specified and not yet testable, and [the suite's own page](./spec/conformance.md)
-  says which is which.
+  can run against their own implementation: the compiler's diagnostics, the
+  runtime errors and limits, the per-bar values, the calendar, drawing objects,
+  grids, reads of other timeframes and instruments, and strategy fills and
+  reports. [The suite's own page](./spec/conformance.md) says what a pass does
+  and does not entitle an implementation to claim.
 
 ## How it is built
 

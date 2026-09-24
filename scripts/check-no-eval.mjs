@@ -488,7 +488,8 @@ console.log(
     `${inventory.data.length} are ` +
     `data and named as such, plus ${commands} build commands and ${steps.length} build steps, ` +
     `including the programs they feed in. The tree is walked rather than asked about, and the ` +
-    `only thing left out of it is ${[...NOT_THE_PROJECT].join(' and ')}. ` +
+    `only things left out of it are ${[...NOT_THE_PROJECT].join(' and ')}, and any directory below the root ` +
+    `that is a checkout of its own. ` +
     `No form this scan knows about was found. What is guaranteed about the package a ` +
     `platform installs is checked next door: scripts/check-layering.mjs refuses every import ` +
     `of a module from the runtime's own namespace under src, so the shipped engine has no ` +

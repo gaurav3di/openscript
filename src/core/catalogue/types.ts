@@ -6,8 +6,14 @@
 /** What a diagnostic does to the run. An error stops it; a warning never does. */
 export type Severity = 'error' | 'warning';
 
-/** Which part of the pipeline raised a diagnostic. */
-export type Stage = 'lex' | 'parse' | 'check' | 'runtime' | 'host';
+/**
+ * Which part of the pipeline raised a diagnostic.
+ *
+ * `import` is not a stage of compiling OpenScript: it is the importer, which
+ * reads a script written in another chart language and whose findings point
+ * into that script rather than into an OpenScript file.
+ */
+export type Stage = 'lex' | 'parse' | 'check' | 'runtime' | 'host' | 'import';
 
 /**
  * What a compiler puts into a message slot.

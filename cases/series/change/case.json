@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"change is the difference from the bar before, or from len bars before, and absent until that bar exists.","id":"series/change","languageVersion":1,"profile":"core"}

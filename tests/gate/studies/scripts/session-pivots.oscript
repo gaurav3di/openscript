@@ -10,13 +10,12 @@ version 1
 
 study("Session pivots", overlay = true, precision = 2)
 
-// The running extremes are seeded from bar 0 rather than from absence. Seeding
-// them absent and letting the first bar fill them says the same thing at run
-// time and a different thing at compile time: the rollover below copies these
-// names into the carried ones before either has been assigned on this bar, and
-// a name copied out of an absent one is absent as far as the checker can see,
-// which draws OS8009 on every plot in this file. issues/0007 has the
-// reproduction and what the checker should do instead.
+// The running extremes are seeded from bar 0 rather than from absence, because
+// max and min propagate absence and a running extreme seeded absent would stay
+// absent. The rollover below copies these names into the carried ones before
+// either has been assigned on this bar, which is the order the study's meaning
+// requires, and the checker reads a var copied that way as present on a later
+// bar rather than never (issues/0007).
 var runHigh  = high
 var runLow   = low
 var runClose = close

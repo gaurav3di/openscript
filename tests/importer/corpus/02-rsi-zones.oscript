@@ -1,0 +1,28 @@
+version 1
+
+study("RSI zones", precision = 2)
+
+length = input(14, "Length", min = 2)
+upperLevel = input(70, "Overbought", min = 50, max = 100)
+lowerLevel = input(30, "Oversold", min = 0, max = 50)
+lineColor = input(purple, "Line colour")
+
+rsiValue = rsi(close, length)
+smooth = sma(rsiValue, 5)
+
+// Count how many bars in a row the reading has stayed overbought.
+var streak = 0
+if rsiValue > upperLevel
+    streak = streak + 1
+else
+    streak = 0
+
+level(upperLevel, "Upper", color = red, style = "dashed")
+level(50, "Middle", color = gray, style = "dotted")
+level(lowerLevel, "Lower", color = green)
+
+plot(rsiValue, "RSI", lineColor, width = 2)
+plot(smooth, "Smoothed", silver)
+plot(streak, "Streak", orange, style = "column")
+
+background(rsiValue > upperLevel ? fade(red, 85) : rsiValue < lowerLevel ? fade(green, 85) : none)

@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"time","description":"chart.intervalMinutes and chart.isIntraday are derived from the interval the host states.","id":"chart/interval","languageVersion":1,"profile":"chart"}

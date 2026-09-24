@@ -21,11 +21,12 @@ import type { SourceFile } from '../source/index.js';
 import { Checker, TOP_LEVEL, finaliseStorage } from './checker.js';
 import type { CheckedScript } from './checked.js';
 import { checkDeclaration, checkLimits, readHeader } from './declaration.js';
+import { reportDeletedStillHeld } from './deleted.js';
 import { checkFunctionDeclarations, checkRemainingFunctions } from './functions.js';
 import { reportRepeatedAlertIds } from './outputs.js';
 import { checkStatement } from './statements.js';
 import { reportUnplaceableTags } from './tags.js';
-import { elementOf } from './types.js';
+import { elementOf, isHandle } from './types.js';
 
 export function check(file: SourceFile, script: Script, sink: DiagnosticSink): CheckedScript {
   const checker = new Checker(file, script, sink);
@@ -54,6 +55,7 @@ export function check(file: SourceFile, script: Script, sink: DiagnosticSink): C
   finaliseStorage(checker);
   reportUnknownElementTypes(checker);
   reportNamesNeverRead(checker);
+  reportDeletedStillHeld(checker);
   reportRepeatedTitles(checker);
   reportInputKeys(checker);
   reportRepeatedAlertIds(checker);
@@ -78,12 +80,22 @@ function reportUnknownElementTypes(checker: Checker): void {
   }
 }
 
-/** OS8010 and OS8018: a name, or an input, that nothing in the file reads. */
+/**
+ * OS8010 and OS8018: a name, or an input, that nothing in the file reads.
+ *
+ * A name bound to a declaration handle is exempt, as the entry's cause says: a
+ * handle is a compile-time binding, the declaration draws whether or not it is
+ * named, and so nothing is left in the bar loop for the warning to be about.
+ * `language.md` 5.4 gives `plot`, `plotCandles`, `fill` and `level` the one kind
+ * of value, so the exemption is the type rather than a list of the two calls
+ * `stdlib.md` 14.2 happens to name.
+ */
 function reportNamesNeverRead(checker: Checker): void {
   for (const binding of checker.bindings) {
     if (binding.isRead) continue;
     if (binding.kind === 'library' || binding.kind === 'function') continue;
     if (binding.kind === 'parameter' || binding.kind === 'loop') continue;
+    if (isHandle(binding.type)) continue;
 
     if (binding.input !== undefined) {
       const input = checker.inputs[binding.input];

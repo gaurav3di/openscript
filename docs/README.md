@@ -1,6 +1,6 @@
 # OpenScript documentation
 
-By the end of this page you will know which of the seventy-eight pages in this set
+By the end of this page you will know which of the pages in this set
 answers the question in front of you, what order to read them in if you do not
 yet have a question, and what every convention in them means, so that no page
 has to explain itself twice.
@@ -92,7 +92,10 @@ are where OpenScript is not what your reflexes expect.
 
 Then read section 17 of [../spec/language.md](../spec/language.md), which is a
 short list of deliberate departures from what an existing chart scripting
-language would do, each with its reason.
+language would do, each with its reason. If you have scripts written in the
+version-annotated chart dialect, [writing/importing-a-script.md](./writing/importing-a-script.md)
+translates them and tells you, statement by statement, where the two languages
+part.
 
 ### I need one specific answer
 
@@ -119,7 +122,7 @@ Go straight to the shelf that holds your kind of question.
 
 ## How to read anything in this set
 
-Three conventions run through all seventy-eight pages. Learning them here saves
+Three conventions run through every page. Learning them here saves
 every page from restating them.
 
 ### Examples are complete scripts
@@ -217,6 +220,7 @@ digits. The thousands digit says which part of the system produced it.
 | `OS6xxx` | Data: bars, instruments, timeframes and the host's answers |
 | `OS7xxx` | Orders: an order could not be placed as written |
 | `OS8xxx` | Warnings: it compiles, it runs, and it is probably not what you meant |
+| `OS9xxx` | Import: a script in another chart language could not be translated as written, or was translated with a stated difference |
 
 When a page tells you something is an error, it names the code inline and moves
 on. The code is the index into the catalogue; the page does not reproduce the
@@ -353,6 +357,7 @@ the page answers, which is not the same thing as what it is called.
 | [writing/profiling.md](./writing/profiling.md) | Which part of a slow script is actually costing the time, measured rather than guessed at |
 | [writing/limits.md](./writing/limits.md) | Every budget a script runs inside, which belong to the language and which to the host, and what to do when you reach one |
 | [writing/publishing.md](./writing/publishing.md) | How to package a script for somebody who did not write it, and version it so nobody's chart changes underneath them |
+| [writing/importing-a-script.md](./writing/importing-a-script.md) | How to turn a script written in another chart language into OpenScript, and which of its lines came across exactly, which with a stated difference and which not at all |
 
 ### reference/ (the whole vocabulary)
 
@@ -435,3 +440,4 @@ What you get, what you supply, and the three routes to adopting it.
 - [integrating/backtesting.md](./integrating/backtesting.md) - what a backtest gives you and what you fill in
 - [integrating/the-editor-half.md](./integrating/the-editor-half.md) - the language intelligence an editor needs, and what stays yours
 - [integrating/running-the-suite.md](./integrating/running-the-suite.md) - run the conformance suite against an engine, or two engines against each other, which is what the build does
+- [integrating/the-documentation-site.md](./integrating/the-documentation-site.md) - build these pages, the specification and a page per error code into a static site, and serve it from anywhere

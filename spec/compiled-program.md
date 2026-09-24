@@ -318,8 +318,8 @@ start of every bar (section 5.1).
 
 **A `"source"` input's default names a series rather than holding one.** It is
 written `["s", "<field>"]`, in the same `[tag, value]` form as every other
-default, and the string is one of the eight built-in series a source input may
-select: `open`, `high`, `low`, `close`, `hl2`, `hlc3`, `ohlc4` and `volume`. The
+default, and the string is one of the built-in series a source input may select,
+which `stdlib.md` section 13.1 lists. The
 `kind` field is what says the string names a series rather than holding one, so
 the constant pool needs no tag of its own for a series (section 2.9). The engine
 resolves the name to the matching `"bar"` register and
@@ -384,7 +384,7 @@ a settings dialog and a pane have to exist before the first bar runs
 | `color` | color? | Default colour, or null when the script named none, in which case the host assigns one from its own palette |
 | `colorChannel` | number? | A channel carrying a per-bar colour, when the call's colour argument is not constant |
 | `width` | number | Line thickness |
-| `lineStyle` | string | `"solid"`, `"dashed"` or `"dotted"` |
+| `lineStyle` | string | One of the line styles `stdlib.md` section 14.4 gives `draw.setStyle` |
 | `offset` | number | Bars to shift the drawn column right, negative for left |
 | `overlay` | bool? | Force this one plot onto the price pane |
 | `scale` | string | `"right"`, `"left"` or `"none"` |
@@ -475,7 +475,7 @@ palette.
 | `title` | string | Label |
 | `channel` | number | The channel carrying the price |
 | `color` | color | Line colour |
-| `lineStyle` | string | `"solid"`, `"dashed"` or `"dotted"` |
+| `lineStyle` | string | One of the line styles `stdlib.md` section 14.4 gives `draw.setStyle` |
 | `lineWidth` | number | Thickness |
 
 A level's price arrives through a channel and is therefore evaluated every bar, and
@@ -1513,21 +1513,32 @@ comparison is not.
 | `OR_SHORT` | `t` | `a -> a` | If the top value is `true`, jump to `t` leaving it in place |
 
 `AND` implements the three-valued conjunction of `language.md` section 6.6, and
-`OR` the disjunction beside it. Each table holds only the cases its short-circuit
-leaves to it: `AND_SHORT` has already decided a `false` left operand, and
-`OR_SHORT` a `true` one.
+`OR` the disjunction beside it. **Each table is total**: every pair of two
+booleans or absences has a row, including the three a short-circuit decides
+before the instruction runs, a `false` left operand under `and` and a `true` one
+under `or`. Those rows are here because the compiler emits `AND` and `OR` with no
+short-circuit before them where neither operand can have an effect, the values of
+a `switch` case among them (`language.md` section 10.6), and their answers are
+the ones section 6.6 gives, so a program that took the short-circuit and one that
+did not compute the same value.
 
 | `a` | `b` | `a and b` |
 |---|---|---|
 | `true` | `true` | `true` |
 | `true` | `false` | `false` |
 | `true` | absent | absent |
+| `false` | `true` | `false` |
+| `false` | `false` | `false` |
+| `false` | absent | `false` |
 | absent | `true` | absent |
 | absent | `false` | `false` |
 | absent | absent | absent |
 
 | `a` | `b` | `a or b` |
 |---|---|---|
+| `true` | `true` | `true` |
+| `true` | `false` | `true` |
+| `true` | absent | `true` |
 | `false` | `true` | `true` |
 | `false` | `false` | `false` |
 | `false` | absent | absent |
@@ -2560,6 +2571,16 @@ removes or reorders a study, so the candles do not alternate between two
 colourings while both studies keep recomputing. A host that draws the study list
 in the other order applies the rule in that order: what is fixed is that the rule
 is the order the user sees, stated, rather than whichever study ran last.
+
+**A host draws what its surface has room for, and refuses what it does not.** The
+table above is what a program can carry, and a host's surface may be narrower: a
+chart pane with one grid, a band drawn in one colour for the whole run. The
+difference is allowed and invisible is not. A host that cannot draw a declaration
+refuses the program before any bar runs with OS6024, naming the declaration and
+its own reason, rather than drawing part of the study and saying nothing. A host
+that can draw all of it refuses nothing, which is why this is a host's refusal and
+never the compiler's: the program is correct, and another host may draw every
+line of it.
 
 ---
 

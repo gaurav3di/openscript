@@ -1,0 +1,25 @@
+//@version=6
+strategy("Average cross", overlay = true, default_qty_type = strategy.percent_of_equity, default_qty_value = 25, pyramiding = 0, currency = currency.USD, process_orders_on_close = false)
+
+fastLength = input.int(10, "Fast")
+slowLength = input.int(40, "Slow")
+takeTicks = input.int(300, "Target, in ticks")
+stopTicks = input.int(150, "Stop, in ticks")
+
+fast = ta.sma(close, fastLength)
+slow = ta.sma(close, slowLength)
+
+// Enter only when the slow average itself is rising.
+trendUp = slow > slow[1]
+longSignal = ta.crossover(fast, slow) and trendUp
+exitSignal = ta.crossunder(fast, slow)
+
+if longSignal
+    strategy.entry("Long", strategy.long)
+    strategy.exit("Bracket", "Long", profit = takeTicks, loss = stopTicks)
+
+if exitSignal
+    strategy.close("Long", comment = "cross down")
+
+plot(fast, "Fast", color = color.blue)
+plot(slow, "Slow", color = color.navy, linewidth = 2)

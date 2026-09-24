@@ -245,8 +245,8 @@ value. So is `14`. So is the result of `input(14, "Length")`.
 A value accepts `[]` in exactly four cases:
 
 1. It is a built-in series: `open`, `high`, `low`, `close`, `volume`, `time`,
-   `hl2`, `hlc3`, `ohlc4`, `hlcc4`, and the per-bar facts in the `bar` and
-   `session` namespaces.
+   the rest of [../../spec/language.md](../../spec/language.md) section 15.1,
+   and the per-bar facts in the `bar` and `session` namespaces.
 2. It is a name declared at the **top level of the file**.
 3. It is a call to a function declared to return a series, such as `ema(close, 9)`.
 4. It is a parameter of a user function whose type is a series, in which case
@@ -431,7 +431,7 @@ that holds `none` on some bars and a number on others is an ordinary
 
 | Code | Means | Usual fix |
 |---|---|---|
-| OS2003 | Two types do not mix, or a name changed type | Convert with `text`, `toNumber` or `toBool`, or use a second name |
+| OS2003 | Two types do not mix, or a name changed type | Convert with one of the [conversions the language allows](#conversions-the-language-allows), or use a second name |
 | OS2004 | The value has no history | Name the per-bar number at the top level of the file, and read that name |
 | OS2011 | A condition is not a `bool` | Write the test out: `x > 0`, `isNone(x)`, `s != ""` |
 | OS2012 | The ternary arms have different types | Make them agree, or use `none` for the empty arm |

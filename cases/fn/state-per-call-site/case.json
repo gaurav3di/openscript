@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"A function that calls a stateful library function keeps one state per call site, so two calls over different sources do not share an average.","id":"fn/state-per-call-site","languageVersion":1,"profile":"core"}

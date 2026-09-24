@@ -46,6 +46,9 @@
  *     which `errors.md` section 1 has always allowed. A transcript is held to
  *     the opposite rule: a block declared not to be source that compiles fails,
  *     so the field cannot be used to take an example out of this check.
+ *   - `example.kind` of `"import"`, for the importer's codes: the before block is
+ *     another chart language, proved by the importer, and the after block is
+ *     compiled as usual. `lib/example-import.mjs` holds the rule.
  *
  * **Every fix names something a script may write, and shows its worked forms.**
  * The blocks are what a reader looks at and the fix is what they act on, and the
@@ -71,6 +74,7 @@ import { CORE_MODULE, EMITTER_MODULE, TEST_HOSTS_MODULE, fromRoot } from './lib/
 import { isConventional, programFor } from './lib/example-context.mjs';
 import { fixProblems, fixSelfTest } from './lib/fix-sentence.mjs';
 import { BAR_COUNT, VENUES, harnessWith } from './lib/example-run.mjs';
+import { importProblems, importSelfTest, isImported } from './lib/example-import.mjs';
 
 const CATALOGUE = 'spec/errors.json';
 
@@ -293,6 +297,7 @@ function selfTest() {
   }
 
   for (const one of fixSelfTest(FIX_RULES)) broken.push(one);
+  for (const one of importSelfTest(core.importScript)) broken.push(one);
 
   if (broken.length === 0) return;
   console.error(
@@ -322,6 +327,7 @@ const counted = {
   deferred: 0,
   unexercised: 0,
   transcript: 0,
+  imported: 0,
   host: [],
   fixNames: 0,
   fixWorked: 0,
@@ -370,6 +376,13 @@ for (const entry of entries) {
         'is the fix a reader is handed at the moment they are stuck, and they paste it. Correct ' +
         'the example, or correct the compiler if the example is what the specification allows.',
     );
+  }
+
+  if (isImported(entry)) {
+    for (const one of importProblems(entry, core.importScript)) fail(`${CATALOGUE}: ${one}`);
+    counted.imported += 1;
+    listing.push(`imported    ${entry.code}  ${entry.stage}`);
+    continue;
   }
 
   const proof = proofFor(entry);
@@ -468,7 +481,8 @@ console.log(
     `(${counted.byCompile} settled by a compile, ${counted.byRun} by a run over ${BAR_COUNT} bars ` +
     `on ${VENUES.length} venues), ${counted.deferred} are deferred, ${counted.unexercised} say in ` +
     `an "unexercised" sentence why their code cannot be reached from an example, and ` +
-    `${counted.transcript} are host input rather than source and compile as none.`,
+    `${counted.transcript} are host input rather than source and compile as none; ` +
+    `${counted.imported} before blocks are another chart language and raise their code in the importer.`,
 );
 
 if (counted.host.length > 0) {

@@ -1,11 +1,13 @@
 """Every code this engine raises, held to the catalogue that owns it.
 
 ``spec/errors.json`` is the catalogue and the authority. This package carries no
-message text, on purpose: the wording is generated into the first engine rather
-than retyped in it, and a second engine that typed the sentences out again would
-be a second place for them to be wrong. What it does carry is a code and the
-values the message has placeholders for, and those are exactly what can go wrong
-quietly.
+message text for a diagnostic, on purpose: the wording is generated into the
+first engine rather than retyped in it, and a second engine that typed the
+sentences out again would be a second place for them to be wrong. (The reasons
+``req.error`` hands a script are values rather than diagnostics, and
+``tests/test_request_host.py`` holds those six to the catalogue word for word.)
+What it does carry is a code and the values the message has placeholders for,
+and those are exactly what can go wrong quietly.
 
 So the package's own source is read here, every call that raises or builds a
 diagnostic is found, and each one is put to the catalogue:
@@ -45,8 +47,10 @@ from openscript.diagnostics import (
 
 PACKAGE = ENGINE / "openscript"
 
-#: The two calls that carry a code, and where the code sits in each.
-BUILDERS = ("failure", "raise_at")
+#: The calls that carry a code, and where the code sits in each: the two that
+#: build a diagnostic, and the refusal an array call raises for the machine to
+#: position (``arrays.py``).
+BUILDERS = ("failure", "raise_at", "Refused")
 
 
 def raised():
@@ -105,6 +109,7 @@ class EveryCodeThisEngineRaises(unittest.TestCase):
             "OS4004",
             "OS4013",
             "OS5001",
+            "OS5002",
             "OS5003",
             "OS5004",
             "OS5005",

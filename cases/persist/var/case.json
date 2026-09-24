@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"semantics","description":"A var keeps what the bar before left it and a plain name is assigned afresh on every bar.","id":"persist/var","languageVersion":1,"profile":"core"}

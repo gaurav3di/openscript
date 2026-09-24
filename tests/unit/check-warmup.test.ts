@@ -122,3 +122,27 @@ test('an element the compiler cannot name falls back to the array warmup', () =>
   const moved = 'i = input(1, "I")\nm = macd(close)\nv = m[i]\nplot(v, "V")';
   assert.equal(warmupOfName(moved, 'v'), 'at 25');
 });
+
+// Catches a checker that reads a var's warmup in source order only. The copy
+// runs before the assignment on every bar, so it reads what the assignment
+// wrote on the bar before, and the column has a value from bar 1: the plot
+// draws, and OS8009 on it was false (issue 0007).
+test('a var copied before a later line assigns it is not never', () => {
+  const body = [
+    'var carried = none',
+    'var running = none',
+    'if not bar.isFirst',
+    '    carried = running',
+    'running = close',
+    'plot(carried, "Carried", aqua)',
+  ].join('\n');
+  assert.ok(!codes(body).includes('OS8009'));
+});
+
+// Catches the fix swallowing the case OS8009 was written for: a placeholder
+// that nothing gives a value, including a line that assigns it none again.
+test('a var that no line gives a value is still OS8009', () => {
+  assert.ok(codes('var held = none\nplot(held, "Held", aqua)').includes('OS8009'));
+  const reassigned = 'var held = none\nseen = held\nheld = none\nplot(seen, "Seen", aqua)';
+  assert.ok(codes(reassigned).includes('OS8009'));
+});

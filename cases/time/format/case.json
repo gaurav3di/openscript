@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"time","description":"date.format fills the eight placeholders of stdlib.md 12.3 and copies every other character.","id":"time/format","languageVersion":1,"profile":"chart"}

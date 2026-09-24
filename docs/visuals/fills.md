@@ -263,6 +263,13 @@ absent condition takes the false branch, so `squeezed` is effectively off there.
 It does not matter: both ends are absent too, so nothing would be painted
 anyway.
 
+**A host may not have room for a colour per bar.** The language carries one, and
+the chart adapter in this repository does not: its band takes one colour for the
+whole run, so it refuses a program whose band colour is computed per bar before
+any bar runs, with OS6024, rather than drawing the band in a colour the script
+did not choose. Another host may draw it. On this one, switch the band off by
+plotting its edges absent instead, as in the session example above.
+
 ---
 
 ## Filling between a plot and a level

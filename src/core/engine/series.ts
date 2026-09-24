@@ -1,5 +1,5 @@
 /**
- * The two things the engine checks about the bars it is handed,
+ * The three things the engine checks about the bars it is handed,
  * `host-interface.md` 3.5 and conformance item 1.
  *
  * Everything else about a series the engine takes exactly as stated: it does
@@ -56,6 +56,23 @@ export function noBars(instrument: Instrument | undefined): Diagnostic {
 }
 
 /**
+ * A bar handed over with no time, OS6025.
+ *
+ * `host-interface.md` 3.1 states `time` for every bar with no absent case, and
+ * the order rule is built on it. Reading a missing one as the absent value, as
+ * `barField` would, steps the bar over every calendar fold and makes every
+ * session fact absent on a bar that is on the chart: a study draws a gap where
+ * the host has data, and nothing says why. It is a bar of the wrong shape, not
+ * one out of order, so it has a code and a fix of its own. A time that is not a
+ * finite number is no time either.
+ */
+export function undated(bar: HostBar, index: number): Diagnostic | undefined {
+  const time: unknown = bar.time;
+  if (typeof time === 'number' && Number.isFinite(time)) return undefined;
+  return failure('OS6025', NO_POSITION, { index });
+}
+
+/**
  * A bar whose time does not follow the one before it, OS6011.
  *
  * The first such bar and not a count of them, because the fix is the same
@@ -63,11 +80,9 @@ export function noBars(instrument: Instrument | undefined): Diagnostic {
  * only one whose position tells the host where its own ordering went wrong.
  *
  * `previous` is the bar already handed over, or nothing for the first bar of a
- * run, which follows nothing and is therefore always in order. A time the host
- * did not state is not compared: the absent value is what `barField` gives a
- * script for it (3.1), and the catalogue has no code for a bar dated nothing,
- * so inventing this one for it would be a refusal the specification does not
- * describe.
+ * run, which follows nothing and is therefore always in order. A bar with no
+ * time never reaches this comparison: `undated` refuses it first, because a
+ * bar dated nothing is not two instants in the wrong order.
  */
 export function outOfOrder(
   bar: HostBar,
@@ -79,4 +94,13 @@ export function outOfOrder(
   if (typeof time !== 'number' || typeof before !== 'number') return undefined;
   if (time > before) return undefined;
   return failure('OS6011', NO_POSITION, { index, time, previous: index - 1 });
+}
+
+/** Both checks of a bar handed over, in the order they are made: its shape, then its order. */
+export function handOver(
+  bar: HostBar,
+  previous: HostBar | undefined,
+  index: number,
+): Diagnostic | undefined {
+  return undated(bar, index) ?? outOfOrder(bar, previous, index);
 }

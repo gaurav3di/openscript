@@ -1,0 +1,1 @@
+{"exchange":"TEST","hasVolume":true,"interval":"15","lotSize":1,"session":{"days":[1,2,3,4,5],"end":"12:00","start":"09:00"},"symbol":"TEST","tickSize":0.01,"timezone":"UTC"}

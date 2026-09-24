@@ -88,7 +88,7 @@ with no compiler is not one of the three profiles a runner accepts.
 The claim is worth reading against the table it is made from, because the table
 and this engine do not line up. A profile there is cumulative, so `strategy`
 reads as "everything `chart` covers, and orders as well", and this engine draws
-nothing: a case asserting a marker or a drawing is answered `unsupported` naming
+no marker, fill or level: a case asserting one is answered `unsupported` naming
 the channel. The alternative is to claim `core` and have every strategy case
 skipped, which is a suite that says nothing about the engine that runs the
 money. So the wider claim is made and every shortfall is named on the case,
@@ -113,17 +113,18 @@ reports.
 **What it does not reach.** Said here so a reader does not discover it as a
 surprise, and each is `unsupported` or `error` on the case, never a pass.
 
-- **Every channel but five.** It answers `diagnostics`, `values`, `orders`,
-  `trades` and `performance`. A case asserting a chart channel, a table, a
-  drawing, an alert or the log is `unsupported` naming the channel, because an
-  empty channel compares equal to an empty expectation and would be a pass
-  nobody earned.
+- **Six of the fourteen channels.** It answers `diagnostics`, `values`, `orders`,
+  `trades`, `performance`, `log`, `drawings` and `table`. A case asserting
+  `markers`, `fills`, `levels`, `barColors`, `background` or `alerts` is
+  `unsupported` naming the channel, because an empty channel compares equal to
+  an empty expectation and would be a pass nobody earned.
 - **A compiler case.** A case whose assertion is a diagnostic raised by
   compiling is `unsupported`: the compiler here is the first engine's, and its
   diagnostics are not the second engine's to claim.
-- **`ticks.csv` and a secondary series.** The machine re-executes a bar and
-  rolls its state back, and how a tick row becomes the newest bar's four prices
-  is written down nowhere, so a replay would be the adapter's invention.
+- **`ticks.csv`.** The machine re-executes a bar and rolls its state back, the
+  fold of every higher timeframe read included, and how a tick row becomes the
+  newest bar's four prices is written down nowhere, so a replay would be the
+  adapter's invention. The rollback is held by the engine's own tests instead.
 - **A frame delivered after the last bar.** Section 3 has a frame delivered
   after the bar it names and folded before the next execution, and the last bar
   has no next execution, so what becomes of such a frame is written down
@@ -131,15 +132,19 @@ surprise, and each is `unsupported` or `error` on the case, never a pass.
   ledger missing whatever the frame said.
 - **`expectedExitCode`.** Section 2 names the field and fixes no shape for it,
   so no shape is read.
-- **A calendar outside the one timezone this engine reads.** A written time and
-  a session boundary are both read in the instrument's zone, and a host with
-  another zone supplies its own reader; this engine has been given none.
-- **The two derived instrument facts, and the planned entries of every
-  namespace.** `chart.intervalMinutes` and `chart.isIntraday` are computed from
-  the interval string, which this engine does not read, and
-  `session.isLastBar` needs the bar's own length to know which bar reaches the
-  scheduled close. Each is refused at load naming the function, which the case
-  reports as the feature.
+- **A calendar outside the one timezone this engine reads.** A written time, a
+  session boundary and a day, week or month read are all dated in the
+  instrument's zone, and a host with another zone supplies its own reader; this
+  engine has been given none. A record that states no zone at all is not this
+  case: both engines leave a calendar read with nothing to date it by absent,
+  and say why through `req.error`.
+- **The planned entries of every namespace.** Each is refused at load naming
+  the function, which the case reports as the feature.
+
+A read of another instrument is not on this list. It is answered from the
+case's own `bars.<SYMBOL>.csv`, as section 3 serves one, and a case whose script
+reads an instrument it holds no file for is `error` naming the file: a missing
+file is a broken case, never an absent series.
 
 ## Running it
 
@@ -204,8 +209,44 @@ the `error` outcome, with a reason in the row: the program that suffered it
 cannot report it, which is why an adapter is invoked once per case and never
 for the suite as a whole.
 
-The document's `suiteRevision` is the package version the cases shipped with,
-because the page fixes no other place for a revision yet.
+The document's `suiteRevision` is the revision `conformance.md` section 11
+spells: the package version the cases shipped with and a digest of every file
+under the suite root the run walked, so a result names the cases it was run
+against and a suite that differs by a byte has a revision of its own. An
+engine-only adapter's identity carries `engineOnly` in the document, because
+section 8 says its report says so.
+
+## Making a badge
+
+A badge is the claim a passing run entitles you to make, and `conformance.md`
+section 12 says it carries four things or it is not valid: the implementation
+and its version, the suite revision, the profile, and a link to the result
+document. Run the suite with your adapter, publish the document it writes, then
+make the badge from that document:
+
+```
+node scripts/run-suite.mjs --adapter path/to/your-adapter.mjs --out result.json
+npm run badge -- result.json --link <where result.json is published> --out badge.svg
+```
+
+The second command writes `badge.svg` and prints the line a page embeds it
+with, linking to the document. It refuses, and writes nothing, when the document
+is not a passing run of the profile it claims (any `fail`, `nonFinite`, `error`
+or `unsupported` case, or a skipped case inside that profile), when it compares
+two engines rather than running one, when it lacks any of the four things, or
+when its revision is not the revision of the suite under `--cases`, which it
+recomputes rather than reads. An engine-only run may skip the compiler
+categories, and its badge says it is engine only.
+
+What the badge does not say is that the run happened as the document reports.
+The project certifies nothing and vouches for nobody; a badge is credible
+exactly to the extent that the document is published beside a build anybody can
+rerun.
+
+This repository shows no badge of its own. `ROADMAP.md` Phase 7 holds it back
+until an engine written from the specification alone, by somebody who has not
+read this implementation, passes a named revision, because until then a badge
+here would be two engines that talked to each other agreeing.
 
 ## What the reference adapter does not reach
 
@@ -220,14 +261,16 @@ list is in its section above.
   case is `unsupported` naming the row rather than run with part of its own
   input passed over. Every other `frames.csv` is folded as it is written: this
   engine delivers the rows a case supplies and answers none of its own.
-- **Channels beyond what a run records.** The adapter answers `diagnostics`,
-  `orders`, `trades` and `performance`, which are what a harvested case
-  asserts. A case asserting a per-bar or chart channel is `unsupported`, by
-  name.
+- **Six of the fourteen channels.** The adapter answers `diagnostics`, `orders`,
+  `trades` and `performance`, which a run records, and `values`, `log`,
+  `drawings` and `table`, which a run hands back beside its record when a case
+  asks for them. A case asserting `markers`, `fills`, `levels`, `barColors`,
+  `background` or `alerts` is `unsupported`, by name.
 - **A warning case.** The diagnostics a run records are the ones it raised; a
   compile warning is not among them.
-- **`ticks.csv` and a secondary series.** A backtest replays no intrabar
-  update and holds no series but its own.
+- **`ticks.csv`.** A backtest replays no intrabar update. A read of another
+  instrument is served, from the case's own `bars.<SYMBOL>.csv` handed to the
+  run as its host's answer, and a read whose file is missing is `error`.
 - **A per-column tolerance.** Section 6 allows one and fixes no shape for it,
   so none is read.
 - **A strategy case with no `instrument.json`.** Section 3's default
@@ -251,7 +294,11 @@ side of a range, both sized and flattened by the script; the ledger the frames
 of a simulated destination fold to; the trades and the summary folded from those
 fills; a report narrowed to a window inside the bars, with a position open at
 each end of it; a money rounding digit count other than the fixture's; and
-values a host stored for a script's inputs.
+values a host stored for a script's inputs. Beside the strategies, the cases
+under `cases/req` hold a read of the chart's own bars at a coarser interval in
+each of its three modes and by the calendar, a read of another instrument
+served from a file, and the status of a read, each against columns worked out
+from the bars without either engine.
 
 What no case has yet, each with the reason:
 

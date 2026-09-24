@@ -203,7 +203,7 @@ function checkNameReference(checker: Checker, expression: NameReference): Type {
     }
     binding.isRead = true;
     checker.references.set(expression, binding);
-    return checker.record(expression, binding.type, binding.warmup);
+    return checker.record(expression, binding.type, checker.warmupOfRead(binding));
   }
 
   const entries = libraryEntries(expression.name);

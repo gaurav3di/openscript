@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"stdev divides by the length by default and takes the two pass variance of stdlib.md 20.5.","id":"ta/stdev-population","languageVersion":1,"profile":"core"}

@@ -24,6 +24,9 @@ export const CORE_MODULE = '../dist/core/index.js';
 /** The emitter, whose defaults a declaration call resolves against. */
 export const EMITTER_MODULE = '../dist/core/emit/index.js';
 
+/** The engine's library, whose manifest the second engine is compared against. */
+export const LIBRARY_MODULE = '../dist/core/engine/library/index.js';
+
 /** The chart adapter, which is the shipped consumer of the emitter's output. */
 export const CHART_ADAPTER_MODULE = '../dist/adapters/charts/index.js';
 
