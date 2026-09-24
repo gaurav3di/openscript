@@ -458,10 +458,13 @@ reported, and what happens when the asking study goes away. Which reads become
 requests is the engine's decision under `stdlib.md` section 15, and a host answers
 the requests it is given.
 
-This duty is optional. A host that serves no requests gives its engine neither the
-`req.symbol` nor the `req.timeframe` capability, and a program that needs one is
-refused at load with OS6006 naming the tag, rather than drawing a study with a
-silently empty line through it.
+This duty is optional. A host that serves no requests gives its engine no
+`req.symbol` capability, and a program that reads another instrument is refused
+at load with OS6006 naming the tag, rather than drawing a study with a silently
+empty line through it. `req.timeframe` is not the host's to withhold: a read of
+the chart's own instrument at a coarser interval is one the engine folds from the
+bars it already holds, so an engine serves that tag whether or not its host
+answers requests (section 5.2 says what a host that does answer one may do).
 
 ### 5.2 The request
 

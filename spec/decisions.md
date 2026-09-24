@@ -4921,8 +4921,14 @@ study draws around, so a suite that turned missing input into one would pass a
 case whose expected column is absent for a reason nobody wrote down: the
 silently empty series the section already refused, arriving by another door.
 
-**Edits.** `conformance.md` sections 2 and 3; the `conf/secondary-series` row of
-`feature-matrix.md`; `scripts/lib/case-reads.mjs` and `adapter-case.mjs`; the
+**And a sentence that said the opposite.** `host-interface.md` 5.1 said a host
+that serves no requests gives its engine neither read tag, while 5.2,
+`compiled-program.md` 2.16.2 and both engines serve `req.timeframe` always,
+because the engine folds the chart's own bars. The engines were right and the
+sentence was not: a host withholds `req.symbol` only.
+
+**Edits.** `host-interface.md` 5.1; `conformance.md` sections 2 and 3; the
+`conf/secondary-series` row of `feature-matrix.md`; `scripts/lib/case-reads.mjs` and `adapter-case.mjs`; the
 first engine's backtest drive (`requestBars`) and walk (`Engine.history`);
 `engine/openscript/adapter/secondary.py` and `running.py`; the cases under
 `cases/req`.
