@@ -15,9 +15,11 @@ consumers that must never drift apart:
    character, and applies the fix directly where the entry says it can.
 3. **The documentation site** generates one page per code from the same file.
 
-This document is the human face of that file. The per-code sections in part 8
-are rendered from `errors.json` by the documentation build, so the two cannot
-disagree, and the parts before it are the design that `errors.json` implements.
+This document is the human face of that file. Each per-code section in part 8
+is the text the documentation site renders from that code's entry and prints on
+the code's own page, and the build compares every section with that rendering
+character for character, so the two cannot disagree. The parts before it are the
+design that `errors.json` implements.
 
 ## Contents
 
@@ -424,7 +426,7 @@ table the compiler fills the message from:
 | a non-ASCII letter in a name | the ASCII spelling of the name |
 | ! | not |
 | && | and |
-| || | or |
+| \|\| | or |
 | ^ | pow(a, b) |
 | ** | pow(a, b) |
 | ++ | a += 1 |

@@ -34,3 +34,8 @@ src/core/check/*.generated.ts
 # The interpreter's own bytecode for the second engine, written on import.
 __pycache__/
 *.pyc
+
+# The documentation site, written by scripts/site.mjs from docs/, spec/ and
+# spec/errors.json. It is built output: checked in, it would be a second copy of
+# every page, and scripts/check-site.mjs builds its own in memory anyway.
+/site/
