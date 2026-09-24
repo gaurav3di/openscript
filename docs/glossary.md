@@ -374,7 +374,7 @@ direction before further entries are refused. It defaults to one.
 
 ## R
 
-**Range (of codes).** One thousand block of error codes, OS1xxx to OS8xxx, saying
+**Range (of codes).** One thousand block of error codes, OS1xxx to OS9xxx, saying
 what kind of thing went wrong and never how serious it is.
 
 **Range (of a pane).** The declaration option `range = [min, max]` fixing a study

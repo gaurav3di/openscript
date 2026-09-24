@@ -13,7 +13,7 @@ import {
 test('the whole catalogue is generated, in ascending order', () => {
   const codes = allCodes();
 
-  assert.equal(codes.length, 157);
+  assert.equal(codes.length, 169);
   assert.deepEqual([...codes].sort(), [...codes]);
 });
 
@@ -55,6 +55,6 @@ test('a brace that is not a slot is left alone', () => {
 
 test('a string from a log is only a code when the catalogue has it', () => {
   assert.equal(isDiagnosticCode('OS1001'), true);
-  assert.equal(isDiagnosticCode('OS9999'), false);
+  assert.equal(isDiagnosticCode('OS0999'), false);
   assert.equal(isDiagnosticCode('toString'), false);
 });

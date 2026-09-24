@@ -1,0 +1,33 @@
+version 1
+
+study("ATR trailing stop", overlay = true)
+
+atrLength = input(14, "ATR length")
+multiplier = input(2.5, "Multiplier")
+useWicks = input(false, "Trail from wicks")
+
+atrValue = atr(atrLength)
+longSource = useWicks ? low : close
+shortSource = useWicks ? high : close
+
+var stop = none
+var trend = 1
+
+if trend == 1
+    stop = max(orElse(stop, longSource - multiplier * atrValue), longSource - multiplier * atrValue)
+    if close < stop
+        trend = -1
+        stop = shortSource + multiplier * atrValue
+else
+    stop = min(orElse(stop, shortSource + multiplier * atrValue), shortSource + multiplier * atrValue)
+    if close > stop
+        trend = 1
+        stop = longSource - multiplier * atrValue
+
+// A fresh signal only counts when volume confirms it, measured on every bar.
+everyBar = volume > sma(volume, 20)
+confirmed = trend != trend[1] and everyBar
+
+plot(stop, "Stop", trend == 1 ? green : red, width = 2)
+if confirmed
+    signal("Flip", shape = "diamond", at = "above", color = yellow)

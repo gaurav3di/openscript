@@ -1,0 +1,27 @@
+//@version=5
+indicator("RSI zones", precision = 2)
+
+length = input.int(14, "Length", minval = 2)
+upperLevel = input.float(70, "Overbought", minval = 50, maxval = 100)
+lowerLevel = input.float(30, "Oversold", minval = 0, maxval = 50)
+lineColor = input.color(color.purple, "Line colour")
+
+rsi = ta.rsi(close, length)
+smooth = ta.sma(rsi, 5)
+
+// Count how many bars in a row the reading has stayed overbought.
+var int streak = 0
+if rsi > upperLevel
+    streak := streak + 1
+else
+    streak := 0
+
+hline(upperLevel, "Upper", color = color.red, linestyle = hline.style_dashed)
+hline(50, "Middle", color = color.gray, linestyle = hline.style_dotted)
+hline(lowerLevel, "Lower", color = color.green)
+
+plot(rsi, "RSI", color = lineColor, linewidth = 2)
+plot(smooth, "Smoothed", color = color.silver)
+plot(streak, "Streak", color = color.orange, style = plot.style_columns)
+
+bgcolor(rsi > upperLevel ? color.new(color.red, 85) : rsi < lowerLevel ? color.new(color.green, 85) : na)

@@ -107,6 +107,9 @@ function walk(dir, out) {
   for (const entry of entries) {
     const full = dir === '' ? entry.name : `${dir}/${entry.name}`;
     if (!entry.isDirectory()) {
+      // A linked worktree's `.git` is a one-line file naming the real one, and
+      // it is version control's for the same reason the directory is.
+      if (entry.name === '.git') continue;
       out.push(full);
       continue;
     }

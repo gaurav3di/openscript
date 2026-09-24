@@ -2141,6 +2141,11 @@ the diagnostic.
 Codes OS1xxx to OS7xxx stop compilation or stop the bar. OS8xxx warnings never
 stop anything; they are reported on the line and in the editor's gutter.
 
+One more range, OS9xxx, is not about an OpenScript file at all. It is the
+importer's, which reads a script written in another chart language and writes
+it as OpenScript, and its findings point into the script it read. The language
+defines nothing there; `errors.md` part 8.9 catalogues the codes.
+
 `errors.md` is the catalogue and the authority. The build fails if the compiler can
 emit a code with no catalogue entry, or if an entry has no test that produces it,
 so the documentation cannot drift from the compiler.

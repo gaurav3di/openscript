@@ -1,0 +1,24 @@
+//@version=5
+indicator("Partly translatable", overlay = true, max_labels_count = 100)
+
+length = input.int(20, "Length")
+
+basis = ta.sma(close, length)
+rank = ta.percentrank(close, length)
+smoothRank = ta.sma(rank, 5)
+daily = request.security("ABC", "D", close)
+
+// Version 5 lets a number stand where a condition is expected.
+traded = volume ? 1 : 0
+
+var label marker = na
+if ta.crossover(close, basis)
+    marker := label.new(bar_index, high, "Cross")
+
+lastCross = basis == na ? 0 : 1
+
+plot(basis, "Basis", color = color.blue)
+plot(smoothRank, "Rank", color = color.gray)
+plot(daily, "Daily", color = color.orange)
+plot(traded, "Traded", color = color.silver)
+plot(lastCross, "Crossed", color = color.purple)

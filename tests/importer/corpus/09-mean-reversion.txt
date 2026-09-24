@@ -1,0 +1,27 @@
+//@version=5
+strategy("Mean reversion", overlay = false, initial_capital = 100000)
+
+rsiLength = input.int(2, "RSI length")
+entryLevel = input.float(10.0, "Entry below")
+exitLevel = input.float(70.0, "Exit above")
+maxBars = input.int(8, "Longest hold, in bars")
+
+f_oversold(src, len, level) => ta.rsi(src, len) < level
+
+osc = ta.rsi(close, rsiLength)
+oversold = f_oversold(close, rsiLength, entryLevel)
+trend = close > ta.sma(close, 200)
+
+barsIn = ta.barssince(strategy.position_size > 0 and strategy.position_size[1] == 0)
+lastEntryClose = ta.valuewhen(oversold and trend, close, 0)
+
+if oversold and trend
+    strategy.entry("Dip", strategy.long)
+
+if osc > exitLevel or (strategy.position_size > 0 and barsIn >= maxBars)
+    strategy.close_all()
+
+hline(entryLevel, "Entry", color = color.green)
+hline(exitLevel, "Exit", color = color.red)
+plot(osc, "RSI", color = color.purple)
+plot(nz(lastEntryClose) > 0 ? osc : na, "Armed", color = color.gray, style = plot.style_circles)

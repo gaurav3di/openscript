@@ -1,0 +1,24 @@
+// Two exponential averages and the band between them, with a marker where
+// they cross.
+version 1
+
+study("EMA cross", short = "EMAX", overlay = true, precision = 2)
+
+fastLen = input(9, "Fast length", min = 1, max = 500)
+slowLen = input(21, "Slow length", min = 1, max = 500)
+src = input(close, "Source")
+
+fast = ema(src, fastLen)
+slow = ema(src, slowLen)
+
+up = crossUp(fast, slow)
+down = crossDown(fast, slow)
+
+fastPlot = plot(fast, "Fast", aqua, width = 2)
+slowPlot = plot(slow, "Slow", orange, width = 2)
+fill(fastPlot, slowPlot, color = fade(aqua, 90))
+
+if up
+    signal("Buy", shape = "triangleUp", at = "below", color = lime)
+if down
+    signal("Sell", shape = "triangleDown", at = "above", color = red)

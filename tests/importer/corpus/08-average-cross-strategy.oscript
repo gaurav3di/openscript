@@ -1,0 +1,30 @@
+version 1
+
+strategy("Average cross", overlay = true, qtyType = "equityPercent", qty = 25, currency = "USD", capital = 1000000)
+
+fastLength = input(10, "Fast")
+slowLength = input(40, "Slow")
+takeTicks = input(300, "Target, in ticks")
+stopTicks = input(150, "Stop, in ticks")
+
+fast = sma(close, fastLength)
+slow = sma(close, slowLength)
+
+// Enter only when the slow average itself is rising.
+trendUp = slow > slow[1]
+longSignal = crossUp(fast, slow) and trendUp
+exitSignal = crossDown(fast, slow)
+
+if longSignal
+    if pos.size < 0
+        close()
+    if pos.size <= 0
+        buy(tag = "Long")
+    if pos.size >= 0
+        exit(tag = "Bracket", profit = takeTicks * chart.tickSize, loss = stopTicks * chart.tickSize)
+
+if exitSignal
+    close(tag = "Long")
+
+plot(fast, "Fast", blue)
+plot(slow, "Slow", navy, width = 2)

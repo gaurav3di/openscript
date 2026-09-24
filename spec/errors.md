@@ -60,10 +60,10 @@ An entry:
 | `cause` | string | What the compiler or the engine saw, and why the rule exists |
 | `fix` | string | What to do, in the imperative. Never a restatement of the message |
 | `severity` | string | `error` or `warning` |
-| `stage` | string | `lex`, `parse`, `check`, `runtime` or `host` |
+| `stage` | string | `lex`, `parse`, `check`, `runtime`, `host` or `import` |
 | `since` | number | The language version the code first appeared in |
 | `autofix` | boolean | Whether an editor can apply the fix without asking a question |
-| `example` | object | `before`, the shortest script that raises it, and `after`, the same script fixed. `kind` is `transcript` on the entries whose example is the host's input rather than a script |
+| `example` | object | `before`, the shortest script that raises it, and `after`, the same script fixed. `kind` is `transcript` on the entries whose example is the host's input rather than a script, and `import` on the importer's entries, whose before block is a script in another chart language |
 | `spec` | string | The specification sections that define the rule |
 | `refines` | string or null | The broader code this one takes a case from, if any |
 | `test` | string or null | A file under `tests/` that writes this code, or `null` saying that no test in this repository names it |
@@ -188,11 +188,17 @@ up is not renumbered.
 | OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 23 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 19 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **157** |
+| OS9xxx | Import | A script written in another chart language could not be translated as written, or was translated with a stated difference. | error or warning | 12 |
+| | | | **Total** | **169** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
-in a log which part of the system produced it.
+in a log which part of the system produced it. OS9xxx is the importer's, and it
+holds both severities for the same reason: what it reports is about a script in
+another chart language rather than about an OpenScript file, so the part of the
+system is the whole of what a bare code needs to say. Its errors are statements
+it could not translate as written and its warnings are translations whose
+meaning differs in a way the message states.
 
 Numbers within a range are assigned in the order the codes were added, not
 grouped by topic. A new entry takes the next free number in its range, because
@@ -309,6 +315,12 @@ deferrals: a list there is invisible to everybody who reads the catalogue.
   transcript is held to the opposite rule, so the field cannot be used to take a
   compiling example out of the check: a block declared not to be source that
   compiles fails the build.
+- `example.kind` of `import` marks the importer's entries, whose before block is
+  a script in another chart language. The compiler has nothing to say about
+  one, so the importer proves it instead and has to raise the code; the after
+  block is OpenScript and is compiled like every other. The kind is required on
+  the `import` stage and refused on every other, so it cannot move an
+  OpenScript example out of the compile.
 
 And one state that is not declared anywhere, because it follows from the entry's
 own `stage`: a host code is the host's answer to the engine, and the check drives
@@ -449,8 +461,8 @@ specification sections that define the rule, and the test that produces it.
 
 A section prints the stage's label from `stageLabels` rather than the token the
 entry carries: `lex` is printed as lexer, `parse` as parser, `check` as checker,
-`runtime` as engine, and `host` as host. The entries themselves carry the token,
-and it is the token a consumer reads.
+`runtime` as engine, `host` as host, and `import` as importer. The entries
+themselves carry the token, and it is the token a consumer reads.
 
 ## 8.1 OS1xxx Syntax
 
@@ -4778,6 +4790,413 @@ push(zones, draw.box(time, low, time, high))
 if size(zones) > 20
     draw.delete(element(zones, 0))
     shift(zones)
+```
+
+---
+
+## 8.9 OS9xxx Import
+
+### OS9001 Version not read by the importer
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 2. Test `tests/importer/refusals.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `The importer reads scripts written for version 5 or 6 of the source dialect, and this one {found}.`
+
+- `{found}` is what the version annotation says instead: that it declares another version, naming it, or that it declares none.
+
+**Cause.** A script in the source dialect opens with an annotation comment naming the version of the dialect it is written for. The importer's reader, its table of built-ins and every rule it applies about where the two languages differ are written for versions 5 and 6, whose built-ins live in namespaces and whose declaration is an indicator or strategy call. An earlier version names its built-ins differently and differs in rules the importer does not model, so reading one under these rules would produce a translation that compiles and means something else. Nothing is translated: the result's source is empty and this is its only finding.
+
+**Fix.** Bring the script up to version 5 or 6 in the source dialect, or translate it by hand, and import it again.
+
+Before:
+
+```
+//@version=4
+study("Range")
+plot(high - low)
+```
+
+After:
+
+```
+version 1
+
+study("Range")
+plot(high - low, "Range")
+```
+
+### OS9002 Construct with no equivalent
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 4. Test `tests/importer/refusals.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `The importer cannot translate {construct}, so the statement holding it was kept as a comment.`
+
+- `{construct}` is the form the importer met, named in a few words: a tuple assignment, an if used as a value, a comparison with na.
+
+**Cause.** Some forms of the source dialect have no OpenScript spelling that keeps their meaning: a value produced by an if or a switch, a tuple, a type, a method, an import, an array literal, a loop over a collection, and an equality test against na, which the source dialect answers false on every bar while OpenScript's own test for absence answers true where the value is absent. A few more are written in forms the importer's reader does not accept. The importer keeps the whole top level statement holding one as a comment line per source line, marked not translated, so the output still compiles and the original is there to translate from.
+
+**Fix.** Translate that statement by hand from the comment that holds it: the rest of the script was translated around it.
+
+Before:
+
+```
+//@version=5
+indicator("Side")
+side = if close > open
+    1
+else
+    -1
+plot(side)
+```
+
+After:
+
+```
+version 1
+
+study("Side")
+side = close > open ? 1 : -1
+plot(side, "Side")
+```
+
+### OS9003 Built-in with no mapping
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 3. Test `tests/importer/refusals.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `{name} is not one of the built-ins the importer maps, so the statement holding it was kept as a comment.`
+
+- `{name}` is the built-in as the source writes it, namespace included.
+
+**Cause.** The importer translates a built-in only where it holds a row saying which OpenScript name computes the same thing and how the arguments line up. A built-in with no row, or a name the source never declares, is not guessed at: a function with a similar name can differ in its arguments, its warmup or its arithmetic, and a translation that compiled with the wrong one would draw a line that looks right and is not. The whole top level statement holding it is kept as a comment.
+
+**Fix.** Find the OpenScript library call that does the same job, check how it treats its first bars and absent values, and write the statement by hand.
+
+Before:
+
+```
+//@version=5
+indicator("Range position")
+rank = ta.percentrank(close, 20)
+plot(rank)
+```
+
+After:
+
+```
+version 1
+
+study("Range position")
+rank = percentRank(close, 20)
+plot(rank, "Rank")
+```
+
+### OS9004 Declaration the importer cannot place
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 2. Test `tests/importer/refusals.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `The importer writes the declaration from one indicator or strategy call at the top level, and this script {found}.`
+
+- `{found}` is what the importer found instead: that the script has none, that it declares a library, or that it makes a second declaration here.
+
+**Cause.** An OpenScript file carries exactly one declaration, and it is what makes the file a study or a strategy. The importer writes it from the source's indicator or strategy call and from nothing else, because a declaration it invented would decide whether the translation may place orders. A script with none, and a library, which has no declaration an OpenScript file can carry, are not translated at all: the result's source is empty and this is its only finding. A second declaration is kept as a comment and the first one is used.
+
+**Fix.** Give the source script exactly one indicator or strategy declaration at the top level, and import it again.
+
+Before:
+
+```
+//@version=5
+basis = ta.sma(close, 20)
+plot(basis)
+```
+
+After:
+
+```
+version 1
+
+study("Basis")
+basis = sma(close, 20)
+plot(basis, "Basis")
+```
+
+### OS9005 Reads a statement that was not translated
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 4. Test `tests/importer/refusals.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `{name} is declared by the statement at line {line}, which was not translated, so this statement that reads it was kept as a comment too.`
+
+- `{name}` is the name, as the source writes it.
+- `{line}` is the line of the statement that declares it and was kept as a comment.
+
+**Cause.** A statement that was not translated declares nothing in the output, so a later statement reading one of its names would not compile. Rather than hand back a file that fails, the importer keeps every such statement as a comment as well, in source order, so that one refusal is reported once at its cause and once at each statement that follows from it.
+
+**Fix.** Translate the statement at line {line} by hand first, then this one, which was kept as a comment only because it reads {name}.
+
+Before:
+
+```
+//@version=5
+indicator("Rank")
+rank = ta.percentrank(close, 20)
+smooth = ta.sma(rank, 5)
+plot(smooth)
+```
+
+After:
+
+```
+version 1
+
+study("Rank")
+rank = percentRank(close, 20)
+smooth = sma(rank, 5)
+plot(smooth, "Smooth")
+```
+
+### OS9006 Argument with no equivalent
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 4. Test `tests/importer/arguments.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `{argument} changes what {call} computes or trades, and OpenScript has no equivalent the importer can write.`
+
+- `{argument}` is the argument, as the source names it or by its position.
+- `{call}` is the call it was given to, as the source writes it.
+
+**Cause.** Some arguments change the numbers a script produces or the orders it sends: a declaration's timeframe, a strategy's margin or its pyramiding above one, a limit price on an entry, a trailing exit, a quantity on a close, and a quantity on an entry in a strategy that sizes its orders in anything but units, which the source dialect counts in contracts and OpenScript in the declaration's own unit. Leaving one out would produce a translation that compiles and computes something else. An argument to the declaration or to an input is left out of that call, because the file needs its declaration and the rest of the script reads the input; every other call carrying one is kept as a comment.
+
+**Fix.** Translate the call by hand, deciding what OpenScript should do in place of {argument}, or remove {argument} from the source script if the script does not depend on it.
+
+Before:
+
+```
+//@version=5
+indicator("Daily basis", timeframe = "D")
+plot(ta.sma(close, 20))
+```
+
+After:
+
+```
+version 1
+
+study("Daily basis")
+plot(req.timeframe("1D", sma(close, 20)), "Basis")
+```
+
+### OS9007 Warmup and absent bars follow OpenScript
+
+Severity warning. Stage importer. Since language version 1. Reference language.md 6.7, 7.3; stdlib.md 2.4, 20.2. Test `tests/importer/differences.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `{call} became {target} here and wherever else the script calls it, and {target} follows OpenScript's own warmup, arithmetic and handling of absent values, which the original is not guaranteed to share.`
+
+- `{call}` is the built-in as the source writes it.
+- `{target}` is the OpenScript call it was translated to.
+
+**Cause.** OpenScript fixes, for every function, the first bar a value appears on, how a seeded average is seeded, the order its arithmetic is done in and what an absent value inside the window does (stdlib.md sections 2.4 and 20). The source dialect does not fix the same things to the same precision, and where it says anything it can say something else: it skips absent values in windows where OpenScript propagates them. So a translated average can be absent on a first bar where the original drew a value, or differ in the last digits. Over a source with no absent values, and after the first bars, the two compute the same quantity. The finding is given once per built-in, at its first call.
+
+**Fix.** Compare the first bars of the translation with the original, and where the script depends on them, write the value as an explicit recurrence held in var, seeded the way the original seeds it.
+
+Before:
+
+```
+//@version=5
+indicator("Average")
+plot(ta.ema(close, 20))
+```
+
+After:
+
+```
+version 1
+
+study("Average")
+plot(ema(close, 20), "Average")
+```
+
+### OS9008 Whole-number division in version 5
+
+Severity warning. Stage importer. Since language version 1. Reference language.md 9.2. Test `tests/importer/differences.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `Both sides of this division are whole-number constants, which version 5 of the source dialect divides without a fractional part, and OpenScript keeps the fraction.`
+
+**Cause.** Version 5 of the source dialect gives the quotient of two whole-number constants as a whole number, and version 6 and OpenScript both keep the fraction (language.md 9.2). A constant here is a whole-number literal, or a name the script binds once to one and never reassigns. The importer writes the division as OpenScript writes it and says so, rather than deciding which of the two results the script's author was relying on.
+
+**Fix.** If the script relied on the whole-number result, wrap the translated division in trunc(); otherwise leave it as it is.
+
+Before:
+
+```
+//@version=5
+indicator("Half")
+half = 7 / 2
+plot(close * half)
+```
+
+After:
+
+```
+version 1
+
+study("Half")
+half = trunc(7 / 2)
+plot(close * half, "Half")
+```
+
+### OS9009 Presentation argument left out
+
+Severity warning. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 5. Test `tests/importer/arguments.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `{argument} changes how {call} is displayed or what it may allocate, not what it computes, and OpenScript has no equivalent, so the translation leaves it out.`
+
+- `{argument}` is the argument, as the source names it.
+- `{call}` is the call it was given to, as the source writes it.
+
+**Cause.** Many arguments in the source dialect are about the picture rather than the numbers: a line that tracks the price, a label size, a legend entry, a count of drawings to keep, a style the OpenScript call does not offer. Leaving one out changes what the chart looks like and nothing the script computes or trades, so the call is translated and the argument is reported rather than silently dropped.
+
+**Fix.** Nothing needs to change unless the display mattered; where it did, restyle the translated call with the arguments OpenScript does have, such as its colour, width and style.
+
+Before:
+
+```
+//@version=5
+indicator("Close")
+plot(close, "Close", trackprice = true)
+```
+
+After:
+
+```
+version 1
+
+study("Close")
+plot(close, "Close")
+```
+
+### OS9010 Order placed under OpenScript's order model
+
+Severity warning. Stage importer. Since language version 1. Reference stdlib.md 17.1, 17.2. Test `tests/importer/orders.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `{call} was translated into OpenScript's order calls here and wherever else the script uses it, and OpenScript decides when an order fills, how a reversal and a repeated entry are handled and when an exit level starts to apply by its own order model.`
+
+- `{call}` is the order call as the source writes it.
+
+**Cause.** The importer translates an entry into a close of any opposite position and an entry guarded so that it never adds to a position already held on its side, which is what the source dialect does with its default pyramiding, and an exit into a leg level guarded by the side of the entry it names, with profit and loss distances converted from ticks by the instrument's tick size. That is as close as the two order models come, and they are not the same model: an OpenScript exit sets the leg's level when it is called rather than when its entry fills, a repeated entry past the pyramiding limit is refused rather than ignored, and an order a script places while flat is sized and filled by the rules of stdlib.md section 17. The finding is given once per order call, at its first use.
+
+**Fix.** Backtest the translation beside the original and compare the two trade lists before relying on it, and adjust the order calls by hand where they part.
+
+Before:
+
+```
+//@version=5
+strategy("Cross")
+fast = ta.sma(close, 10)
+slow = ta.sma(close, 30)
+if ta.crossover(fast, slow)
+    strategy.entry("Long", strategy.long)
+```
+
+After:
+
+```
+version 1
+
+strategy("Cross", capital = 1000000)
+fast = sma(close, 10)
+slow = sma(close, 30)
+if crossUp(fast, slow)
+    if pos.size < 0
+        close()
+    if pos.size <= 0
+        buy(tag = "Long")
+```
+
+### OS9011 Equality over two absent values
+
+Severity warning. Stage importer. Since language version 1. Reference language.md 6.5. Test `tests/importer/differences.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `Both sides of {operator} can be absent on the same bar, and OpenScript counts two absent values as equal, which the original is not guaranteed to do.`
+
+- `{operator}` is the equality operator, == or !=.
+
+**Cause.** OpenScript's equality is total: none == none is true and none != none is false, so that a test for absence can be written as a comparison (language.md 6.5). The source dialect does not count two absent values as equal. Where both sides of an equality can be absent together, which is every warmup bar of two averages, the translation and the original can take different branches on exactly those bars.
+
+**Fix.** If the original relied on two absent values never comparing equal, guard the translated comparison with isNone() on either side.
+
+Before:
+
+```
+//@version=5
+indicator("Touch")
+fast = ta.sma(close, 5)
+slow = ta.sma(close, 20)
+plot(fast == slow ? 1 : 0)
+```
+
+After:
+
+```
+version 1
+
+study("Touch")
+fast = sma(close, 5)
+slow = sma(close, 20)
+plot(not isNone(fast) and fast == slow ? 1 : 0, "Touch")
+```
+
+### OS9012 The translation does not compile
+
+Severity error. Stage importer. Since language version 1. Reference docs/writing/importing-a-script.md 4. Test `tests/importer/refusals.test.ts`.
+
+**Imported source.** The before block below is a script in the source dialect, which the importer reads rather than the compiler, and the after block is the OpenScript that script becomes once the fix is applied.
+
+**Message.** `The OpenScript compiler refused the translation of this statement with {code}, so the statement was kept as a comment.`
+
+- `{code}` is the catalogue code the compiler raised on the translated text.
+
+**Cause.** The importer compiles its own output before it returns it, so that what it hands back compiles. A statement can translate construct by construct and still be refused as a whole: version 5 of the source dialect lets a number stand where a condition is expected, and the source dialect lets a name inside a block keep a history and lets two values of different types meet where OpenScript refuses. The importer does not type the source script, so it learns of these from the compiler, keeps the statement as a comment and compiles again.
+
+**Fix.** Look up {code} in this catalogue and translate the statement by hand in the form that code's fix describes.
+
+Before:
+
+```
+//@version=5
+indicator("Traded")
+traded = volume ? 1 : 0
+plot(traded)
+```
+
+After:
+
+```
+version 1
+
+study("Traded")
+traded = volume > 0 ? 1 : 0
+plot(traded, "Traded")
 ```
 
 ---

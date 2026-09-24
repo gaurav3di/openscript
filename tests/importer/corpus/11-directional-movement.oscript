@@ -1,0 +1,34 @@
+version 1
+
+study("Directional movement", precision = 1)
+
+diLength = input(14, "DI length")
+smoothing = input(14, "ADX smoothing")
+threshold = input(25, "Trend threshold")
+
+adxResult = adx(diLength, smoothing)
+plusDI = adxResult[1]
+minusDI = adxResult[2]
+adxValue = adxResult[0]
+
+// Two whole-number constants: version 5 divides them without a fraction.
+bands = 5
+half = threshold / 2
+middleBand = bands / 2
+
+spreadDI = abs(plusDI - minusDI)
+momentum = change(adxValue, 3)
+energy = sqrt(pow(plusDI, 2) + pow(minusDI, 2))
+trueRangeValue = trueRange()
+drift = cum(change(close)) / max(bar.index, 1)
+
+strong = adxValue > threshold and not orElse(plusDI < minusDI, false)
+
+level(threshold, "Threshold", color = gray)
+plot(adxValue, "ADX", strong ? green : gray, width = 2)
+plot(plusDI, "+DI", teal)
+plot(minusDI, "-DI", red)
+plot(spreadDI > half ? momentum : none, "Momentum", orange)
+plot(adxValue / 10 > middleBand ? 1 : 0, "Band", maroon, style = "column")
+plot(energy, "Energy", navy)
+plot(trueRangeValue + drift, "Range and drift", silver)
