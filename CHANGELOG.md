@@ -16,9 +16,10 @@ printed "Suite passed" and exited zero. The repository's own test asserted that
 outcome against an adapter written to answer no case at all. If you have been
 using a passing suite run as evidence about a `core` engine, it was not one.
 
-Twenty three `core` cases now exist, across `lexical`, `syntax`, `static`,
-`runtime` and `limits`. Nothing in the runner changed to make this work: its
-rules were already right, and what was missing was cases for them to apply to.
+`core` cases now exist, twenty three at first across `lexical`, `syntax`,
+`static`, `runtime` and `limits`, and fifty two by the end of this entry.
+Nothing in the runner changed to make this work: its rules were already right,
+and what was missing was cases for them to apply to.
 
 **An engine reporting `engineOnly` is no longer handed compiler-diagnostic
 cases.** Section 8 of `conformance.md` always said it should not be, and the
@@ -27,16 +28,85 @@ Which categories need a compiler is now a column of section 7's table, read by
 the runner, so a category added without an answer in that column stops the
 suite rather than being handed to an engine with no compiler.
 
-**What the suite still does not reach**, said here because a passing run is
-evidence and the shape of the evidence matters: no case asserts a per-bar
-value. The `semantics` and `numerics` categories, which are the reason section
-1 gives for the suite existing, cannot be written against this engine yet,
-because its own projection has no channel for them. Two engines can agree on
-every case in the tree and still disagree on what a moving average is.
+**Behaviour that changed under you, first engine.** Read these before upgrading
+a deployment whose numbers you have already checked.
 
-Issue 0020 records a third thing the new cases found: the second engine
-implements neither arrays nor the log, and the two engine gate had been green
-because no case reached either.
+- **A `"lookahead"` read in a backtest now reads a higher timeframe bar's final
+  value from its first bar**, as `stdlib.md` 15.3 always said. The backtest
+  appended bars one at a time, so a lookahead read answered the bucket so far,
+  which is the developing reading. Confirmed and developing reads are
+  unchanged. A lookahead backtest now looks as smooth as the mode says it will.
+- **Dates before about 1 BCE were one day early.** The day count applied the
+  negative era adjustment twice. No modern date moves.
+- **Some input that was accepted is now refused, each with a code and a fix.**
+  An `input()` in a field fixed before bar 0 that is not the whole of the value
+  is OS3025 (arithmetic, a ternary or a colour call over a setting used to
+  compile and then fail inside the emitter). A plot's `style` written from an
+  input is OS3026 (it used to be folded silently to its default). A bar handed
+  over with no time is OS6025. The chart adapter refuses a second declared grid
+  and a band coloured per bar with OS6024 before any bar runs, where it used to
+  drop them in silence.
+- **A cell outside its grid is OS4008**, naming the row, the column and the
+  grid's shape, where it was the array code OS4004 with a flattened count. A
+  name or an array still holding an object deleted earlier warns OS8019.
+- **The editor's hover text for six drawing calls was wrong**: `draw.setFrom`
+  said "nothing" and `draw.delete` said "box", because the generator split
+  `stdlib.md`'s rows on the pipe inside `line | box`. Fixed at the generator and
+  in the pages.
+
+**New.**
+
+- **`engine.run` takes a history as columns**, one array per field, typed arrays
+  included, beside the record form. Over 900,000 one minute bars that held 43 MB
+  against 104 MB and peaked at 346 MB of heap against 877 MB.
+  `docs/integrating/running-the-engine.md` has the shape.
+- **`importScript`**, from the main entry point, imports a script written in the
+  version-annotated chart dialect, versions 5 and 6. Each statement is translated
+  with its original meaning, translated with a warning stating the difference,
+  or kept as a comment with an error; the output is compiled before it is
+  returned. Twelve codes in a new range, OS9001 to OS9012, and a new catalogue
+  stage, `import`. `docs/writing/importing-a-script.md` lists what is translated
+  and what is refused.
+- **A documentation site.** `npm run site` builds every page of `docs/` and
+  `spec/`, and a page per catalogue code, with every address relative.
+  `scripts/check-site.mjs` fails the build on a link or anchor that leads
+  nowhere.
+- **A conformance badge.** `npm run badge` makes one from a passing result
+  document, and refuses anything that is not a pass of the profile it claims.
+  The suite revision it names is now the package version and a digest of every
+  case file (`conformance.md` section 11), so a result names the exact cases it
+  was run against.
+
+**If you read the catalogue programmatically**: `spec/errors.json` has 173
+entries, a ninth range, OS9xxx, whose severity is "error or warning", and a
+sixth stage, `import`. OS4008, OS8019, OS3025, OS3026, OS6024 and OS6025 are
+raised; OS6012 is now raised only where a fact cannot default, and a bare read
+of an instrument fact the host did not state is absent.
+
+**The suite now measures what it exists for.** Four channels that no engine
+answered now have a definition in `conformance.md` section 4 and an answer from
+both engines: `values`, one value per bar per plot; `log`; `drawings`; and
+`table`. There are 106 cases, 52 `core`, 46 `chart` and 8 `strategy`, and the
+`semantics`, `numerics`, `time`, `surface` and `external` categories hold real
+cases for the first time, each with expected values computed independently of
+both engines. A read of another instrument is served from the case's own
+`bars.<SYMBOL>.csv`. `npm run suite:agree` passes 87 cases between the two
+engines exactly, the other 19 being compiler-diagnostic cases an engine-only
+implementation skips.
+
+**The second engine now holds every library entry the first does**, 251 of
+251, checked on every build by `scripts/check-manifests.mjs`: arrays, `print`,
+the calendar, the session calls, drawing objects, grids, and higher timeframe
+and other instrument reads in all three modes. Two disagreements between the
+engines were found by the new cases and settled in the specification: the
+`and` and `or` tables are total (decision 71), and the drawing and grid channels
+have a written shape (decision 72).
+
+**What this still does not prove.** Both engines were written in this
+repository, by the same hands, from the same pages. Their agreement is evidence
+about this repository and not yet about the specification: that needs an engine
+written by somebody who has read only the pages, which is the gate of Phase 7
+and cannot be met from inside.
 
 ---
 
