@@ -1666,6 +1666,27 @@
       "test": "tests/unit/check-plot-options.test.ts"
     },
     {
+      "code": "OS3026",
+      "title": "This option cannot be a setting",
+      "severity": "error",
+      "stage": "check",
+      "since": 1,
+      "message": "{option} is written into the compiled program as a plain value, so a setting cannot choose it in this format version.",
+      "placeholders": {
+        "option": "the option that was written from an input()"
+      },
+      "cause": "An option fixed before bar 0 carries either its value or a reference to one input, resolved at load (compiled-program.md 2.3), and almost every option takes both. A plot's style takes only the value: its field in the compiled format is a plain string. So an input() written into it could only be folded to its default, the settings row it declares would move nothing, and a select offering values the option does not accept would pass, because the set check reads a value written out and a setting is not one. Widening the field changes the compiled format that every other engine is written against, so it is refused here rather than half carried.",
+      "fix": "Write the option out as a string literal and drop the input(): style = \"step\", for instance, is one of the values OS3008 names.",
+      "autofix": false,
+      "example": {
+        "before": "st = input(\"line\", \"Style\", options = [\"line\", \"step\", \"area\"])\nplot(close, \"Close\", aqua, style = st)",
+        "after": "plot(close, \"Close\", aqua, style = \"step\")"
+      },
+      "spec": "language.md 13.4",
+      "refines": null,
+      "test": "tests/unit/check-plot-options.test.ts"
+    },
+    {
       "code": "OS4001",
       "title": "History index is not usable",
       "severity": "error",
@@ -2741,6 +2762,28 @@
       "spec": "compiled-program.md 11",
       "refines": null,
       "test": "tests/adapters/charts/undrawable.test.ts"
+    },
+    {
+      "code": "OS6025",
+      "title": "A bar has no time",
+      "severity": "error",
+      "stage": "host",
+      "since": 1,
+      "message": "Bar {index} was handed over with no time.",
+      "placeholders": {
+        "index": "the index of the bar that carries no time"
+      },
+      "cause": "Every bar states its open instant (host-interface.md 3.1), and the order rule, the history operator, warmup and every calendar fold are built on it. A bar dated nothing cannot be put in order against the bar before it, so it is not OS6011, which is about two stated instants in the wrong order: it is a bar of the wrong shape. Reading it as the absent value would step it over every calendar fold and make every session fact absent for a bar that is on the chart, which draws a gap where the host has data.",
+      "fix": "State the bar's open instant in whole milliseconds since the Unix epoch, UTC, and leave out a bar the host cannot date rather than handing it over without a time.",
+      "autofix": false,
+      "example": {
+        "kind": "transcript",
+        "before": "host input:\n  bar 41  09:10\n  bar 42  (no time)\n  bar 43  09:20",
+        "after": "host input:\n  bar 41  09:10\n  bar 42  09:15\n  bar 43  09:20"
+      },
+      "spec": "host-interface.md 3.5",
+      "refines": null,
+      "test": "tests/engine/series.test.ts"
     },
     {
       "code": "OS7001",

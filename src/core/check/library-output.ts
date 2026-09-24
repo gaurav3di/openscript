@@ -77,6 +77,7 @@ const declarations: readonly LibraryEntry[] = [
       topLevel: true,
       values: { style: PLOT_STYLES, format: FORMATS, scale: SCALES },
       constant: ['title', 'width', 'style', 'offset', 'overlay', 'precision', 'format', 'scale'],
+      written: ['style'],
       whole: { precision: wholeRange(0, 10), offset: wholeRange() },
     },
   ),

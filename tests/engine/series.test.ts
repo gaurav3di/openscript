@@ -171,3 +171,27 @@ test('an ordinary series is accepted and the check costs it no value', () => {
   assert.deepEqual(one.column(0), [100, 101, 102]);
   assert.deepEqual(one.column(1), [null, 100, 101]);
 });
+
+test('a bar with no time is OS6025 naming the bar, not OS6011 and not a gap', () => {
+  // Catches the silence issue 0012 recorded: the order check needs two
+  // instants, so a bar dated nothing passed it, read its time as absent, and
+  // stepped over every calendar fold on a bar that was on the chart. And it
+  // catches a fix that reached for OS6011, whose sentence is about an order
+  // nobody violated.
+  const bars = [...series(4)].map((one) => one as HostBar);
+  bars[2] = { ...(bars[2] as HostBar), time: null };
+  const run = engine().run(bars);
+  assert.equal(run.diagnostic?.code, 'OS6025');
+  assert.equal(run.diagnostic?.values['index'], 2);
+  assert.equal(run.bars.length, 3, 'the two bars before it stand, and it is the one that stopped');
+});
+
+test('a revision that loses its time is refused the same way', () => {
+  const one = engine();
+  const bars = handedOver(series(2));
+  one.append(bars[0] as HostBar, { isConfirmed: true });
+  one.append(bars[1] as HostBar, { isConfirmed: false });
+  const revised = one.update({ ...(bars[1] as HostBar), time: Number.NaN }, { isConfirmed: false });
+  assert.equal(revised.diagnostic?.code, 'OS6025');
+  assert.equal(revised.diagnostic?.values['index'], 1);
+});

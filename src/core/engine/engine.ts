@@ -49,7 +49,7 @@ import type { CompiledProgram, Position } from './types.js';
 import type { RequestPlan } from './request-plan.js';
 import { NO_SESSION, sessionReader } from './session/index.js';
 import type { SessionReader } from './session/index.js';
-import { noBars, outOfOrder } from './series.js';
+import { handOver, noBars } from './series.js';
 import { barMinutesOf } from './timeframe.js';
 import { RequestSet } from './requests.js';
 import type { Value } from './values/index.js';
@@ -230,7 +230,7 @@ export class Engine {
     // that has already failed keeps the failure it has, which is the one that
     // explains what went wrong first.
     if (this.failure === undefined) {
-      const problem = outOfOrder(bar, this.known[this.index], this.index + 1);
+      const problem = handOver(bar, this.known[this.index], this.index + 1);
       if (problem !== undefined) return this.refuse(problem);
     }
     if (this.started) this.checkpoint();
@@ -257,7 +257,7 @@ export class Engine {
     // update whose time has moved back onto the bar before it is a series the
     // engine cannot run on, whatever it is called.
     if (this.failure === undefined) {
-      const problem = outOfOrder(bar, this.known[this.index - 1], this.index);
+      const problem = handOver(bar, this.known[this.index - 1], this.index);
       if (problem !== undefined) return this.refuse(problem);
     }
     this.rollback();

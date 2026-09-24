@@ -1919,6 +1919,12 @@ exactly what the plain form holds; what the word buys is the assignment. A `var`
 is therefore not a compile-time constant: it is OS3003 in a declaration option
 and OS6003 inside a read's expression, like any other per-bar name.
 
+**One option it cannot reach.** A plot's `style` is carried in the compiled
+program as a plain string rather than as a value or an input reference
+(`compiled-program.md` section 2.3), so an input written into it has nowhere to
+go: it is OS3026, and the style is written out. Every other declaration option
+takes a setting as the whole of its value (section 13.2).
+
 **Its title names it.** The title is the row's label in the settings dialog and,
 for an input written where a value belongs, its settings key
 (`host-interface.md` section 8.1). It is written as a string literal on the line

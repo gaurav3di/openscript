@@ -249,6 +249,8 @@ export function validateArguments(
         checker.report('OS3003', span, { option: parameter.name });
       } else if (readsInputInPart(checker, argument.value, entry.name !== 'input')) {
         checker.report('OS3025', span, { option: parameter.name });
+      } else if (entry.written.includes(parameter.name) && readsInputInPart(checker, argument.value, false)) {
+        checker.report('OS3026', span, { option: parameter.name });
       }
     }
   }

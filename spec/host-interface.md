@@ -223,11 +223,12 @@ moving bar ten times give the same answer as executing it once.
 |---|---|
 | No bars at all | OS6010. A script cannot run over nothing, and an empty pane with no message is indistinguishable from a study that drew nothing |
 | A bar whose time does not follow the one before it | OS6011, naming the first such bar. An engine may not reorder what it is given |
+| A bar with no time at all | OS6025, naming the bar. It is the shape of section 3.1 that is broken rather than the order of section 3.2, and the fix is to date the bar |
 | A price or a volume the host does not have | The absent value, sections 3.1 and 3.3 |
 | Fewer bars than the study's warmup needs | Not an error. Warmup is absence (`compiled-program.md` section 7): the study is absent until it has enough bars, and it draws from the first bar it can |
 | A feed that is behind | Not an error. The engine runs over what it has, and later bars arrive as updates |
 
-**The first two are checked as the bars are handed over, and nowhere else.** The
+**The first three are checked as the bars are handed over, and nowhere else.** The
 engine compares a bar's `time` against the one before it once, at the moment the
 host states that bar, and never again: a bar handed back a hundred times as it
 forms is compared a hundred times, and a bar of settled history exactly once. So

@@ -71,3 +71,28 @@ test("an input's default or bound read from another input is OS3025", () => {
 test('a value that depends on bar data is still OS3003, not OS3025', () => {
   assert.deepEqual(codes('w = input(1, "Width")\nplot(close, "Close", aqua, width = w + close)'), ['OS3003']);
 });
+
+// Catches the silent fold issue 0018 found: the compiled format carries a
+// plot's style as a plain string, so the emitter wrote the input's default and
+// the settings row it declared moved nothing.
+test('a plot style written from an input is OS3026 at the argument', () => {
+  const body = 'st = input("line", "Style", options = ["line", "step", "area"])\nplot(close, "Close", aqua, style = st)';
+  const found = checkBody(body).diagnostics.filter((one) => one.code !== 'OS8018');
+  assert.deepEqual(found.map((one) => one.code), ['OS3026']);
+  assert.equal(found[0]?.span.line, 4);
+  assert.deepEqual(found[0]?.values, { option: 'style' });
+});
+
+// The sharper reading: a select whose options are not styles at all was
+// accepted, because the set check reads a value written out.
+test('a style input offering values style does not take is refused as well', () => {
+  const body = 'st = input("dashed", "Style", options = ["solid", "dashed"])\nplot(close, "C", aqua, style = st)';
+  assert.ok(codes(body).includes('OS3026'));
+});
+
+// Catches the refusal reaching past the one field the format cannot carry:
+// every other plot option keeps its reference, and the written style is fine.
+test('a written style, and an input in any other plot option, are not OS3026', () => {
+  assert.deepEqual(codes('plot(close, "Close", aqua, style = "step")'), []);
+  assert.deepEqual(codes('w = input(2, "W")\nplot(close, "Close", aqua, width = w)'), []);
+});

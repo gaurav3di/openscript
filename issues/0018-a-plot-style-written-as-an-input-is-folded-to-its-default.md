@@ -1,6 +1,6 @@
 # 0018 A plot style written as an input() is folded to its default, silently
 
-Status: open
+Status: closed 2026-09-24
 Opened: 2026-09-20
 Found by: attacking the chart adapter's new `settings` option, by writing an
 `input()` into every declaration option in turn and asking which of them moved
@@ -74,3 +74,24 @@ Either of:
 Either way the set check has to see through a reference or stop being the only
 thing guarding the option, because a select offering values `style` does not
 accept is accepted today.
+
+## How it closed
+
+The second of the two answers above, recorded as decision 70: OS3026, "This
+option cannot be a setting", at the argument, whenever a plot's `style` reads an
+input at all, including the select whose options are not styles. The fix tells
+the reader to write the style out. The decision records why the format was not
+widened here: section 9.2 of `compiled-program.md` does not let a minor bump
+change a field's type, so making `Plot.type` a `Field` is a format change to be
+made on purpose, in both engines and the adapter at once.
+
+Every other option was measured the way this file measured the plot's, by
+writing an input into it and reading the compiled program: a level's style,
+width and title, a marker's shape, position and colour, a grid's position and
+rows, a band's opacity and an alert's frequency all keep the reference. `style`
+was the only one folded, so the library entry for `plot` names it as the one
+argument the format carries as a plain value.
+
+Tests: `tests/unit/check-plot-options.test.ts` holds the style input, the select
+of values `style` does not take, and a written style and an input in another
+option passing.

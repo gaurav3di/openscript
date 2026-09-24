@@ -182,13 +182,13 @@ up is not renumbered.
 |---|---|---|---|---|
 | OS1xxx | Syntax | The source text is not a program: characters, layout and grammar. | error | 29 |
 | OS2xxx | Names and types | The program parses, and a name or a type does not work out. | error | 20 |
-| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 25 |
+| OS3xxx | Arguments | A call or an option is wrong at the call site. | error | 26 |
 | OS4xxx | Runtime | A bar produced a value the engine cannot act on. | error | 13 |
 | OS5xxx | Limits | A budget was exhausted: loops, memory, size or time. | error | 10 |
-| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 24 |
+| OS6xxx | Data | Bars, instruments, timeframes and the host's answers to requests. | error | 25 |
 | OS7xxx | Orders | An order could not be placed as written. | error | 19 |
 | OS8xxx | Warnings | The script compiles and runs, and something in it is probably not meant. | warning | 19 |
-| | | | **Total** | **159** |
+| | | | **Total** | **161** |
 
 Ranges OS1xxx to OS7xxx are errors. OS8xxx is warnings, and the split is by
 kind rather than by severity precisely so that a reader can tell from a bare code
@@ -2407,6 +2407,31 @@ After:
 w = input(2, "Width")
 plot(close, "Close", aqua, width = w)
 ```
+
+### OS3026 This option cannot be a setting
+
+Severity error. Stage checker. Since language version 1. Reference language.md 13.4. Test `tests/unit/check-plot-options.test.ts`.
+
+**Message.** `{option} is written into the compiled program as a plain value, so a setting cannot choose it in this format version.`
+
+- `{option}` is the option that was written from an input().
+
+**Cause.** An option fixed before bar 0 carries either its value or a reference to one input, resolved at load (compiled-program.md 2.3), and almost every option takes both. A plot's style takes only the value: its field in the compiled format is a plain string. So an input() written into it could only be folded to its default, the settings row it declares would move nothing, and a select offering values the option does not accept would pass, because the set check reads a value written out and a setting is not one. Widening the field changes the compiled format that every other engine is written against, so it is refused here rather than half carried.
+
+**Fix.** Write the option out as a string literal and drop the input(): style = "step", for instance, is one of the values OS3008 names.
+
+Before:
+
+```
+st = input("line", "Style", options = ["line", "step", "area"])
+plot(close, "Close", aqua, style = st)
+```
+
+After:
+
+```
+plot(close, "Close", aqua, style = "step")
+```
 ---
 
 ## 8.4 OS4xxx Runtime
@@ -3759,6 +3784,38 @@ After:
 study declares:
   table "Summary", 6 rows, 2 columns
 host draws: one grid per pane
+```
+
+### OS6025 A bar has no time
+
+Severity error. Stage host. Since language version 1. Reference host-interface.md 3.5. Test `tests/engine/series.test.ts`.
+
+**Host input.** The example below is the input that fails and the input that passes rather than a script, because this code is about what the engine was handed and not about what anybody wrote.
+
+**Message.** `Bar {index} was handed over with no time.`
+
+- `{index}` is the index of the bar that carries no time.
+
+**Cause.** Every bar states its open instant (host-interface.md 3.1), and the order rule, the history operator, warmup and every calendar fold are built on it. A bar dated nothing cannot be put in order against the bar before it, so it is not OS6011, which is about two stated instants in the wrong order: it is a bar of the wrong shape. Reading it as the absent value would step it over every calendar fold and make every session fact absent for a bar that is on the chart, which draws a gap where the host has data.
+
+**Fix.** State the bar's open instant in whole milliseconds since the Unix epoch, UTC, and leave out a bar the host cannot date rather than handing it over without a time.
+
+Before:
+
+```
+host input:
+  bar 41  09:10
+  bar 42  (no time)
+  bar 43  09:20
+```
+
+After:
+
+```
+host input:
+  bar 41  09:10
+  bar 42  09:15
+  bar 43  09:20
 ```
 ---
 

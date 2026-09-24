@@ -4748,3 +4748,60 @@ drawn chart would be read past.
 `scripts/check-chart-surface.mjs` and `scripts/lib/chart-refusals.mjs` (new)
 prove each refusal with a study that declares it; `docs/visuals/tables.md` and
 `fills.md`; `tests/adapters/charts/undrawable.test.ts`.
+
+## 69. A bar handed over with no time is OS6025, in both engines
+
+**The question.** `host-interface.md` 3.1 states `time` for every bar, and the
+two refusals of section 3.5 did not cover a bar with none: OS6011 compares two
+instants, so a bar dated nothing passed it, read its time as absent, stepped over
+every calendar fold and made every session fact absent for a bar that was on the
+chart (issue 0012). Whether a fact the host did not state is an error or an
+absence is the question decision 66 answered for instrument facts, and it has the
+other answer here.
+
+**The decision.** A code of its own, OS6025, "A bar has no time", raised as the
+bar is handed over and before any step runs, naming the bar. Not the absent
+value, because `time` is the one field of 3.1 with no absent case and the order
+rule is built on it; an instrument fact is optional by the table that lists it
+and a bar's time is not. Not OS6011, whose sentence is about an order nobody
+violated.
+
+**Both engines.** The second engine did not raise OS6011 either: its
+`execute_bar` ran whatever it was handed, so the two engines disagreed about a
+series no conformance case supplies. It now refuses both, with the same values,
+at the same point. OS6010 has no counterpart there, because it has no entry point
+that is handed a whole dataset: a host that has no bars never calls it.
+
+**Edits.** `errors.md` and `errors.json` OS6025; `host-interface.md` 3.5;
+`src/core/engine/series.ts` and `engine.ts`; `engine/openscript/run.py`;
+`docs/integrating/running-the-engine.md` and `running-a-strategy.md`;
+`tests/engine/series.test.ts` and `engine/tests/test_hand_over.py`.
+
+## 70. A plot's style written from an input is OS3026, and the format is not widened
+
+**The question.** `language.md` 13.4 lets an `input()` be written as a
+declaration option, and every plot option carries the reference into the
+compiled program except `style`: `Plot.type` is a plain string, so the emitter
+folded the input to its default, the settings row it declared moved nothing, and
+a select whose options were not styles at all was accepted (issue 0018).
+
+**The decision.** The issue's second answer: a refusal where it is written,
+OS3026, "This option cannot be a setting", with a fix that tells the reader to
+write the style out. The library entry names the one argument the format carries
+as a plain value, so the rule is a fact about `plot` stated where `plot` is
+declared rather than a list in the checker.
+
+**Why not widen the field.** Section 9.2 of `compiled-program.md` lets a minor
+bump add a field and forbids everything else it does not list, and turning
+`plots[].type` from a string into a `Field` changes a field's type rather than
+adding one. An engine written against format 1.1 would read an object where it
+expects a string and refuse the program at verification, which is a major bump
+wearing a minor number. A style a reader can choose is a feature worth a format
+change, and it is worth one made on purpose, recorded in
+`spec/format-history.json` and landed in both engines and the chart adapter at
+once, rather than inside a repair. Every other plot option, and every option of
+every other declaration, was measured and keeps its reference.
+
+**Edits.** `errors.md` and `errors.json` OS3026; `language.md` 13.4;
+`src/core/check/library.ts` (`written`), `library-output.ts` and `calls.ts`;
+`docs/inputs.md`; `tests/unit/check-plot-options.test.ts`.

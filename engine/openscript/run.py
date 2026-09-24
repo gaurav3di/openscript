@@ -29,6 +29,7 @@ next bar.
 """
 
 import copy
+import math
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
@@ -36,7 +37,7 @@ from .bars import BarFacts, bar_field, facts_for
 from .budget import Budget, DEFAULT_LIMITS, EngineLimits, step_bound
 from .canonical import parse
 from .contracts import Bar, BarState, CallContext, Library, NoLibrary
-from .diagnostics import Diagnostic, ScriptError
+from .diagnostics import Diagnostic, ScriptError, failure
 from .inputs import ResolvedInput, TimeReader, field_value, resolve_inputs
 from .machine import Machine, PendingEffect
 from .memory import Cells, Channels, Register, States
@@ -121,6 +122,9 @@ class Run:
         self._fired_ever: set = set()
         self._fired_on: Dict[str, int] = {}
         self._supplied = 0
+        #: The time each of the last two bars was handed over with, by index,
+        #: which is all the order rule of ``host-interface.md`` 3.2 compares.
+        self._times: Dict[int, float] = {}
 
     # -- the declared shape, with every input reference resolved ------------
 
@@ -173,6 +177,9 @@ class Run:
         now: Any = ABSENT,
     ) -> BarResult:
         """The eleven steps, in order, for one execution of bar ``index``."""
+        refused = self._hand_over(index, bar)
+        if refused is not None:
+            return BarResult(index, self._columns.get(index, []), [], [], [], refused)
         held = index + 1 if supplied is None else supplied
         self._supplied = held
 
@@ -237,6 +244,26 @@ class Run:
         # Step 11 is the record taken at the top of the next bar: see the note
         # at the head of this module.
         return BarResult(index, columns, channels, applied, alerts, None)
+
+    def _hand_over(self, index: int, bar: Bar) -> Optional[Diagnostic]:
+        """``host-interface.md`` 3.5: a bar with no time, and one out of order.
+
+        Checked as the bar is handed over and before any step runs, so a refused
+        bar leaves nothing behind it. A bar dated nothing is OS6025 rather than
+        OS6011, because it is a bar of the wrong shape and not two instants in
+        the wrong order; a bar whose time does not follow the one before it is
+        OS6011, naming the first such bar. A revision of the newest bar is held
+        to the same rule against the bar before it.
+        """
+        time = bar.time
+        if isinstance(time, bool) or not isinstance(time, (int, float)) or not math.isfinite(time):
+            return failure("OS6025", index=index)
+        before = self._times.get(index - 1)
+        if before is not None and not time > before:
+            return failure("OS6011", index=index, time=time, previous=index - 1)
+        self._times[index] = time
+        self._times.pop(index - 2, None)
+        return None
 
     def _fill_registers(self, bar: Bar, facts: BarFacts) -> None:
         for at, declared in enumerate(self.program.raw["series"]):

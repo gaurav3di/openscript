@@ -132,7 +132,7 @@ order, every time.
 | Argument | What it means |
 |---|---|
 | `index` | Which bar, counting from zero. **The same index twice is a re-execution of that bar, not a new one** |
-| `bar` | `contracts.Bar(time, open, high, low, close, volume, oi)`. `time` is milliseconds since the epoch, UTC. An absent price is absence, never a zero and never carried forward |
+| `bar` | `contracts.Bar(time, open, high, low, close, volume, oi)`. `time` is milliseconds since the epoch, UTC, and a bar without one is refused with OS6025; a `time` not after the bar before it is refused with OS6011, before any step runs. An absent price is absence, never a zero and never carried forward |
 | `state` | `contracts.BarState(is_new, is_confirmed, is_realtime, updates)`: the four facts only the side that built the bar knows |
 | `supplied` | How many bars the host has supplied. It decides `bar.isLast` and nothing else |
 | `instrument` | The host's instrument record, as a mapping. The `chart` namespace and the tick rounding read it |

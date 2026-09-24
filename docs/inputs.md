@@ -495,6 +495,7 @@ setting the reader can flip is a claim the script no longer makes.
 | A `var` holding an input used as an option | OS3003 | Drop the `var`, or pass the setting the `var` started from |
 | An option computed from an input, `width = w + 1` | OS3025 | Declare the setting as the option itself, `width = w` |
 | An input whose default or bound is another input | OS3025 | Write the default out as a literal |
+| A plot's `style` written from an input | OS3026 | Write the style out; it is the one option a setting cannot reach |
 | A select default outside its list | OS3018 | Add it to `options`, or pick a listed value |
 | `range = [100, 0]` on the declaration | OS3016 | Write two numbers, lowest first |
 | A row nobody reads | OS8018, warning | Use the name, or delete the input and its row |
