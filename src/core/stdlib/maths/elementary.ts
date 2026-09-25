@@ -8,11 +8,11 @@
  * bit, which this project has declared a release blocker. It names the portable
  * reference algorithm as living in the library manifest. **That manifest does
  * not exist yet**, so there is nothing to implement against, and the functions
- * below call the host until it does. Everything in this file except `sqrt` is
- * therefore portable in value but not yet guaranteed in the last bit.
+ * below call the host until it does. Their last bits are not yet guaranteed.
  *
- * `sqrt` is the exception and is not affected: IEEE-754 requires it to be
- * correctly rounded, so every conforming platform returns the same bits.
+ * `sqrt` is not affected: IEEE-754 requires it to be correctly rounded.
+ * `hypot` has its own exact integer algorithm in `stdlib.md` 20.10.1 and no
+ * longer depends on a host approximation.
  *
  * The consequence is worth stating plainly, because it decides what is safe to
  * gate on today. Of the five gate studies, EMA, RSI, MACD, Bollinger Bands and
@@ -22,6 +22,7 @@
  */
 import type { Value } from '../values/index.js';
 import { NONE, isPresent, result } from '../values/index.js';
+import { hypotenuse } from './hypot.js';
 
 /**
  * `sqrt(x)`: square root, absent below zero.
@@ -72,7 +73,7 @@ export const E: number = Math.E;
 /** `math.hypot(x, y)`: `sqrt(x * x + y * y)` without intermediate overflow. */
 export function hypot(x: Value, y: Value): Value {
   if (!isPresent(x) || !isPresent(y)) return NONE;
-  return result(Math.hypot(x, y));
+  return hypotenuse(x, y);
 }
 
 /** `math.toDegrees(x)`: radians to degrees. */

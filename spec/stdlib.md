@@ -2593,7 +2593,9 @@ on a later bar        running = step(running, value), and that is the value
 ```
 
 The seed bar is the first bar on which the window holds `len` values that are all
-present. Over a source that is itself absent during its own warmup, that is the
+present and its normalized mean is finite. An overflowing seed mean returns
+absence and leaves the recurrence unseeded, retaining contributions for a later
+complete suffix. Over a source that is itself absent during its own warmup, that is the
 first bar with `len` present values behind it, which is what makes the warmups of
 this document compose rather than having to be asserted one by one.
 
@@ -2602,6 +2604,12 @@ absent output and leaves `running` untouched, so the next present bar continues
 from where the last present bar left off. Consuming absence as zero would drag
 the average toward nothing, and re-seeding would let one missing bar restart a
 two hundred bar average.
+
+An arithmetic overflow after seeding is different from a missing input. A valid
+step commits its running value even when that value is non-finite and the exposed
+result is absent. It neither freezes the previous finite value nor starts a new
+seed. Reset or restoration can return to an earlier state; later ordinary inputs
+alone do not recover a recurrence whose running value remains non-finite.
 
 With a changing length, every executed call contributes one position before
 seeding, including calls with an absent source or length. Seeding requires the
@@ -3558,7 +3566,7 @@ reached three of the gaps and the sentence still read as a fact.
 
 | Gap | Reached through | Gate studies that reach it |
 |---|---|---|
-| 1 | `exp`, `log`, `log10`, `pow`, `math.log2`, `math.hypot`, `math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan`, `math.atan2`, and `alma`, `hv` and `chop`, which are built on the first three in that order | `triple-smoothed-rate` |
+| 1 | `exp`, `log`, `log10`, `pow`, `math.log2`, `math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan`, `math.atan2`, and `alma`, `hv` and `chop`, which are built on the first three in that order | `triple-smoothed-rate` |
 | 2 | `hma` | none |
 | 3 | `eom` | none |
 | 4 | nothing a script can call | none |

@@ -1,7 +1,7 @@
 """Square root, the logarithms, the powers and the trigonometry.
 
-**Everything here except ``sqrt`` reaches gap 1 of `stdlib.md` section 20.11,
-and is not held to the vectors.** That section states the gap and
+**The transcendental functions reach gap 1 of `stdlib.md` section 20.11,
+and are not held to the vectors.** That section states the gap and
 `compiled-program.md` section 8.3 states the requirement it cannot meet: a
 transcendental function is to be computed by a portable reference algorithm
 rather than by the platform's own maths library, because a platform's is correct
@@ -18,14 +18,16 @@ is a cross-engine guarantee.
 
 Measured against `spec/vectors/library/`, which is the first engine's arithmetic,
 this file's answers differ on a minority of cells and never by more than one ulp.
-``exp``, ``log``, ``log10``, ``pow``, ``sin``, ``cos``, ``tan``, ``hypot`` and
+``exp``, ``log``, ``log10``, ``pow``, ``sin``, ``cos``, ``tan`` and
 ``atan2`` each have some; ``log2``, ``asin``, ``acos`` and ``atan`` had none on
 the interpreter this was written under, which is a fact about two maths libraries
 on one machine and not a guarantee about a third.
 
-**``sqrt`` is the exception and is held to the vectors.** IEEE-754 requires it to
+**``sqrt`` is held to the vectors.** IEEE-754 requires it to
 be correctly rounded, so every conforming platform returns the same bits, and
 section 20.10 says so rather than leaving it to be assumed.
+``hypot`` now uses the exact integer algorithm of section 20.10.1 and is held
+to exact vectors as well, without calling the host's approximation.
 
 The domain rules are `stdlib.md` section 8.1's, and are checked before the call
 rather than read off the answer: the host raises where this language is absent,
@@ -35,6 +37,7 @@ stopped run.
 
 import math
 
+from .hypotenuse import hypotenuse
 from .values import ABSENT, Value, number, result
 
 # The circle constant and the base of the natural logarithm, as `stdlib.md`
@@ -116,20 +119,12 @@ def power(x: Value, y: Value) -> Value:
 
 
 def hypot(x: Value, y: Value) -> Value:
-    """``math.hypot(x, y)``: the diagonal without intermediate overflow.
-
-    Reaches gap 1, and it is the reading of this file most likely to differ:
-    avoiding the overflow is what makes it more than a square root of a sum of
-    squares, and no two libraries scale the same way.
-    """
+    """``math.hypot(x, y)``: the correctly rounded exact diagonal, section 20.10.1."""
     left = number(x)
     right = number(y)
     if left is None or right is None:
         return ABSENT
-    try:
-        return result(math.hypot(left, right))
-    except (ValueError, OverflowError):
-        return ABSENT
+    return hypotenuse(left, right)
 
 
 def to_degrees(x: Value) -> Value:

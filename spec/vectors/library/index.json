@@ -481,7 +481,7 @@
       "state": false,
       "file": "math.hypot-2.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.log2",

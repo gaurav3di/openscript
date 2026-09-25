@@ -53,6 +53,13 @@ columns and missing functions.
 
 ## Fix and release gates
 
+Two-argument hypotenuse now uses exact integer arithmetic followed by one
+nearest-even binary64 rounding in both engines. Independent rational comparisons
+against adjacent-float midpoints certify 849 input pairs, also executed through
+the same compiled program in both engines. Shared vectors changed only where
+those certificates showed the previous last-bit result was wrong. This closes
+the hypotenuse finding; other elementary functions remain under audit.
+
 `npm run audit:stateful` compares every stateful numerical registry key in both
 engines with the committed scope and vector inventory, then runs the expanded
 input matrix and independent edge-case oracles. Run `npm run build` first. A

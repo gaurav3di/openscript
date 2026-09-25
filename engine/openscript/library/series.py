@@ -182,7 +182,9 @@ def seeded(
         full = window(history.view(length), length)
         if full is None:
             return ABSENT
-        running = mean(full, length)
+        running = result(mean(full, length))
+        if running is None:
+            return ABSENT
         held["running"] = running
         # Old checkpoints keep their version; the live recurrence needs no seed history.
         del held["history"]

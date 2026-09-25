@@ -9,8 +9,9 @@
  * `compiled-program.md` 8.3 requires that the transcendental functions not use
  * the platform's maths library, and `src/core/stdlib/maths/elementary.ts`
  * records that they call it anyway until the portable algorithm 8.3 names
- * exists. Everything in that file except `sqrt`, which IEEE-754 requires to be
- * correctly rounded, is therefore provisional in the last bit.
+ * exists. Its transcendental calls are therefore provisional in the last bit.
+ * `sqrt` is correctly rounded under IEEE-754, and `hypot` uses the exact integer
+ * algorithm of `stdlib.md` 20.10.1.
  *
  * **This list holds what has actually been measured to differ, not everything
  * that might.** `pow` returns different bits on two runtimes of the same

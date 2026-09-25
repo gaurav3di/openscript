@@ -14,6 +14,11 @@ than raising a division exception when CCI's scaled deviation underflows to zero
 or signed money flows produce a zero composed divisor. Later bars continue to
 calculate, and ordinary values retain their existing arithmetic order.
 
+Both engines now compute two-argument hypotenuse from the exact squared inputs,
+with one final nearest-even rounding. This removes host-dependent last-bit
+differences, preserves subnormal results and returns absence when the rounded
+result overflows. It can change the final bits of previously returned values.
+
 Anchored volume averages now wait for their first anchor in the Python engine.
 A reset takes effect even when its bar has absent data; an absent reset condition
 after initialization behaves as false and the bar still contributes. A money-flow
@@ -33,6 +38,10 @@ after maximum-length readiness, and continue valid steps while a later larger
 length temporarily hides their output. Missing source or length freezes the
 running value. Changing length never restarts an already seeded recurrence, and
 seed history is released once it is no longer needed.
+
+An overflowing seed mean now remains unseeded in the Python engine, allowing a
+later finite suffix to recover. An overflow after a successful seed retains its
+existing recurrence state; it does not silently restart the calculation.
 
 In the Python engine, extreme ages keep each independently available output,
 stop initialization waits for two complete bars, and an overflowing trailing-band

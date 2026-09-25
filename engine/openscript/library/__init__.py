@@ -51,11 +51,12 @@ stateless call needs none, which is what lets an engine call one of those from
 anywhere without a checkpoint or a rollback.
 
 **One family is not held to the vectors.** ``exp``, ``log``, ``log10``,
-``math.log2``, ``pow``, ``math.hypot`` and the trigonometric namespace reach gap 1
+``math.log2``, ``pow`` and the trigonometric namespace reach gap 1
 of `stdlib.md` section 20.11, and so do ``alma``, ``hv`` and ``chop``, which are
 built on the first three: no portable reference algorithm is written down
 anywhere, so they call the host's maths module and carry no cross-engine
 guarantee. ``elementary`` says it again where an implementer will be standing.
+``math.hypot`` uses the exact integer algorithm in section 20.10.1 instead.
 """
 
 from .stateful import ENTRIES as STATEFUL_ENTRIES
