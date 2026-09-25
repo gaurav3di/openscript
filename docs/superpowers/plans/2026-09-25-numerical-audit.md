@@ -5,7 +5,8 @@
 
 **Goal:** Validate shipped numerical calculations, fix confirmed deviations
 between both engines and equivalent chart calculations, and release both engine
-packages as 0.7.0.
+packages as 0.7.0, followed by a corrective 0.7.1 release for the subsequently
+confirmed directional-overflow discrepancy.
 
 **Architecture:** Extend manifest-driven vectors and real compiled-program
 comparisons. Keep independent expectations separate from generated observations.
@@ -38,10 +39,10 @@ binary64 fixtures and dependency-free test tools.
 
 - [x] Create an isolated branch from the current development revision.
 - [x] Run the complete existing suite before changing code and retain its log.
-- [ ] Inventory names, arities, paths, parameter contracts and existing fixtures
+- [x] Inventory names, arities, paths, parameter contracts and existing fixtures
   from engine manifests and the chart registry.
 - [x] Include numeric reducers and conversions outside current vector groups.
-- [ ] Partition cases by family with exclusive source and test-file ownership.
+- [x] Partition cases by family with exclusive source and test-file ownership.
   Check the final ledger against live manifests to prevent silent omissions.
 
 ## 2. Window-state disagreements
@@ -81,15 +82,16 @@ binary64 fixtures and dependency-free test tools.
 
 ## 5. Review and release
 
-- [ ] Independently review fixes, open findings and inventory coverage.
+- [x] Independently review engine fixes, open findings and inventory coverage.
 - [x] Update arithmetic documentation and changelog; bump both manifests and the
   lockfile to 0.7.0 while retaining compiled format 1.1.
-- [ ] Run `npm test`, expanded comparisons and compiled chart integration.
+- [x] Run `npm test`, expanded comparisons and compiled chart integration for
+  the 0.7.0 engine release.
 - [x] Build and inspect both distributions, install outside the repository and
   execute compiled numerical probes through installed entry points.
-- [ ] Commit and push tested source; tag and dispatch both release workflows
+- [x] Commit and push tested 0.7.0 source; tag and dispatch both release workflows
   according to `RELEASING.md`.
-- [ ] Verify workflows, registry versions, downloaded artifacts and installed
+- [x] Verify 0.7.0 workflows, registry versions, downloaded artifacts and installed
   results. Report release links and any explicitly unresolved limitation.
 
 ## Verified implementation progress
@@ -101,10 +103,15 @@ independent oracles, rollback and replay checks. All three strict gates pass,
 covering 1,504,908 accepted calls across 6,836 cases without tolerance. Corrected
 kernels and vector changes have independent rounding certificates.
 
-Both package manifests are prepared as 0.7.0 with compiled format 1.1 unchanged.
-Full package checks, all strict numerical gates and installed-distribution probes
-pass. Commit/push, release workflows and registry verification remain final gates. The complete chart-descriptor mapping and companion chart release
-remain separate pending work; the engine result does not close that coverage.
+Both 0.7.0 packages were published from immutable tag `v0.7.0`, at commit
+`f9ab00e4e9238b442ae0ad3639f52bc5dc45394b`, with compiled format 1.1 unchanged.
+The release workflows passed, and freshly downloaded distributions passed 363
+installed compiled programs across all 116 numerical signatures and 41
+independent expected-result cases. Archive source bytes, registry digests and
+attestation source and digest claims were checked. Attestation signatures were
+not cryptographically verified. The companion chart release and remaining
+native definition differences are separate work; the engine result does not
+close that coverage.
 
 Expanded compiled chart compositions exposed Python overflow-boundary defects
 in TSI, RSI and Ultimate Oscillator. Regression tests failed before their
@@ -114,4 +121,24 @@ absence at the specified boundaries and recover with fresh finite windows.
 The complete suite now passes 2,161 JavaScript tests and 956 Python tests.
 All strict numerical gates pass, including declared defaults, isolated field
 shocks, 963 checkpoint restoration cases and 963 replay cases.
-Both manifests remain at 0.7.0 and no tag or registry version has been published.
+These checks preceded the completed 0.7.0 publication.
+
+## Corrective 0.7.1 release checkpoint
+
+After publication, an independent chart composition exposed a selected
+directional movement overflowing before Python's ADX smoother. The correction
+normalizes the selected movement to absence after the raw direction comparisons.
+It preserves finite arithmetic, tie handling, caller signatures and compiled
+format 1.1. Published 0.7.0 source and artifacts remain unchanged.
+
+The isolated corrective candidate passes 2,209 JavaScript tests, 960 Python
+tests and 102 shared conformance cases, with the same 19 compiler-only skips.
+The strict gates compare 1,504,918 accepted calls across 6,838 cases, with no
+differing bits or absence results. Both directions, pre-seed and post-seed
+overflow, competing finite movement, ties, missing fields and forming-bar
+replacement have independent expected cases.
+
+Fresh local installations pass 379 compiled programs over all 116 numerical
+signatures and 57 independent expected-result cases. At this pre-publication
+checkpoint, source integration, release workflows and fresh public artifact
+verification are the remaining 0.7.1 release operations.

@@ -7,6 +7,23 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## 0.7.1
+
+Python's ADX now normalizes a selected overflowing directional movement to
+absence before smoothing it. An overflow before seeding no longer prevents a
+later valid seed, and an overflow after seeding no longer poisons the recurrence.
+The raw direction comparison and tie rules are unchanged. This corrects a
+Python-only discrepancy found after 0.7.0 was published; ordinary finite-input
+vectors are unchanged.
+
+Compiled histories, forming-bar replacements and independent expected results
+cover both directions, missing inputs, competing movements and positive ties.
+The expanded numerical gates compare 1,504,918 accepted calls with no differing
+bits or absent values. These finite corpora do not exhaust every input history.
+
+Upgrade both packages together. No source migration or compiled-format change
+is required; recompute stored ADX results affected by overflowing movements.
+
 ## 0.7.0
 
 Both engines now pass exact numerical comparisons for all 116 scalar and

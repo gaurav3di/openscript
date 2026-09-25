@@ -2865,5 +2865,215 @@
       ],
       "reason": "Each individual range is finite, but the length-two range sum overflows at bar two. That named sum is absent before the ratio. Later windows regain a finite denominator and have zero pressure, so their output is zero."
     }
+  },
+  {
+    "id": "minimal:adx-up-overflow",
+    "key": "adx/2",
+    "name": "adx",
+    "arity": 2,
+    "bars": 5,
+    "args": [
+      {
+        "name": "diLen",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "adxLen",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "7fd1ccf385ebc8a0",
+          "7fd1ccf385ebc8a0"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0"
+        ]
+      },
+      "previousClose": {
+        "kind": "number",
+        "values": [
+          null,
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0"
+        ]
+      }
+    },
+    "outputColumns": 3,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          100,
+          0,
+          100
+        ],
+        [
+          0,
+          0,
+          0
+        ]
+      ],
+      "reason": "The selected directional difference overflows on bar 2 and is absent before RMA. With both lengths one, bar 3 has finite range 5e307 and movement 5e307 on only the opposite side, so strength is 100 and that side is 100. Bar 4 has zero movement and finite range, giving three zeros. The first two ranges are absent or zero."
+    }
+  },
+  {
+    "id": "minimal:adx-down-overflow",
+    "key": "adx/2",
+    "name": "adx",
+    "arity": 2,
+    "bars": 5,
+    "args": [
+      {
+        "name": "diLen",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "adxLen",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "ffd1ccf385ebc8a0",
+          "ffd1ccf385ebc8a0"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0"
+        ]
+      },
+      "previousClose": {
+        "kind": "number",
+        "values": [
+          null,
+          "7fe1ccf385ebc8a0",
+          "7fe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0",
+          "ffe1ccf385ebc8a0"
+        ]
+      }
+    },
+    "outputColumns": 3,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          null,
+          null,
+          null
+        ],
+        [
+          100,
+          100,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ]
+      ],
+      "reason": "The selected directional difference overflows on bar 2 and is absent before RMA. With both lengths one, bar 3 has finite range 5e307 and movement 5e307 on only the opposite side, so strength is 100 and that side is 100. Bar 4 has zero movement and finite range, giving three zeros. The first two ranges are absent or zero."
+    }
   }
 ]

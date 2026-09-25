@@ -1,4 +1,4 @@
-# Numerical audit for release 0.7.0
+# Numerical audit for releases 0.7.0 and 0.7.1
 
 Release 0.7.0 requires a complete inventory of shipped numerical functions,
 comparison of both engines on the same inputs, and correction of confirmed
@@ -75,7 +75,7 @@ all 1,512 proposed scalar vector cells were independently checked: 46 existing
 trigonometric cells changed and 189 power cells joined the vector inventory.
 The Python vector driver now requires exact bits for every scalar case.
 
-The three strict gates together compare 1,504,908 accepted calls across 6,836
+The three strict gates for the 0.7.1 candidate compare 1,504,918 accepted calls across 6,838
 cases, with zero differing bits, absence differences, oracle failures or
 baseline failures. Five numeric array reducers and the three conversion signatures
 `text/1`, `text/2` and `toNumber/1` have separate compiled checks, completing the
@@ -137,11 +137,11 @@ additional market-data adapter is part of the audit.
 
 Run full package checks, expanded numerical comparisons, compiled chart adapter
 tests and installed-package probes before publishing. Both companion packages
-carry 0.7.0 from one immutable source tag. Update the changelog and documentation
+carry the same package version from one immutable source tag. Update the changelog and documentation
 for every changed result, follow [the release procedure](../../RELEASING.md), and
 verify artifacts after both workflows succeed.
 
-The 0.7.0 local release candidate passes the complete package checks: 2,161
+The published 0.7.0 candidate passed the complete package checks: 2,161
 JavaScript tests, 956 Python tests and 102 shared conformance cases, with 19
 compiler-only cases correctly skipped by the Python engine. All existing
 performance budgets pass. Fresh installations outside the checkout must also
@@ -154,7 +154,7 @@ The expanded chart composition sweep found additional overflowing-change and
 range-sum cases after the first candidate. Python's TSI, RSI and Ultimate
 Oscillator now normalize those named intermediate results before retaining or
 dividing them. Ten new independent stateful oracles and compiled historical and
-forming-bar regressions pass. The constant-parameter gate now includes 2,956
+forming-bar regressions pass. The 0.7.0 constant-parameter gate included 2,956
 cases and 19 independent oracles. Ordinary vector expectations are unchanged.
 
 The independent field-stress matrix also exposed MFI product/sum overflow and
@@ -165,6 +165,17 @@ and volume, then supplies an ordinary recovery suffix. Its 882 histories include
 166 cases using the actual declared defaults, alongside preserved vector controls
 and lengths one and two. All histories also run through checkpoint restoration
 and replay, yielding 3,852 execution comparisons with no state discrepancies.
+
+An additional chart-composition fixture exposed a Python-only ADX difference
+after 0.7.0 was published. A selected overflowing movement entered the running
+average without first becoming absent, preventing recovery. The 0.7.1 correction
+normalizes that selected result while preserving raw comparisons and tie rules.
+Independent expected fixtures and compiled histories cover both directions,
+pre-seed and post-seed overflow, missing inputs and forming-bar replacement.
+The current constant-parameter gate has 2,958 cases and 21 independent oracles.
+The corrective source checks pass 2,209 JavaScript tests, 960 Python tests and
+the same 102 conformance cases, with the 19 documented compiler-only skips.
+Installed artifact validation and registry publication remain separate gates.
 
 The companion chart release remains a separate 2.5.4 deliverable. Its deferred
 higher-timeframe input controls remain excluded. Testing existing requested

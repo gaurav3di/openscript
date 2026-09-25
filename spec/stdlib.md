@@ -2980,6 +2980,13 @@ upMove   = up   when up > down and up > 0,   otherwise 0
 downMove = down when down > up and down > 0, otherwise 0
 ```
 
+Both movements are absent when current or previous high/low inputs are missing.
+Compare the raw differences before normalizing the selected branch. Equal
+positive differences, including two overflowing differences, select zero on
+both sides. Normalize a selected non-finite movement to absence before `rma`
+consumes it; this is a missing input under 20.2, not an arithmetic overflow
+inside the recurrence.
+
 Each of `upMove`, `downMove` and the gap aware true range is smoothed with `rma`
 at `diLen`, and then
 

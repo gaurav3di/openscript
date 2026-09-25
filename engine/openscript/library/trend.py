@@ -179,8 +179,8 @@ def directional(state: Region, ctx, di_length: Optional[int], adx_length: Option
         if isinstance(before_high, float) and isinstance(before_low, float):
             up = high - before_high
             down = before_low - low
-            up_move = up if up > down and up > 0 else 0.0
-            down_move = down if down > up and down > 0 else 0.0
+            up_move = result(up) if up > down and up > 0 else 0.0
+            down_move = result(down) if down > up and down > 0 else 0.0
     smoothed_up = averages.smoothed(region(state, "up"), up_move, di_length)
     smoothed_down = averages.smoothed(region(state, "down"), down_move, di_length)
     smoothed_range = averages.smoothed(region(state, "range"), gap_range(ctx), di_length)

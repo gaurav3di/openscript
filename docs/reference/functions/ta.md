@@ -252,6 +252,13 @@ Parameters: `diLen` `number` default `14`; `adxLen` `number` default `14`.
 Returns `array<number>`. Warmup: elements 1 and 2 at bar `diLen`, element 0 at
 bar `diLen + adxLen - 1`.
 
+Missing current or previous high/low values make both directional movements
+absent. Direction selection compares the raw differences first; equal positive
+movements select zero on both sides. A selected overflowing movement is absent
+before smoothing, so a seeded recurrence holds its state and can resume on later
+valid observations. The smoothed range must also be available and nonzero for
+either directional reading to be present.
+
 ```
 plot(adx()[0], "ADX", white)
 ```

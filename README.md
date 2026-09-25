@@ -26,7 +26,7 @@ execution; see [Phase 6](./ROADMAP.md#phase-6-the-second-engine-and-live-running
 
 ## Status
 
-**`0.7.0` runs studies, backtests strategies, draws a strategy on a chart,
+**`0.7.1` runs studies, backtests strategies, draws a strategy on a chart,
 imports scripts from another chart language, and ships the language
 intelligence an editor needs.** The Python engine is on PyPI
 as `openscript`, at the same version, and the two are released together.
@@ -45,7 +45,12 @@ examples on every run rather than asserting it in a page. Two records can be put
 beside each other, and a pair over different bars is reported incomparable
 instead of being subtracted into a table that reads like a result.
 
-**New in `0.7.0`:** the two engines pass exact numerical comparisons across
+**New in `0.7.1`:** Python's ADX recovers from overflowing directional movements
+with the same values as the JavaScript engine. The correction covers overflow
+before and after seeding, without changing ordinary vectors or the compiled
+format. Upgrade both packages together.
+
+The `0.7.0` numerical work established exact comparisons across
 all 116 scalar and stateful numerical signatures. Portable elementary kernels,
 changing-window corrections and checkpoint tests remove confirmed numerical
 deviations. Compiled cases also cover numeric arrays and conversions. Upgrade
@@ -107,7 +112,7 @@ first thing a stranger reads:
   corroborating implementation, not a result. That is why no conformance badge
   is shown here, though `npm run badge` will make one for an engine that passes.
 
-The version is `0.7.0` rather than `1.0` because of that list. The studies
+The version is `0.7.1` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The
