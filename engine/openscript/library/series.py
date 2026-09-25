@@ -110,6 +110,8 @@ def back(values: Sequence[Value], offset: Optional[int]) -> Value:
     """
     if offset is None or offset < 0 or len(values) <= offset:
         return ABSENT
+    if isinstance(values, ContributionView) and values.history.count < values.history.maximum:
+        return ABSENT
     return values[len(values) - 1 - offset]
 
 

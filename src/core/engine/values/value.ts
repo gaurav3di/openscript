@@ -89,6 +89,11 @@ export function numberValue(x: number): Value {
   return x === 0 ? 0 : x;
 }
 
+/** Normalise numeric zero at a store or identity result, preserving every other tag. */
+export function storedValue(value: Value): Value {
+  return typeof value === 'number' && value === 0 ? 0 : value;
+}
+
 /** The name of a value's tag, for a diagnostic that has to say what it found. */
 export function tagOf(value: Value): string {
   if (value === null) return 'none';

@@ -62,7 +62,7 @@ import type { Ops } from './operations.js';
 import type { Registers } from './registers.js';
 import type { CompiledProgram, Instruction, Position } from './types.js';
 import type { Heap, Value } from './values/index.js';
-import { ABSENT, reference } from './values/index.js';
+import { ABSENT, reference, storedValue } from './values/index.js';
 
 /** Everything the interpreter is handed once, at load. */
 export interface MachineParts {
@@ -201,7 +201,7 @@ export class Machine {
 
       switch (instruction[0]) {
         case 'CONST':
-          stack.push(constantValueOf(this.parts.program.consts[instruction[1] as number]));
+          stack.push(storedValue(constantValueOf(this.parts.program.consts[instruction[1] as number])));
           break;
         case 'DUP':
           stack.push(stack[stack.length - 1] ?? ABSENT);
@@ -213,7 +213,7 @@ export class Machine {
           stack.push(frame.slots[instruction[1] as number] ?? ABSENT);
           break;
         case 'STORE':
-          frame.slots[instruction[1] as number] = pop(stack);
+          frame.slots[instruction[1] as number] = storedValue(pop(stack));
           break;
         case 'CELL_INIT':
           if (memory.initialise(frame.cellBase + (instruction[1] as number))) {
@@ -405,7 +405,7 @@ export class Machine {
 
     this.ctx.state =
       state < 0 ? NO_STATE : this.parts.memory.region(this.frame.stateBase + state);
-    stack.push(of.call(this.ctx, args));
+    stack.push(storedValue(of.call(this.ctx, args)));
   }
 
   /** `CALL_FN`: everything it needs is in the call site, 4.10. */
@@ -424,7 +424,7 @@ export class Machine {
       call.series,
       fnPositions[call.fn] ?? [],
     );
-    for (let i = 0; i < args.length; i += 1) frame.slots[i] = args[i] ?? ABSENT;
+    for (let i = 0; i < args.length; i += 1) frame.slots[i] = storedValue(args[i] ?? ABSENT);
     this.callers.push(this.frame);
     this.frame = frame;
   }

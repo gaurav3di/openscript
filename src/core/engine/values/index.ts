@@ -18,6 +18,7 @@ export {
   isString,
   numberValue,
   reference,
+  storedValue,
   tagOf,
   valuesEqual,
 } from './value.js';

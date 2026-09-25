@@ -65,7 +65,8 @@ export function isNone(x: Value): boolean {
 
 /** `x` when present, `fallback` when absent. */
 export function orElse(x: Value, fallback: Value): Value {
-  return isPresent(x) ? x : fallback;
+  const value = isPresent(x) ? x : fallback;
+  return value === 0 ? 0 : value;
 }
 
 /** `toBool(x)`: absence to false, a bool to itself. Numbers are a type error. */

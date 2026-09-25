@@ -29,7 +29,7 @@ import type { Span } from '../span/index.js';
 import type { Effect } from './library/index.js';
 import type { Channel } from './types.js';
 import type { Value } from './values/index.js';
-import { ABSENT } from './values/index.js';
+import { ABSENT, storedValue } from './values/index.js';
 
 /** A library call with an effect, held until the bar is decided. */
 export interface PendingEffect {
@@ -89,7 +89,7 @@ export class Channels {
 
   /** `EMIT`: the last write on a bar is the one that counts. */
   write(channel: number, value: Value): void {
-    this.current[channel] = value;
+    this.current[channel] = storedValue(value);
   }
 
   read(channel: number): Value {

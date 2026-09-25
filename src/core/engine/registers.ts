@@ -19,7 +19,7 @@
  * reaches the array.
  */
 import type { Value } from './values/index.js';
-import { ABSENT } from './values/index.js';
+import { ABSENT, storedValue } from './values/index.js';
 
 export class Registers {
   private readonly histories: Value[][];
@@ -51,7 +51,7 @@ export class Registers {
   }
 
   set(register: number, value: Value): void {
-    this.current[register] = value;
+    this.current[register] = storedValue(value);
   }
 
   /** `SLOAD`: the register's value for the bar being executed. */

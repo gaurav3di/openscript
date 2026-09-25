@@ -12,7 +12,7 @@ exception and its order is written out in section 8.1 and confirmed in 20.7: the
 division, then the floor, then the multiplication, then the subtraction.
 """
 
-from .values import ABSENT, Value, floor_of, number, result
+from .values import ABSENT, Value, floor_of, is_number, number, result
 
 
 def abs_of(x: Value) -> Value:
@@ -110,10 +110,11 @@ def is_none(x: Value) -> bool:
 def or_else(x: Value, fallback: Value) -> Value:
     """``orElse(x, fallback)``: ``x`` when present, ``fallback`` when absent.
 
-    The fallback is returned as it stands, absence included, so
-    ``orElse(x, none)`` is ``x``.
+    Absence and every nonnumeric tag keep their identity; numeric zero follows
+    the same positive-zero rule as other library results.
     """
-    return fallback if x is None else x
+    value = fallback if x is None else x
+    return 0.0 if is_number(value) and value == 0 else value
 
 
 def to_bool(x: Value) -> bool:

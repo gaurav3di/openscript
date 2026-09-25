@@ -55,7 +55,7 @@ import type { BarColumns } from './bar-source.js';
 import { barMinutesOf } from './timeframe.js';
 import { RequestSet } from './requests.js';
 import type { Value } from './values/index.js';
-import { Heap } from './values/index.js';
+import { Heap, storedValue } from './values/index.js';
 import { drawingsIn } from './drawings.js';
 import type { Drawing } from './drawings.js';
 import type { BarResult, RunResult } from './results.js';
@@ -383,8 +383,8 @@ export class Engine {
       // Step 5. An input's value and a grid's handle land in their slots here,
       // and nothing is resolved: that happened once, at load.
       for (const input of this.inputs) {
-        slots[input.slot] =
-          input.field === undefined ? input.value : barField(input.field, bar, this.facts);
+        slots[input.slot] = storedValue(
+          input.field === undefined ? input.value : barField(input.field, bar, this.facts));
       }
       this.grids.fill(slots);
 

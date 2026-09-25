@@ -27,13 +27,21 @@ from .values import ABSENT, is_number, is_whole, stored
 class Register:
     """One series register: a history of one value per bar, plus this bar's cell."""
 
-    __slots__ = ("history", "current", "dropped")
+    __slots__ = ("history", "_current", "dropped")
 
     def __init__(self) -> None:
         self.history: List[Any] = []
-        self.current: Any = ABSENT
+        self._current: Any = ABSENT
         #: How many of the oldest entries trimming has thrown away.
         self.dropped: int = 0
+
+    @property
+    def current(self) -> Any:
+        return self._current
+
+    @current.setter
+    def current(self, value: Any) -> None:
+        self._current = stored(value)
 
     @property
     def length(self) -> int:

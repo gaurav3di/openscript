@@ -27,7 +27,7 @@ import type { StateRecord } from './library/index.js';
 import { copyState } from './library/index.js';
 import type { Cell, StateRegion } from './types.js';
 import type { Value } from './values/index.js';
-import { ABSENT } from './values/index.js';
+import { ABSENT, storedValue } from './values/index.js';
 
 interface CellSnapshot {
   readonly value: Value;
@@ -71,7 +71,7 @@ export class Memory {
 
   store(cell: number, value: Value): void {
     this.recordCell(cell);
-    this.values[cell] = value;
+    this.values[cell] = storedValue(value);
   }
 
   /** The region a `CALL_LIB` names, created on first use and kept across bars. */

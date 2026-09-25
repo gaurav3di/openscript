@@ -43,6 +43,16 @@ An overflowing seed mean now remains unseeded in the Python engine, allowing a
 later finite suffix to recover. An overflow after a successful seed retains its
 existing recurrence state; it does not silently restart the calculation.
 
+Distance reads now retain the largest observed readiness in the Python engine.
+Shrinking a history, change, momentum or rate-of-change distance no longer
+returns a value before that prior warmup has completed. Missing intermediate
+source values still preserve their positions without hiding valid endpoints.
+
+Numeric negative zero is normalized at engine ingress, stores and library
+results. Host-supplied values, requested registers, function arguments,
+historical reads and fallback calls now preserve the same positive-zero bits in
+both engines, while booleans, text and reference values retain their identity.
+
 In the Python engine, extreme ages keep each independently available output,
 stop initialization waits for two complete bars, and an overflowing trailing-band
 midpoint leaves band state and its last accepted close unchanged.

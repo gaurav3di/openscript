@@ -44,7 +44,7 @@ import {
   toRadians,
   trunc,
 } from '../../stdlib/index.js';
-import { isNumber } from '../values/index.js';
+import { isNumber, storedValue } from '../values/index.js';
 import { entry, numberAt, valueAt, wholeAt } from './binding.js';
 import type { ManifestEntry } from './binding.js';
 
@@ -125,7 +125,7 @@ export const MATHS_ENTRIES: readonly ManifestEntry[] = [
   entry('isNone', 'x', (_ctx, args) => valueAt(args, 0) === null),
   entry('orElse', 'x fallback', (_ctx, args) => {
     const value = valueAt(args, 0);
-    return value === null ? valueAt(args, 1) : value;
+    return storedValue(value === null ? valueAt(args, 1) : value);
   }),
   // `toBool(x)`: absence to false, a bool to itself. A number is a type error
   // the checker refuses, so an engine that reaches one is looking at a program
