@@ -83,9 +83,5 @@
     "williamsR/1",
     "wma/2"
   ],
-  "platformDiagnostics": [
-    "alma/4",
-    "chop/1",
-    "hv/3"
-  ]
+  "platformDiagnostics": []
 }

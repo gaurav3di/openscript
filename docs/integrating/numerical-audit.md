@@ -60,6 +60,20 @@ the same compiled program in both engines. Shared vectors changed only where
 those certificates showed the previous last-bit result was wrong. This closes
 the hypotenuse finding; other elementary functions remain under audit.
 
+Exponential and logarithmic kernels now use the interval recipe in
+`stdlib.md` section 20.10.2. Independent decimal enclosures and exact rational
+rounding cells check their outputs, including actual compiled programs and the
+derived Gaussian, historical-volatility and choppiness readings. Seventy changed
+vector cells were individually certified before their expected bits were updated.
+Power and trigonometric differences remain under audit.
+
+`node --disallow-code-generation-from-strings scripts/bench-alma.mjs` reports
+compiled Gaussian workloads after both build commands. It compares both engines
+and measures fixed and changing parameter tuples separately. The pure weight
+cache retains at most eight tuples and 4,096 coefficients; changing parameters
+can therefore cost substantially more than reusing a kernel. This report does
+not raise the existing release performance budgets.
+
 `npm run audit:stateful` compares every stateful numerical registry key in both
 engines with the committed scope and vector inventory, then runs the expanded
 input matrix and independent edge-case oracles. Run `npm run build` first. A

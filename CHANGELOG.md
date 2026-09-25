@@ -19,6 +19,17 @@ with one final nearest-even rounding. This removes host-dependent last-bit
 differences, preserves subnormal results and returns absence when the rounded
 result overflows. It can change the final bits of previously returned values.
 
+Exponential and logarithmic calculations now use integer interval arithmetic and
+one final nearest-even rounding in both engines. Gaussian averages, historical
+volatility and choppiness use those same portable kernels. Values may differ in
+their final bits from earlier versions. Gaussian weights use a bounded immutable
+cache; changing kernel parameters requires more computation than repeated ones.
+
+Gaussian width must be positive, and an underflowed exponent denominator returns
+absence. Historical volatility requires positive source endpoints and a positive
+annualization count in both engines. Hull smoothing now keeps source observations
+that arrive while its length is absent in the JavaScript engine.
+
 Anchored volume averages now wait for their first anchor in the Python engine.
 A reset takes effect even when its bar has absent data; an absent reset condition
 after initialization behaves as false and the bar still contributes. A money-flow

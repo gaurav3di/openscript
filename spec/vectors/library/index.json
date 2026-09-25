@@ -41,7 +41,7 @@
       "state": true,
       "file": "alma-4.json",
       "cases": 7,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "aroon",
@@ -145,7 +145,7 @@
       "state": true,
       "file": "chop-1.json",
       "cases": 6,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "clamp",
@@ -281,7 +281,7 @@
       "state": false,
       "file": "exp-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "falling",
@@ -345,7 +345,7 @@
       "state": true,
       "file": "hv-3.json",
       "cases": 7,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "ichimoku",
@@ -385,7 +385,7 @@
       "state": false,
       "file": "log-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "log10",
@@ -393,7 +393,7 @@
       "state": false,
       "file": "log10-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "lowest",
@@ -489,7 +489,7 @@
       "state": false,
       "file": "math.log2-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.pi",

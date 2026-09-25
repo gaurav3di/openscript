@@ -9,6 +9,7 @@
 import type { Bar, Series, StateRecord, Tail, Value } from '../values/index.js';
 import { NONE, fold, isPresent, result, tailOf } from '../values/index.js';
 import { extremeStep, historyStep, sumStep } from '../series/index.js';
+import { log, log10 } from '../maths/index.js';
 
 import type { Gap } from './range.js';
 import { gapOf, trueRangeOf } from './range.js';
@@ -41,9 +42,10 @@ export function chopStep(
   if (len === null) return NONE;
   if (!isPresent(distance) || !isPresent(upper) || !isPresent(lower)) return NONE;
   const span = upper - lower;
-  const scale = Math.log10(len);
-  if (!(span > 0) || !(distance > 0) || scale === 0) return NONE;
-  return result((100 * Math.log10(distance / span)) / scale);
+  const scale = log10(len);
+  if (!(span > 0) || !(distance > 0) || !isPresent(scale) || scale === 0) return NONE;
+  const travelled = log10(distance / span);
+  return isPresent(travelled) ? result((100 * travelled) / scale) : NONE;
 }
 
 /** `chop(len)` as a tail. */
@@ -78,7 +80,7 @@ export function hvStep(
   const previous = historyStep(state, `${key}h`, value, 1);
   let logReturn: Value = NONE;
   if (isPresent(value) && isPresent(previous) && value > 0 && previous > 0) {
-    logReturn = result(Math.log(value / previous));
+    logReturn = log(value / previous);
   }
   const deviation = stdevStep(state, `${key}q`, logReturn, len, false);
   if (!isPresent(deviation) || periodsPerYear === null || !(periodsPerYear > 0)) return NONE;

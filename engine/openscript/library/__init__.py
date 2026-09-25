@@ -13,7 +13,7 @@ What is here, by the page it is written from:
 - ``values``        absence, and the two rules every number returned has passed
 - ``arithmetic``    section 8.1, the bare calls that compute one value
 - ``rounding``      section 8.1 and 20.7, one rule for halves and one scale table
-- ``elementary``    section 8.2, the square root and the gap 1 family
+- ``elementary``    section 8.2 and the portable arithmetic of section 20.10
 - ``bars``          section 20.5's one reading that remembers nothing
 - ``code_points``   section 10's whitespace set and the one string order
 - ``number_text``   `language.md` 5.5, how a number becomes text and back
@@ -50,13 +50,10 @@ mechanical copy without the engine knowing which function it belongs to. A
 stateless call needs none, which is what lets an engine call one of those from
 anywhere without a checkpoint or a rollback.
 
-**One family is not held to the vectors.** ``exp``, ``log``, ``log10``,
-``math.log2``, ``pow`` and the trigonometric namespace reach gap 1
-of `stdlib.md` section 20.11, and so do ``alma``, ``hv`` and ``chop``, which are
-built on the first three: no portable reference algorithm is written down
-anywhere, so they call the host's maths module and carry no cross-engine
-guarantee. ``elementary`` says it again where an implementer will be standing.
-``math.hypot`` uses the exact integer algorithm in section 20.10.1 instead.
+Power and the trigonometric namespace still reach gap 1 of `stdlib.md` section
+20.11. Hypotenuse follows section 20.10.1, while exponential and logarithmic
+functions follow section 20.10.2. Those portable kernels and every stateful
+reading, including ``alma``, ``hv`` and ``chop``, are held to exact vector bits.
 """
 
 from .stateful import ENTRIES as STATEFUL_ENTRIES

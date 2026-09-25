@@ -80,9 +80,7 @@ def choppiness(state: Region, ctx, length: Optional[int]) -> Value:
     where the span or the distance is not above zero, and where the length is 1
     and the scale is zero.
 
-    **This reading depends on ``log10``**, so it reaches gap 1 of section 20.11
-    and carries no cross-engine guarantee: there is no portable reference
-    algorithm for a logarithm anywhere in the specification.
+    The base-ten logarithm follows the portable interval recipe of section 20.10.2.
     """
     ranges = contributed(state, "range", gap_range(ctx), length)
     highs = contributed(state, "high", number(ctx.bar("high")), length)

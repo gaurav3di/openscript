@@ -157,6 +157,13 @@ warmup. A larger length reads the earlier contributions it now needs. An absent
 length produces absence but still contributes the source value and retains the
 previous maximum length.
 
+Distance reads follow the same readiness rule using `distance+1` contributions.
+`history`, `change`, `mom` and `roc` select the current distance after the largest
+observed distance is ready. For source `[1,2,4,8]` with distances `[3,1,1,1]`,
+history is `[none,none,none,4]`, change and momentum have the same readings, and
+rate of change is `[none,none,none,100]`. Intervening holes keep their positions;
+only the selected endpoints need to be present.
+
 For `sum` over source values `1, 2, 3, 4, 5`, these per-execution lengths give:
 
 | Lengths | Outputs |
@@ -593,6 +600,15 @@ value would appear on history at a bar where no script could have had it.
 
 `barsSince` and `valueWhen` are absent, not zero, before the condition has ever
 been true. Zero would read as "it happened on this bar".
+
+`valueWhen` reads the current zero-based occurrence among this call's true
+conditions: zero selects the newest event. Occurrence is an event ordinal,
+not a window length, so an earlier larger occurrence does not impose a lasting
+warmup after the request shrinks. Retain earlier true events for later larger
+requests. A true event with absent source still occupies its ordinal; false or
+absent conditions add no event. For conditions `[true,true,false]`, source
+`[1,2,3]` and occurrences `[0,0,1]`, readings are `[1,2,1]`. For three true
+conditions and occurrences `[1,1,0]`, readings are `[none,1,3]`.
 
 **Count: 27 entries, of which 0 are planned.**
 
@@ -2774,6 +2790,16 @@ where `e1` is `ema(src, len)`, `e2` is `ema(e1, len)` and `e3` is `ema(e2, len)`
 **`alma(src, len, offset, sigma)`** builds its kernel from the position in the
 window, with position 0 the oldest, and runs two passes over that same order:
 
+`sigma` must be strictly positive; zero, negative or absent sigma produces
+absence while the source still contributes to the call's chronological history.
+The exponent denominator is evaluated as `(2*spread)*spread`. If this denominator
+underflows to zero, the reading is absent rather than a division exception.
+The exponent is a private Gaussian intermediate: negative infinity means a zero
+weight, while an undefined exponent makes the reading absent. A positive
+infinite denominator may give a finite zero exponent and weight one. These
+limiting weights preserve narrow and broad kernels without allowing infinity
+as a language value or changing the public `exp` domain.
+
 ```text
 peak   = offset * (len - 1)
 spread = len / sigma
@@ -2792,14 +2818,15 @@ The denominator of the exponent is **one product, divided once**. A chain of
 divisions, `-(gap * gap) / 2 / spread / spread`, is the arrangement in
 circulation and is not this one: over the kernels built at eight lengths, seven
 sigmas and six offsets it differs on 4529 of the 17598 exponents, about one in
-four. How that one product is grouped is not fixed, because one of its factors
-is 2, and over those same 17598 exponents the two groupings never differ: see
-20.1, whose edge case needs a `spread` below about 1.5 times 10 to the minus
+four. The grouping `(2*spread)*spread` is normative. Although one factor is 2
+and over those same 17598 exponents the two groupings never differ, the finite
+fixture does not cover every binary64 input: see 20.1, whose edge case needs a
+`spread` below about 1.5 times 10 to the minus
 154th, so that its square is subnormal, which at a length of 1 is a `sigma` above
 about 6.7 times 10 to the 153rd. The
 kernel depends only on the position, so an engine may build it once, provided
 the values it builds are the ones these lines produce. This is the one average
-whose value depends on `exp`: see 20.11.
+whose value depends on `exp`, using the portable recipe in 20.10.2.
 
 **`linreg(src, len, offset)`** fits over `x` running 0 at the oldest bar of the
 window to `len - 1` at this one. The sums over `x` are constants of `len`:
@@ -3224,10 +3251,15 @@ result   = (100 * log10(distance / span)) / log10(len)
 The ratio is formed first, then its logarithm, then the multiplication by 100,
 then the division by the logarithm of the length. The result is absent where the
 span or the distance is not above zero, and where `len` is 1 and the scale is
-zero. This reading depends on `log10`: see 20.11.
+zero. This reading uses the portable `log10` recipe in 20.10.2.
 
 **`hv(src, len, periodsPerYear)`** is the population standard deviation of the
 one bar log return, annualised by one multiplication:
+
+Both source endpoints and `periodsPerYear` must be strictly positive. A missing
+or nonpositive source endpoint contributes an absent log return in its original
+position; two negative endpoints do not create a valid return merely because
+their ratio is positive. A nonpositive annualization count produces absence.
 
 ```text
 logReturn = log(src / src[1])
@@ -3238,7 +3270,7 @@ The ratio is formed before the logarithm is taken. The result is a proportion an
 is not scaled by a hundred: section 6 says annualised standard deviation of log
 returns and says nothing about a percentage, so a study that wants a percentage
 axis multiplies at the plot, where a reader can see it happen. This reading
-depends on `log`: see 20.11.
+uses the portable `log` recipe in 20.10.2.
 
 ### 20.6 Volume
 
@@ -3541,19 +3573,104 @@ power-of-two upper bound is one implementation. Input width bounds the temporary
 integers to fewer than 4,200 bits. Squaring preserves order on nonnegative values,
 so step 5 compares against the exact midpoint between neighboring results.
 
+#### 20.10.2 Exponential and logarithms
+
+`exp`, `log`, `log10` and `math.log2` round the real mathematical result once to
+nearest-even binary64. Missing or non-finite inputs are absent. Logarithms are
+absent for nonpositive inputs. An overflowing rounded result is absent; a
+rounded zero is positive zero. The kernels use integer intervals rather than a
+platform elementary function or division of already rounded logarithms.
+
+Handle exact cases first: `exp(0)=1`, every logarithm of one is zero, `log2` of
+an exact binary power is its integer exponent, and `log10` of an exactly
+representable integral power of ten is its integer exponent. Testing powers of
+ten uses the exact decoded integer, not a rounded decimal spelling.
+
+At precision `P`, interval endpoints are integers divided by `2^P`. Start at
+`P=160`. Every division rounds outward with mathematical floor and ceiling,
+including divisions with negative numerators. Decode binary64 arguments into an
+integer significand and power of two without first rounding them to the working
+precision. Round both final interval endpoints directly to binary64. Return only
+when both endpoints round to the same result; otherwise increase `P` by 80 and
+recompute. There is no precision cutoff, approximate fallback or absence caused
+solely by a rounding interval that has not yet resolved.
+
+For natural logarithm write `x=2^k*m` exactly, with `1<=m<2`, and use
+
+```text
+z     = (m-1)/(m+1)
+ln(m) = 2 * sum(z^(2*j+1)/(2*j+1), j >= 0)
+ln(x) = ln(m) + k*ln(2)
+```
+
+Generate an interval for `ln(2)` by the same series at `z=1/3`. Maintain
+outward bounds on `z`, its square, each successive odd power and each divided
+term. If the first omitted power has odd exponent `n`, the remaining sum before
+multiplication by two is at most `(9/8)*z^n/n`: all later denominators increase
+and `z^2<=1/9`. Stop when that power's upper bound is at most two integer units,
+and add the outward-rounded remainder bound. Multiplication by negative `k`
+reverses the constant interval's endpoints.
+
+For exponential set `a=abs(x)`. Let `[Alo,Ahi]` enclose `a` and `[Clo,Chi]`
+enclose `ln(2)` at the current precision. Choose `k=floor(Alo/Chi)`. The reduced
+argument `r=a-k*ln(2)` lies in
+`[Alo-k*Chi,Ahi-k*Clo] / 2^P`, whose endpoints lie in `[0,1]` at these working
+precisions. Evaluate `exp(r)` with the positive Taylor series, starting the term
+and sum at one, and forming each next term with outward multiplication by `r`
+and division by its index. When the next upper term is at most one integer unit,
+stop adding explicit terms and add twice that upper term to the upper sum.
+Successive tail ratios are at most one half, so this encloses the full tail.
+For nonnegative `x` multiply the interval by `2^k`; for negative `x` take its
+outward reciprocal and multiply by `2^-k`.
+
+The safe shortcuts `x>=1024` to absence, `x<=-1024` to zero, and
+`abs(x)<2^-60` to one avoid unnecessary work. The first follows from `e>2`;
+the second follows from `e>5/2` and `(5/2)^4>2^5`; the third lies strictly
+inside the rounding cell around one.
+
+For base two or base ten, divide the unrounded `ln(x)` interval outward by the
+interval for `ln(2)` or `ln(10)`, then round once. For a negative numerator,
+consider both denominator endpoints so that the lower and upper quotient
+bounds retain their mathematical order. Generate `ln(10)` by the natural-log
+recipe above. Dividing separately rounded binary64 logarithms is a different
+operation and is not this contract.
+
+To round a dyadic endpoint `N*2^E`, work with its absolute integer magnitude.
+The spacing exponent is `q=max(-1074, bitLength(N)-1+E-52)`. Divide by
+`2^(q-E)` when that exponent is positive, or shift exactly when it is not.
+Compare the discarded remainder with half the divisor, breaking a tie toward
+an even retained significand. Normalize a carry, then encode the sign,
+significand and exponent directly. Zero loses its sign; an overflowing exponent
+becomes absence. Converting the large integer to a floating value before
+scaling would add an unwanted rounding step.
+
+Interval widths decrease to zero as precision grows. After the exact branches,
+the true results cannot equal a rational binary64 rounding midpoint. A nonzero
+algebraic argument has a transcendental exponential, and the natural logarithm
+of an algebraic positive number other than one is transcendental. A rational
+base-two or base-ten logarithm of a rational input must be an integer: prime
+factor exponents in `x^q=2^p` or `x^q=10^p` force `q=1` when `p/q` is reduced.
+Those exact powers are handled first. Refinement therefore eventually encloses
+a single rounding cell. This establishes termination, not a practical
+worst-case precision or execution-time bound.
+
+Derived constants and Gaussian weights may be cached without entering an
+engine's checkpoint state. They must depend only on exact parameter values;
+cold, warm, evicted and restored executions must produce identical readings.
+The implementation retains only default-precision constant intervals and at
+most eight Gaussian parameter tuples containing at most 4,096 coefficients in
+total. Larger kernels compute without being retained. Cache residency does not
+change the semantic operation budget charged to a script.
+
 ### 20.11 What this section cannot pin down yet
 
 Each of these is a gap in the specification rather than a choice made here, and
 each is a place two conforming engines may still differ.
 
-**One of them is reached by a study the release gate compares bit for bit**, and
-that is a different debt from a gap nothing exercises. A gap no study reaches is
-owed to this document and costs nobody anything today. A gap the gate walks
-through is a hole in the gate itself: a second engine can reproduce every study
-in it and still disagree on that one, because the number being compared is
-arrived at by arithmetic this document does not fix. The comparison then proves
-this engine against itself rather than against this page, which is the one thing
-the gate exists not to do.
+A gap reached by a study needs to be distinguished from a gap no study exercises.
+An output reached through unfixed arithmetic cannot establish conformance to
+this page, even when two engines happen to agree. The table records that boundary
+and is checked against the actual gate scripts.
 
 The table below says which calls reach each gap and which gate studies make one.
 **Its last column is derived, not asserted.** `tests/gate/gaps.test.ts` reads
@@ -3566,55 +3683,23 @@ reached three of the gaps and the sentence still read as a fact.
 
 | Gap | Reached through | Gate studies that reach it |
 |---|---|---|
-| 1 | `exp`, `log`, `log10`, `pow`, `math.log2`, `math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan`, `math.atan2`, and `alma`, `hv` and `chop`, which are built on the first three in that order | `triple-smoothed-rate` |
+| 1 | `pow`, `math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan`, `math.atan2` | none |
 | 2 | `hma` | none |
 | 3 | `eom` | none |
 | 4 | nothing a script can call | none |
 
-1. **The transcendental functions have no portable reference algorithm.**
-   `compiled-program.md` section 8.3 requires that the exponential, the
-   logarithms, the powers, the trigonometric namespace and anything built on
-   them not use the platform's own maths library, because a platform
-   implementation is correct to within about an ulp and differs between
-   platforms in the last bit. No such algorithm is written down anywhere in this
-   specification, so there is nothing to implement against and the requirement
-   cannot be met today. `sqrt` is exempt, for the reason 20.10 gives. The
-   library's own arithmetic uses no `pow` at all: the scale of 20.7 is the
-   binary64 nearest to a power of ten, built without one; a script's own `pow`
-   call carries the full risk. The hyperbolic functions
-   section 8.2 lists as planned join the row above on the day they arrive.
+1. **Power and trigonometry still require portable algorithms.** Their current
+   host approximations can differ in the last bit. Until their algorithms are
+   specified, no conformance case may assert a value reaching this row, under
+   `conformance.md` section 8. The strict numerical release audit still records
+   these differences and blocks publication; a conformance exclusion is not an
+   exact-agreement pass.
 
-   **Decided: scoped out of conformance, not solved.** A reference algorithm for
-   the exponential, the logarithm and the power is weeks of specialist work, and
-   nothing in the language or the backtest is blocked on it, so the second engine
-   proceeds on the rest of the library rather than waiting. Until an algorithm is
-   written here, no conformance case may assert a value that reaches this row,
-   and `conformance.md` section 8 carries that rule and its reasoning.
-
-   The choice was made against a real deployment picture rather than in the
-   abstract. The first host installs on two processor architectures and most of
-   the common operating systems, so the platform library this row depends on is
-   several different libraries in practice, and the disagreement is not an
-   argument about the last bit: it is two traders on two machines reading two
-   numbers. That is what makes scoping honest and silence dishonest. The calls
-   still work, they still compute what they always did, and what they do not
-   carry is a cross-engine guarantee.
-
-   **What closes it:** an algorithm for `exp`, `log` and `pow` written down on
-   this page, in the accumulation order this section fixes for everything else,
-   with the rest of the row derived from those three. On that day the calls
-   return to the profiles that cover them and the cases that were refused can be
-   harvested.
-
-   **This is the gap the gate reaches.** One study takes the logarithm of the
-   close and smooths it three times, so every number in its plotted column
-   depends on the last bit of `log`, and the reference that column is compared
-   against cannot be built from this page: it is built from the platform's
-   logarithm, which is the thing section 8.3 refuses. The column does match, and
-   what that proves is that the pipeline carried the value, not that a second
-   engine would arrive at it. Until there is an algorithm to write down, that one
-   column is not a conformance requirement, and an engine whose `log` differs in
-   the last bit is conforming and will fail it.
+   Hypotenuse is fixed by 20.10.1. Exponential and logarithmic functions are fixed
+   by 20.10.2, including the derived `alma`, `hv` and `chop` calculations. A study
+   using `log` no longer reaches this gap. The remaining row closes when power
+   and trigonometric algorithms specify each result and are implemented and
+   independently checked in both engines.
 2. **The inner length of `hma` is not stated.** Section 4 fixes the outer length
    as `round(sqrt(len))`, which the declared warmup confirms, and says nothing
    about the inner one. The declared warmup holds for any inner length at or

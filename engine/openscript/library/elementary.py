@@ -1,43 +1,14 @@
-"""Square root, the logarithms, the powers and the trigonometry.
+"""Elementary numeric functions and their remaining arithmetic gaps.
 
-**The transcendental functions reach gap 1 of `stdlib.md` section 20.11,
-and are not held to the vectors.** That section states the gap and
-`compiled-program.md` section 8.3 states the requirement it cannot meet: a
-transcendental function is to be computed by a portable reference algorithm
-rather than by the platform's own maths library, because a platform's is correct
-to within about an ulp and differs between platforms in the last bit. **No such
-algorithm is written down anywhere**, so there is nothing to implement against,
-and inventing one here would be a third answer rather than a second engine.
-
-So these call the host's maths module and say so. `conformance.md` section 8
-scopes the difference out: no case may assert a value that reaches this row, not
-even with a tolerance, because an engine that is correct can fail such a case and
-the release gate would then stop a release over a hole in the specification. The
-calls still work and still compute what they always did; what they do not carry
-is a cross-engine guarantee.
-
-Measured against `spec/vectors/library/`, which is the first engine's arithmetic,
-this file's answers differ on a minority of cells and never by more than one ulp.
-``exp``, ``log``, ``log10``, ``pow``, ``sin``, ``cos``, ``tan`` and
-``atan2`` each have some; ``log2``, ``asin``, ``acos`` and ``atan`` had none on
-the interpreter this was written under, which is a fact about two maths libraries
-on one machine and not a guarantee about a third.
-
-**``sqrt`` is held to the vectors.** IEEE-754 requires it to
-be correctly rounded, so every conforming platform returns the same bits, and
-section 20.10 says so rather than leaving it to be assumed.
-``hypot`` now uses the exact integer algorithm of section 20.10.1 and is held
-to exact vectors as well, without calling the host's approximation.
-
-The domain rules are `stdlib.md` section 8.1's, and are checked before the call
-rather than read off the answer: the host raises where this language is absent,
-and an engine that let the raise out would turn "no finite real value" into a
-stopped run.
+Hypotenuse and exp/log use the exact integer recipes in sections 20.10.1 and
+20.10.2. Square root uses its correctly rounded host operation. Power and
+trigonometry still use host approximations under gap 1.
 """
 
 import math
 
 from .hypotenuse import hypotenuse
+from .transcendental import transcendental
 from .values import ABSENT, Value, number, result
 
 # The circle constant and the base of the natural logarithm, as `stdlib.md`
@@ -72,33 +43,33 @@ def sqrt(x: Value) -> Value:
 
 
 def exp(x: Value) -> Value:
-    """``exp(x)``: e to the power x. Reaches gap 1."""
+    """``exp(x)``: e to the power x, using section 20.10.2."""
     value = number(x)
-    return ABSENT if value is None else _guarded(value, math.exp)
+    return ABSENT if value is None else transcendental('exp', value)
 
 
 def log(x: Value) -> Value:
-    """``log(x)``: natural logarithm, absent at or below zero. Reaches gap 1."""
+    """``log(x)``: portable natural logarithm, absent at or below zero."""
     value = number(x)
     if value is None or value <= 0:
         return ABSENT
-    return _guarded(value, math.log)
+    return transcendental('log', value)
 
 
 def log10(x: Value) -> Value:
-    """``log10(x)``: base ten logarithm, same absence rule. Reaches gap 1."""
+    """``log10(x)``: portable base ten logarithm, same absence rule."""
     value = number(x)
     if value is None or value <= 0:
         return ABSENT
-    return _guarded(value, math.log10)
+    return transcendental('log10', value)
 
 
 def log2(x: Value) -> Value:
-    """``math.log2(x)``: base two logarithm, same absence rule. Reaches gap 1."""
+    """``math.log2(x)``: portable base two logarithm, same absence rule."""
     value = number(x)
     if value is None or value <= 0:
         return ABSENT
-    return _guarded(value, math.log2)
+    return transcendental('log2', value)
 
 
 def power(x: Value, y: Value) -> Value:

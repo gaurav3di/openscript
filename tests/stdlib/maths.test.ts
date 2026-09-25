@@ -172,7 +172,7 @@ test('20.7: folding the constant into one factor differs at the rate 20.7 prints
   );
 });
 
-test("20.3: alma's exponent is one division, and the grouping of its product fixes nothing", () => {
+test("20.3: alma's exponent uses one division and both groupings agree on the bounded fixture", () => {
   let chained = 0;
   let regrouped = 0;
   let weights = 0;
@@ -196,7 +196,7 @@ test("20.3: alma's exponent is one division, and the grouping of its product fix
   assert.equal(weights, total, 'the kernels the page counts over');
   assert.equal(again, total, 'and the zero beside it is counted over the same kernels');
   assert.equal(chained, differed, 'the chain of divisions 20.3 refuses');
-  assert.equal(regrouped, 0, 'the grouping 20.3 no longer fixes');
+  assert.equal(regrouped, 0, 'the fixture stays above the subnormal regrouping boundary');
 });
 
 /**

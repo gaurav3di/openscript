@@ -17,6 +17,7 @@ import {
 import { roundHalfAway } from '../maths/index.js';
 
 import { wmaStep } from './simple.js';
+import { gaussianWeights } from './gaussian.js';
 
 /**
  * `hma(src, len)`: from bar `len + round(sqrt(len)) - 2`.
@@ -37,9 +38,8 @@ export function hmaStep(
   value: Value,
   len: number | null,
 ): Value {
-  if (len === null) return NONE;
-  const half = Math.max(1, Math.floor(len / 2));
-  const outer = Math.max(1, roundHalfAway(Math.sqrt(len)));
+  const half = len === null ? null : Math.max(1, Math.floor(len / 2));
+  const outer = len === null ? null : Math.max(1, roundHalfAway(Math.sqrt(len)));
   const near = wmaStep(state, `${key}f`, value, half);
   const far = wmaStep(state, `${key}s`, value, len);
   const raw = isPresent(near) && isPresent(far) ? result(2 * near - far) : NONE;
@@ -62,12 +62,8 @@ export function hma(src: Series, len: number): Value[] {
  * `offset` slides the kernel's peak between lag and smoothness and `sigma` sets
  * how sharply it falls away.
  *
- * The kernel depends only on the position in the lookback, so it could be built
- * once; it is rebuilt each bar instead, because the region 2.11 requires holds
- * numbers and queues and not a cached array of weights, and a step that reads
- * its own arguments every bar is the only form an engine can drive. The
- * accumulation is over the lookback in index order either way, so the number is
- * the same one.
+ * A bounded pure cache holds immutable coefficients keyed by the current
+ * parameters. Source observations remain exclusively in the copyable region.
  */
 export function almaStep(
   state: StateRecord,
@@ -82,18 +78,9 @@ export function almaStep(
   if (len === null || offset === null || sigma === null) return NONE;
   if (!lookback.complete()) return NONE;
   if (!(sigma > 0) || !isLength(len)) return NONE;
-  const peak = offset * (len - 1);
-  const spread = len / sigma;
-  const weights: number[] = [];
-  let norm = 0;
-  // Index order: position 0 is the oldest bar in the lookback.
-  for (let position = 0; position < len; position += 1) {
-    const gap = position - peak;
-    const weight = Math.exp(-(gap * gap) / (2 * spread * spread));
-    weights.push(weight);
-    norm += weight;
-  }
-  if (norm === 0) return NONE;
+  const kernel = gaussianWeights(len, offset, sigma);
+  if (kernel === null) return NONE;
+  const { weights, norm } = kernel;
   let total = 0;
   for (let position = 0; position < len; position += 1) {
     total += (lookback.at(len - 1 - position) as number) * (weights[position] as number);

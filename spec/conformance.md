@@ -1025,14 +1025,12 @@ A profile says what an **implementation** covers. There is a second kind of hole
 it cannot express, and conflating the two would let the suite claim agreement it
 has no right to require: a region the **specification** does not fix.
 
-`stdlib.md` section 20.11 lists these, and gap 1 is the live one. The
-transcendental calls (`exp`, `log`, `log10`, `log2`, `pow` and the
-trigonometric family, and `alma`, `hv` and `chop`, which are built on them) have
-no portable reference algorithm written yet. `compiled-program.md` section 8.3
-forbids an engine from answering them out of the platform's maths library, and
-nothing yet says what it should answer instead.
-`hypot` is covered by the exact integer algorithm in `stdlib.md` 20.10.1 and
-is compared exactly.
+`stdlib.md` section 20.11 lists these. Gap 1 currently covers power and the
+trigonometric family, whose portable algorithms remain under audit.
+`compiled-program.md` section 8.3 requires portable arithmetic for those calls.
+Hypotenuse is specified in `stdlib.md` 20.10.1; exponential and logarithmic
+functions follow 20.10.2. Those resolved functions and the derived `alma`, `hv`
+and `chop` calculations are compared exactly.
 
 **No case may assert a value that reaches an open gap.** Not reported
 `unsupported`, not admitted with a tolerance: not admitted. An engine that meets

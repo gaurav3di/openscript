@@ -7,7 +7,7 @@
     {
       "id": "full-0",
       "call": "alma(src, 20, 0.85, 6)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -42,7 +42,7 @@
     {
       "id": "holes-0",
       "call": "alma(src, 20, 0.85, 6)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -77,7 +77,7 @@
     {
       "id": "short-0",
       "call": "alma(src, 20, 0.85, 6)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 5,
       "args": [
         {
@@ -112,7 +112,7 @@
     {
       "id": "absent-args-0",
       "call": "alma(src, none, none, none)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -147,7 +147,7 @@
     {
       "id": "full-1",
       "call": "alma(src, 14, 0.5, 3)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -182,7 +182,7 @@
     {
       "id": "full-2",
       "call": "alma(src, 9, 0, 10)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -217,7 +217,7 @@
     {
       "id": "full-3",
       "call": "alma(src, 3, 0.85, 6)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {

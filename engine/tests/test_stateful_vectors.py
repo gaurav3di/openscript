@@ -14,14 +14,10 @@ half and the stateless half both claim, a case that compared nothing, and a
 comparison that would pass a wrong engine. Each of those is a way for a file like
 this one to report a pass it has not earned.
 
-**Three of the four gaps are held to the bit and one is not.** `stdlib.md`
-section 20.11 gap 2 is the inner length of the linearly weighted family and gap 3
-is the absence of a scaling constant, and section 20.3 and section 20.6 write
-both arrangements down, so a second engine can reach those numbers and is held to
-them here. Gap 1 is the transcendental row, which no document fixes and
-`conformance.md` section 8 scopes out of conformance: those cases are held to
-absence for absence and to a distance, which is what can be asked of a call that
-is a platform's maths library rather than this page's arithmetic.
+Every stateful reading is held to exact bits. The exponential and logarithmic
+kernels now have portable algorithms, so their derived studies need no platform
+tolerance. Sections 20.3 and 20.6 also specify the arrangements selected for the
+remaining window and scaling choices.
 """
 
 import copy
@@ -29,19 +25,6 @@ import unittest
 
 from openscript.library import stateful_table
 from tests import vectors
-
-#: The gap whose calls no document fixes, `stdlib.md` section 20.11.
-GAP_ONE = 1
-
-#: How far a gap 1 reading may sit from the other engine's, in representable
-#: values. Two correctly rounded maths libraries differ by one at the call, and a
-#: reading built on two of them and a division carries a little further: the
-#: worst distance measured over this suite today is 2, on the choppiness reading.
-#: A wrong argument, a wrong branch or a wrong arrangement is astronomically more
-#: than this, so the bound separates the gap from a defect rather than excusing
-#: both.
-GAP_TOLERANCE = 4
-
 
 class CaseBar:
     """The bar and the heap as one vector case holds them.
@@ -111,11 +94,6 @@ def drive(entry, case):
 def stateful_rows():
     """The index's rows for functions that carry state across bars."""
     return [row for row in vectors.index()["functions"] if row["state"]]
-
-
-def reaches_gap_one(case) -> bool:
-    """Whether a case asserts a value no document fixes the arithmetic of."""
-    return GAP_ONE in case["gaps"]
 
 
 class StatefulVectors(unittest.TestCase):
@@ -190,8 +168,6 @@ class StatefulVectors(unittest.TestCase):
         for row in self.rows:
             entry = self.entries[(row["name"], row["arity"])]
             for case in vectors.vectors_for(row["file"])["cases"]:
-                if reaches_gap_one(case):
-                    continue
                 for at, which, got, want in drive(entry, case):
                     compared += 1
                     if got != want and not wrong:
@@ -202,54 +178,11 @@ class StatefulVectors(unittest.TestCase):
         self.assertEqual(wrong, [], "the first cell that differs")
         self.assertGreater(compared, 0, "no cell was compared, so this test proved nothing")
 
-    def test_the_gap_one_readings_agree_on_absence_and_stay_close(self):
-        """What can be asked of a reading built on a call no document fixes."""
-        reached = 0
-        wrong = []
+    def test_no_stateful_case_carries_a_platform_math_exclusion(self):
         for row in self.rows:
-            if GAP_ONE not in row["gaps"]:
-                continue
-            entry = self.entries[(row["name"], row["arity"])]
+            self.assertNotIn(1, row["gaps"], row["name"])
             for case in vectors.vectors_for(row["file"])["cases"]:
-                if not reaches_gap_one(case):
-                    continue
-                for at, which, got, want in drive(entry, case):
-                    reached += 1
-                    where = f"{row['name']}/{row['arity']} case {case['id']} bar {at}"
-                    if (got is None) != (want is None):
-                        wrong.append(f"{where}: absence differs, {got} against {want}")
-                    elif got is not None and got != want:
-                        apart = vectors.ulps_between(got, want)
-                        if apart > GAP_TOLERANCE:
-                            wrong.append(f"{where}: {apart} values apart, {got} against {want}")
-        self.assertEqual(wrong, [])
-        self.assertGreater(reached, 0, "no gap 1 cell was reached, so this test proved nothing")
-
-    def test_the_gap_one_readings_really_do_differ(self):
-        """The weaker rule above is weaker for a reason that is still true.
-
-        If every reading built on the transcendental row started agreeing to the
-        last bit, the two engines would have stopped depending on two maths
-        libraries and the tolerance above would be covering nothing. That is worth
-        knowing rather than enjoying quietly, so it is asserted: this run expects
-        a difference, and a run with none is a change in the world that should be
-        read before this test is deleted.
-        """
-        differing = set()
-        for row in self.rows:
-            if GAP_ONE not in row["gaps"]:
-                continue
-            entry = self.entries[(row["name"], row["arity"])]
-            for case in vectors.vectors_for(row["file"])["cases"]:
-                for _at, _which, got, want in drive(entry, case):
-                    if got != want:
-                        differing.add(f"{row['name']}/{row['arity']}")
-        self.assertNotEqual(
-            differing,
-            set(),
-            "every reading built on the transcendental row now matches the other "
-            "engine to the last bit, so stdlib.md 20.11 gap 1 should be read again",
-        )
+                self.assertNotIn(1, case["gaps"], (row["name"], case["id"]))
 
     def test_a_region_is_a_mechanical_copy_and_rolls_back_to_it(self):
         """`compiled-program.md` section 2.11 and section 6, put to every function.

@@ -7,7 +7,7 @@
     {
       "id": "full-0",
       "call": "hv(src, 20, 252)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -37,7 +37,7 @@
     {
       "id": "holes-0",
       "call": "hv(src, 20, 252)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -67,7 +67,7 @@
     {
       "id": "short-0",
       "call": "hv(src, 20, 252)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 5,
       "args": [
         {
@@ -97,7 +97,7 @@
     {
       "id": "absent-args-0",
       "call": "hv(src, none, none)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -127,7 +127,7 @@
     {
       "id": "full-1",
       "call": "hv(src, 14, 365)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -157,7 +157,7 @@
     {
       "id": "full-2",
       "call": "hv(src, 9, 252)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -187,7 +187,7 @@
     {
       "id": "full-3",
       "call": "hv(src, 3, 365)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {

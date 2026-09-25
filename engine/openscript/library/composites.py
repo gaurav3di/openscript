@@ -6,8 +6,8 @@ inner one produced, not on the first bars of the source. That composition is the
 whole reason `stdlib.md` section 1 states warmups in bars of the call's own
 source rather than in bars of the chart.
 
-The other two compute over the window directly: the Gaussian kernel, whose one
-dependence on the exponential puts it in gap 1 of section 20.11, and the least
+The other two compute over the window directly: the portable Gaussian kernel
+of section 20.10.2, and the least
 squares fit, whose constants are functions of the length alone.
 
 ``named`` is here rather than beside the six means because it has to be able to
@@ -17,6 +17,7 @@ select any of them, this file's included.
 import math
 
 from . import averages, elementary
+from .gaussian import gaussian_weights
 from .rounding import round_half_away
 from .series import Region, contributed, region, window
 from .values import ABSENT, Value, number, result, whole
@@ -140,10 +141,8 @@ def gaussian(
     order. The denominator of the exponent is **one product, divided once**: the
     chain of divisions in circulation differs on about one exponent in four.
 
-    **This is the one average whose value depends on ``exp``**, so it reaches gap
-    1 of section 20.11 and carries no cross-engine guarantee. The kernel depends
-    only on the position, so an engine may build it once per length, provided the
-    values it builds are the ones these lines produce.
+    A bounded pure cache holds immutable weights for exact parameter values.
+    It holds no source observations and does not enter checkpoint state.
     """
     values = contributed(state, "src", number(value), length)
     held = window(values, length)
@@ -151,19 +150,12 @@ def gaussian(
     width = number(sigma)
     if held is None or length is None or peak_at is None or width is None:
         return ABSENT
-    if width == 0:
+    if width <= 0:
         return ABSENT
-    peak = peak_at * (length - 1)
-    spread = length / width
-    weights = []
-    norm = 0.0
-    for position in range(length):
-        gap = position - peak
-        weight = elementary.exp(-(gap * gap) / (2 * spread * spread))
-        if not isinstance(weight, float):
-            return ABSENT
-        weights.append(weight)
-        norm = norm + weight
+    kernel = gaussian_weights(length, peak_at, width)
+    if kernel is None:
+        return ABSENT
+    weights, norm = kernel
     running = 0.0
     for position in range(length):
         running = running + held[length - 1 - position] * weights[position]

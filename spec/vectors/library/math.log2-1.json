@@ -7,7 +7,7 @@
     {
       "id": "full-0",
       "call": "math.log2(x)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -27,7 +27,7 @@
     {
       "id": "holes-0",
       "call": "math.log2(x)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 80,
       "args": [
         {
@@ -47,7 +47,7 @@
     {
       "id": "short-0",
       "call": "math.log2(x)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 5,
       "args": [
         {
@@ -67,7 +67,7 @@
     {
       "id": "probes-0",
       "call": "math.log2(x)",
-      "gaps": [1],
+      "gaps": [],
       "bars": 24,
       "args": [
         {

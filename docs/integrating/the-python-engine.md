@@ -249,10 +249,12 @@ accumulation because binary64 addition is not associative, so the order decides
 the last bit. The convenient way to add a column of numbers is not the specified
 order, and neither is the accurate one.
 
-**Some calls are not compared at all.** `stdlib.md` section 20.11 records the
-gap where no portable reference algorithm exists, and `conformance.md` section 8
-scopes it out of every profile. Those calls use the interpreter's own maths
-module here, and no case may assert a value that reaches one.
+**Open specification gaps remain separate from implementation failures.**
+`stdlib.md` section 20.11 records calls whose portable algorithms remain under
+audit, and `conformance.md` section 8 excludes those calls from conformance
+profiles. The strict numerical audit still compares their outputs and blocks
+publication on a difference. Resolved exponential, logarithmic and hypotenuse
+calculations are compared exactly, including studies built on them.
 
 ## What is independent here, and what is not
 

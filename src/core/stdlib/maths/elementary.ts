@@ -1,28 +1,12 @@
 /**
- * Square root, the logarithms, the powers and the trigonometry.
- *
- * **A gap, stated here rather than discovered later.**
- * `compiled-program.md` section 8.3 requires that the transcendental functions
- * not use the platform's own maths library, because a platform implementation
- * is correct to within an ulp or so and differs between platforms in the last
- * bit, which this project has declared a release blocker. It names the portable
- * reference algorithm as living in the library manifest. **That manifest does
- * not exist yet**, so there is nothing to implement against, and the functions
- * below call the host until it does. Their last bits are not yet guaranteed.
- *
- * `sqrt` is not affected: IEEE-754 requires it to be correctly rounded.
- * `hypot` has its own exact integer algorithm in `stdlib.md` 20.10.1 and no
- * longer depends on a host approximation.
- *
- * The consequence is worth stating plainly, because it decides what is safe to
- * gate on today. Of the five gate studies, EMA, RSI, MACD, Bollinger Bands and
- * Supertrend, four use only addition, subtraction, multiplication and division,
- * and Bollinger Bands adds `sqrt`. None of them reaches this file's uncertain
- * half. The functions that do are `alma` (exp), `hv` (log) and `chop` (log10).
+ * Elementary functions. Hypotenuse and exp/log use sections 20.10.1 and
+ * 20.10.2. Square root uses its correctly rounded host operation. Power and
+ * trigonometry still call host approximations under gap 1.
  */
 import type { Value } from '../values/index.js';
 import { NONE, isPresent, result } from '../values/index.js';
 import { hypotenuse } from './hypot.js';
+import { transcendental } from './transcendental.js';
 
 /**
  * `sqrt(x)`: square root, absent below zero.
@@ -43,25 +27,25 @@ export function pow(x: Value, y: Value): Value {
 
 /** `exp(x)`: e to the power x. */
 export function exp(x: Value): Value {
-  return isPresent(x) ? result(Math.exp(x)) : NONE;
+  return isPresent(x) ? transcendental('exp', x) : NONE;
 }
 
 /** `log(x)`: natural logarithm, absent at or below zero. */
 export function log(x: Value): Value {
   if (!isPresent(x) || x <= 0) return NONE;
-  return result(Math.log(x));
+  return transcendental('log', x);
 }
 
 /** `log10(x)`: base ten logarithm, absent at or below zero. */
 export function log10(x: Value): Value {
   if (!isPresent(x) || x <= 0) return NONE;
-  return result(Math.log10(x));
+  return transcendental('log10', x);
 }
 
 /** `math.log2(x)`: base two logarithm, absent at or below zero. */
 export function log2(x: Value): Value {
   if (!isPresent(x) || x <= 0) return NONE;
-  return result(Math.log2(x));
+  return transcendental('log2', x);
 }
 
 /** The circle constant. */

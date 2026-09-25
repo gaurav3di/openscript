@@ -89,7 +89,7 @@ value, so there is nothing to normalise on its side.
 A case whose `gaps` is not empty reaches a gap of `stdlib.md` section 20.11,
 which the index also records per function. Its numbers are what this engine
 produced, and no document fixes them, so a difference there is not a defect in
-your engine. Gap 1 is every call that reaches a transcendental function, and
+your engine. Gap 1 currently covers power and the trigonometric family, and
 gap 2 is the inner length of `hma`, which the `ma` case that selects it by name
 reaches as surely as a call does.
 

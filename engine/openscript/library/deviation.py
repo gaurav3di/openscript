@@ -128,18 +128,19 @@ def historical(
     of log returns and says nothing about a percentage, so a study that wants a
     percentage axis multiplies at the plot, where a reader can see it happen.
 
-    **This reading depends on ``log``**, so it reaches gap 1 of section 20.11 and
-    carries no cross-engine guarantee.
+    The logarithm follows the portable interval recipe of section 20.10.2.
     """
     values = contributed(state, "src", number(value), 2)
     now = values[len(values) - 1]
     before = values[len(values) - 2] if len(values) > 1 else ABSENT
     ratio = ABSENT
-    if isinstance(now, float) and isinstance(before, float) and before != 0:
+    if isinstance(now, float) and isinstance(before, float) and now > 0 and before > 0:
         ratio = now / before
     step = elementary.log(ratio)
     spread = deviation(region(state, "spread"), step, length, False)
     count = number(periods)
+    if count is None or count <= 0:
+        return ABSENT
     scale = elementary.sqrt(count)
     if not isinstance(spread, float) or not isinstance(scale, float):
         return ABSENT
