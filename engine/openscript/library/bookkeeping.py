@@ -21,6 +21,7 @@ make the same way twice for two engines to agree:
 
 from typing import Optional
 
+from .history import ContributionHistory
 from .series import Region, back, contributed, raw_window, region
 from .values import ABSENT, Value, number, result
 
@@ -150,17 +151,12 @@ def value_when(
     """
     wanted = 0 if occurrence is None else occurrence
     held = region(state, "seen")
-    values = held.get("values")
-    if values is None:
-        values = []
-        held["values"] = values
+    history = held.get("history")
+    if not isinstance(history, ContributionHistory):
+        history = ContributionHistory()
     if condition is True:
-        values.append(value)
-    depth = max(wanted + 1, held.get("depth", 1))
-    held["depth"] = depth
-    extra = len(values) - depth
-    if extra > 0:
-        del values[:extra]
-    if wanted < 0 or len(values) <= wanted:
+        history = history.append(value, None)
+        held["history"] = history
+    if wanted < 0 or history.count <= wanted:
         return ABSENT
-    return values[len(values) - 1 - wanted]
+    return history.view(wanted + 1)[0]

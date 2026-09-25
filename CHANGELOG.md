@@ -53,6 +53,11 @@ results. Host-supplied values, requested registers, function arguments,
 historical reads and fallback calls now preserve the same positive-zero bits in
 both engines, while booleans, text and reference values retain their identity.
 
+Event lookups now retain values needed by a later larger occurrence. Shrinking
+the occurrence immediately selects the requested event instead of waiting on an
+old depth. Absent event values keep their position. Retained storage grows with
+true events, with immutable prefixes shared by checkpoints.
+
 In the Python engine, extreme ages keep each independently available output,
 stop initialization waits for two complete bars, and an overflowing trailing-band
 midpoint leaves band state and its last accepted close unchanged.

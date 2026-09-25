@@ -6,7 +6,7 @@
  * happened on this bar", which is the one answer a reader would act on.
  */
 import type { Flag, Flags, Series, StateRecord, Tail, Value } from '../values/index.js';
-import { NONE, fold, queue, slot, tailOf } from '../values/index.js';
+import { ContributionHistory, NONE, fold, slot, tailOf } from '../values/index.js';
 
 /** `barsSince(cond)`: bars since the condition last held, 0 on the bar itself. */
 export function barsSinceStep(state: StateRecord, key: string, cond: Flag): Value {
@@ -37,10 +37,8 @@ export interface Occasion {
  * `valueWhen(cond, src, occurrence)`: `src` as it stood the last time the
  * condition held, or the one before that.
  *
- * Only the `occurrence + 1` most recent hits are kept, so the memory is fixed
- * by the argument rather than by how much history is loaded. A region whose
- * queue grew with the dataset would not be copyable in the sense
- * `compiled-program.md` 2.11 requires.
+ * A later occurrence can name any earlier true event. Immutable history keeps
+ * those values, including absence, while checkpoints share the sealed prefix.
  */
 export function valueWhenStep(
   state: StateRecord,
@@ -49,15 +47,14 @@ export function valueWhenStep(
   occurrence: number,
 ): Value {
   if (!Number.isInteger(occurrence) || occurrence < 0) return NONE;
-  const wanted = occurrence + 1;
-  const hits = queue(state, key);
+  const held = state[key];
+  let hits = held instanceof ContributionHistory ? held : new ContributionHistory();
   if (input.cond === true) {
-    hits.push(input.src);
-    if (hits.length > wanted) hits.shift();
+    hits = hits.append(input.src);
+    state[key] = hits;
   }
-  if (hits.length !== wanted) return NONE;
-  const first = hits[0];
-  return typeof first === 'number' ? first : NONE;
+  if (hits.count <= occurrence) return NONE;
+  return hits.view(occurrence + 1).at(occurrence);
 }
 
 /** `valueWhen(cond, src, occurrence)` as a tail. */
