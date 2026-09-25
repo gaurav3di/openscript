@@ -21,7 +21,7 @@ binary64 fixtures and dependency-free test tools.
 - No runtime dependencies, dynamic code construction or copied external code.
 - No comparison names, real instruments, emoji or long dash characters.
 - Every code file stays within its existing modularity limit.
-- Retain compiled format 1 and caller signatures unless a demonstrated defect
+- Retain compiled format 1.1 and caller signatures unless a demonstrated defect
   requires a documented language change.
 - Both packages ship one version from one immutable tag.
 - Higher-timeframe input controls and additional feed adapters remain excluded.
@@ -40,37 +40,37 @@ binary64 fixtures and dependency-free test tools.
 - [x] Run the complete existing suite before changing code and retain its log.
 - [ ] Inventory names, arities, paths, parameter contracts and existing fixtures
   from engine manifests and the chart registry.
-- [ ] Include numeric reducers and conversions outside current vector groups.
+- [x] Include numeric reducers and conversions outside current vector groups.
 - [ ] Partition cases by family with exclusive source and test-file ownership.
   Check the final ledger against live manifests to prevent silent omissions.
 
 ## 2. Window-state disagreements
 
-- [ ] Probe `sum` with source `[1, 2, 3]` and lengths `[3, 3, 2]` in both engines.
+- [x] Probe `sum` with source `[1, 2, 3]` and lengths `[3, 3, 2]` in both engines.
   Determine whether the compiler accepts that changing input.
-- [ ] Read the specified window contract before choosing the expected sequence.
-- [ ] Add shrinking/growing windows, source holes and restored state to the
+- [x] Read the specified window contract before choosing the expected sequence.
+- [x] Add shrinking/growing windows, source holes and restored state to the
   existing series test families in both engines.
-- [ ] Demonstrate a failing regression, correct the violating implementation,
+- [x] Demonstrate a failing regression, correct the violating implementation,
   then run focused tests and shared fixtures before committing.
 
 ## 3. Numerical comparison coverage
 
-- [ ] Extend generation in a separate module consumed by
-  `scripts/generate-library-vectors.mjs`, which is already at its size limit.
-- [ ] Reuse bit-pattern columns and existing Python replay drivers. Add
+- [x] Extend generation in separate audit modules, retaining the shared baseline
+  generator and its published vectors.
+- [x] Reuse bit-pattern columns and existing Python replay drivers. Add
   adversarial sequences, independent paired holes, parameter variants, seed
   edges, anchors and extreme finite inputs.
-- [ ] Add drivers for numerical callables missing from the current generator.
+- [x] Add drivers for numerical callables missing from the current generator.
   Refuse missing drivers and count each executed function and output.
-- [ ] Prove comparison mutations fail for changed numbers, shifted absence,
+- [x] Prove comparison mutations fail for changed numbers, shifted absence,
   missing columns and missing functions.
-- [ ] Give each defect independent expected arithmetic before changing a runtime
+- [x] Give each defect independent expected arithmetic before changing a runtime
   or its vectors. Track open differences by function, case, output and bar.
 
 ## 4. Compiled programs and charts
 
-- [ ] Execute affected calculations as real programs in both engines through
+- [x] Execute affected calculations as real programs in both engines through
   full history, forming updates and state restoration.
 - [ ] Map every chart indicator to equivalent calls or a compiled composition,
   specifying source fields, parameters, seed and session policy.
@@ -82,12 +82,26 @@ binary64 fixtures and dependency-free test tools.
 ## 5. Review and release
 
 - [ ] Independently review fixes, open findings and inventory coverage.
-- [ ] Update arithmetic documentation and changelog; bump both manifests and the
-  lockfile to 0.7.0 while retaining compiled format 1.
+- [x] Update arithmetic documentation and changelog; bump both manifests and the
+  lockfile to 0.7.0 while retaining compiled format 1.1.
 - [ ] Run `npm test`, expanded comparisons and compiled chart integration.
-- [ ] Build and inspect both distributions, install outside the repository and
+- [x] Build and inspect both distributions, install outside the repository and
   execute compiled numerical probes through installed entry points.
 - [ ] Commit and push tested source; tag and dispatch both release workflows
   according to `RELEASING.md`.
 - [ ] Verify workflows, registry versions, downloaded artifacts and installed
   results. Report release links and any explicitly unresolved limitation.
+
+## Verified implementation progress
+
+The engine inventory is complete: all 116 scalar/stateful keys plus five numeric
+array reducers and three conversions have drivers. The separate audit modules
+retain the shared baseline vectors and add adversarial inputs, changing controls,
+independent oracles, rollback and replay checks. All three strict gates pass,
+covering 601,375 accepted calls across 3,298 cases without tolerance. Corrected
+kernels and vector changes have independent rounding certificates.
+
+Both package manifests are prepared as 0.7.0 with compiled format 1.1 unchanged.
+Full package checks, all strict numerical gates and installed-distribution probes
+pass. Commit/push, release workflows and registry verification remain final gates. The complete chart-descriptor mapping and companion chart release
+remain separate pending work; the engine result does not close that coverage.

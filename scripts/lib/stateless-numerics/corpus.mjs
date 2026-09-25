@@ -2,9 +2,7 @@
 import { bits } from '../stateful-numerics/index.mjs';
 
 export function indexedNumericalKeys(indexed) {
-  const keys = indexed.filter((row) => !row.state).map((row) => `${row.name}/${row.arity}`);
-  if (!keys.includes('pow/2')) keys.push('pow/2');
-  return keys.sort();
+  return indexed.filter((row) => !row.state).map((row) => `${row.name}/${row.arity}`).sort();
 }
 
 function edgeValues() {

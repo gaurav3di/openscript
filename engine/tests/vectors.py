@@ -73,19 +73,3 @@ def cell_of(value):
     if isinstance(value, str):
         return value
     return struct.pack(">d", value).hex()
-
-
-def ulps_between(one: str, other: str) -> int:
-    """How many representable values apart two bit patterns are.
-
-    Used for the gap 1 calls only, which `conformance.md` section 8 scopes out of
-    equality: there is no portable algorithm for them, so the question that can
-    be asked is how far the two libraries are apart rather than whether they
-    agree. Both sides are read as signed whole numbers, which is the right
-    distance for two values of the same sign and an overstatement across zero;
-    an overstatement fails loudly rather than passing quietly, which is the
-    direction a check should err in.
-    """
-    (left,) = struct.unpack(">q", bytes.fromhex(one))
-    (right,) = struct.unpack(">q", bytes.fromhex(other))
-    return abs(left - right)

@@ -37,14 +37,5 @@
     "trueRange/0",
     "trunc/1"
   ],
-  "platformDiagnostics": [
-    "math.acos/1",
-    "math.asin/1",
-    "math.atan/1",
-    "math.atan2/2",
-    "math.cos/1",
-    "math.sin/1",
-    "math.tan/1",
-    "pow/2"
-  ]
+  "platformDiagnostics": []
 }

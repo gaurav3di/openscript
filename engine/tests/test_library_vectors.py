@@ -14,14 +14,8 @@ compared nothing, and a comparison that would pass a wrong engine. Each of those
 is a way for this file to report a pass it has not earned, and this repository has
 paid for that shape of failure often enough to write the refusals down first.
 
-**The gap 1 family is held to something weaker, and says so.**
-`stdlib.md` section 20.11 gap 1 and `conformance.md` section 8: the
-transcendental calls have no portable reference algorithm, so no case may assert
-a value that reaches them and a difference there is not a defect. What is still
-asked of them is absence for absence, which is a question about the domain rules
-and not about the last bit, and a distance of at most one representable value,
-which is what two correct maths libraries differ by and is far tighter than a
-wrong implementation would ever land.
+Every scalar vector is compared exactly. No platform-math exemption or
+numerical tolerance remains in this driver.
 """
 
 import unittest
@@ -29,13 +23,6 @@ import unittest
 from openscript.library import table
 from openscript.library.stateless import Context
 from tests import vectors
-
-# What one maths library may differ from another by, in representable values.
-# A real difference between two correctly rounded implementations is one; a
-# wrong argument order, a wrong branch or a wrong constant is astronomically
-# more, so this separates the gap from a defect rather than excusing both.
-GAP_TOLERANCE = 1
-
 
 class CaseBar(Context):
     """The bar, the host and the heap as one vector case holds them.
@@ -136,8 +123,6 @@ class LibraryVectors(unittest.TestCase):
         for row in self.rows:
             entry = self.entries[(row["name"], row["arity"])]
             for case in vectors.vectors_for(row["file"])["cases"]:
-                if case["gaps"]:
-                    continue
                 for at, got, want in drive(entry, case):
                     compared += 1
                     if got != want and not wrong:
@@ -148,54 +133,12 @@ class LibraryVectors(unittest.TestCase):
         self.assertEqual(wrong, [], "the first cell that differs")
         self.assertGreater(compared, 0, "no cell was compared, so this test proved nothing")
 
-    def test_the_gap_one_family_agrees_on_absence_and_stays_within_one_value(self):
-        """What can be asked of a call no document fixes."""
-        reached = 0
-        wrong = []
+    def test_no_scalar_case_carries_a_platform_math_exclusion(self):
+        self.assertTrue(any(row['name'] == 'pow' for row in self.rows))
         for row in self.rows:
-            if not row["gaps"]:
-                continue
-            entry = self.entries[(row["name"], row["arity"])]
-            for case in vectors.vectors_for(row["file"])["cases"]:
-                if not case["gaps"]:
-                    continue
-                for at, got, want in drive(entry, case):
-                    reached += 1
-                    where = f"{row['name']}/{row['arity']} case {case['id']} bar {at}"
-                    if (got is None) != (want is None):
-                        wrong.append(f"{where}: absence differs, {got} against {want}")
-                    elif got is not None and got != want:
-                        apart = vectors.ulps_between(got, want)
-                        if apart > GAP_TOLERANCE:
-                            wrong.append(f"{where}: {apart} values apart, {got} against {want}")
-        self.assertEqual(wrong, [])
-        self.assertGreater(reached, 0, "no gap 1 cell was reached, so this test proved nothing")
-
-    def test_the_gap_one_family_really_does_differ(self):
-        """The weaker rule above is weaker for a reason that is still true.
-
-        If every gap 1 call started agreeing to the last bit, the two engines
-        would have stopped depending on two maths libraries and the tolerance
-        above would be covering nothing. That is worth knowing rather than
-        enjoying quietly, so it is asserted: this run expects a difference, and a
-        run with none is a change in the world that should be read.
-        """
-        differing = set()
-        for row in self.rows:
-            if not row["gaps"]:
-                continue
-            entry = self.entries[(row["name"], row["arity"])]
-            for case in vectors.vectors_for(row["file"])["cases"]:
-                for _at, got, want in drive(entry, case):
-                    if got != want:
-                        differing.add(f"{row['name']}/{row['arity']}")
-        self.assertNotEqual(
-            differing,
-            set(),
-            "every transcendental call now matches the other engine to the last bit. "
-            "That is either a new maths library or a new algorithm, and either way "
-            "stdlib.md 20.11 gap 1 should be read again before this test is deleted",
-        )
+            self.assertEqual(row['gaps'], [], row['name'])
+            for case in vectors.vectors_for(row['file'])['cases']:
+                self.assertEqual(case['gaps'], [], (row['name'], case['id']))
 
     def test_the_comparison_would_catch_a_wrong_engine(self):
         """The check on the check.
@@ -209,10 +152,6 @@ class LibraryVectors(unittest.TestCase):
         self.assertNotEqual(vectors.cell_of(0.0), vectors.cell_of(-0.0))
         self.assertNotEqual(vectors.cell_of(0.0), vectors.cell_of(None))
         self.assertNotEqual(vectors.cell_of(1.0), vectors.cell_of(True))
-        self.assertEqual(vectors.ulps_between(vectors.cell_of(1.0), vectors.cell_of(1.0)), 0)
-        self.assertEqual(
-            vectors.ulps_between(vectors.cell_of(1.0), vectors.cell_of(1.0000000000000002)), 1
-        )
 
 
 if __name__ == "__main__":

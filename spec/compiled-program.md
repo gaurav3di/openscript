@@ -1468,9 +1468,8 @@ There is no instruction for unary plus. `+x` on a number is the identity and its
 type is checked at compile time, so it compiles to nothing at all.
 
 There is no exponent instruction. `pow(x, y)` is a library call, and `stdlib.md`
-pins its arithmetic, because a power computed by a platform's own maths library is
-the single most likely place for two engines to differ in the last bit (section
-8.3, and the gap `stdlib.md` section 20.11 records against it).
+section 20.10.3 pins its arithmetic. The exact real power is rounded once using
+the portable algorithm, so the host's power approximation cannot choose its bits.
 
 ### 4.6 Comparison
 
@@ -2322,11 +2321,10 @@ is a sum and a sum has an order.
   the last bit, which is precisely the difference this project has declared a
   release blocker. The cost is a slower `pow`; the alternative is a chart and a
   backtest that disagree in the fourth decimal and no way to say which is right.
-  **No such algorithm is written down anywhere yet**, so this is the one rule in
-  section 8 an engine cannot satisfy today. `stdlib.md` section 20.11 records the
-  gap and names the library readings that reach one. `sqrt` is not among them and
-  is not at risk: IEEE-754 requires it to be correctly rounded, so every
-  conforming platform returns the same bits.
+  `stdlib.md` sections 20.10.1 through 20.10.4 specify the portable algorithms.
+  Each result is rounded once from a certified enclosure or an exact rational
+  value. `sqrt` uses its correctly rounded host operation, as required by
+  IEEE-754; conforming platforms return the same bits.
 - **Number to string conversion is specified.** `text(x)` produces the shortest
   decimal string that reads back as the same binary64 value. `text(x, d)` rounds to
   `d` decimals, ties away from zero, and always emits exactly `d` digits after the
@@ -2924,8 +2922,8 @@ following hold, and the conformance suite tests each one.
 - [ ] Does nothing in section 8's list of prohibitions.
 - [ ] Matches the accumulation order of `stdlib.md` section 20 for every library
       function.
-- [ ] Uses a portable reference algorithm for the transcendental functions rather
-      than the platform's, once one exists (`stdlib.md` section 20.11).
+- [ ] Uses the portable algorithms for elementary functions specified in
+      `stdlib.md` sections 20.10.1 through 20.10.4.
 - [ ] Produces byte-identical output to the reference engine on every conformance
       case.
 

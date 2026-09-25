@@ -89,11 +89,12 @@ value, so there is nothing to normalise on its side.
 A case whose `gaps` is not empty reaches a gap of `stdlib.md` section 20.11,
 which the index also records per function. Its numbers are what this engine
 produced, and no document fixes them, so a difference there is not a defect in
-your engine. Gap 1 currently covers power and the trigonometric family, and
-gap 2 is the inner length of `hma`, which the `ma` case that selects it by name
-reaches as surely as a call does.
+your engine. Gap 2 is the inner length of `hma`, which the `ma` case that selects
+it by name reaches as surely as a call does. Elementary functions, including
+power and trigonometry, have portable algorithms and no numerical exemption.
 
 The index's `notReached` list is every manifest entry with no vector file, in
-groups with the reason: colours, text, arrays, drawing objects, chart and
-ledger reads, and the calendar hold no accumulation to fix, and the
-conformance suite compares them in their own kinds.
+groups with the reason. Colours, text, arrays, drawing objects, chart and ledger
+reads, and calendar calls require their own values or contexts. Numeric array
+reducers are checked through compiled array-reduction cases; they do compute
+numbers, but this scalar driver cannot represent their heap references.

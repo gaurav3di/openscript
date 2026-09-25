@@ -26,7 +26,7 @@ execution; see [Phase 6](./ROADMAP.md#phase-6-the-second-engine-and-live-running
 
 ## Status
 
-**`0.6.0` runs studies, backtests strategies, draws a strategy on a chart,
+**`0.7.0` runs studies, backtests strategies, draws a strategy on a chart,
 imports scripts from another chart language, and ships the language
 intelligence an editor needs.** The Python engine is on PyPI
 as `openscript`, at the same version, and the two are released together.
@@ -45,14 +45,14 @@ examples on every run rather than asserting it in a page. Two records can be put
 beside each other, and a pair over different bars is reported incomparable
 instead of being subtracted into a table that reads like a result.
 
-**New in `0.6.0`:** `importScript`
-imports a script written in the version-annotated chart dialect, translating
-each statement with its meaning or saying why not; `engine.run` takes a history
-as columns as well as one record per bar; `npm run site` builds a documentation
-site from the specification and the error catalogue; and the Python engine
-holds every library entry the first one does. [`CHANGELOG.md`](./CHANGELOG.md)
-says what changed under a deployment, including a `"lookahead"` read in a
-backtest.
+**New in `0.7.0`:** the two engines pass exact numerical comparisons across
+all 116 scalar and stateful numerical signatures. Portable elementary kernels,
+changing-window corrections and checkpoint tests remove confirmed numerical
+deviations. Compiled cases also cover numeric arrays and conversions. Upgrade
+both packages together; source signatures and compiled format remain unchanged.
+See the [numerical audit](./docs/integrating/numerical-audit.md) for measured
+coverage and limitations, and [CHANGELOG.md](./CHANGELOG.md) for results that
+can change after upgrading.
 
 What it does **not** do yet, stated plainly because the registry page is the
 first thing a stranger reads:
@@ -86,7 +86,7 @@ first thing a stranger reads:
   writes the files a suite runs from straight out of a record, which is where the
   strategy cases under [`cases/`](./cases) came from.
 
-  There are 106 cases now: 52 in the `core` profile, 46 in `chart` and 8 in
+  There are 121 cases now: 67 in the `core` profile, 46 in `chart` and 8 in
   `strategy`. They assert eight of the channels section 4 of
   [`spec/conformance.md`](./spec/conformance.md) defines: diagnostics, a value
   per bar per plot, the log, drawing objects, grid cells, orders, trades and the
@@ -95,7 +95,7 @@ first thing a stranger reads:
   `numerics` categories, which are the reason the suite exists, now hold real
   cases, each with expected values computed independently of both engines.
 
-  `npm run suite:agree` reports 87 pass and 19 skipped of 106 between the two
+  `npm run suite:agree` reports 102 pass and 19 skipped of 121 between the two
   engines, exactly, the skips being the compiler-diagnostic cases the Python
   engine rightly has no compiler for. The two engines hold the same 251 library
   entries, which a check asks each of them for on every build. What that run
@@ -107,7 +107,7 @@ first thing a stranger reads:
   corroborating implementation, not a result. That is why no conformance badge
   is shown here, though `npm run badge` will make one for an engine that passes.
 
-The version is `0.6.0` rather than `1.0` because of that list. The studies
+The version is `0.7.0` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The

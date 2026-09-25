@@ -433,7 +433,7 @@
       "state": false,
       "file": "math.acos-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.asin",
@@ -441,7 +441,7 @@
       "state": false,
       "file": "math.asin-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.atan",
@@ -449,7 +449,7 @@
       "state": false,
       "file": "math.atan-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.atan2",
@@ -457,7 +457,7 @@
       "state": false,
       "file": "math.atan2-2.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.cos",
@@ -465,7 +465,7 @@
       "state": false,
       "file": "math.cos-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.e",
@@ -505,7 +505,7 @@
       "state": false,
       "file": "math.sin-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.tan",
@@ -513,7 +513,7 @@
       "state": false,
       "file": "math.tan-1.json",
       "cases": 4,
-      "gaps": [1]
+      "gaps": []
     },
     {
       "name": "math.toDegrees",
@@ -633,6 +633,14 @@
       "state": true,
       "file": "pivotLow-3.json",
       "cases": 6,
+      "gaps": []
+    },
+    {
+      "name": "pow",
+      "arity": 2,
+      "state": false,
+      "file": "pow-2.json",
+      "cases": 4,
       "gaps": []
     },
     {
@@ -930,15 +938,15 @@
       "functions": ["aqua/0", "black/0", "blue/0", "brown/0", "fuchsia/0", "gray/0", "green/0", "lime/0", "maroon/0", "navy/0", "olive/0", "orange/0", "pink/0", "purple/0", "red/0", "silver/0", "teal/0", "white/0", "yellow/0", "rgb/3", "rgba/4", "fade/2", "mix/3", "alpha/1", "withAlpha/2"]
     },
     {
-      "why": "a string is code points the conformance suite compares as text; stdlib.md 20.10 says the string operations accumulate nothing",
+      "why": "text calls require string values; text formatting and numeric conversion have separate compiled conformance cases",
       "functions": ["text/1", "text/2", "toNumber/1", "str.length/1", "str.upper/1", "str.lower/1", "str.trim/1", "str.contains/2", "str.startsWith/2", "str.endsWith/2", "str.indexOf/2", "str.substring/3", "str.replace/3", "str.replaceAll/3", "str.split/2", "str.join/2", "str.padLeft/3", "str.padRight/3", "str.repeat/2"]
     },
     {
-      "why": "an array operation moves values between heap objects and computes nothing; language.md 14.1 fixes each one",
+      "why": "array operations require heap references; the numeric reducers are checked through compiled array-reduction conformance cases",
       "functions": ["size/1", "element/2", "set/3", "push/2", "pop/1", "shift/1", "unshift/2", "insert/3", "remove/2", "slice/3", "copy/1", "indexOf/2", "arrayEqual/2", "sort/2", "reverse/1", "sum/1", "avg/1", "min/1", "max/1", "stdev/1"]
     },
     {
-      "why": "a drawing or grid call has a draw effect and no numeric result; the chart contract is proved by the surface cases",
+      "why": "drawing and grid operations require surface state; count reads and effects are checked through surface conformance cases",
       "functions": ["draw.line/9", "draw.label/7", "draw.box/11", "draw.polyline/7", "draw.setFrom/3", "draw.setTo/3", "draw.setAt/3", "draw.setBounds/5", "draw.setPoints/3", "draw.setText/2", "draw.setColor/2", "draw.setTextColor/2", "draw.setFillColor/2", "draw.setWidth/2", "draw.setStyle/2", "draw.setExtend/3", "draw.setTooltip/2", "draw.delete/1", "draw.deleteAll/0", "draw.count/0", "cell/7", "clear/1"]
     },
     {
@@ -948,10 +956,6 @@
     {
       "why": "the calendar is exact integer arithmetic over a zone table, which stdlib.md 20.10 says has no order to fix",
       "functions": ["date.year/2", "date.month/2", "date.day/2", "date.dayOfWeek/2", "date.dayOfYear/2", "date.hour/2", "date.minute/2", "date.second/2", "date.weekOfYear/2", "date.startOfDay/2", "date.startOfWeek/2", "date.startOfMonth/2", "date.from/7", "date.isSameDay/3", "date.format/3", "session.isIn/2"]
-    },
-    {
-      "why": "the last bit comes from the host maths library rather than from this engine: compiled-program.md 8.3 requires a portable algorithm, src/core/stdlib/maths/elementary.ts records that there is none yet, and this one was measured returning different bits on two runtimes of the same virtual machine",
-      "functions": ["pow/2"]
     }
   ]
 }

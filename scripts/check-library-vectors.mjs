@@ -245,7 +245,7 @@ console.log(
     `${names(marked)}.`,
 );
 console.log(
-  `\n${skipped} manifest entries in ${made.notReached.length} groups hold no arithmetic and have no ` +
+  `\n${skipped} manifest entries in ${made.notReached.length} groups need other drivers and have no ` +
     `vector, named in the index with the reason${LIST ? '' : ' (--list prints them)'}:`,
 );
 for (const group of made.notReached) {

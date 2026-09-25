@@ -9,7 +9,7 @@
  * inputs and results as binary64 bit patterns, so that nothing about this
  * repository's number formatting sits between their arithmetic and ours.
  *
- * Every arithmetic entry of the engine's library manifest is driven here the
+ * Each entry in the selected numerical manifest groups is driven here the
  * way the engine drives it: through the manifest's own binding, one bar at a
  * time, with a state region, a bar view built by the engine's own function,
  * and the arguments a call site would push. What comes back is written down as
@@ -31,8 +31,8 @@
  *
  * ## What is not reached, by name
  *
- * The colour, text, array, object, chart and date groups of the manifest hold
- * no arithmetic and take values a bit pattern cannot carry. They are named in
+ * The colour, text, array, object, chart and date groups require values or
+ * contexts this scalar driver cannot carry. They are named in
  * the index with the reason, never passed over, and a group the manifest gains
  * that this file does not list fails the run rather than joining them.
  *
@@ -56,7 +56,6 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
-import { withoutHostArithmetic } from './lib/host-arithmetic.mjs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GAPS_MODULE, fromRoot } from './lib/built.mjs';
@@ -97,17 +96,17 @@ const GROUPS = [
   {
     module: '../dist/core/engine/library/text.js',
     entries: 'TEXT_ENTRIES',
-    why: 'a string is code points the conformance suite compares as text; stdlib.md 20.10 says the string operations accumulate nothing',
+    why: 'text calls require string values; text formatting and numeric conversion have separate compiled conformance cases',
   },
   {
     module: '../dist/core/engine/library/arrays.js',
     entries: 'ARRAY_ENTRIES',
-    why: 'an array operation moves values between heap objects and computes nothing; language.md 14.1 fixes each one',
+    why: 'array operations require heap references; the numeric reducers are checked through compiled array-reduction conformance cases',
   },
   {
     module: '../dist/core/engine/library/objects.js',
     entries: 'OBJECT_ENTRIES',
-    why: 'a drawing or grid call has a draw effect and no numeric result; the chart contract is proved by the surface cases',
+    why: 'drawing and grid operations require surface state; count reads and effects are checked through surface conformance cases',
   },
   {
     module: '../dist/core/engine/library/chart.js',
@@ -444,7 +443,7 @@ export async function generateLibraryVectors() {
     gapRows,
   };
 
-  let reached = [];
+  const reached = [];
   const notReached = [];
   const named = new Set();
   for (const group of GROUPS) {
@@ -454,7 +453,6 @@ export async function generateLibraryVectors() {
     if (group.why === undefined) reached.push(...entries);
     else notReached.push({ why: group.why, functions: entries.map((one) => `${one.name}/${one.arity}`) });
   }
-  reached = withoutHostArithmetic(reached, notReached, refuse);
   const unlisted = library.manifestEntries().filter((one) => !named.has(`${one.name}/${one.arity}`));
   if (unlisted.length > 0) {
     refuse(
@@ -492,7 +490,7 @@ if (RUN_DIRECTLY) {
     `Library vectors written: ${made.functions.length} functions, ${made.cases} cases over the ` +
       `${made.bars} bars of ${FIXTURE_SOURCE}, into ${VECTORS_DIR}/. ${marked.length} functions have a case ` +
       `that reaches a gap of ${STDLIB} 20.11 and are marked in the index: ${marked.map((one) => one.name).join(', ')}. ` +
-      `${skipped} manifest entries in ${made.notReached.length} groups hold no arithmetic and are named in the ` +
+      `${skipped} manifest entries in ${made.notReached.length} groups need other drivers and are named in the ` +
       'index as not reached, each with the reason.',
   );
 }

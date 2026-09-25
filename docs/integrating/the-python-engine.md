@@ -250,11 +250,12 @@ the last bit. The convenient way to add a column of numbers is not the specified
 order, and neither is the accurate one.
 
 **Open specification gaps remain separate from implementation failures.**
-`stdlib.md` section 20.11 records calls whose portable algorithms remain under
-audit, and `conformance.md` section 8 excludes those calls from conformance
-profiles. The strict numerical audit still compares their outputs and blocks
-publication on a difference. Resolved exponential, logarithmic and hypotenuse
-calculations are compared exactly, including studies built on them.
+`stdlib.md` section 20.11 records remaining specification gaps, and
+`conformance.md` section 8 excludes those calls from conformance profiles.
+Elementary calculations now have portable algorithms in sections 20.10.1 through
+20.10.4 and are compared exactly, including studies built on them. The strict
+numerical release audit also compares calls reaching remaining specification
+gaps and blocks publication on any difference.
 
 ## What is independent here, and what is not
 

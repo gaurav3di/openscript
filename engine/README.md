@@ -25,6 +25,16 @@ where any disagreement is a release blocker.
   stop a run being reproducible. Measured on every build against the module
   names the running interpreter says are its own.
 
+## Numerical results in 0.7.0
+
+The two engines use the same specified rounding, seeds and missing-value rules.
+Portable elementary kernels remove host-dependent final-bit differences; the
+release audit requires exact agreement for every numerical signature it covers,
+including forming-bar replacement and checkpoint replay. Install the matching
+0.7.0 compiler package when comparing browser and server results. Source calls
+and the compiled format are unchanged, but corrected results can differ from
+previous releases.
+
 ## Installing
 
 ```

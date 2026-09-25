@@ -7,9 +7,20 @@ nothing, fails the build before it can become permanent.
 
 ---
 
-## Unreleased
+## 0.7.0
 
-The numerical audit is in progress. The Python engine now returns absence rather
+Both engines now pass exact numerical comparisons for all 116 scalar and
+stateful numerical signatures, with additional compiled cases for array
+reductions and conversions. The audit checks 601,375 accepted calls and permits
+no differing bit, absent value or output column. Both publishing workflows now
+run the strict numerical gates as well as the complete package checks.
+
+Upgrade both packages together when chart and server results must agree. No
+source migration or compiled-format change is required. Corrected final bits,
+warm-up boundaries and invalid-input behavior can change previously stored
+results; regenerate any results that must be compared with this release.
+
+The Python engine now returns absence rather
 than raising a division exception when CCI's scaled deviation underflows to zero
 or signed money flows produce a zero composed divisor. Later bars continue to
 calculate, and ordinary values retain their existing arithmetic order.
@@ -24,6 +35,15 @@ one final nearest-even rounding in both engines. Gaussian averages, historical
 volatility and choppiness use those same portable kernels. Values may differ in
 their final bits from earlier versions. Gaussian weights use a bounded immutable
 cache; changing kernel parameters requires more computation than repeated ones.
+
+Power and trigonometric functions also use portable integer enclosures with
+one final nearest-even rounding. Exact rational branches settle power midpoint
+ties; full argument reduction preserves trigonometric results for very large
+finite inputs. `atan2` uses the exact component ratio, including subnormal
+components. These calls no longer use host approximations or conformance
+tolerances, and power now participates in the shared vector corpus. Portable
+math can be slower than host approximations; existing performance budgets
+remain unchanged.
 
 Gaussian width must be positive, and an underflowed exponent denominator returns
 absence. Historical volatility requires positive source endpoints and a positive

@@ -17,7 +17,7 @@ export class GaussianCache {
 
   get(length: number, offset: number, sigma: number): Kernel | null {
     if (!Number.isFinite(offset) || !Number.isFinite(sigma) || !(sigma > 0)) return null;
-    const key = `${length}/${keyOf(offset)}/${keyOf(sigma)}`;
+    const key = `${keyOf(length)}/${keyOf(offset)}/${keyOf(sigma)}`;
     const held = this.entries.get(key);
     if (held !== undefined) return held;
     const peak = offset * (length - 1), spread = length / sigma;

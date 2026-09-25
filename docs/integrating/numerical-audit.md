@@ -3,7 +3,9 @@
 Release 0.7.0 requires a complete inventory of shipped numerical functions,
 comparison of both engines on the same inputs, and correction of confirmed
 deviations. Equivalent calculations in the companion chart package must also be
-checked. The audit is in progress; complete numerical agreement is not claimed.
+checked. The engine gates now report exact agreement across all 116 scalar and
+stateful numerical signatures. The broader chart mapping remains a separate
+coverage item; this result does not claim every chart descriptor is equivalent.
 
 ## Comparison contract
 
@@ -58,14 +60,29 @@ nearest-even binary64 rounding in both engines. Independent rational comparisons
 against adjacent-float midpoints certify 849 input pairs, also executed through
 the same compiled program in both engines. Shared vectors changed only where
 those certificates showed the previous last-bit result was wrong. This closes
-the hypotenuse finding; other elementary functions remain under audit.
+the hypotenuse finding.
 
 Exponential and logarithmic kernels now use the interval recipe in
 `stdlib.md` section 20.10.2. Independent decimal enclosures and exact rational
 rounding cells check their outputs, including actual compiled programs and the
 derived Gaussian, historical-volatility and choppiness readings. Seventy changed
 vector cells were individually certified before their expected bits were updated.
-Power and trigonometric differences remain under audit.
+Power and trigonometry now follow sections 20.10.3 and 20.10.4. Power checks
+include 18,174 independently certified cases with exact midpoint ties;
+trigonometry checks include 22,247 independent certificates. Compiled programs
+exercise historical values and replacement of forming bars. Before regeneration,
+all 1,512 proposed scalar vector cells were independently checked: 46 existing
+trigonometric cells changed and 189 power cells joined the vector inventory.
+The Python vector driver now requires exact bits for every scalar case.
+
+The three strict gates together compare 601,375 accepted calls across 3,298
+cases, with zero differing bits, absence differences, oracle failures or
+baseline failures. Five numeric array reducers and the three conversion signatures
+`text/1`, `text/2` and `toNumber/1` have separate compiled checks, completing the
+124 shipped entries in the primary numerical inventory. Planned functions are
+not part of that shipped denominator.
+These are finite test corpora and independently justified kernels, not an
+exhaustive enumeration of every possible program or input history.
 
 `node --disallow-code-generation-from-strings scripts/bench-alma.mjs` reports
 compiled Gaussian workloads after both build commands. It compares both engines
@@ -82,7 +99,7 @@ differing bit makes the strict command fail. Platform labels only classify
 findings; they do not allow a numerical difference.
 
 `npm run audit:stateless` covers 35 declared scalar numerical calls, including
-power outside the original vector inventory. It retains 142 baseline cases and
+power in the shared vector inventory. It retains 146 baseline cases and
 adds 8,260 edge comparisons and 11 independent oracle cases. It checks the
 registry bindings directly, including raw signed-zero inputs, and reports any
 non-normalized output. Compiled-program boundary checks separately establish
@@ -115,7 +132,7 @@ platform-math difference blocks publication, even when it is only one bit.
 
 Each defect needs a failing regression, an identified contract and a correction to
 the responsible implementation. Keep both runtimes dependency-free and compiled
-format version 1 unless a separately justified format change is required. No
+format version 1.1 unless a separately justified format change is required. No
 additional market-data adapter is part of the audit.
 
 Run full package checks, expanded numerical comparisons, compiled chart adapter
@@ -123,6 +140,15 @@ tests and installed-package probes before publishing. Both companion packages
 carry 0.7.0 from one immutable source tag. Update the changelog and documentation
 for every changed result, follow [the release procedure](../../RELEASING.md), and
 verify artifacts after both workflows succeed.
+
+The 0.7.0 local release candidate passes the complete package checks: 2,102
+JavaScript tests, 942 Python tests and 102 shared conformance cases, with 19
+compiler-only cases correctly skipped by the Python engine. All existing
+performance budgets pass. Fresh installs outside the checkout run 322 compiled
+programs across every numerical gate key: 35,035 historical bars and 70,070
+forming deliveries produce 119,910 exactly matching output cells. Archive checks
+confirm all runtime modules are included and imports resolve to the installed
+packages. Registry verification is a separate step after publication.
 
 The companion chart release remains a separate 2.5.4 deliverable. Its deferred
 higher-timeframe input controls remain excluded. Testing existing requested

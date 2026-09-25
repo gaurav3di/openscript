@@ -1,16 +1,16 @@
 /** Exact integer enclosures for section 20.10.2. No host elementary calls. */
 export type ElementaryKind = 'exp' | 'log' | 'log10' | 'log2';
-type Interval = readonly [bigint, bigint];
+export type Interval = readonly [bigint, bigint];
 const view = new DataView(new ArrayBuffer(8));
 const mask = (1n << 52n) - 1n;
 let defaultTwo: Interval | undefined;
 let defaultTen: Interval | undefined;
 
-const bitLength = (x: bigint): number => x === 0n ? 0 : x.toString(2).length;
-const floor = (n: bigint, d: bigint): bigint => n >= 0n ? n / d : -((-n + d - 1n) / d);
-const ceil = (n: bigint, d: bigint): bigint => -floor(-n, d);
+export const bitLength = (x: bigint): number => x === 0n ? 0 : x.toString(2).length;
+export const floor = (n: bigint, d: bigint): bigint => n >= 0n ? n / d : -((-n + d - 1n) / d);
+export const ceil = (n: bigint, d: bigint): bigint => -floor(-n, d);
 
-function parts(x: number): readonly [bigint, number] {
+export function parts(x: number): readonly [bigint, number] {
   view.setFloat64(0, Math.abs(x));
   const bits = view.getBigUint64(0), exponent = Number(bits >> 52n);
   return [exponent === 0 ? bits : (bits & mask) | (1n << 52n), exponent === 0 ? -1074 : exponent - 1075];
@@ -23,7 +23,7 @@ function fixed(x: number, precision: number): Interval {
 }
 
 /** Round an exact dyadic endpoint directly, with the subnormal spacing floor. */
-function rounded(numerator: bigint, exponent: number): number | null {
+export function rounded(numerator: bigint, exponent: number): number | null {
   if (numerator === 0n) return 0;
   const negative = numerator < 0n;
   const magnitude = negative ? -numerator : numerator;
@@ -64,7 +64,7 @@ function lnTwo(precision: number): Interval {
   return defaultTwo ??= oddSeries(1n, 3n, precision);
 }
 
-function logarithm(x: number, precision: number): Interval {
+export function logarithm(x: number, precision: number): Interval {
   const [m, e] = parts(x), width = bitLength(m), one = 1n << BigInt(width - 1);
   const k = BigInt(e + width - 1), [low, high] = oddSeries(m - one, m + one, precision);
   const [constantLow, constantHigh] = lnTwo(precision);
@@ -88,10 +88,11 @@ function quotient(numerator: Interval, denominator: Interval, precision: number)
   return [low as bigint, high as bigint];
 }
 
-function exponential(x: number, precision: number): readonly [bigint, bigint, number] {
-  const unit = 1n << BigInt(precision), [low, high] = fixed(x, precision);
+function exponentialRange(low: bigint, high: bigint, positive: boolean, precision: number): readonly [bigint, bigint, number] | undefined {
+  const unit = 1n << BigInt(precision);
   const [constantLow, constantHigh] = lnTwo(precision), k = low / constantHigh;
   const reducedLow = low - k * constantHigh, reducedHigh = high - k * constantLow;
+  if (reducedLow < 0n || reducedHigh >= unit) return undefined;
   let termLow = unit, termHigh = unit, sumLow = unit, sumHigh = unit, n = 0n;
   for (;;) {
     n++;
@@ -100,8 +101,21 @@ function exponential(x: number, precision: number): readonly [bigint, bigint, nu
     if (termHigh <= 1n) { sumHigh += 2n * termHigh; break; }
     sumLow += termLow; sumHigh += termHigh;
   }
-  return x >= 0 ? [sumLow, sumHigh, Number(k) - precision]
+  return positive ? [sumLow, sumHigh, Number(k) - precision]
     : [unit * unit / sumHigh, ceil(unit * unit, sumLow), -Number(k) - precision];
+}
+
+/** Enclose exp(integer / 2**precision) without a binary64 intermediate. */
+export function exponentialEndpoint(integer: bigint, precision: number): readonly [number | null, number | null] | undefined {
+  const cutoff = 1024n << BigInt(precision);
+  if (integer >= cutoff) return [null, null];
+  if (integer <= -cutoff) return [0, 0];
+  if (integer === 0n) return [1, 1];
+  const magnitude = integer < 0n ? -integer : integer;
+  const range = exponentialRange(magnitude, magnitude, integer > 0n, precision);
+  if (range === undefined) return undefined;
+  const [low, high, exponent] = range;
+  return [rounded(low, exponent), rounded(high, exponent)];
 }
 
 /** Internal kernel. The optional starting precision permits refinement tests. */
@@ -126,9 +140,14 @@ export function transcendental(kind: ElementaryKind, x: number, initialPrecision
       if (integer === 1n) return count;
     }
   }
-  for (let precision = initialPrecision; ; precision += 80) {
+  for (let precision = Math.max(64, initialPrecision); ; precision += 80) {
     let low: bigint, high: bigint, exponent: number;
-    if (kind === 'exp') [low, high, exponent] = exponential(x, precision);
+    if (kind === 'exp') {
+      const [start, end] = fixed(x, precision);
+      const range = exponentialRange(start, end, x >= 0, precision);
+      if (range === undefined) continue;
+      [low, high, exponent] = range;
+    }
     else {
       const natural = logarithm(x, precision);
       [low, high] = kind === 'log' ? natural

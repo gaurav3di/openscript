@@ -1,12 +1,14 @@
 /**
  * Elementary functions. Hypotenuse and exp/log use sections 20.10.1 and
- * 20.10.2. Square root uses its correctly rounded host operation. Power and
- * trigonometry still call host approximations under gap 1.
+ * 20.10.2; power and trigonometry use sections 20.10.3 and 20.10.4.
+ * Square root uses its correctly rounded host operation.
  */
 import type { Value } from '../values/index.js';
 import { NONE, isPresent, result } from '../values/index.js';
 import { hypotenuse } from './hypot.js';
 import { transcendental } from './transcendental.js';
+import { power } from './power.js';
+import { trigonometric } from './trigonometric.js';
 
 /**
  * `sqrt(x)`: square root, absent below zero.
@@ -22,7 +24,7 @@ export function sqrt(x: Value): Value {
 /** `pow(x, y)`: absent where the result is not a finite real. */
 export function pow(x: Value, y: Value): Value {
   if (!isPresent(x) || !isPresent(y)) return NONE;
-  return result(Math.pow(x, y));
+  return power(x, y);
 }
 
 /** `exp(x)`: e to the power x. */
@@ -72,38 +74,38 @@ export function toRadians(x: Value): Value {
 
 /** `math.sin(x)`: sine of an angle in radians. */
 export function sin(x: Value): Value {
-  return isPresent(x) ? result(Math.sin(x)) : NONE;
+  return isPresent(x) ? trigonometric('sin', x) : NONE;
 }
 
 /** `math.cos(x)`: cosine. */
 export function cos(x: Value): Value {
-  return isPresent(x) ? result(Math.cos(x)) : NONE;
+  return isPresent(x) ? trigonometric('cos', x) : NONE;
 }
 
 /** `math.tan(x)`: tangent. */
 export function tan(x: Value): Value {
-  return isPresent(x) ? result(Math.tan(x)) : NONE;
+  return isPresent(x) ? trigonometric('tan', x) : NONE;
 }
 
 /** `math.asin(x)`: inverse sine, absent outside -1 to 1. */
 export function asin(x: Value): Value {
   if (!isPresent(x) || x < -1 || x > 1) return NONE;
-  return result(Math.asin(x));
+  return trigonometric('asin', x);
 }
 
 /** `math.acos(x)`: inverse cosine, absent outside -1 to 1. */
 export function acos(x: Value): Value {
   if (!isPresent(x) || x < -1 || x > 1) return NONE;
-  return result(Math.acos(x));
+  return trigonometric('acos', x);
 }
 
 /** `math.atan(x)`: inverse tangent. */
 export function atan(x: Value): Value {
-  return isPresent(x) ? result(Math.atan(x)) : NONE;
+  return isPresent(x) ? trigonometric('atan', x) : NONE;
 }
 
 /** `math.atan2(y, x)`: angle of a vector, correct in all four quadrants. */
 export function atan2(y: Value, x: Value): Value {
   if (!isPresent(y) || !isPresent(x)) return NONE;
-  return result(Math.atan2(y, x));
+  return trigonometric('atan2', y, x);
 }

@@ -1025,12 +1025,10 @@ A profile says what an **implementation** covers. There is a second kind of hole
 it cannot express, and conflating the two would let the suite claim agreement it
 has no right to require: a region the **specification** does not fix.
 
-`stdlib.md` section 20.11 lists these. Gap 1 currently covers power and the
-trigonometric family, whose portable algorithms remain under audit.
-`compiled-program.md` section 8.3 requires portable arithmetic for those calls.
-Hypotenuse is specified in `stdlib.md` 20.10.1; exponential and logarithmic
-functions follow 20.10.2. Those resolved functions and the derived `alma`, `hv`
-and `chop` calculations are compared exactly.
+`stdlib.md` section 20.11 lists the remaining specification gaps. Elementary
+numerical functions no longer reach one: sections 20.10.1 through 20.10.4 specify
+hypotenuse, exponential, logarithmic, power and trigonometric results. Those
+functions and the derived studies are compared exactly.
 
 **No case may assert a value that reaches an open gap.** Not reported
 `unsupported`, not admitted with a tolerance: not admitted. An engine that meets
@@ -1047,12 +1045,10 @@ carry no cross-engine guarantee, which is the same courtesy a profile extends
 about features: it does not have to cover everything, and it does not get to
 imply that it did.
 
-The reason it cannot be deferred quietly is deployment. Those calls are answered
-by the platform's own library today, and a platform is not one thing: two C
-libraries, two processor architectures and several operating systems all answer
-them differently in the last bit, and browser engines differ from each other as
-well. A gap that looks theoretical on one machine is a visible disagreement
-across a real install base.
+The former platform-math gap demonstrated why this distinction matters across
+deployments. Host libraries returned different final bits. Portable algorithms
+now determine those answers, and the numerical release audit permits no
+platform-dependent tolerance.
 
 A case that an implementation does not support is reported `unsupported` with the
 feature named. It is not a pass, it is not a failure, and it is counted and

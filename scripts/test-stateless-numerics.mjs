@@ -10,8 +10,8 @@ const column = (values) => ({ name: 'src', kind: 'number', values: values.map((v
 const original = { id: 'ordinary', bars: 2, args: [column([-1, 2])], outputs: [column([1, 2])] };
 const corpus = () => buildStatelessCorpus(index, () => ({ cases: [original] }), keys);
 
-test('pow is covered even while it has no committed vector file', () => {
-  assert.deepEqual(indexedNumericalKeys(index), keys);
+test('scalar coverage comes from the vector inventory without an implicit power exemption', () => {
+  assert.deepEqual(indexedNumericalKeys(index), ['abs/1']);
   assert.deepEqual(indexedNumericalKeys([...index, { name: 'pow', arity: 2, state: false }]), keys);
   const cases = corpus();
   assert.equal(cases.filter((c) => c.scenario === 'numeric-edges').length, 2);

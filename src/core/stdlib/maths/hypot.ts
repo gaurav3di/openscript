@@ -19,7 +19,7 @@ function decode(encoded: bigint): number {
 }
 
 /** A power-of-two upper bound makes integer Newton steps decrease to the floor. */
-function integerSqrt(value: bigint): bigint {
+export function integerSqrt(value: bigint): bigint {
   if (value < 2n) return value;
   let before = 1n << BigInt(Math.ceil(value.toString(2).length / 2));
   for (;;) {

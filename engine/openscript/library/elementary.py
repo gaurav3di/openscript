@@ -1,37 +1,23 @@
-"""Elementary numeric functions and their remaining arithmetic gaps.
+"""Elementary numeric functions with reproducible rounding.
 
 Hypotenuse and exp/log use the exact integer recipes in sections 20.10.1 and
-20.10.2. Square root uses its correctly rounded host operation. Power and
-trigonometry still use host approximations under gap 1.
+20.10.2; power and trigonometry use sections 20.10.3 and 20.10.4.
+Square root uses its correctly rounded host operation.
 """
 
 import math
 
 from .hypotenuse import hypotenuse
 from .transcendental import transcendental
+from .power import power as real_power
+from .trigonometric import trigonometric
 from .values import ABSENT, Value, number, result
 
 # The circle constant and the base of the natural logarithm, as `stdlib.md`
 # section 8.2 names them. Both are the nearest binary64 to the constant and are
-# the same bits on every platform, so neither reaches the gap above.
+# the same bits on every platform.
 PI: float = math.pi
 E: float = math.e
-
-
-def _guarded(x: float, of) -> Value:
-    """A host maths call whose refusals become absence.
-
-    The host raises where the argument is outside the function's domain and
-    where the answer overflows. `stdlib.md` section 2.4 makes both of those
-    absence: a function whose result has no finite real value returns ``none``
-    rather than raising, and it is a function whose *arguments* are wrong that
-    raises, which is a diagnostic the checker or the interpreter produces long
-    before the call gets here.
-    """
-    try:
-        return result(of(x))
-    except (ValueError, OverflowError, ZeroDivisionError):
-        return ABSENT
 
 
 def sqrt(x: Value) -> Value:
@@ -73,20 +59,12 @@ def log2(x: Value) -> Value:
 
 
 def power(x: Value, y: Value) -> Value:
-    """``pow(x, y)``: absent where the result is not a finite real.
-
-    Reaches gap 1. A negative base raised to a fractional exponent has no real
-    answer and a zero base raised to a negative one has no finite answer, and
-    both are absence here rather than the refusal the host makes of them.
-    """
+    """``pow(x, y)``: portable real power, using section 20.10.3."""
     base = number(x)
     exponent = number(y)
     if base is None or exponent is None:
         return ABSENT
-    try:
-        return result(math.pow(base, exponent))
-    except (ValueError, OverflowError, ZeroDivisionError):
-        return ABSENT
+    return real_power(base, exponent)
 
 
 def hypot(x: Value, y: Value) -> Value:
@@ -117,56 +95,52 @@ def to_radians(x: Value) -> Value:
 
 
 def sin(x: Value) -> Value:
-    """``math.sin(x)``: sine of an angle in radians. Reaches gap 1."""
+    """``math.sin(x)``: sine of an angle in radians, using section 20.10.4."""
     value = number(x)
-    return ABSENT if value is None else _guarded(value, math.sin)
+    return ABSENT if value is None else trigonometric('sin', value)
 
 
 def cos(x: Value) -> Value:
-    """``math.cos(x)``: cosine. Reaches gap 1."""
+    """``math.cos(x)``: cosine, using section 20.10.4."""
     value = number(x)
-    return ABSENT if value is None else _guarded(value, math.cos)
+    return ABSENT if value is None else trigonometric('cos', value)
 
 
 def tan(x: Value) -> Value:
-    """``math.tan(x)``: tangent. Reaches gap 1."""
+    """``math.tan(x)``: tangent, using section 20.10.4."""
     value = number(x)
-    return ABSENT if value is None else _guarded(value, math.tan)
+    return ABSENT if value is None else trigonometric('tan', value)
 
 
 def asin(x: Value) -> Value:
-    """``math.asin(x)``: inverse sine, absent outside -1 to 1. Reaches gap 1."""
+    """``math.asin(x)``: inverse sine, absent outside -1 to 1."""
     value = number(x)
     if value is None or value < -1 or value > 1:
         return ABSENT
-    return _guarded(value, math.asin)
+    return trigonometric('asin', value)
 
 
 def acos(x: Value) -> Value:
-    """``math.acos(x)``: inverse cosine, same range rule. Reaches gap 1."""
+    """``math.acos(x)``: inverse cosine, same range rule."""
     value = number(x)
     if value is None or value < -1 or value > 1:
         return ABSENT
-    return _guarded(value, math.acos)
+    return trigonometric('acos', value)
 
 
 def atan(x: Value) -> Value:
-    """``math.atan(x)``: inverse tangent. Reaches gap 1."""
+    """``math.atan(x)``: inverse tangent, using section 20.10.4."""
     value = number(x)
-    return ABSENT if value is None else _guarded(value, math.atan)
+    return ABSENT if value is None else trigonometric('atan', value)
 
 
 def atan2(y: Value, x: Value) -> Value:
     """``math.atan2(y, x)``: angle of a vector, in all four quadrants.
 
-    Reaches gap 1. The argument order is the page's, which is the one every
-    library states: the vertical component first.
+    The vertical component comes first, as section 20.10.4 specifies.
     """
     vertical = number(y)
     horizontal = number(x)
     if vertical is None or horizontal is None:
         return ABSENT
-    try:
-        return result(math.atan2(vertical, horizontal))
-    except (ValueError, OverflowError):
-        return ABSENT
+    return trigonometric('atan2', vertical, horizontal)

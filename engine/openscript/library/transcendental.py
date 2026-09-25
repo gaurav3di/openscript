@@ -83,12 +83,13 @@ def quotient(n, d, p):
     pairs = [(a*(1 << p), b) for a in n for b in d]
     return min(a//b for a,b in pairs), max(up(a,b) for a,b in pairs)
 
-def exp_interval(x, p):
+def exp_range(xl, xh, positive, p):
     s = 1 << p
-    xl, xh = fixed(x,p)
     cl, ch = ln2(p)
     k = xl // ch
     rl, rh = xl-k*ch, xh-k*cl
+    if rl < 0 or rh >= s:
+        return None
     tl = th = lo = hi = s
     n = 0
     while True:
@@ -99,7 +100,27 @@ def exp_interval(x, p):
             break
         lo += tl
         hi += th
-    return (lo,hi,k-p) if x >= 0 else (s*s//hi,up(s*s,lo),-k-p)
+    return (lo,hi,k-p) if positive else (s*s//hi,up(s*s,lo),-k-p)
+
+def exp_interval(x, p):
+    xl, xh = fixed(x, p)
+    return exp_range(xl, xh, x >= 0, p)
+
+def exp_endpoint(integer, p):
+    """Enclose exp(integer / 2**p), with no binary64 intermediate."""
+    cutoff = 1024 << p
+    if integer >= cutoff:
+        return None, None
+    if integer <= -cutoff:
+        return 0.0, 0.0
+    if integer == 0:
+        return 1.0, 1.0
+    magnitude = abs(integer)
+    interval = exp_range(magnitude, magnitude, integer > 0, p)
+    if interval is None:
+        return None
+    lo, hi, exponent = interval
+    return round_dyadic(lo, exponent), round_dyadic(hi, exponent)
 
 def transcendental(kind, x, start_precision=160):
     if x is None or not math.isfinite(x) or (kind != 'exp' and x <= 0):
@@ -127,10 +148,14 @@ def transcendental(kind, x, start_precision=160):
                 count += 1
             if integer == 1:
                 return float(count)
-    p = start_precision
+    p = max(64, start_precision)
     while True:
         if kind == 'exp':
-            lo,hi,e = exp_interval(x,p)
+            interval = exp_interval(x,p)
+            if interval is None:
+                p += 80
+                continue
+            lo,hi,e = interval
         else:
             raw = log_interval(x,p)
             lo,hi = raw if kind == 'log' else quotient(raw,ln2(p) if kind == 'log2' else ln10(p),p)

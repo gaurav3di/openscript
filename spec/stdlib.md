@@ -3662,6 +3662,132 @@ most eight Gaussian parameter tuples containing at most 4,096 coefficients in
 total. Larger kernels compute without being retained. Cache residency does not
 change the semantic operation budget charged to a script.
 
+#### 20.10.3 Power
+
+`pow(x, y)` rounds the real power once to nearest-even binary64. Missing or
+non-finite arguments are absent before any identity is considered. With finite
+arguments, exponent zero returns one, including a zero base. A zero base with a
+positive exponent returns positive zero; a negative exponent is absent. A
+negative base requires an integer exponent. Its result has negative sign only
+when that integer is odd. Every rounded zero is normalized to positive zero,
+and rounded overflow is absent.
+
+The positive magnitude uses exact dyadic decomposition and outward integer
+intervals. It must not compute a separately rounded logarithm, multiply it by
+the exponent and pass that rounded product to `exp`: those intermediate
+roundings can change the final power.
+
+1. Apply the identities above and the magnitude-one identity. Write the positive
+   base as `a*2^e`, with `a` an odd positive integer, and the absolute exponent
+   as `n*2^q`, with `n` odd. For a fractional exponent (`q < 0`), a rational
+   root exists exactly when repeated integer square roots of `a` are exact and
+   repeated halvings of `e` remain integers, for `-q` steps. Otherwise the
+   positive power is irrational. For `q >= 0`, the integer exponent magnitude
+   is `n << q` and no root extraction is needed.
+2. Handle possible exact rounding midpoints before interval refinement. After
+   successful root extraction, a root with odd part one is a power of two;
+   multiply its integer binary exponent by the exact signed exponent numerator
+   and round that dyadic directly. If the odd part exceeds one, the exponent is
+   positive and its numerator is at most 53, form that integer power exactly and
+   round its dyadic value directly. A larger positive numerator has more than
+   54 odd significant bits, so it cannot equal a binary64 rounding midpoint.
+   A negative numerator leaves an odd denominator greater than one, so that
+   result also cannot equal a dyadic midpoint.
+3. For the remaining cases start with precision 160. Enclose the natural
+   logarithm of the positive base using 20.10.2. Multiply both fixed-point
+   endpoints by the exact dyadic exponent using integers. Negative factors
+   reverse endpoint order; right shifts use floor for the lower bound and
+   ceiling for the upper bound. Keep the interval at that precision without
+   converting either endpoint to binary64.
+4. Enclose the exponential of each exact dyadic endpoint using 20.10.2's
+   reduction, positive Taylor bounds and reciprocal for a negative endpoint.
+   The reduced positive remainder must stay below one, which is the condition
+   for the stated Taylor-tail bound. If an outward upper bound crosses one,
+   refine before using that series. Working precision is never below 64 bits;
+   the lower start is available for refinement verification, while ordinary
+   evaluation starts at 160 bits.
+   Use the lower exponential bound from the lower input and the upper bound
+   from the upper input. Bounds above 1024 are certainly beyond binary64
+   overflow after exponentiation; bounds below -1024 round to zero. These are
+   analytical output bounds, not a limit on refinement.
+5. Round those two output bounds with the direct dyadic encoder. If their
+   rounded values agree, apply the result sign and zero normalization. If they
+   differ, increase precision by 80 and repeat from step 3. There is no fixed
+   iteration limit that changes a valid result into absence.
+
+The root test follows prime factorization of a positive rational with an
+exponent whose reduced denominator is a power of two. It covers every rational
+power and hence every possible exact binary64 midpoint. The remaining
+non-midpoint results are eventually separated by narrowing outward intervals.
+This establishes termination mathematically, not a fixed maximum running time
+for every finite input pair.
+
+#### 20.10.4 Trigonometric functions
+
+`math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan` and
+`math.atan2` round their real mathematical result once to nearest-even binary64.
+Missing or non-finite arguments are absent. Arcsine and arccosine are absent
+outside `[-1,1]`. Rounded zero is positive zero; rounded overflow is absent.
+
+Normalize both signs of an input zero before quadrant selection, matching the
+language's stored-zero contract. For the public argument order `atan2(y,x)`, a
+zero vertical component returns positive zero when `x >= 0`, including the zero
+vector, and positive pi when `x < 0`. With a zero horizontal component and a
+nonzero vertical component, the answer is pi/2 with the sign of `y`. Here pi and
+pi/2 mean independently rounded real constants, not a rounded pi multiplied
+before the final rounding.
+
+The portable recipe uses outward integer intervals divided by `2^P`, starting
+at `P=160`. All signed divisions use mathematical floor for lower endpoints and
+ceiling for upper endpoints. Round both final endpoints using 20.10.2's dyadic
+encoder. If they select different results, increase `P` by 80 and repeat. There
+is no fixed precision cap or host-function fallback. Internal refinement tests
+may request a lower start, clamped to at least 64 bits; normal execution starts
+at 160 bits.
+
+1. Enclose pi through `16*atan(1/5)-4*atan(1/239)`. Enclose each small arctangent
+   with its alternating odd-power series, retaining outward bounds at every
+   operation and adding the first omitted term on the appropriate side. The
+   identity follows angle addition with the result in the first quadrant.
+   One highest-precision pi interval may be cached; coarser requests are rounded
+   outward from it. Do not retain a growing table of precision-indexed constants.
+2. For sine, cosine and tangent, decode the absolute input as the exact ratio
+   `n/d`. Obtain pi at precision `P + max(0,bitLength(n)-bitLength(d)) + 32`.
+   Bound `2*abs(x)/pi` and choose its nearest integer, using floor after adding
+   one half. Refine if the two bounds do not choose the same integer `q`.
+   Subtract `q*pi/2` at the reduction precision and regrid its residual interval
+   outward to precision `P`. The exact residual is in `[-pi/4,pi/4]`.
+3. Refine if the residual bounds are not inside `[-1,1]`. Bound sine and cosine
+   at the residual endpoints through their factorial Taylor series and the
+   alternating first-omitted-term remainder. Sine is increasing on this range;
+   cosine decreases with absolute argument, with a maximum of one when the
+   residual interval crosses zero. Apply exact quadrant swaps and signs from
+   `q mod 4`, then the original argument sign. Tangent divides the sine and
+   cosine intervals only once the cosine interval excludes zero. Never divide
+   separately rounded sine and cosine results.
+4. For arctangent and `atan2`, preserve the exact rational argument or component
+   ratio. A positive ratio above one uses `pi/2-atan(1/r)`. A ratio above one
+   half and at most one uses `pi/4+atan((r-1)/(r+1))`. The remaining small
+   arctangent argument has magnitude at most one half; enclose its alternating
+   series as in step 1. Apply signs and quadrants to intervals, never to an
+   intermediate rounded angle or a binary64 division of the components.
+5. For inverse sine and cosine, form `1-x*x` as an exact rational. Obtain
+   outward square-root bounds using integer square roots after fixed-point
+   scaling. Arcsine uses `atan(abs(x)/sqrt(1-x*x))` and the original sign.
+   Arccosine uses `atan(sqrt(1-x*x)/abs(x))`, complemented from pi for negative
+   `x`, and pi/2 at zero. Feed the root bounds directly into the rational
+   arctangent bounds. In particular, do not round the root or the ratio to
+   binary64 first.
+
+Handle exact zero results and cosine of zero directly; endpoint and axis angles
+use the pi intervals. For nonzero algebraic arguments, the remaining sine,
+cosine and tangent results, and their nonzero inverse angles, cannot be rational
+rounding midpoints. Narrowing enclosures therefore eventually choose one rounded
+result. Tiny component ratios can require much more precision than ordinary
+inputs: an exact half-subnormal ratio must still account for the arctangent's
+cubic correction. This recipe promises the same rounded result, not a fixed
+maximum number of refinement steps.
+
 ### 20.11 What this section cannot pin down yet
 
 Each of these is a gap in the specification rather than a choice made here, and
@@ -3683,23 +3809,15 @@ reached three of the gaps and the sentence still read as a fact.
 
 | Gap | Reached through | Gate studies that reach it |
 |---|---|---|
-| 1 | `pow`, `math.sin`, `math.cos`, `math.tan`, `math.asin`, `math.acos`, `math.atan`, `math.atan2` | none |
 | 2 | `hma` | none |
 | 3 | `eom` | none |
 | 4 | nothing a script can call | none |
 
-1. **Power and trigonometry still require portable algorithms.** Their current
-   host approximations can differ in the last bit. Until their algorithms are
-   specified, no conformance case may assert a value reaching this row, under
-   `conformance.md` section 8. The strict numerical release audit still records
-   these differences and blocks publication; a conformance exclusion is not an
-   exact-agreement pass.
+The former platform-math gap is closed by sections 20.10.1 through 20.10.4.
+Hypotenuse, exponential, logarithmic, power and trigonometric results, including
+studies composed from them, are required to match exactly. No host arithmetic
+exclusion applies to those functions.
 
-   Hypotenuse is fixed by 20.10.1. Exponential and logarithmic functions are fixed
-   by 20.10.2, including the derived `alma`, `hv` and `chop` calculations. A study
-   using `log` no longer reaches this gap. The remaining row closes when power
-   and trigonometric algorithms specify each result and are implemented and
-   independently checked in both engines.
 2. **The inner length of `hma` is not stated.** Section 4 fixes the outer length
    as `round(sqrt(len))`, which the declared warmup confirms, and says nothing
    about the inner one. The declared warmup holds for any inner length at or
