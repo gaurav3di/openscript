@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"Decimal conversion preserves binary64 rounding, signed-zero normalization and absence outside the decimal grammar.","id":"math/number-conversion","languageVersion":1,"profile":"core"}

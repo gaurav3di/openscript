@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"Numeric array reductions preserve index-order arithmetic, absence and empty-array identities.","id":"array/numeric-reductions","languageVersion":1,"profile":"core"}

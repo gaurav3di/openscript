@@ -1,0 +1,6 @@
+bar,Sum,Mean,Minimum,Maximum,Deviation,Empty sum,Empty mean,Empty minimum,Empty maximum,Empty deviation,Absent sum,Absent mean,Absent minimum,Absent maximum,Absent deviation
+0,9,3,0,6,2.449489742783178,0,none,none,none,none,none,none,none,none,none
+1,6,2,2,2,0,0,none,none,none,none,none,none,none,none,none
+2,0,0,0,0,0,0,none,none,none,none,none,none,none,none,none
+3,none,none,-1e308,1e308,none,0,none,none,none,none,none,none,none,none,none
+4,0,0,-9007199254740992,9007199254740992,7354347395230782,0,none,none,none,none,none,none,none,none,none

@@ -1,0 +1,13 @@
+version 1
+study("Decimal conversion")
+plot(toNumber("-0"), "Zero")
+plot(toNumber("9007199254740993"), "Integer midpoint")
+plot(toNumber("0.1000000000000000055511151231257827021181583404541015625"), "Exact decimal")
+plot(toNumber("5e-324"), "Subnormal")
+plot(toNumber("1e-400"), "Underflow")
+plot(toNumber("1.7976931348623157e308"), "Largest finite")
+plot(toNumber("1e309"), "Overflow")
+plot(toNumber(" 2.5 "), "Whitespace")
+plot(toNumber("0x10"), "Nondecimal")
+plot(toNumber("1_000"), "Separator")
+plot(toNumber("NaN"), "Nonfinite")

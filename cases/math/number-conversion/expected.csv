@@ -1,0 +1,2 @@
+bar,Zero,Integer midpoint,Exact decimal,Subnormal,Underflow,Largest finite,Overflow,Whitespace,Nondecimal,Separator,Nonfinite
+0,0,9007199254740992,0.1,5e-324,0,1.7976931348623157e308,none,2.5,none,none,none
