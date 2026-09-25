@@ -5,7 +5,7 @@ import { anchoredTotalCases } from '../stdlib/anchored-total-overflow-cases.js';
 import { encode } from '../stdlib/transcendental-cases.js';
 
 // Each fixture marks an anchor bar with an open of 1, so the compiled call reads it.
-const expressions = { pvt: 'pvt()', vwapAnchor: 'vwapAnchor(close, open > 0)' } as const;
+const expressions = { pvt: 'pvt()', vwapAnchor: 'vwapAnchor(close, open > 0)', ad: 'ad()', cmf: 'cmf(2)' } as const;
 
 for (const row of anchoredTotalCases()) {
   test(`compiled ${row.id} agrees with independent history and forming updates in both engines`, () => {

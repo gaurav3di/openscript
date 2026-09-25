@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"A bar whose high to low span overflows has an absent flow term, not a zero one: the bar is absent and the total and window recover around it.","id":"math/flow-span-overflow","languageVersion":1,"profile":"core"}

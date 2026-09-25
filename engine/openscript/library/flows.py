@@ -102,6 +102,11 @@ def position_flow(ctx) -> Value:
     The two bracketed differences are formed first and subtracted, then divided by
     the span, then multiplied by the volume. **A bar whose span is not above zero
     contributes an exact 0** rather than ending the total.
+
+    A span that overflows is absent under `compiled-program.md` 3.1, and the term
+    with it: dividing a finite numerator by the raw infinity would give an exact
+    zero for a bar whose position was never computed. Any other step that
+    overflows stays non-finite to the end, where ``result`` catches it.
     """
     high = number(ctx.bar("high"))
     low = number(ctx.bar("low"))
@@ -109,7 +114,9 @@ def position_flow(ctx) -> Value:
     traded = number(ctx.bar("volume"))
     if high is None or low is None or close is None or traded is None:
         return ABSENT
-    span = high - low
+    span = result(high - low)
+    if span is None:
+        return ABSENT
     if span <= 0:
         return 0.0
     return result((((close - low) - (high - close)) / span) * traded)

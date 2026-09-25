@@ -5,8 +5,8 @@ import type { HostBar } from '../../src/core/engine/index.js';
 
 export interface AnchoredTotalCase {
   id: string;
-  name: 'pvt' | 'vwapAnchor';
-  bars: (HostBar & { close: number | null; volume: number | null })[];
+  name: 'pvt' | 'vwapAnchor' | 'ad' | 'cmf';
+  bars: (HostBar & { high: number | null; low: number | null; close: number | null; volume: number | null })[];
   anchors: boolean[];
   expected: (number | null)[];
 }

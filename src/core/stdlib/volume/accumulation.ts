@@ -30,11 +30,18 @@ import { emaStep } from '../averages/index.js';
  * A bar whose high and low are equal has no position inside it to report, and
  * the settled treatment is that such a bar contributes nothing rather than
  * ending the running total.
+ *
+ * A span that overflows is not that bar. It is absent (`compiled-program.md`
+ * section 3.1), and so is the term, because the one later step that could hide
+ * it is this division: a finite numerator over an infinite span is an exact
+ * zero, a term for a bar whose position was never computed. Every other step
+ * that overflows stays non-finite to the end and the last check catches it.
  */
 export function moneyFlow(bar: Bar): Value {
   if (!isPresent(bar.high) || !isPresent(bar.low)) return NONE;
   if (!isPresent(bar.close) || !isPresent(bar.volume)) return NONE;
-  const span = bar.high - bar.low;
+  const span = result(bar.high - bar.low);
+  if (!isPresent(span)) return NONE;
   if (!(span > 0)) return 0;
   return result((((bar.close - bar.low) - (bar.high - bar.close)) / span) * bar.volume);
 }

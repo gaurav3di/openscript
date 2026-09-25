@@ -11,6 +11,10 @@ absent on every later bar.
 A total that overflows although its term was finite is a different case: the
 total keeps what the arithmetic produced and every later reading is absent until
 the total is started again, which is what the sibling totals already do.
+
+The term ``ad`` and ``cmf`` share has one step whose overflow a later step could
+hide: a finite numerator divided by an overflowed span is an exact zero. That
+span is absent under section 3.1, so the term is absent rather than zero.
 """
 
 import copy
@@ -61,6 +65,62 @@ def anchored_expected(rows, anchors):
                     reading = finite(operation(numerator, divisor, '/'))
         output.append(reading)
     return output
+
+
+def flow_term(row):
+    """The term ``ad`` and ``cmf`` share, every stated operation checked as it rounds."""
+    high, low, close, volume = (row[key] for key in ['high', 'low', 'close', 'volume'])
+    if high is None or low is None or close is None or volume is None:
+        return None
+    span = finite(operation(high, low, '-'))
+    if span is None:
+        return None
+    if span <= 0:
+        return 0.0
+    upper = finite(operation(close, low, '-'))
+    lower = finite(operation(high, close, '-'))
+    offset = None if upper is None or lower is None else finite(operation(upper, lower, '-'))
+    share = None if offset is None else finite(operation(offset, span, '/'))
+    return None if share is None else finite(operation(share, volume, '*'))
+
+
+def accumulation_expected(rows):
+    """Batch reading of ``ad``: an absent term is an absent bar and the total stays."""
+    output, total = [], 0.0
+    for row in rows:
+        term = flow_term(row)
+        if term is not None:
+            total = operation(total, term, '+')
+        output.append(None if term is None else finite(total))
+    return output
+
+
+def fraction_expected(rows, length):
+    """Batch reading of ``cmf``: fresh window sums, oldest first, then one division."""
+    terms = [flow_term(row) for row in rows]
+    output = []
+    for index in range(len(rows)):
+        start = index + 1 - length
+        flows = terms[start:index + 1] if start >= 0 else []
+        volumes = [row['volume'] for row in rows[start:index + 1]] if start >= 0 else []
+        reading = None
+        if flows and None not in flows and None not in volumes:
+            flow = traded = 0.0
+            for term, volume in zip(flows, volumes):
+                flow = operation(flow, term, '+')
+                traded = operation(traded, volume, '+')
+            flow, traded = finite(flow), finite(traded)
+            if flow is not None and traded is not None and traded > 0:
+                reading = finite(operation(flow, traded, '/'))
+        output.append(reading)
+    return output
+
+
+def flow_case(name, label, triples, volume=2.0):
+    rows = [dict(time=1700000000000 + index * 60000, open=close, high=high, low=low,
+                 close=close, volume=volume) for index, (high, low, close) in enumerate(triples)]
+    expected = accumulation_expected(rows) if name == 'ad' else fraction_expected(rows, 2)
+    return dict(id=f'{name}-{label}', name=name, bars=rows, anchors=[False] * len(rows), expected=expected)
 
 
 def bars(closes, volumes, anchors=None):
@@ -119,6 +179,15 @@ def cases():
                               [True, False, False, True, False]))
     rows.append(anchored_case('overflow-before-anchor', [1e308, 10.0, 1e308, 20.0], [1e10, 2.0, 1e10, 2.0],
                               [False, True, False, False]))
+    # The span overflows on the second bar although the true term there is 1.
+    span = [(2.0, 0.0, 1.5), (1e308, -1e308, 5e307), (4.0, 2.0, 4.0), (5.0, 1.0, 2.0), (6.0, 2.0, 5.0)]
+    for sign in [1.0, -1.0]:
+        tag = 'up' if sign > 0 else 'down'
+        triples = span if sign > 0 else [(-low, -high, -close) for high, low, close in span]
+        rows.append(flow_case('ad', f'span-overflow-{tag}', triples))
+        rows.append(flow_case('cmf', f'span-overflow-{tag}', triples))
+    rows.append(flow_case('ad', 'outside-range', [(2.0, 0.0, 1.0), (1e308, 0.0, -1e308), (4.0, 2.0, 3.0)]))
+    rows.append(flow_case('ad', 'zero-span', [(2.0, 0.0, 1.5), (3.0, 3.0, 3.0), (4.0, 2.0, 4.0)]))
     return rows
 
 
@@ -141,6 +210,10 @@ class Observation:
 def call(name, row, anchor, state):
     if name == 'pvt':
         return stateful_table()[('pvt', 0)].call(Observation(row, anchor), [], state)
+    if name == 'ad':
+        return stateful_table()[('ad', 0)].call(Observation(row, anchor), [], state)
+    if name == 'cmf':
+        return stateful_table()[('cmf', 1)].call(Observation(row, anchor), [2.0], state)
     if name == 'vwap':
         return stateful_table()[('vwap', 1)].call(Observation(row, anchor), [row['close']], state)
     return stateful_table()[('vwapAnchor', 2)].call(Observation(row, anchor), [row['close'], anchor], state)
@@ -180,6 +253,11 @@ class AnchoredTotalOverflow(unittest.TestCase):
         self.assertEqual(named('pvt-total-overflow-up')['expected'], [None, 1e308, None, None, None])
         self.assertEqual(named('vwapAnchor-product-overflow-up')['expected'], [10.0, None, 17.5, 20.0])
         self.assertEqual(named('vwapAnchor-traded-overflow')['expected'], [1e-10, None, None, 4.0, 5.0])
+        # A finite numerator over an overflowed span is not a zero term: the span
+        # is absent, so the bar is, and the total of 1 carries on to 3 and 2.
+        self.assertEqual(named('ad-span-overflow-up')['expected'], [1.0, None, 3.0, 2.0, 3.0])
+        self.assertEqual(named('cmf-span-overflow-up')['expected'], [None, None, None, 0.25, 0.0])
+        self.assertEqual(named('ad-zero-span')['expected'], [1.0, 1.0, 3.0])
 
     def test_an_overflowing_term_leaves_the_total_where_it_was(self):
         for row in cases():
