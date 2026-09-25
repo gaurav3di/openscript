@@ -99,14 +99,8 @@ def double_smoothed(
     The long length comes first and the short one second, and the absolute size
     of the change is smoothed the same way in its own pair of state regions.
     """
-    values = contributed(state, "src", number(value), 2)
-    now = values[len(values) - 1]
-    before = back(values, 1)
-    delta = ABSENT
-    size = ABSENT
-    if isinstance(now, float) and isinstance(before, float):
-        delta = now - before
-        size = abs(delta)
+    delta = bookkeeping.change(state, value, 1)
+    size = abs(delta) if isinstance(delta, float) else ABSENT
     smoothed_change = _twice(region(state, "change"), delta, long_length, short_length)
     smoothed_size = _twice(region(state, "size"), size, long_length, short_length)
     if not isinstance(smoothed_change, float) or not isinstance(smoothed_size, float):
@@ -167,8 +161,8 @@ def blended(
         if isinstance(before, float):
             floor_of = low if low < before else before
             ceiling_of = high if high > before else before
-            pressure = close - floor_of
-            span = ceiling_of - floor_of
+            pressure = result(close - floor_of)
+            span = result(ceiling_of - floor_of)
     deepest = _deepest(first_length, second_length, third_length)
     pressures = contributed(state, "pressure", pressure, deepest)
     spans = contributed(state, "range", span, deepest)
@@ -197,7 +191,8 @@ def _ratio(pressures, spans, length: Optional[int]) -> Value:
     bottom = window(spans, length)
     if top is None or bottom is None:
         return ABSENT
-    divisor = total(bottom)
-    if divisor == 0:
+    numerator = result(total(top))
+    divisor = result(total(bottom))
+    if numerator is None or divisor is None or divisor == 0:
         return ABSENT
-    return total(top) / divisor
+    return result(numerator / divisor)

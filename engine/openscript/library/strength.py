@@ -61,7 +61,9 @@ def rises_and_falls(values) -> tuple:
     before = back(values, 1)
     if not isinstance(now, float) or not isinstance(before, float):
         return ABSENT, ABSENT
-    delta = now - before
+    delta = result(now - before)
+    if delta is None:
+        return ABSENT, ABSENT
     up = delta if delta > 0 else 0.0
     down = -delta if -delta > 0 else 0.0
     return up, down

@@ -75,7 +75,7 @@ all 1,512 proposed scalar vector cells were independently checked: 46 existing
 trigonometric cells changed and 189 power cells joined the vector inventory.
 The Python vector driver now requires exact bits for every scalar case.
 
-The three strict gates together compare 601,375 accepted calls across 3,298
+The three strict gates together compare 601,740 accepted calls across 3,308
 cases, with zero differing bits, absence differences, oracle failures or
 baseline failures. Five numeric array reducers and the three conversion signatures
 `text/1`, `text/2` and `toNumber/1` have separate compiled checks, completing the
@@ -141,14 +141,21 @@ carry 0.7.0 from one immutable source tag. Update the changelog and documentatio
 for every changed result, follow [the release procedure](../../RELEASING.md), and
 verify artifacts after both workflows succeed.
 
-The 0.7.0 local release candidate passes the complete package checks: 2,102
-JavaScript tests, 942 Python tests and 102 shared conformance cases, with 19
+The 0.7.0 local release candidate passes the complete package checks: 2,131
+JavaScript tests, 948 Python tests and 102 shared conformance cases, with 19
 compiler-only cases correctly skipped by the Python engine. All existing
 performance budgets pass. Fresh installs outside the checkout run 322 compiled
 programs across every numerical gate key: 35,035 historical bars and 70,070
 forming deliveries produce 119,910 exactly matching output cells. Archive checks
 confirm all runtime modules are included and imports resolve to the installed
 packages. Registry verification is a separate step after publication.
+
+The expanded chart composition sweep found additional overflowing-change and
+range-sum cases after the first candidate. Python's TSI, RSI and Ultimate
+Oscillator now normalize those named intermediate results before retaining or
+dividing them. Ten new independent stateful oracles and compiled historical and
+forming-bar regressions pass. The constant-parameter gate now includes 2,074
+cases and 19 independent oracles. Ordinary vector expectations are unchanged.
 
 The companion chart release remains a separate 2.5.4 deliverable. Its deferred
 higher-timeframe input controls remain excluded. Testing existing requested

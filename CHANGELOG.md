@@ -11,7 +11,7 @@ nothing, fails the build before it can become permanent.
 
 Both engines now pass exact numerical comparisons for all 116 scalar and
 stateful numerical signatures, with additional compiled cases for array
-reductions and conversions. The audit checks 601,375 accepted calls and permits
+reductions and conversions. The audit checks 601,740 accepted calls and permits
 no differing bit, absent value or output column. Both publishing workflows now
 run the strict numerical gates as well as the complete package checks.
 
@@ -24,6 +24,13 @@ The Python engine now returns absence rather
 than raising a division exception when CCI's scaled deviation underflows to zero
 or signed money flows produce a zero composed divisor. Later bars continue to
 calculate, and ordinary values retain their existing arithmetic order.
+
+Overflowed one-bar changes now become absent before Python's TSI and RSI
+recurrences consume them. Ordinary later bars recover with the same values as
+the JavaScript engine. Ultimate Oscillator also normalizes its named pressure,
+range and window sums before division, avoiding a false zero when a range
+overflows. Compiled history, forming-bar corrections and exact rational fixtures
+cover these cases without changing the ordinary baseline vectors.
 
 Both engines now compute two-argument hypotenuse from the exact squared inputs,
 with one final nearest-even rounding. This removes host-dependent last-bit
