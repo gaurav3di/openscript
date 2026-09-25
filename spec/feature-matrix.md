@@ -608,6 +608,9 @@ identifier rather than one diagnostic having two proofs.
 | Anchor initialization and reset | No average before the first anchor; an absent source still resets totals | `implemented` | `stdlib.md` 7, `stdlib.md` 20.6 | `math/anchor-warmup` |
 | Absent anchor condition | After initialization, an absent reset condition preserves totals and includes the bar | `implemented` | `stdlib.md` 7, `stdlib.md` 20.6 | `math/anchor-absent-condition` |
 | Overflowed named volume sum | Absence propagates into the ratio and recovers when the overflowing window ends | `implemented` | `stdlib.md` 2.4, `stdlib.md` 20.6 | `math/flow-overflow` |
+| Overflowing change term | A price change, proportion or product that overflows is an absent term: its bar is absent and the running total is kept | `implemented` | `compiled-program.md` 3.1, `stdlib.md` 20.6 | `math/pvt-overflow` |
+| Overflowing anchored product | A price times volume that overflows is an absent term: its bar is absent and both anchored totals are kept | `implemented` | `compiled-program.md` 3.1, `stdlib.md` 20.6 | `math/anchor-product-overflow` |
+| Overflowed anchored volume | An overflowed volume total is kept, the average divided by it is absent, and the next anchor starts both totals again | `implemented` | `stdlib.md` 7, `stdlib.md` 20.6 | `math/anchor-traded-overflow` |
 | Independent channel availability | Each channel bound remains available independently and the midpoint needs both | `implemented` | `stdlib.md` 6, `stdlib.md` 20.5 | `math/independent-channel-bounds` |
 | Growing finite windows | Earlier contributions remain available after a larger length is requested | `implemented` | `stdlib.md` 2.5, `stdlib.md` 20.2.1 | `math/varying-window-growth` |
 | Changing window readiness | Largest observed length sets readiness and current length selects values | `implemented` | `stdlib.md` 2.5 | `math/varying-window-readiness` |

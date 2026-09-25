@@ -10,6 +10,14 @@
  * A running total is the one thing a lookback cannot stand in for, so each of
  * these carries its total in the state region rather than in a closure: that is
  * what lets an engine roll one back with the rest of a moving bar's state.
+ *
+ * A bar's term is checked after every operation that forms it
+ * (`compiled-program.md` section 3.1), and a term that is not finite is an absent
+ * term: the bar is absent and the total is left where it was, so one overflowing
+ * bar costs its own reading and nothing after it. A total that overflows although
+ * its term was finite is kept as the arithmetic produced it, and every later
+ * reading is absent, which is what `stdlib.md` section 20.6 says of every running
+ * total there.
  */
 import type { Bar, StateRecord, Tail, Value } from '../values/index.js';
 import { NONE, fold, held, isPresent, result, slot, tailOf } from '../values/index.js';
@@ -116,6 +124,24 @@ export function adOsc(bars: readonly Bar[], fast = 3, slow = 10): Value[] {
 }
 
 /**
+ * The per-bar term `pvt` adds: the change, then the proportion, then the
+ * product with the volume, each checked as it is formed.
+ *
+ * A change can overflow although the true proportion is finite: a close of
+ * -1e308 after one of 1e308 is a proportion of -2. Section 3.1 makes that change
+ * absent, and so the term. Each step is checked where it rounds because that is
+ * how the rule is stated, not because a later step could turn an infinity back
+ * into a number here: none of these three can.
+ */
+function trendTerm(close: number, before: number, volume: number): Value {
+  const change = result(close - before);
+  if (!isPresent(change)) return NONE;
+  const proportion = result(change / before);
+  if (!isPresent(proportion)) return NONE;
+  return result(proportion * volume);
+}
+
+/**
  * `pvt()`: the running total of volume weighted by percentage change, from bar
  * 1, seeded 0.
  *
@@ -136,7 +162,9 @@ export function pvtStep(state: StateRecord, key: string, bar: Bar): Value {
   if (!started) return NONE;
   if (!isPresent(before) || before === 0) return NONE;
   if (!isPresent(bar.close) || !isPresent(bar.volume)) return NONE;
-  const total = slot(state, totalKey, 0) + ((bar.close - before) / before) * bar.volume;
+  const term = trendTerm(bar.close, before, bar.volume);
+  if (!isPresent(term)) return NONE;
+  const total = slot(state, totalKey, 0) + term;
   state[totalKey] = total;
   return result(total);
 }

@@ -52,13 +52,22 @@ def _anchored(state: Region, ctx, value: Value, anchor: Value) -> Value:
         return ABSENT
     if price is None or traded is None:
         return ABSENT
-    flow = held.get("flow", 0.0) + price * traded
+    # An overflowing product is an absent term under compiled-program.md 3.1:
+    # the bar is absent and neither total moves.
+    term = result(price * traded)
+    if term is None:
+        return ABSENT
+    flow = held.get("flow", 0.0) + term
     volume = held.get("traded", 0.0) + traded
     held["flow"] = flow
     held["traded"] = volume
-    if volume == 0:
+    # An overflowed total is kept and is absent, so the average divided by it is
+    # too, rather than the exact zero a finite flow over an infinity would give.
+    numerator = result(flow)
+    divisor = result(volume)
+    if numerator is None or divisor is None or divisor == 0:
         return ABSENT
-    return result(flow / volume)
+    return result(numerator / divisor)
 
 
 def balance(state: Region, ctx) -> Value:
@@ -149,7 +158,24 @@ def price_trend(state: Region, ctx) -> Value:
     before = back(contributed(state, "close", close, 2), 1)
     if close is None or traded is None or not isinstance(before, float) or before == 0:
         return ABSENT
-    return running_total(state, "run", ((close - before) / before) * traded)
+    return running_total(state, "run", _trend_term(close, before, traded))
+
+
+def _trend_term(close: float, before: float, traded: float) -> Value:
+    """The term ``pvt`` adds, checked after each operation as section 3.1 states.
+
+    A change that overflows is absent although the true proportion may be
+    finite, and an absent term leaves the running total where it was, so the
+    bar costs its own reading and nothing after it. Adding the unchecked
+    infinity instead would store it and end the reading for good.
+    """
+    change = result(close - before)
+    if change is None:
+        return ABSENT
+    proportion = result(change / before)
+    if proportion is None:
+        return ABSENT
+    return result(proportion * traded)
 
 
 def money_flow(state: Region, ctx, length: Optional[int]) -> Value:
