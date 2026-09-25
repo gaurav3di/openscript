@@ -10,7 +10,8 @@ export async function loadEngine(root) {
   const library = await import('../../../dist/core/engine/library/index.js');
   const values = await import('../../../dist/core/engine/values/index.js');
   const stdlib = await import('../../../dist/core/stdlib/index.js');
-  return { ...library, Heap: values.Heap, isRef: values.isRef, newState: stdlib.newState };
+  const checker = await import('../../../dist/core/check/index.js');
+  return { ...library, Heap: values.Heap, isRef: values.isRef, newState: stdlib.newState, libraryEntries: checker.libraryEntries };
 }
 
 export function drive(c, built) {

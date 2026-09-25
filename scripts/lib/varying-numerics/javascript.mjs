@@ -11,7 +11,9 @@ export async function loadEngine(root) {
   const registry = await import('../../../dist/core/engine/library/index.js');
   const values = await import('../../../dist/core/engine/values/index.js');
   const state = await import('../../../dist/core/stdlib/index.js');
-  return { ...registry, Heap: values.Heap, isRef: values.isRef, newState: state.newState, copyState: state.copyState };
+  const checker = await import('../../../dist/core/check/index.js');
+  return { ...registry, Heap: values.Heap, isRef: values.isRef, newState: state.newState, copyState: state.copyState,
+    libraryEntries: checker.libraryEntries };
 }
 
 export function drive(c, built) {

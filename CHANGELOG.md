@@ -11,7 +11,7 @@ nothing, fails the build before it can become permanent.
 
 Both engines now pass exact numerical comparisons for all 116 scalar and
 stateful numerical signatures, with additional compiled cases for array
-reductions and conversions. The audit checks 601,740 accepted calls and permits
+reductions and conversions. The audit checks 1,504,908 accepted calls and permits
 no differing bit, absent value or output column. Both publishing workflows now
 run the strict numerical gates as well as the complete package checks.
 
@@ -31,6 +31,14 @@ the JavaScript engine. Ultimate Oscillator also normalizes its named pressure,
 range and window sums before division, avoiding a false zero when a range
 overflows. Compiled history, forming-bar corrections and exact rational fixtures
 cover these cases without changing the ordinary baseline vectors.
+
+Python's MFI now propagates overflowing price-volume products and window sums
+as absence. Its CCI also normalizes overflowing window means and deviations
+before division. JavaScript correlation no longer reports zero when either
+variance overflows. All three resume when the affected observations leave the
+window. The audit now shocks price fields and volume independently, exercises
+declared defaults and lengths one and two, and checks checkpoint restoration
+and replay across those boundaries.
 
 Both engines now compute two-argument hypotenuse from the exact squared inputs,
 with one final nearest-even rounding. This removes host-dependent last-bit

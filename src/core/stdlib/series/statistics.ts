@@ -157,6 +157,7 @@ function jointStep(
   const b = ordered((back) => right.at(back), len);
   const m = moments(a, b, len);
   if (want === 'covariance') return result(m.covariance);
+  if (!Number.isFinite(m.varianceA) || !Number.isFinite(m.varianceB)) return NONE;
   const scale = Math.sqrt(m.varianceA) * Math.sqrt(m.varianceB);
   if (scale === 0) return NONE;
   return result(m.covariance / scale);

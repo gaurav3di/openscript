@@ -112,7 +112,7 @@ test('the same execution index is used for temporary input and its replacement',
 
 test('corpus controls grow, shrink and become absent without compacting source columns', () => {
   const row = { name: 'probe', arity: 2, state: true, file: 'probe.json' };
-  const vector = { params: ['src', 'len'], cases: [{ id: 'full-0', args: base().args,
+  const vector = { params: ['src', 'len'], cases: [{ id: 'full-0', bars: 4, args: base().args,
     bar: { volume: column('volume', [2, 3, 4, 5]) }, outputs: [column('out', [null, 2, 3, 4])] }] };
   const before = structuredClone(vector);
   const { cases: corpus, inventory } = buildVaryingCorpus([row], () => vector);
@@ -131,7 +131,7 @@ test('corpus controls grow, shrink and become absent without compacting source c
   validateVaryingCases(corpus, scope.keys);
 });
 
-test('live inventory has 81 keys, 109 controls, and 950 broad plus 81 replay cases', () => {
+test('live inventory retains original controls and adds boundary history, restore and replay for every key', () => {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const read = name => JSON.parse(readFileSync(root + name, 'utf8'));
   const policy = validateScope(read('spec/vectors/numerical-audit/varying-scope.json'));
@@ -140,11 +140,38 @@ test('live inventory has 81 keys, 109 controls, and 950 broad plus 81 replay cas
   assert.deepEqual(built.inventory.map(row => row.key).sort(), policy.keys);
   assert.equal(built.inventory.length, 81);
   assert.equal(built.inventory.reduce((n, row) => n + row.parameters.filter(p => p.role !== 'source').length, 0), 109);
-  assert.equal(built.cases.length, 1031);
-  assert.equal(built.cases.filter(c => c.replayFrom !== undefined).length, 81);
-  assert.equal(built.cases.filter(c => c.restore).length, 81);
+  const original = built.cases.filter(c => !c.scenario.startsWith('boundary:'));
+  assert.equal(original.length, 1031);
+  assert.equal(original.filter(c => c.replayFrom !== undefined).length, 81);
+  assert.equal(original.filter(c => c.restore).length, 81);
+  const boundary = built.cases.filter(c => c.scenario.startsWith('boundary:'));
+  const baselines = boundary.filter(c => !c.comparisonCase);
+  assert.deepEqual([...new Set(baselines.map(c => c.key))].sort(), policy.keys);
+  assert.equal(boundary.length, baselines.length * 3);
+  assert.equal(boundary.filter(c => c.restore).length, baselines.length);
+  assert.equal(boundary.filter(c => c.replayFrom !== undefined).length, baselines.length);
   assert.equal(built.inventory.filter(row => row.parameters.every(p => p.role === 'source')).length, 10);
   validateVaryingCases([...built.cases, ...read('spec/vectors/numerical-audit/varying-oracles.json')], policy.keys);
+});
+
+test('boundary restoration and replay mutants change accepted outputs after the shock', () => {
+  const row = { name: 'probe', arity: 2, state: true, file: 'probe.json' };
+  const vector = { params: ['src', 'len'], cases: [{ id: 'full-0', bars: 4, args: base().args,
+    bar: {}, outputs: [column('out', [null, 2, 3, 4])] }] };
+  const { cases: corpus } = buildVaryingCorpus([row], () => vector);
+  const wanted = corpus.find(c => c.scenario === 'boundary:length-2:arg.src');
+  const runtime = copy => ({ newState: () => ({ last: null }), copyState: copy,
+    invoke: (state, _at, input) => {
+      const prior = state.last; state.last = wanted.args[0].values[input];
+      return [prior === null || state.last === null ? null : { bits: prior }];
+    } });
+  const expected = executeCase(wanted, runtime(structuredClone));
+  const restored = corpus.find(c => c.id === wanted.id + ':restored');
+  assert.deepEqual(executeCase(restored, runtime(structuredClone)).rows, expected.rows);
+  assert.notDeepEqual(executeCase(restored, runtime(state => state)).rows, expected.rows);
+  const replayed = corpus.find(c => c.id === wanted.id + ':replayed');
+  assert.deepEqual(executeCase(replayed, runtime(structuredClone)).rows, expected.rows);
+  assert.notDeepEqual(executeCase(replayed, runtime(state => state)).rows, expected.rows);
 });
 
 test('corrupted protocols and mismatched functions cannot enter execution comparison', () => {

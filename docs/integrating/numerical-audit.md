@@ -75,7 +75,7 @@ all 1,512 proposed scalar vector cells were independently checked: 46 existing
 trigonometric cells changed and 189 power cells joined the vector inventory.
 The Python vector driver now requires exact bits for every scalar case.
 
-The three strict gates together compare 601,740 accepted calls across 3,308
+The three strict gates together compare 1,504,908 accepted calls across 6,836
 cases, with zero differing bits, absence differences, oracle failures or
 baseline failures. Five numeric array reducers and the three conversion signatures
 `text/1`, `text/2` and `toNumber/1` have separate compiled checks, completing the
@@ -106,8 +106,8 @@ non-normalized output. Compiled-program boundary checks separately establish
 which raw binding behavior is visible through a public engine.
 
 `npm run audit:varying` covers all 81 stateful signatures with 109 configurable
-controls. Its 1,042 cases include 950 changing-control and source patterns, 81
-checkpoint replays and 11 independent oracles. Temporary same-call contributions
+controls. Its 3,688 cases include changing-control and source patterns, 963
+checkpoint restoration cases, 963 replay cases and 11 independent oracles. Temporary same-call contributions
 and deliberately changed replay suffixes must leave accepted outputs identical
 to an ordinary execution in each engine. Sparse execution indices are included;
 they do not establish every compiled conditional or public update behavior.
@@ -141,21 +141,30 @@ carry 0.7.0 from one immutable source tag. Update the changelog and documentatio
 for every changed result, follow [the release procedure](../../RELEASING.md), and
 verify artifacts after both workflows succeed.
 
-The 0.7.0 local release candidate passes the complete package checks: 2,131
-JavaScript tests, 948 Python tests and 102 shared conformance cases, with 19
+The 0.7.0 local release candidate passes the complete package checks: 2,161
+JavaScript tests, 956 Python tests and 102 shared conformance cases, with 19
 compiler-only cases correctly skipped by the Python engine. All existing
-performance budgets pass. Fresh installs outside the checkout run 322 compiled
-programs across every numerical gate key: 35,035 historical bars and 70,070
-forming deliveries produce 119,910 exactly matching output cells. Archive checks
-confirm all runtime modules are included and imports resolve to the installed
-packages. Registry verification is a separate step after publication.
+performance budgets pass. Fresh installations outside the checkout must also
+run compiled programs across every numerical gate key, including historical
+bars, forming replacements and independent expected results. Archive checks
+require every runtime module and resolve imports to the installed packages.
+Registry verification is a separate step after publication.
 
 The expanded chart composition sweep found additional overflowing-change and
 range-sum cases after the first candidate. Python's TSI, RSI and Ultimate
 Oscillator now normalize those named intermediate results before retaining or
 dividing them. Ten new independent stateful oracles and compiled historical and
-forming-bar regressions pass. The constant-parameter gate now includes 2,074
+forming-bar regressions pass. The constant-parameter gate now includes 2,956
 cases and 19 independent oracles. Ordinary vector expectations are unchanged.
+
+The independent field-stress matrix also exposed MFI product/sum overflow and
+CCI deviation overflow in Python, and a false zero from overflowing variance
+in JavaScript correlation. Each has failing-before-fix regressions and separate
+expected results. The permanent matrix isolates price fields, argument series
+and volume, then supplies an ordinary recovery suffix. Its 882 histories include
+166 cases using the actual declared defaults, alongside preserved vector controls
+and lengths one and two. All histories also run through checkpoint restoration
+and replay, yielding 3,852 execution comparisons with no state discrepancies.
 
 The companion chart release remains a separate 2.5.4 deliverable. Its deferred
 higher-timeframe input controls remain excluded. Testing existing requested

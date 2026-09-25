@@ -9,7 +9,7 @@ import { compareResults } from './compare.mjs';
 import { drive, loadEngine } from './javascript.mjs';
 import { assertDenominator, parseResults, validateCases, validateScope } from './protocol.mjs';
 
-export { buildCorpus } from './corpus.mjs';
+export { buildBoundaryCorpus, buildCorpus } from './corpus.mjs';
 export { compareResults } from './compare.mjs';
 export { assertDenominator, bits, decode, encode, fromBits, parseResults, validateCases, validateScope } from './protocol.mjs';
 
@@ -33,7 +33,7 @@ export async function runStatefulAudit({ root, output }) {
   const liveKeys = built.manifestEntries().filter((row) => row.state && row.effect === 'none').map((row) => `${row.name}/${row.arity}`).sort();
   // Refuse incomplete registries before spending time on the corpus.
   assertDenominator(scope, indexedKeys, liveKeys, scope.keys, scope.keys);
-  const corpus = buildCorpus(indexed, (file) => read(`spec/vectors/library/${file}`));
+  const corpus = buildCorpus(indexed, (file) => read(`spec/vectors/library/${file}`), built.libraryEntries);
   const oracles = read('spec/vectors/numerical-audit/stateful-oracles.json');
   if (!Array.isArray(oracles) || oracles.length === 0 || oracles.some((item) => !item.oracle)) {
     throw new Error('case: independent oracle cases must be a nonempty array');

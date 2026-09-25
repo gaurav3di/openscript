@@ -4,6 +4,8 @@ import { bits } from './protocol.mjs';
 const seriesNames = new Set(['src', 'a', 'b', 'x', 'y', 'price']);
 const priceFacts = new Set(['open', 'high', 'low', 'close', 'previousClose']);
 const holes = new Set([0, 1, 17, 63, 64, 129, 253, 255]);
+const lengths = new Set(['len', 'fast', 'slow', 'signal', 'diLen', 'adxLen', 'atrLen', 'convLen', 'baseLen', 'spanLen',
+  'longLen', 'shortLen', 'len1', 'len2', 'len3', 'rsiLen', 'stochLen', 'smoothK', 'smoothD', 'left', 'right', 'n']);
 const recoveryValue = (at) => at < 2 ? 1e308 : 1 + (at - 2) % 4;
 const numericCell = (value) => value === null ? null : bits(value);
 const patterns = [
@@ -51,7 +53,68 @@ function numericData(value, transform) {
   return value;
 }
 
-export function buildCorpus(indexed, readVector) {
+function boundaryCases(row, original, declarations) {
+  const close = at => 100 + at % 4;
+  const has = name => original.bar?.[name]?.kind === 'number';
+  const scenarios = ['ordinary', ...original.args.filter(c => seriesNames.has(c.name) && c.kind === 'number').map(c => `arg.${c.name}`),
+    ...(has('volume') ? ['volume-product', 'volume-product-down', 'volume-sum', 'volume-hole'] : []),
+    ...(has('high') ? ['high-only'] : []), ...(has('low') ? ['low-only'] : []),
+    ...(has('high') && has('low') ? ['range'] : []),
+    ...(has('close') || has('previousClose') ? ['opposite-close'] : [])];
+  const declared = declarations?.(row.name).find(entry => entry.parameters.length === row.arity);
+  if (declarations && !declared) throw new Error(`case: no declared signature for ${row.name}/${row.arity}`);
+  const defaults = new Map();
+  for (const parameter of declared?.parameters ?? []) {
+    if (parameter.defaultText === undefined || seriesNames.has(parameter.name)) continue;
+    let value;
+    try { value = parameter.defaultText === 'none' ? null : JSON.parse(parameter.defaultText); }
+    catch { throw new Error(`case: unsupported control default ${row.name}.${parameter.name}`); }
+    if (value !== null && !['number', 'string', 'boolean'].includes(typeof value)) throw new Error('case: invalid default literal');
+    defaults.set(parameter.name, typeof value === 'number' ? bits(value) : value);
+  }
+  const presets = ['vector', ...(original.args.some(c => lengths.has(c.name)) ? ['length-1', 'length-2'] : []),
+    ...(defaults.size ? ['declared-defaults'] : [])];
+  const cases = [];
+  for (const preset of presets) for (const scenario of scenarios) {
+    const c = caseOf(row, original, `boundary:${preset}:${scenario}`, 256);
+    numericData(c, (at, name) => close(at) + (name === 'high' ? 1 : name === 'low' ? -1 : 0));
+    for (const arg of c.args) {
+      if (lengths.has(arg.name) && preset.startsWith('length-')) arg.values.fill(bits(preset === 'length-1' ? 1 : 2));
+      if (preset === 'declared-defaults' && defaults.has(arg.name)) arg.values.fill(defaults.get(arg.name));
+    }
+    const write = (name, at, value) => { if (c.bar?.[name]) c.bar[name].values[at] = numericCell(value); };
+    if (scenario.startsWith('arg.')) {
+      const arg = c.args.find(column => column.name === scenario.slice(4));
+      arg.values[64] = bits(-1e308); arg.values[65] = bits(1e308);
+      // A later gap must expire without hiding the ordinary recovery suffix.
+      arg.values[69] = null;
+    }
+    if (scenario === 'volume-product' || scenario === 'volume-hole') write('volume', 65, Number.MAX_VALUE);
+    if (scenario === 'volume-product-down') write('volume', 68, Number.MAX_VALUE);
+    if (scenario === 'volume-hole') write('volume', 69, null);
+    if (scenario === 'volume-sum') for (const at of [65, 66]) write('volume', at, Number.MAX_VALUE / 128);
+    if (scenario === 'high-only' || scenario === 'range') for (const at of [65, 66]) write('high', at, Number.MAX_VALUE);
+    if (scenario === 'low-only' || scenario === 'range') for (const at of [65, 66]) write('low', at, -Number.MAX_VALUE);
+    if (scenario === 'opposite-close') {
+      for (const [at, value] of [[64, -1e308], [65, 1e308]]) {
+        write('close', at, value); write('previousClose', at + 1, value);
+      }
+    }
+    cases.push(c);
+  }
+  return cases;
+}
+
+/** Independent named-boundary stress with a long ordinary recovery suffix. */
+export function buildBoundaryCorpus(indexed, readVector, declarations) {
+  return indexed.flatMap(row => {
+    const original = readVector(row.file).cases.find(c => c.id === 'full-0');
+    if (!original) throw new Error(`case: ${row.file} needs a full-0 boundary seed`);
+    return boundaryCases(row, original, declarations);
+  });
+}
+
+export function buildCorpus(indexed, readVector, declarations) {
   const cases = [];
   for (const row of indexed) {
     const vector = readVector(row.file);
@@ -59,6 +122,7 @@ export function buildCorpus(indexed, readVector) {
     for (const original of vector.cases) cases.push(caseOf(row, original, `baseline:${original.id}`));
     const original = vector.cases.find((c) => c.id === 'full-0');
     if (!original) throw new Error(`case: ${row.file} needs a full-0 mutation seed`);
+    cases.push(...boundaryCases(row, original, declarations));
     cases.push(caseOf(row, original, 'repeat-512', 512));
     for (const [name, transform] of patterns) cases.push(numericData(caseOf(row, original, name, 256), transform));
     const columns = original.args.filter((c) => seriesNames.has(c.name) || c.name === 'cond').map((c) => ['arg', c.name]);

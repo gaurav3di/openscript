@@ -98,7 +98,7 @@ The engine inventory is complete: all 116 scalar/stateful keys plus five numeric
 array reducers and three conversions have drivers. The separate audit modules
 retain the shared baseline vectors and add adversarial inputs, changing controls,
 independent oracles, rollback and replay checks. All three strict gates pass,
-covering 601,740 accepted calls across 3,308 cases without tolerance. Corrected
+covering 1,504,908 accepted calls across 6,836 cases without tolerance. Corrected
 kernels and vector changes have independent rounding certificates.
 
 Both package manifests are prepared as 0.7.0 with compiled format 1.1 unchanged.
@@ -108,6 +108,10 @@ remain separate pending work; the engine result does not close that coverage.
 
 Expanded compiled chart compositions exposed Python overflow-boundary defects
 in TSI, RSI and Ultimate Oscillator. Regression tests failed before their
-normalization fixes. The complete suite now passes 2,131 JavaScript tests and
-948 Python tests; all strict numerical gates pass with ten additional oracles.
+normalization fixes. An independent field-stress matrix also found MFI and CCI
+overflow in Python and correlation overflow in JavaScript. These now propagate
+absence at the specified boundaries and recover with fresh finite windows.
+The complete suite now passes 2,161 JavaScript tests and 956 Python tests.
+All strict numerical gates pass, including declared defaults, isolated field
+shocks, 963 checkpoint restoration cases and 963 replay cases.
 Both manifests remain at 0.7.0 and no tag or registry version has been published.

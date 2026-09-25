@@ -166,14 +166,14 @@ def money_flow(state: Region, ctx, length: Optional[int]) -> Value:
     rise = ABSENT
     fall = ABSENT
     if isinstance(price, float) and traded is not None and isinstance(before, float):
-        flow = price * traded
+        flow = result(price * traded)
         rise = flow if price > before else 0.0
         fall = flow if price < before else 0.0
     rises = window(contributed(state, "rise", rise, length), length)
     falls = window(contributed(state, "fall", fall, length), length)
     if rises is None or falls is None:
         return ABSENT
-    return strength.line_of(total(rises), total(falls))
+    return strength.line_of(result(total(rises)), result(total(falls)))
 
 
 def movement(state: Region, ctx, length: Optional[int]) -> Value:

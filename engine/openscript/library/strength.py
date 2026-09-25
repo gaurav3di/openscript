@@ -158,11 +158,15 @@ def deviation_reading(state: Region, ctx, length: Optional[int]) -> Value:
     held = window(contributed(state, "src", price, length), length)
     if held is None or length is None or not isinstance(price, float):
         return ABSENT
-    middle = mean(held, length)
+    middle = result(mean(held, length))
+    if not isinstance(middle, float):
+        return ABSENT
     spread = 0.0
     for at in range(length - 1, -1, -1):
         spread = spread + abs(held[at] - middle)
-    spread = spread / length
+    spread = result(spread / length)
+    if not isinstance(spread, float):
+        return ABSENT
     divisor = 0.015 * spread
     if divisor == 0:
         return ABSENT

@@ -22,7 +22,7 @@ export async function runVaryingAudit({ root, output }) {
   const built = await loadEngine(root);
   const liveKeys = built.manifestEntries().filter(row => row.state && row.effect === 'none').map(row => `${row.name}/${row.arity}`).sort();
   assertDenominator(scope, indexedKeys, liveKeys, scope.keys, scope.keys);
-  const corpus = buildVaryingCorpus(indexed, file => read(`spec/vectors/library/${file}`));
+  const corpus = buildVaryingCorpus(indexed, file => read(`spec/vectors/library/${file}`), built.libraryEntries);
   const oracles = read('spec/vectors/numerical-audit/varying-oracles.json');
   if (!Array.isArray(oracles) || oracles.length === 0 || oracles.some(c => !c.oracle)) {
     throw new Error('case: independent oracles must be a nonempty array');

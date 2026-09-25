@@ -13,6 +13,47 @@ const fixture = () => ({
   args: [column([1, 2])], bar: {}, outputColumns: 1,
   oracle: { expected: [[null], [2]], reason: 'The first observation warms up; the second reports two.' },
 });
+
+test('boundary matrix isolates volume, range and source shocks at each short length', () => {
+  const row = { name: 'probe', arity: 2, state: true, file: 'probe.json' };
+  const original = { id: 'full-0', bars: 2, args: [column([1, 2]), { ...column([20, 20]), name: 'len' }],
+    bar: { high: column([2, 3]), low: column([0, 1]), close: column([1, 2]), volume: column([2, 3]),
+      previousClose: column([null, 1]) }, outputs: [column([null, 2])] };
+  const corpus = buildCorpus([row], () => ({ cases: [original] }));
+  for (const preset of ['vector', 'length-1', 'length-2']) {
+    const scenario = kind => corpus.find(c => c.scenario === `boundary:${preset}:${kind}`);
+    const volume = scenario('volume-product');
+    assert.ok(volume, `Missing ${preset} independent volume shock`);
+    assert.equal(volume.bar.volume.values[65], bits(Number.MAX_VALUE));
+    assert.equal(volume.bar.close.values[65], bits(101));
+    assert.equal(volume.bar.high.values[65], bits(102));
+    assert.equal(volume.bar.low.values[65], bits(100));
+    assert.equal(volume.bar.volume.values[67], bits(1));
+    const range = scenario('range');
+    assert.equal(range.bar.high.values[65], bits(Number.MAX_VALUE));
+    assert.equal(range.bar.low.values[65], bits(-Number.MAX_VALUE));
+    assert.equal(range.bar.close.values[65], bits(101));
+    assert.equal(range.bar.volume.values[65], bits(1));
+    const source = scenario('arg.src');
+    assert.deepEqual(source.args[0].values.slice(64, 67), [bits(-1e308), bits(1e308), bits(102)]);
+    assert.notEqual(source.bar.close.values[64], bits(-1e308));
+    assert.equal(source.args[0].values[255], bits(103));
+    assert.equal(volume.args[1].values[0], bits(preset === 'vector' ? 20 : preset === 'length-1' ? 1 : 2));
+  }
+});
+
+test('boundary defaults come from declared metadata without replacing required controls', () => {
+  const row = { name: 'probe', arity: 2, state: true, file: 'probe.json' };
+  const original = { id: 'full-0', bars: 2, args: [column([1, 2]), { ...column([20, 20]), name: 'len' }],
+    bar: {}, outputs: [column([null, 2])] };
+  const declarations = () => [{ parameters: [{ name: 'src' }, { name: 'len', defaultText: '14' }] }];
+  const corpus = buildCorpus([row], () => ({ cases: [original] }), declarations);
+  const declared = corpus.find(c => c.scenario === 'boundary:declared-defaults:arg.src');
+  assert.ok(declared);
+  assert.equal(declared.args[1].values[0], bits(14));
+  assert.deepEqual(declared.args[0].values.slice(64, 66), [bits(-1e308), bits(1e308)]);
+  assert.throws(() => buildCorpus([row], () => ({ cases: [original] }), () => []), /declared signature/);
+});
 const record = () => ({ id: 'probe:ordinary', key: 'probe/1', rows: [[null], [{ bits: bits(2) }]], exception: null });
 const compare = (js = record(), python = record(), policy = scope, item = fixture()) =>
   compareResults([item], [js], [python], policy);

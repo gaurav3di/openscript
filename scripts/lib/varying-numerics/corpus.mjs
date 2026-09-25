@@ -1,5 +1,5 @@
 /** Deterministic changing controls, using committed vector argument shapes. */
-import { bits } from '../stateful-numerics/index.mjs';
+import { bits, buildBoundaryCorpus } from '../stateful-numerics/index.mjs';
 
 const lengths = new Set(['len', 'fast', 'slow', 'signal', 'diLen', 'adxLen', 'atrLen', 'convLen', 'baseLen', 'spanLen',
   'longLen', 'shortLen', 'len1', 'len2', 'len3', 'rsiLen', 'stochLen', 'smoothK', 'smoothD', 'left', 'right', 'n']);
@@ -76,7 +76,7 @@ function base(row, vector, scenario) {
     ...(seed.host ? { host: structuredClone(seed.host) } : {}) };
 }
 
-export function buildVaryingCorpus(indexed, read) {
+export function buildVaryingCorpus(indexed, read, declarations) {
   const cases = [], inventory = [];
   for (const row of indexed) {
     const vector = read(row.file);
@@ -122,6 +122,20 @@ export function buildVaryingCorpus(indexed, read) {
     const replayed = structuredClone(all);
     replayed.id = `${all.key}:replayed`; replayed.scenario = 'replayed'; replayed.replayFrom = count / 2;
     replayed.comparisonCase = all.id;
+    cases.push(replayed);
+  }
+  for (const original of buildBoundaryCorpus(indexed, read, declarations)) {
+    const baseline = { ...original };
+    delete baseline.originCase;
+    delete baseline.call;
+    cases.push(baseline);
+    const restored = structuredClone(baseline);
+    restored.id += ':restored'; restored.scenario += ':restored'; restored.comparisonCase = baseline.id;
+    restored.restore = [{ at: 63, trial: 65 }, { at: 65, trial: 0 }, { at: 67, trial: 65 }, { at: 129, trial: 65 }];
+    cases.push(restored);
+    const replayed = structuredClone(baseline);
+    replayed.id += ':replayed'; replayed.scenario += ':replayed'; replayed.comparisonCase = baseline.id;
+    replayed.replayFrom = 64;
     cases.push(replayed);
   }
   return { cases, inventory };
