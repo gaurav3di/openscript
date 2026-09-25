@@ -21,7 +21,9 @@ export function cmfStep(
 ): Value {
   const flow = sumStep(state, `${key}f`, moneyFlow(bar), len);
   const traded = sumStep(state, `${key}v`, bar.volume, len);
-  if (!isPresent(flow) || !isPresent(traded) || !(traded > 0)) return NONE;
+  // A ratio is absent where its divisor is zero, and only there: a window whose
+  // volume sums below zero divides like any other.
+  if (!isPresent(flow) || !isPresent(traded) || traded === 0) return NONE;
   return result(flow / traded);
 }
 

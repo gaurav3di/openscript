@@ -90,6 +90,19 @@ test('volume studies are absent throughout when the host supplies no volume', ()
   for (const value of lib.relativeVolume(noVolume, 20)) assert.equal(value, null);
 });
 
+// Catches: a cmf that also refuses a window whose volume sums below zero. A
+// ratio is absent where its divisor is zero and nowhere else.
+test('cmf is absent only where its window volume sums to zero', () => {
+  const rows: [number, number, number, number, number][] = [
+    [10, 11, 9, 10, 5], [10, 12, 9, 11, -8], [11, 13, 10, 12, -4], [12, 13, 10, 11, 3],
+    [11, 12, 9, 10, -6], [10, 12, 9, 11, 6], [11, 13, 10, 12, -2],
+  ];
+  const bars = rows.map(([open, high, low, close, volume], i) => ({ ...BARS[i], open, high, low, close, volume }));
+  assertSame(lib.cmf(bars, 2),
+    [null, 0.8888888888888888, 0.3333333333333333, 2.333333333333333, -0.3333333333333333, null, 0.33333333333333337],
+    'cmf over negative window volumes');
+});
+
 // Catches: an array that grows as warmup completes, which would make an index
 // an out-of-range error at the left edge of a chart and nowhere else.
 test('a multi-output array is present and full length on a warmup bar', () => {

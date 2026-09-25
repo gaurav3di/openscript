@@ -30,10 +30,15 @@ words.
 
 Both engines were wrong in the same way, which is why exact agreement between
 them never showed it. Independent expected results now cover every case above,
-through compiled programs, forming-bar updates and restored checkpoints, and four
-new conformance cases pin the specified values. The strict numerical gates
+through compiled programs, forming-bar updates and restored checkpoints, and new
+conformance cases pin the specified values. The strict numerical gates
 compare 1,504,962 accepted calls with no differing bits or absent values, and
 the library vectors for ordinary inputs are unchanged.
+
+Separately, the TypeScript engine read `cmf` as `none` on any window whose volume sums
+below zero; the Python engine divided, as the rule that a ratio is absent only
+where its divisor is zero requires. Both now divide, and a fifth conformance case
+pins it.
 
 Upgrade both packages together. No source migration or compiled-format change
 is required. Recompute stored `pvt`, `vwap`, `vwapAnchor`, `ad`, `adOsc` or `cmf`

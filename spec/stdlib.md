@@ -3339,7 +3339,8 @@ contributes an exact 0 rather than ending the total. A span that overflows is no
 such a bar: it is absent, and the term with it, because dividing by the raw
 infinity would give an exact 0 for a bar whose position was never computed. `ad`
 is the running total of that term. `cmf` is the window sum of the term divided by the window sum of the
-volume, each the fresh sum of 20.2.1.
+volume, each the fresh sum of 20.2.1. Like any ratio it is absent where that volume sum is zero, and
+only there: a window whose volume sums below zero divides like any other.
 
 **`adOsc(fast, slow)`** is the fast exponential mean of the running total less
 the slow one, in that order. The averages run over the running total, not over
