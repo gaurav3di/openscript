@@ -1,0 +1,479 @@
+[
+    {
+        "id":  "oracle:stateless:abs:1",
+        "key":  "abs/1",
+        "name":  "abs",
+        "arity":  1,
+        "bars":  3,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "c008000000000000",
+                                        "8000000000000000",
+                                        null
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            3
+                                        ],
+                                        [
+                                            0
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "Absolute value changes only a finite negative sign and normalizes zero; absence stays absent."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:sqrt:1",
+        "key":  "sqrt/1",
+        "name":  "sqrt",
+        "arity":  1,
+        "bars":  5,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "4022000000000000",
+                                        "0000000000000001",
+                                        "0000000000000000",
+                                        "bff0000000000000",
+                                        null
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            3
+                                        ],
+                                        [
+                                            2.2227587494850775E-162
+                                        ],
+                                        [
+                                            0
+                                        ],
+                                        [
+                                            null
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "Nine is a perfect square. The least subnormal is exactly 2^-1074 and its square root is exactly 2^-537. Negative and absent arguments have no result."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:math-hypot:2",
+        "key":  "math.hypot/2",
+        "name":  "math.hypot",
+        "arity":  2,
+        "bars":  4,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "4008000000000000",
+                                        "c008000000000000",
+                                        "0000000000000001",
+                                        "7fefffffffffffff"
+                                    ]
+                     },
+                     {
+                         "name":  "y",
+                         "kind":  "number",
+                         "values":  [
+                                        "4010000000000000",
+                                        "c010000000000000",
+                                        "0000000000000001",
+                                        "7fefffffffffffff"
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            5
+                                        ],
+                                        [
+                                            5
+                                        ],
+                                        [
+                                            4.94065645841247E-324
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "The 3-4-5 triangle is exact. Square root of two subnormal units squared is nearer one unit than two. Two maximum finite legs exceed the finite rounded result range."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:pow:2",
+        "key":  "pow/2",
+        "name":  "pow",
+        "arity":  2,
+        "bars":  6,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "4000000000000000",
+                                        "c000000000000000",
+                                        "0000000000000000",
+                                        "4000000000000000",
+                                        "4000000000000000",
+                                        "4000000000000000"
+                                    ]
+                     },
+                     {
+                         "name":  "y",
+                         "kind":  "number",
+                         "values":  [
+                                        "4024000000000000",
+                                        "4008000000000000",
+                                        "0000000000000000",
+                                        "c090c80000000000",
+                                        "c090cc0000000000",
+                                        "4090000000000000"
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            1024
+                                        ],
+                                        [
+                                            -8
+                                        ],
+                                        [
+                                            1
+                                        ],
+                                        [
+                                            4.94065645841247E-324
+                                        ],
+                                        [
+                                            0
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "Integer powers have exact algebraic values. The minimum subnormal is 2^-1074; 2^-1075 ties with zero and rounds to even zero; 2^1024 overflows."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:exp:1",
+        "key":  "exp/1",
+        "name":  "exp",
+        "arity":  1,
+        "bars":  3,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "0000000000000000",
+                                        "c08f400000000000",
+                                        null
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            1
+                                        ],
+                                        [
+                                            0
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "The exponential at zero is exactly one. The positive real exponential at -1000 lies below half the minimum subnormal and rounds to zero."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:log:1",
+        "key":  "log/1",
+        "name":  "log",
+        "arity":  1,
+        "bars":  4,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "3ff0000000000000",
+                                        "0000000000000000",
+                                        "bff0000000000000",
+                                        null
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            0
+                                        ],
+                                        [
+                                            null
+                                        ],
+                                        [
+                                            null
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "Natural logarithm of one is exactly zero. Nonpositive and absent arguments do not produce a finite real result."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:mod:2",
+        "key":  "mod/2",
+        "name":  "mod",
+        "arity":  2,
+        "bars":  3,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "c014000000000000",
+                                        "4014000000000000",
+                                        "4014000000000000"
+                                    ]
+                     },
+                     {
+                         "name":  "y",
+                         "kind":  "number",
+                         "values":  [
+                                        "4008000000000000",
+                                        "c008000000000000",
+                                        "0000000000000000"
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            1
+                                        ],
+                                        [
+                                            -1
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "The specified floored remainder a-b*floor(a/b) gives one and minus one for these exact integer inputs; a zero divisor is absent."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:round:1",
+        "key":  "round/1",
+        "name":  "round",
+        "arity":  1,
+        "bars":  4,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "bff8000000000000",
+                                        "3ff8000000000000",
+                                        "bfe0000000000000",
+                                        "3fe0000000000000"
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            -2
+                                        ],
+                                        [
+                                            2
+                                        ],
+                                        [
+                                            -1
+                                        ],
+                                        [
+                                            1
+                                        ]
+                                    ],
+                       "reason":  "Whole-number rounding uses halves away from zero, including the half immediately adjacent to zero."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:round:2",
+        "key":  "round/2",
+        "name":  "round",
+        "arity":  2,
+        "bars":  3,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        "bff4000000000000",
+                                        "3ff4000000000000",
+                                        "405f400000000000"
+                                    ]
+                     },
+                     {
+                         "name":  "y",
+                         "kind":  "number",
+                         "values":  [
+                                        "3ff0000000000000",
+                                        "3ff0000000000000",
+                                        "0000000000000000"
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            -1.3
+                                        ],
+                                        [
+                                            1.3
+                                        ],
+                                        [
+                                            125
+                                        ]
+                                    ],
+                       "reason":  "Precision is nonnegative. Scaling the first two inputs by ten gives exact half-integers before halves-away rounding; precision zero preserves the exact integer 125."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:isNone:1",
+        "key":  "isNone/1",
+        "name":  "isNone",
+        "arity":  1,
+        "bars":  3,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        null,
+                                        "0000000000000000",
+                                        "4008000000000000"
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            true
+                                        ],
+                                        [
+                                            false
+                                        ],
+                                        [
+                                            false
+                                        ]
+                                    ],
+                       "reason":  "Absence detection returns a boolean and must distinguish absence from numeric zero."
+                   }
+    },
+    {
+        "id":  "oracle:stateless:orElse:2",
+        "key":  "orElse/2",
+        "name":  "orElse",
+        "arity":  2,
+        "bars":  3,
+        "args":  [
+                     {
+                         "name":  "x",
+                         "kind":  "number",
+                         "values":  [
+                                        null,
+                                        "4000000000000000",
+                                        null
+                                    ]
+                     },
+                     {
+                         "name":  "y",
+                         "kind":  "number",
+                         "values":  [
+                                        "4008000000000000",
+                                        "4008000000000000",
+                                        null
+                                    ]
+                     }
+                 ],
+        "bar":  {
+
+                },
+        "outputColumns":  1,
+        "oracle":  {
+                       "expected":  [
+                                        [
+                                            3
+                                        ],
+                                        [
+                                            2
+                                        ],
+                                        [
+                                            null
+                                        ]
+                                    ],
+                       "reason":  "Fallback selects its second argument only when the first is absent, without converting an absent fallback to zero."
+                   }
+    }
+]

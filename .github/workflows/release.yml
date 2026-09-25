@@ -48,6 +48,9 @@ jobs:
       # is the worst possible moment to discover a red suite.
       - run: npm test
 
+      - name: exact numerical agreement between both engines
+        run: npm run audit:numerics
+
       # A release must say what changed. Checked here rather than on every
       # commit, because between a version bump and its entry there is a
       # legitimate moment where the two disagree; a published version with an

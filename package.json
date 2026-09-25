@@ -52,7 +52,10 @@
   "scripts": {
     "audit:stateful": "node --disallow-code-generation-from-strings scripts/check-stateful-numerics.mjs",
     "audit:stateful:report": "node --disallow-code-generation-from-strings scripts/check-stateful-numerics.mjs --report-only",
-    "test:audit": "node --disallow-code-generation-from-strings --test scripts/test-stateful-numerics.mjs",
+    "audit:stateless": "node --disallow-code-generation-from-strings scripts/check-stateless-numerics.mjs",
+    "audit:stateless:report": "node --disallow-code-generation-from-strings scripts/check-stateless-numerics.mjs --report-only",
+    "audit:numerics": "npm run test:audit && npm run audit:stateful && npm run audit:stateless",
+    "test:audit": "node --disallow-code-generation-from-strings --test scripts/test-stateful-numerics.mjs scripts/test-stateless-numerics.mjs",
     "check:names": "node --disallow-code-generation-from-strings scripts/check-names.mjs",
     "check:no-eval": "npm run build && npm run build:test && node --disallow-code-generation-from-strings scripts/check-no-eval.mjs",
     "check:examples": "node --disallow-code-generation-from-strings scripts/check-examples.mjs",

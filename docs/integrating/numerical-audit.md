@@ -67,18 +67,29 @@ missing key, changed output shape, exception, non-finite leak, failed oracle or
 differing bit makes the strict command fail. Platform labels only classify
 findings; they do not allow a numerical difference.
 
-`npm run test:audit` attacks the comparator and input protocol with deliberate
+`npm run audit:stateless` covers 35 declared scalar numerical calls, including
+power outside the original vector inventory. It retains 142 baseline cases and
+adds 8,260 edge comparisons and 11 independent oracle cases. It checks the
+registry bindings directly, including raw signed-zero inputs, and reports any
+non-normalized output. Compiled-program boundary checks separately establish
+which raw binding behavior is visible through a public engine.
+
+`npm run test:audit` attacks both audit harnesses and their input protocol with deliberate
 wrong numbers, absence shifts, missing columns, omitted functions and malformed
-records. `npm run audit:stateful:report` is an exploratory mode that can finish
+records. Commands ending in `:report` are exploratory modes that can finish
 successfully while printing `exactAgreement: false`. It is not a release gate.
 Use `--output <directory>` with the underlying script to retain every input,
 output, difference and summary in a chosen directory. With no directory, it uses
 a temporary directory and prints its location.
 
-This gate covers constant-parameter calls and includes exact baseline vectors,
-extreme values, independent holes and anchor patterns. Varying-parameter,
-stateless, array, conversion and compiled-program checks remain additional
-requirements; this command does not silently claim them.
+The stateful gate covers constant-parameter calls and includes exact baseline
+vectors, extreme values, overflow followed by ordinary values, independent holes
+and anchor patterns. Varying-parameter, array, conversion and compiled-program
+checks remain additional requirements; these commands do not silently claim them.
+
+`npm run audit:numerics` runs the harness tests followed by both strict gates.
+Both publishing workflows require it after the full package checks. A remaining
+platform-math difference blocks publication, even when it is only one bit.
 
 Each defect needs a failing regression, an identified contract and a correction to
 the responsible implementation. Keep both runtimes dependency-free and compiled

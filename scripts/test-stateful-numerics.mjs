@@ -110,6 +110,13 @@ test('scope accepts only its declared schema and fields', () => {
   ]) assert.throws(() => validateScope(invalid), /scope/);
 });
 
+test('scope permits dotted names with complete identifier segments', () => {
+  assert.doesNotThrow(() => validateScope({ ...scope, keys: ['math.acos/1', 'math.pi/0'] }));
+  for (const key of ['.acos/1', 'math./1', 'math..acos/1', 'math.1acos/1']) {
+    assert.throws(() => validateScope({ ...scope, keys: [key] }), /scope/);
+  }
+});
+
 test('protocol rejects malformed, missing, duplicated and shuffled records', () => {
   const line = JSON.stringify(record());
   assert.deepEqual(parseResults(line + '\n', [fixture()]), [record()]);
@@ -168,4 +175,21 @@ test('mutations preserve baselines and create separate holes in paired inputs', 
   assert.notEqual(b.args[0].values[0], null);
   assert.equal(b.args[1].values[0], null);
   assert.equal(corpus.find((c) => c.scenario === 'repeat-512').bars, 512);
+});
+
+test('overflow mutations return to ordinary inputs and retain recovery holes', () => {
+  const row = { name: 'probe', arity: 1, state: true, file: 'probe.json' };
+  const original = { id: 'full-0', bars: 2, args: [column([1, 2])],
+    bar: { high: column([2, 3]), previousClose: column([null, 1]) }, outputs: [column([null, 2])] };
+  const corpus = buildCorpus([row], () => ({ cases: [original] }));
+  const ordinary = corpus.find((c) => c.scenario === 'overflow-then-ordinary');
+  assert.deepEqual(ordinary.args[0].values.slice(0, 4), [bits(1e308), bits(1e308), bits(1), bits(2)]);
+  assert.equal(ordinary.args[0].values[255], bits(2));
+  const recovery = corpus.find((c) => c.scenario === 'overflow-holes-recovery');
+  assert.equal(recovery.args[0].values[40], null);
+  assert.equal(recovery.args[0].values[41], null);
+  assert.equal(recovery.args[0].values[42], bits(1));
+  assert.equal(recovery.bar.high.values[40], null);
+  assert.equal(recovery.bar.previousClose.values[41], null);
+  assert.equal(recovery.bar.previousClose.values[43], bits(1));
 });

@@ -27,7 +27,7 @@ export function validateScope(scope) {
     fail('scope', 'expected schemaVersion 1, nonempty keys and platformDiagnostics only');
   }
   const keys = scope.keys;
-  if (keys.some((key) => typeof key !== 'string' || !/^[A-Za-z][A-Za-z0-9]*\/[0-9]+$/.test(key))
+  if (keys.some((key) => typeof key !== 'string' || !/^[A-Za-z][A-Za-z0-9]*(?:\.[A-Za-z][A-Za-z0-9]*)*\/[0-9]+$/.test(key))
       || new Set(keys).size !== keys.length || !same([...keys].sort(), keys)) {
     fail('scope', 'keys must be sorted unique name/arity strings');
   }

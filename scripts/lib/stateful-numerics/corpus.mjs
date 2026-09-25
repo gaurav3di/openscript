@@ -4,6 +4,8 @@ import { bits } from './protocol.mjs';
 const seriesNames = new Set(['src', 'a', 'b', 'x', 'y', 'price']);
 const priceFacts = new Set(['open', 'high', 'low', 'close', 'previousClose']);
 const holes = new Set([0, 1, 17, 63, 64, 129, 253, 255]);
+const recoveryValue = (at) => at < 2 ? 1e308 : 1 + (at - 2) % 4;
+const numericCell = (value) => value === null ? null : bits(value);
 const patterns = [
   ['zero', () => 0],
   ['flat-positive', () => 7],
@@ -17,6 +19,8 @@ const patterns = [
   ['subnormal-flat', () => Number.MIN_VALUE],
   ['subnormal-alternating', (i) => [Number.MIN_VALUE, 2 * Number.MIN_VALUE, 0, -Number.MIN_VALUE][i % 4]],
   ['tiny-normal', (i) => [1e-200, 2e-200, 3e-200, 4e-200][i % 4]],
+  ['overflow-then-ordinary', recoveryValue],
+  ['overflow-holes-recovery', (i) => [40, 41, 129].includes(i) ? null : recoveryValue(i)],
 ];
 
 function caseOf(row, original, scenario, bars = original.bars) {
@@ -35,13 +39,13 @@ function caseOf(row, original, scenario, bars = original.bars) {
 function numericData(value, transform) {
   for (const column of value.args) {
     if (seriesNames.has(column.name) && column.kind === 'number') {
-      column.values = column.values.map((_v, at) => bits(transform(at, column.name)));
+      column.values = column.values.map((_v, at) => numericCell(transform(at, column.name)));
     }
   }
   for (const [name, column] of Object.entries(value.bar ?? {})) {
     if (!priceFacts.has(name) || column.kind !== 'number') continue;
     column.values = column.values.map((_v, at) => name === 'previousClose' && at === 0
-      ? null : bits(transform(name === 'previousClose' ? at - 1 : at, name)));
+      ? null : numericCell(transform(name === 'previousClose' ? at - 1 : at, name)));
   }
   if (value.bar?.volume) value.bar.volume.values = Array(value.bars).fill(bits(1));
   return value;
