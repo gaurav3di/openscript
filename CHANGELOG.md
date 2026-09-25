@@ -7,6 +7,17 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## Unreleased
+
+The numerical audit is in progress. The Python engine now returns absence rather
+than raising a division exception when CCI's scaled deviation underflows to zero
+or signed money flows produce a zero composed divisor. Later bars continue to
+calculate, and ordinary values retain their existing arithmetic order.
+
+Compiled conformance cases now cover those recovery paths, all five numeric array
+reductions, empty and absent arrays, cancellation order and decimal conversion
+boundaries. These checks supplement the existing shared library vectors.
+
 ## 0.6.0
 
 **An engine that implemented nothing passed the conformance suite, and now does

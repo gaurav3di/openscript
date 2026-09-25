@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"A scaled CCI divisor that underflows to zero produces absence and preserves later recovery.","id":"math/cci-subnormal","languageVersion":1,"profile":"core"}

@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"A zero composed money-flow divisor produces absence and preserves later recovery.","id":"math/mfi-zero-divisor","languageVersion":1,"profile":"core"}

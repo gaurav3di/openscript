@@ -44,7 +44,10 @@ def line_of(up: Value, down: Value) -> Value:
         return ABSENT
     if down == 0:
         return 100.0
-    return result(100 - 100 / (1 + up / down))
+    divisor = 1 + up / down
+    if divisor == 0:
+        return ABSENT
+    return result(100 - 100 / divisor)
 
 
 def rises_and_falls(values) -> tuple:
@@ -158,9 +161,10 @@ def deviation_reading(state: Region, ctx, length: Optional[int]) -> Value:
     for at in range(length - 1, -1, -1):
         spread = spread + abs(held[at] - middle)
     spread = spread / length
-    if spread == 0:
+    divisor = 0.015 * spread
+    if divisor == 0:
         return ABSENT
-    return result((price - middle) / (0.015 * spread))
+    return result((price - middle) / divisor)
 
 
 def _placed(value: Optional[float], top: Value, bottom: Value) -> Value:
