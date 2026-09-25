@@ -53,6 +53,26 @@ columns and missing functions.
 
 ## Fix and release gates
 
+`npm run audit:stateful` compares every stateful numerical registry key in both
+engines with the committed scope and vector inventory, then runs the expanded
+input matrix and independent edge-case oracles. Run `npm run build` first. A
+missing key, changed output shape, exception, non-finite leak, failed oracle or
+differing bit makes the strict command fail. Platform labels only classify
+findings; they do not allow a numerical difference.
+
+`npm run test:audit` attacks the comparator and input protocol with deliberate
+wrong numbers, absence shifts, missing columns, omitted functions and malformed
+records. `npm run audit:stateful:report` is an exploratory mode that can finish
+successfully while printing `exactAgreement: false`. It is not a release gate.
+Use `--output <directory>` with the underlying script to retain every input,
+output, difference and summary in a chosen directory. With no directory, it uses
+a temporary directory and prints its location.
+
+This gate covers constant-parameter calls and includes exact baseline vectors,
+extreme values, independent holes and anchor patterns. Varying-parameter,
+stateless, array, conversion and compiled-program checks remain additional
+requirements; this command does not silently claim them.
+
 Each defect needs a failing regression, an identified contract and a correction to
 the responsible implementation. Keep both runtimes dependency-free and compiled
 format version 1 unless a separately justified format change is required. No

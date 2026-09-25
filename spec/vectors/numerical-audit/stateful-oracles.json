@@ -1,0 +1,495 @@
+[
+  {
+    "id": "minimal:cci",
+    "key": "cci/1",
+    "name": "cci",
+    "arity": 1,
+    "bars": 2,
+    "args": [
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "4000000000000000",
+          "4000000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "0000000000000001",
+          "0000000000000003"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "0000000000000001",
+          "0000000000000003"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "0000000000000001",
+          "0000000000000003"
+        ]
+      }
+    },
+    "outputColumns": 1,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ]
+      ],
+      "reason": "Typical prices are one and three minimum subnormal units. Mean is two units; mean absolute deviation is one unit. Multiplication by 0.015 rounds the divisor to zero, so the library absence contract requires none instead of a host division exception."
+    }
+  },
+  {
+    "id": "minimal:mfi",
+    "key": "mfi/1",
+    "name": "mfi",
+    "arity": 1,
+    "bars": 3,
+    "args": [
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "4000000000000000",
+          "4000000000000000",
+          "4000000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "bff0000000000000",
+          "3ff0000000000000",
+          "bff0000000000000"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "bff0000000000000",
+          "3ff0000000000000",
+          "bff0000000000000"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "bff0000000000000",
+          "3ff0000000000000",
+          "bff0000000000000"
+        ]
+      },
+      "volume": {
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    },
+    "outputColumns": 1,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          null
+        ]
+      ],
+      "reason": "At bar 2 the two flows sum to rise=1 and fall=-1. The specified divisor 1+rise/fall is zero. Finite signed prices produce an undefined ratio and must return none, never raise a host division exception."
+    }
+  },
+  {
+    "id": "minimal:vwapAnchor",
+    "key": "vwapAnchor/2",
+    "name": "vwapAnchor",
+    "arity": 2,
+    "bars": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "4024000000000000"
+        ]
+      },
+      {
+        "name": "resetWhen",
+        "kind": "bool",
+        "values": [
+          false
+        ]
+      }
+    ],
+    "bar": {
+      "volume": {
+        "kind": "number",
+        "values": [
+          "4000000000000000"
+        ]
+      }
+    },
+    "outputColumns": 1,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null
+        ]
+      ],
+      "reason": "No anchor has occurred, so declared warmup has not ended."
+    }
+  },
+  {
+    "id": "minimal:vwap",
+    "key": "vwap/1",
+    "name": "vwap",
+    "arity": 1,
+    "bars": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "4024000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "volume": {
+        "kind": "number",
+        "values": [
+          "4000000000000000"
+        ]
+      },
+      "isSessionFirst": {
+        "kind": "bool",
+        "values": [
+          false
+        ]
+      }
+    },
+    "outputColumns": 1,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null
+        ]
+      ],
+      "reason": "No session-opening anchor has occurred, so declared warmup has not ended."
+    }
+  },
+  {
+    "id": "minimal:aroon",
+    "key": "aroon/1",
+    "name": "aroon",
+    "arity": 1,
+    "bars": 2,
+    "args": [
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          null,
+          null
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "4000000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    },
+    "outputColumns": 2,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          100
+        ]
+      ],
+      "reason": "The low was set on the current bar, so down=100. Missing highs only make the up input unavailable."
+    }
+  },
+  {
+    "id": "minimal:donchian",
+    "key": "donchian/1",
+    "name": "donchian",
+    "arity": 1,
+    "bars": 1,
+    "args": [
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          null
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "4000000000000000"
+        ]
+      }
+    },
+    "outputColumns": 3,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null,
+          null,
+          2
+        ]
+      ],
+      "reason": "The lower extreme is known and is 2; upper and midpoint require the unavailable high."
+    }
+  },
+  {
+    "id": "minimal:psar",
+    "key": "psar/3",
+    "name": "psar",
+    "arity": 3,
+    "bars": 2,
+    "args": [
+      {
+        "name": "start",
+        "kind": "number",
+        "values": [
+          "3f947ae147ae147b",
+          "3f947ae147ae147b"
+        ]
+      },
+      {
+        "name": "step",
+        "kind": "number",
+        "values": [
+          "3f947ae147ae147b",
+          "3f947ae147ae147b"
+        ]
+      },
+      {
+        "name": "max",
+        "kind": "number",
+        "values": [
+          "3fc999999999999a",
+          "3fc999999999999a"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "4008000000000000",
+          "4000000000000000"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          null,
+          "0000000000000000"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "4000000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    },
+    "outputColumns": 2,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "reason": "The specification requires the first pair of complete bars. The previous low is missing, even though a falling seed would select the previous high."
+    }
+  },
+  {
+    "id": "minimal:supertrend",
+    "key": "supertrend/2",
+    "name": "supertrend",
+    "arity": 2,
+    "bars": 2,
+    "args": [
+      {
+        "name": "factor",
+        "kind": "number",
+        "values": [
+          "4008000000000000",
+          "4008000000000000"
+        ]
+      },
+      {
+        "name": "atrLen",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "7fefffffffffffff",
+          "7fefffffffffffff"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "7fefffffffffffff",
+          "7fefffffffffffff"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "7fefffffffffffff",
+          "7fefffffffffffff"
+        ]
+      },
+      "previousClose": {
+        "kind": "number",
+        "values": [
+          null,
+          "7fefffffffffffff"
+        ]
+      }
+    },
+    "outputColumns": 2,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null,
+          null
+        ],
+        [
+          null,
+          null
+        ]
+      ],
+      "reason": "The midpoint expression overflows under the documented operation order and becomes absent. A direction cannot be derived from that unavailable midpoint."
+    }
+  },
+  {
+    "id": "minimal:cmf",
+    "key": "cmf/1",
+    "name": "cmf",
+    "arity": 1,
+    "bars": 2,
+    "args": [
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "4000000000000000",
+          "4000000000000000"
+        ]
+      }
+    ],
+    "bar": {
+      "high": {
+        "kind": "number",
+        "values": [
+          "4000000000000000",
+          "4000000000000000"
+        ]
+      },
+      "low": {
+        "kind": "number",
+        "values": [
+          "0000000000000000",
+          "0000000000000000"
+        ]
+      },
+      "close": {
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      },
+      "volume": {
+        "kind": "number",
+        "values": [
+          "7fefffffffffffff",
+          "7fefffffffffffff"
+        ]
+      }
+    },
+    "outputColumns": 1,
+    "gaps": [],
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ]
+      ],
+      "reason": "The named window volume sum overflows and is absent. The outer ratio must propagate that absence instead of converting a raw infinite denominator to zero."
+    }
+  }
+]
