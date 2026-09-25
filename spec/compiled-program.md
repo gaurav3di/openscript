@@ -701,10 +701,22 @@ section 8.2). Both survive from bar to bar; both start uninitialised, and
 
 The contents of a state region are defined by the library, `stdlib.md` section 20,
 not here. What this document requires of the library is that a state region is
-**snapshottable by a mechanical copy**: a fixed record of numbers, booleans and strings, plus at most
-one queue of values with a bounded length. An engine must be able to copy and
-restore a region without knowing which function owns it, because the rollback and
-replay rules of section 6 apply to every region at once.
+**snapshottable by a mechanical copy**. A region contains scalar values, mutable
+queues or immutable contribution history. Copy mutable data; immutable history
+may share storage with its snapshot. Appending after either a snapshot or a
+restore must not change any older version, including a later branch that a host
+still retains. An engine must copy and restore a region without knowing which
+function owns it, because the rollback and replay rules of section 6 apply to
+every region at once.
+
+A length that can grow in a later execution requires earlier contributions to
+remain available. Storage may grow with the contributions for such a call, but
+appending or checkpointing must not copy its entire prefix. Bounded immutable
+chunks with a shared prefix satisfy that requirement. A proved constant or
+bounded length may use a bounded queue instead. Observing the same length so far
+does not prove a bound on future inputs. This is an internal storage rule, not a
+new field in the compiled program. `limits.history` retains its existing meaning
+for explicit register history reads.
 
 ### 2.12 functions and callSites
 

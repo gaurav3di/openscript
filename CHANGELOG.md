@@ -20,6 +20,17 @@ after initialization behaves as false and the bar still contributes. A money-flo
 ratio propagates an overflowed named sum as absence. Channel bounds are available
 independently, while their midpoint still requires both sides.
 
+Finite windows in both engines now retain contributions needed by a later larger
+length. The largest observed valid length sets readiness; the current length
+selects values and the divisor. Shrinking a length does not restart its history,
+and an absent length still contributes its source position. Immutable history
+chunks share checkpoints without copying the full prefix on each bar. Retained
+storage grows with contributions when no future length bound is known.
+
+In the Python engine, extreme ages keep each independently available output,
+stop initialization waits for two complete bars, and an overflowing trailing-band
+midpoint leaves band state and its last accepted close unchanged.
+
 Compiled conformance cases now cover those recovery paths, all five numeric array
 reductions, empty and absent arrays, cancellation order and decimal conversion
 boundaries. These checks supplement the existing shared library vectors.

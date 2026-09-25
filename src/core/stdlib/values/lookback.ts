@@ -32,6 +32,7 @@
  */
 import type { StateField, StateRecord } from './region.js';
 import { newState } from './region.js';
+import { ContributionHistory } from './history.js';
 import type { Value } from './value.js';
 import { NONE, isLength, isPresent, result } from './value.js';
 
@@ -39,7 +40,7 @@ import { NONE, isLength, isPresent, result } from './value.js';
 export interface Lookback {
   /** Advance by one bar. */
   push(value: Value): void;
-  /** True once `len` bars have gone by, present or not: this is warmup. */
+  /** True after the largest observed length's contributions, present or not. */
   filled(): boolean;
   /** True when the lookback is filled and every bar in it has a value. */
   complete(): boolean;
@@ -64,6 +65,24 @@ export interface Lookback {
  */
 export function ring(record: StateRecord, key: string, len: number | null): Lookback {
   const size = len !== null && isLength(len) ? len : 0;
+  const bars = `${key}:h`;
+  const maximumKey = `${key}:m`;
+  const held = record[bars];
+  let history = held instanceof ContributionHistory ? held : new ContributionHistory();
+  const before = record[maximumKey];
+  const maximum = Math.max(typeof before === 'number' ? before : 0, size);
+  record[maximumKey] = maximum;
+  let view = history.view(size);
+  return lookback(size, (value) => {
+    history = history.append(value);
+    record[bars] = history;
+    view = history.view(size);
+  }, () => size > 0 && history.count >= maximum, (back) => view.at(back));
+}
+
+/** Recursive seeding retains its established length-change policy separately. */
+function seedRing(record: StateRecord, key: string, len: number | null): Lookback {
+  const size = len !== null && isLength(len) ? len : 0;
   const bars = `${key}:q`;
   const nextKey = `${key}:n`;
   const seenKey = `${key}:s`;
@@ -87,25 +106,26 @@ export function ring(record: StateRecord, key: string, len: number | null): Look
     return ((from % size) + size) % size;
   };
 
+  return lookback(size, (value) => {
+    if (size === 0) return;
+    items[count(nextKey)] = value;
+    const next = count(nextKey) + 1;
+    record[nextKey] = next === size ? 0 : next;
+    if (count(seenKey) < size) record[seenKey] = count(seenKey) + 1;
+  }, () => size > 0 && count(seenKey) === size, (back) => {
+    if (size === 0 || back < 0 || back >= size) return NONE;
+    const value = items[index(back)];
+    return typeof value === 'number' ? value : NONE;
+  });
+}
+
+/** The arithmetic is shared so fixed-length accumulation keeps its exact order. */
+function lookback(
+  size: number, push: (value: Value) => void, filled: () => boolean,
+  at: (back: number) => Value,
+): Lookback {
   const lookback: Lookback = {
-    push(value: Value): void {
-      if (size === 0) return;
-      items[count(nextKey)] = value;
-      const next = count(nextKey) + 1;
-      record[nextKey] = next === size ? 0 : next;
-      if (count(seenKey) < size) record[seenKey] = count(seenKey) + 1;
-    },
-
-    filled(): boolean {
-      return size > 0 && count(seenKey) === size;
-    },
-
-    at(back: number): Value {
-      if (size === 0 || back < 0 || back >= size) return NONE;
-      const value = items[index(back)];
-      return typeof value === 'number' ? value : NONE;
-    },
-
+    push, filled, at,
     presentCount(): number {
       let counted = 0;
       for (let back = size - 1; back >= 0; back -= 1) {
@@ -178,7 +198,7 @@ export function smoothed(
   value: Value,
   step: Recurrence,
 ): Value {
-  const seed = ring(record, `${key}~`, len);
+  const seed = seedRing(record, `${key}~`, len);
   const runningKey = `${key}:r`;
   const startedKey = `${key}:o`;
   if (record[startedKey] !== true) {

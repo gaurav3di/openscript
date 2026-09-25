@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"Growing finite windows use earlier contributions and suppress readings until the observed length is ready.","id":"math/varying-window-growth","languageVersion":1,"profile":"core"}

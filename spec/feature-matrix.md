@@ -549,6 +549,7 @@ identifier rather than one diagnostic having two proofs.
 | `sort(arr, order)` | In place, ascending or descending, and stable so two engines agree on ties | `specified` | `language.md` 14.1 | `array/sort` |
 | `reverse(arr)` | In place | `specified` | `language.md` 14.1 | `array/reverse` |
 | Array statistics | `sum`, `avg`, `min`, `max`, `stdev` over the whole array | `specified` | `language.md` 14.1 | `array/statistics` |
+| Numeric reduction boundaries | All five reducers, empty and absent arrays, overflow and oldest-first cancellation | `implemented` | `language.md` 14.1, `stdlib.md` 20.2.1 | `array/numeric-reductions` |
 | An operation on an empty array | OS4006, rather than an invented value | `deferred` | `language.md` 14.1, `errors.md` OS4006 | `array/empty-operation` |
 | Out-of-range index | OS4004 naming the index and the size, because an array has an extent the script chose | `implemented` | `language.md` 14.1, `errors.md` OS4004 | `array/out-of-range` |
 | Element limit | 1,000,000 by default; exceeding it is OS5002 and `limits()` does not raise it in version 1 | `implemented` | `language.md` 14.1, `errors.md` OS5002 | `array/element-limit` |
@@ -598,6 +599,21 @@ identifier rather than one diagnostic having two proofs.
 | Planned chart facts | `chart.isReplay`, `chart.expiry`, `chart.strike` and `chart.optionType` are named and not defined | `planned` | `stdlib.md` 3.4 | `chart/planned-facts` |
 
 ## 17. Mathematics and rounding
+
+| Feature | What it is | Status | Section | Test |
+|---|---|---|---|---|
+| Decimal conversion boundaries | Signed zero, ties, exact decimal values, subnormal and overflowing inputs, and rejected grammar | `implemented` | `language.md` 5.3 | `math/number-conversion` |
+| Scaled deviation underflow | A zero rounded CCI divisor is absent and later bars recover | `implemented` | `stdlib.md` 2.4, `stdlib.md` 20.5 | `math/cci-subnormal` |
+| Signed flow zero divisor | The composed ratio divisor is checked before division, with subsequent recovery | `implemented` | `stdlib.md` 2.4, `stdlib.md` 20.4 | `math/mfi-zero-divisor` |
+| Anchor initialization and reset | No average before the first anchor; an absent source still resets totals | `implemented` | `stdlib.md` 7, `stdlib.md` 20.6 | `math/anchor-warmup` |
+| Absent anchor condition | After initialization, an absent reset condition preserves totals and includes the bar | `implemented` | `stdlib.md` 7, `stdlib.md` 20.6 | `math/anchor-absent-condition` |
+| Overflowed named volume sum | Absence propagates into the ratio and recovers when the overflowing window ends | `implemented` | `stdlib.md` 2.4, `stdlib.md` 20.6 | `math/flow-overflow` |
+| Independent channel availability | Each channel bound remains available independently and the midpoint needs both | `implemented` | `stdlib.md` 6, `stdlib.md` 20.5 | `math/independent-channel-bounds` |
+| Growing finite windows | Earlier contributions remain available after a larger length is requested | `implemented` | `stdlib.md` 2.5, `stdlib.md` 20.2.1 | `math/varying-window-growth` |
+| Changing window readiness | Largest observed length sets readiness and current length selects values | `implemented` | `stdlib.md` 2.5 | `math/varying-window-readiness` |
+| Independent extreme ages | A hole in one source does not suppress the other source's known extreme age | `implemented` | `stdlib.md` 4, `stdlib.md` 20.3 | `math/independent-extreme-ages` |
+| Complete stop seed | Both extremes and close of both seed bars must be present | `implemented` | `stdlib.md` 20.3 | `math/complete-stop-seed` |
+| Skipped midpoint state | An absent midpoint preserves band state and its last accepted close | `implemented` | `stdlib.md` 20.3 | `math/skipped-band-midpoint` |
 
 | Feature | What it is | Status | Section | Test |
 |---|---|---|---|---|

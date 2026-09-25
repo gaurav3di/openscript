@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"The largest observed length sets readiness while the current length sets the selected values and divisor.","id":"math/varying-window-readiness","languageVersion":1,"profile":"core"}

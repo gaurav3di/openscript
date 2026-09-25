@@ -8,16 +8,16 @@ library that is plausible and never bit identical.
 **A region is plain data and nothing else.** `compiled-program.md` section 2.11
 requires a state region to be snapshottable by a mechanical copy, by an engine
 that does not know which function owns it, so what a function keeps here is
-dictionaries, lists and numbers. An object with behaviour in it would copy in a
-way the engine cannot promise, and the rollback of section 6 would carry a
-reference where it meant to carry a value.
+dictionaries, bounded mutable lists, numbers and immutable contribution history.
+History versions share only frozen chunks, so a checkpoint retains the old
+version and an append creates a new one without changing any checkpoint.
 
 **A buffer holds what the bars contributed, not what the bars were.** A call
 inside a branch does not run on every bar, and the window of section 20.1 is the
 values this call site contributed, oldest still reachable at the end. The depth
-kept is the largest length the call has asked for, because `stdlib.md` section
-2.5 measures a series length's warmup against the largest value it has taken and
-a buffer trimmed to today's length could not answer tomorrow's.
+requested is independent of the retained history: a later length can ask for
+contributions older than any previous request. Section 2.5 measures readiness
+against the largest requested length, while the read selects today's length.
 
 **Absence is not arithmetic.** A window with a hole in it is absent, which is
 section 2.4's rule for every windowed function, and the three that pass over a
@@ -26,6 +26,7 @@ hole say so in their names and ask for the raw window instead.
 
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
+from .history import ContributionHistory, ContributionView
 from .values import ABSENT, Value, result
 
 #: One call site's state region: what the engine created, copies and rolls back.
@@ -50,27 +51,20 @@ def region(state: Region, key: str) -> Region:
     return held
 
 
-def contributed(state: Region, key: str, value: Value, keep: Optional[int]) -> List[Value]:
+def contributed(state: Region, key: str, value: Value, keep: Optional[int]) -> Sequence[Value]:
     """This bar's contribution pushed into a named buffer, and the buffer back.
 
     ``keep`` is how many of the most recent contributions this bar's call needs.
-    The buffer keeps the largest depth it has ever been asked for, so a length
-    that grows mid-run still has the history behind it, and one bar is kept even
-    where the caller asked for nothing, because a call whose length is absent on
-    this bar still happened on this bar.
+    Every contribution is retained in shared immutable chunks, including a call
+    whose length is absent. The transient view indexes only today's requested
+    depth, with one current value available even without a length.
     """
     held = state.get(key)
-    if held is None:
-        held = {"values": [], "depth": 1}
-        state[key] = held
-    if keep is not None and keep > held["depth"]:
-        held["depth"] = keep
-    values: List[Value] = held["values"]
-    values.append(value)
-    extra = len(values) - held["depth"]
-    if extra > 0:
-        del values[:extra]
-    return values
+    if not isinstance(held, ContributionHistory):
+        held = ContributionHistory()
+    held = held.append(value, keep)
+    state[key] = held
+    return held.view(max(keep or 1, 1))
 
 
 def raw_window(values: Sequence[Value], length: Optional[int]) -> Optional[List[Value]]:
@@ -82,6 +76,8 @@ def raw_window(values: Sequence[Value], length: Optional[int]) -> Optional[List[
     every entry in sections 4 to 9 declares.
     """
     if length is None or length < 1 or len(values) < length:
+        return None
+    if isinstance(values, ContributionView) and values.history.count < values.history.maximum:
         return None
     held = list(values[len(values) - length :])
     held.reverse()
@@ -169,7 +165,12 @@ def seeded(
     held = region(state, key)
     running = held.get("running")
     if running is None:
-        full = window(values, length)
+        # The recursive seed policy is separate from finite-window readiness.
+        # Materializing this bounded view retains the existing seed rule.
+        seed_values = values
+        if isinstance(values, ContributionView):
+            seed_values = values.history.view(min(len(values), values.history.seed_count))
+        full = window(list(seed_values), length)
         if full is None or length is None:
             return ABSENT
         running = mean(full, length)

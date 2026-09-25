@@ -11,8 +11,8 @@
  * is what 6.2 refuses in as many words: an engine does not re-seed an average
  * from history, it puts back the record it copied.
  *
- * So a region is a flat record of numbers, booleans, strings and fixed length
- * queues, and `copyState` is the mechanical copy. Every function in this
+ * So a region is a flat record of scalars, bounded mutable queues and immutable
+ * contribution history, and `copyState` is the mechanical copy. Every function in this
  * library is written against one, and the tail form in `tail.ts` is the same
  * step over a region nobody else can reach. That is what lets the one
  * implementation serve both a library call folded over a series and an engine
@@ -23,11 +23,13 @@
  * of them.
  */
 
-/** One field of a state region. A queue is the one compound form 2.11 allows. */
+import type { ContributionHistory } from './history.js';
+
+/** One scalar field of a state region. */
 export type StateField = number | boolean | string | null;
 
 /** What a single key holds. */
-export type StateSlot = StateField | StateField[];
+export type StateSlot = StateField | StateField[] | ContributionHistory;
 
 /** A state region: a flat record, copyable without knowing what owns it. */
 export type StateRecord = Record<string, StateSlot | undefined>;
@@ -37,7 +39,7 @@ export function newState(): StateRecord {
   return {};
 }
 
-/** The mechanical copy 2.11 asks for: one level, with queues cloned. */
+/** Mutable queues are cloned; immutable history versions are safely shared. */
 export function copyState(record: StateRecord): StateRecord {
   const out: StateRecord = {};
   for (const key of Object.keys(record)) {

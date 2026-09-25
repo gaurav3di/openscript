@@ -3,6 +3,7 @@ export { NONE, at, isLength, isPresent, result } from './value.js';
 
 export type { StateField, StateRecord, StateSlot } from './region.js';
 export { copyState, flag, held, newState, queue, slot } from './region.js';
+export { ContributionHistory, ContributionView } from './history.js';
 
 export type { Tail } from './tail.js';
 export { fold, tailOf } from './tail.js';

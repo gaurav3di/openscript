@@ -149,6 +149,27 @@ the warmup is measured against the largest value the length has taken since the
 start of the dataset, which is the only definition that does not require the
 engine to see the future.
 
+For a finite window, the selected values and divisor use the current length,
+while readiness requires at least the largest valid length observed by this call
+site. Only executions of the call contribute values to its history, as section
+20.1 specifies. A shorter length does not restart that history or shorten its
+warmup. A larger length reads the earlier contributions it now needs. An absent
+length produces absence but still contributes the source value and retains the
+previous maximum length.
+
+For `sum` over source values `1, 2, 3, 4, 5`, these per-execution lengths give:
+
+| Lengths | Outputs |
+|---|---|
+| `5, 2, 2, 2, 2` | `none, none, none, none, 9` |
+| `2, 2, 2, 5, 5` | `none, 3, 5, none, 15` |
+| `none, none, 3, 3, 3` | `none, none, 6, 9, 12` |
+
+Source holes still occupy their positions. The absence rule in section 2.4 and
+the explicitly skipping functions apply to the selected window after readiness
+has been established. These examples specify finite windows; seeded recurrences
+also follow the seed and continuation rules in section 20.2.2.
+
 ### 2.6 Rounding and reproducibility
 
 Every function in this document is an exact arithmetic recipe over binary64 in
@@ -2582,6 +2603,28 @@ from where the last present bar left off. Consuming absence as zero would drag
 the average toward nothing, and re-seeding would let one missing bar restart a
 two hundred bar average.
 
+With a changing length, every executed call contributes one position before
+seeding, including calls with an absent source or length. Seeding requires the
+largest observed valid length's number of contributions under section 2.5 and
+a complete suffix of the current length. Changing the length does not discard
+earlier contributions or restart the seed clock.
+
+After seeding, each present source with a valid current length advances the
+recurrence using that length. Length changes never reseed it. An absent length
+freezes the recurrence just as an absent source does. Contribution count and
+largest observed valid length continue to advance independently of the running
+value. If a later larger length makes the call not ready under section 2.5,
+its output is absent, but valid recurrence steps still occur. The next available
+reading includes those steps. Only pre-seed values need retained history;
+post-seed readiness needs counts, not a second seed buffer.
+
+For source `[1,3,5]` and lengths `[1,3,3]`, EMA is `[1,none,3.5]`. The hidden
+second step has running value 2, and the third has 3.5. Freezing the hidden step
+would incorrectly give 3. For source `[1,2,3,4]` and lengths `[none,none,3,3]`,
+EMA is `[none,none,2,3]`: the first two contributed source values remain available
+for the seed. For RSI, the initial absent price change is a contributed position;
+it is not a zero change and a seed suffix containing it is incomplete.
+
 Seeding from bar 0 instead, with the first value as the running value, is the
 common and cheaper alternative. It is not this one. It draws a line where there
 should be a gap and stays materially wrong until the seed decays away.
@@ -2598,8 +2641,8 @@ rest   = 1 - weight
 step   = value * weight + running * rest
 ```
 
-`weight` and `rest` are computed once from `len` and are the same two values on
-every bar. **The step is the two products added, and it is not
+`weight` and `rest` are computed from the current valid `len`. With constant
+length they are the same two values on every bar. **The step is the two products added, and it is not
 `running + (value - running) * weight`.** That is a third arrangement of the
 same algebra and a third set of last bits, the one the `rma` paragraph below
 refuses in the same words, and it is the arrangement an engine is most likely
@@ -2809,6 +2852,13 @@ upper = rawUpper when rawUpper < previousUpper or previousClose > previousUpper,
 lower = rawLower when rawLower > previousLower or previousClose < previousLower,
         otherwise previousLower
 ```
+
+If the midpoint, average true range, close or factor is absent, both outputs are
+absent and the trailing-band state, including its last accepted close, is
+unchanged. The range average keeps its own state. The next accepted band step
+uses that stored close as `previousClose`; a skipped observation does not replace
+it. The named midpoint is normalized under section 2.4 before the band step, so
+overflow of `high + low` cannot seed or change a direction.
 
 On the first bar both bands are the raw bands, **and the line starts on the upper
 band**. The line then follows one band until price closes through it: while it is
@@ -3453,6 +3503,35 @@ can write it the obvious way and be bit-identical.
   them, so it is not restated here.
 - **The calendar, the session and the strings.** Sections 10 and 12 are exact
   integer and text operations with no accumulation in them.
+
+#### 20.10.1 Hypotenuse
+
+For finite binary64 inputs `x` and `y`, `math.hypot(x, y)` returns the nearest
+binary64 value to the exact nonnegative square root of `x*x + y*y`. An exact
+halfway value uses the even significand. The squared sum is exact, with no
+intermediate overflow or underflow. Absent inputs and rounded overflow produce
+absence. Every zero result is positive zero.
+
+The reference arithmetic uses bounded integers:
+
+1. Decode each absolute input as integer significand `m` times `2^e`. Normal
+   inputs include the implicit leading bit; subnormals use exponent -1074.
+   When one input is zero, return the other's absolute value.
+2. Let `E` be the smaller exponent. Form the exact integer
+   `S = mx^2 * 2^(2*(ex-E)) + my^2 * 2^(2*(ey-E))`.
+3. Let `b = bitLength(S)-1` and `q = max(-1074, E + floor(b/2) - 52)`.
+4. Express `S * 2^(2*(E-q))` as the exact rational `N/D`, with a power-of-two
+   denominator when needed. Let `m = integerSqrt(floor(N/D))`.
+5. Compare `4*N` with `D*(2*m+1)^2`. Increment `m` when the first is larger,
+   or when they are equal and `m` is odd.
+6. Normalize a significand carry and encode the resulting binary64 bits.
+   An overflowing exponent produces absence. Do not round a large integer to
+   binary64 before scaling; that would add an unwanted rounding step.
+
+Integer square root is exact. A monotone integer Newton iteration from a
+power-of-two upper bound is one implementation. Input width bounds the temporary
+integers to fewer than 4,200 bits. Squaring preserves order on nonnegative values,
+so step 5 compares against the exact midpoint between neighboring results.
 
 ### 20.11 What this section cannot pin down yet
 

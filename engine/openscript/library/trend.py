@@ -13,7 +13,7 @@ section 2.11 requires a region an engine can copy without knowing whose it is.
 
 from typing import Optional
 
-from . import averages, ranges
+from . import averages, prices, ranges
 from .extremes import high_at, low_at
 from .ranges import gap_range
 from .series import Region, contributed, raw_window, region, window
@@ -40,17 +40,15 @@ def trailing_band(state: Region, ctx, factor: Value, width_length: Optional[int]
     direction inverted on exactly those bars.
     """
     width = ranges.average_range(region(state, "width"), ctx, width_length)
-    high = number(ctx.bar("high"))
-    low = number(ctx.bar("low"))
+    midpoint = prices.midpoint(ctx)
     close = number(ctx.bar("close"))
-    before = number(ctx.bar("previousClose"))
     multiple = number(factor)
-    held = region(state, "band")
-    if not isinstance(width, float) or high is None or low is None or close is None:
+    if not isinstance(width, float) or not isinstance(midpoint, float) or close is None:
         return [ABSENT, ABSENT]
     if multiple is None:
         return [ABSENT, ABSENT]
-    midpoint = (high + low) / 2
+    held = region(state, "band")
+    before = held.get("close")
     raw_upper = midpoint + multiple * width
     raw_lower = midpoint - multiple * width
     upper = held.get("upper")
@@ -60,6 +58,7 @@ def trailing_band(state: Region, ctx, factor: Value, width_length: Optional[int]
         held["upper"] = upper
         held["lower"] = lower
         held["upside"] = not close > upper
+        held["close"] = close
         return [ABSENT, ABSENT]
     if raw_upper < upper or before > upper:
         upper = raw_upper
@@ -70,6 +69,7 @@ def trailing_band(state: Region, ctx, factor: Value, width_length: Optional[int]
     held["upper"] = upper
     held["lower"] = lower
     held["upside"] = upside
+    held["close"] = close
     return [result(upper if upside else lower), SHORT if upside else LONG]
 
 
@@ -135,7 +135,10 @@ def accelerating_stop(
 
 def _seed_stop(held: Region, highs, lows, closes, first: float) -> list:
     """The seed of section 20.3: the first pair of complete bars, and that bar reports it."""
-    if len(closes) < 2 or not isinstance(closes[len(closes) - 2], float):
+    if len(closes) < 2:
+        return [ABSENT, ABSENT]
+    if not (isinstance(highs[-2], float) and isinstance(lows[-2], float)
+            and isinstance(closes[-2], float)):
         return [ABSENT, ABSENT]
     before = closes[len(closes) - 2]
     now = closes[len(closes) - 1]
@@ -208,11 +211,11 @@ def ages(state: Region, ctx, length: Optional[int]) -> list:
     span = None if length is None else length + 1
     highs = window(contributed(state, "high", number(ctx.bar("high")), span), span)
     lows = window(contributed(state, "low", number(ctx.bar("low")), span), span)
-    if highs is None or lows is None or length is None:
+    if length is None:
         return [ABSENT, ABSENT]
-    up = (100 * (length - high_at(highs))) / length
-    down = (100 * (length - low_at(lows))) / length
-    return [result(up), result(down)]
+    up = ABSENT if highs is None else result((100 * (length - high_at(highs))) / length)
+    down = ABSENT if lows is None else result((100 * (length - low_at(lows))) / length)
+    return [up, down]
 
 
 def cloud(
@@ -229,26 +232,24 @@ def cloud(
     shifted series cannot be compared with anything else in the script without
     shifting it back.
     """
-    deepest = _deepest(conversion_length, base_length, span_length)
-    highs = contributed(state, "high", number(ctx.bar("high")), deepest)
-    lows = contributed(state, "low", number(ctx.bar("low")), deepest)
-    conversion = _midpoint(highs, lows, conversion_length)
-    base = _midpoint(highs, lows, base_length)
+    high, low = number(ctx.bar("high")), number(ctx.bar("low"))
+    def pair(key, length):
+        own = region(state, key)
+        return contributed(own, "high", high, length), contributed(own, "low", low, length)
+    conversion_highs, conversion_lows = pair("conversion", conversion_length)
+    base_highs, base_lows = pair("base", base_length)
+    span_highs, span_lows = pair("span", span_length)
+    conversion = _midpoint(conversion_highs, conversion_lows, conversion_length)
+    base = _midpoint(base_highs, base_lows, base_length)
     leading = ABSENT
     if isinstance(conversion, float) and isinstance(base, float):
         leading = result((conversion + base) / 2)
-    second = _midpoint(highs, lows, span_length)
+    second = _midpoint(span_highs, span_lows, span_length)
     lagging = ABSENT
-    if raw_window(highs, base_length) is not None:
+    if raw_window(base_highs, base_length) is not None:
         lagging = number(ctx.bar("close"))
         lagging = ABSENT if lagging is None else result(lagging)
     return [conversion, base, leading, second, lagging]
-
-
-def _deepest(*lengths) -> Optional[int]:
-    """The widest window any of the lines asks for, which is what the buffer keeps."""
-    known = [one for one in lengths if one is not None]
-    return max(known) if known else None
 
 
 def _midpoint(highs, lows, length: Optional[int]) -> Value:

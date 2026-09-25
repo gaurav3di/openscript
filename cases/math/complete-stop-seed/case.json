@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"A stop seed requires both extremes and the close of the previous bar even when the selected direction uses only one extreme.","id":"math/complete-stop-seed","languageVersion":1,"profile":"core"}
