@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"A missing channel bound leaves the other bound available while the midpoint remains absent.","id":"math/independent-channel-bounds","languageVersion":1,"profile":"core"}

@@ -44,11 +44,12 @@ def _anchored(state: Region, ctx, value: Value, anchor: Value) -> Value:
     held = region(state, "vwap")
     price = number(value)
     traded = number(ctx.bar("volume"))
-    if anchor is not True and anchor is not False:
-        return ABSENT
-    if anchor:
+    if anchor is True:
         held["flow"] = 0.0
         held["traded"] = 0.0
+        held["anchored"] = True
+    if held.get("anchored") is not True:
+        return ABSENT
     if price is None or traded is None:
         return ABSENT
     flow = held.get("flow", 0.0) + price * traded
@@ -113,10 +114,11 @@ def flow_fraction(state: Region, ctx, length: Optional[int]) -> Value:
     traded = window(volumes, length)
     if held is None or traded is None:
         return ABSENT
-    divisor = total(traded)
-    if divisor == 0:
+    flow = result(total(held))
+    divisor = result(total(traded))
+    if flow is None or divisor is None or divisor == 0:
         return ABSENT
-    return result(total(held) / divisor)
+    return result(flow / divisor)
 
 
 def accumulation_gap(

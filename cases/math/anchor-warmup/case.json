@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"Anchored averages wait for their first reset and reset before checking absent source data.","id":"math/anchor-warmup","languageVersion":1,"profile":"core"}

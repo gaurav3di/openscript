@@ -14,6 +14,12 @@ than raising a division exception when CCI's scaled deviation underflows to zero
 or signed money flows produce a zero composed divisor. Later bars continue to
 calculate, and ordinary values retain their existing arithmetic order.
 
+Anchored volume averages now wait for their first anchor in the Python engine.
+A reset takes effect even when its bar has absent data; an absent reset condition
+after initialization behaves as false and the bar still contributes. A money-flow
+ratio propagates an overflowed named sum as absence. Channel bounds are available
+independently, while their midpoint still requires both sides.
+
 Compiled conformance cases now cover those recovery paths, all five numeric array
 reductions, empty and absent arrays, cancellation order and decimal conversion
 boundaries. These checks supplement the existing shared library vectors.

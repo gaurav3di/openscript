@@ -68,7 +68,7 @@ def channel(state: Region, ctx, length: Optional[int]) -> list:
     upper = window_high(highs, length)
     lower = window_low(lows, length)
     if not isinstance(upper, float) or not isinstance(lower, float):
-        return [ABSENT, ABSENT, ABSENT]
+        return [upper, ABSENT, lower]
     return [upper, result((upper + lower) / 2), lower]
 
 

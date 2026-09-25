@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"An absent reset condition after an anchor behaves as false while the bar still contributes.","id":"math/anchor-absent-condition","languageVersion":1,"profile":"core"}

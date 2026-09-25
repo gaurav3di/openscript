@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"An overflowed named volume sum produces absence and recovers when its terms leave the window.","id":"math/flow-overflow","languageVersion":1,"profile":"core"}
