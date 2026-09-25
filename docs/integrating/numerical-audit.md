@@ -74,7 +74,14 @@ registry bindings directly, including raw signed-zero inputs, and reports any
 non-normalized output. Compiled-program boundary checks separately establish
 which raw binding behavior is visible through a public engine.
 
-`npm run test:audit` attacks both audit harnesses and their input protocol with deliberate
+`npm run audit:varying` covers all 81 stateful signatures with 109 configurable
+controls. Its 1,042 cases include 950 changing-control and source patterns, 81
+checkpoint replays and 11 independent oracles. Temporary same-call contributions
+and deliberately changed replay suffixes must leave accepted outputs identical
+to an ordinary execution in each engine. Sparse execution indices are included;
+they do not establish every compiled conditional or public update behavior.
+
+`npm run test:audit` attacks the audit harnesses and their input protocol with deliberate
 wrong numbers, absence shifts, missing columns, omitted functions and malformed
 records. Commands ending in `:report` are exploratory modes that can finish
 successfully while printing `exactAgreement: false`. It is not a release gate.
@@ -84,10 +91,11 @@ a temporary directory and prints its location.
 
 The stateful gate covers constant-parameter calls and includes exact baseline
 vectors, extreme values, overflow followed by ordinary values, independent holes
-and anchor patterns. Varying-parameter, array, conversion and compiled-program
-checks remain additional requirements; these commands do not silently claim them.
+and anchor patterns. The varying gate supplements it with changing controls.
+Array, conversion and compiled-program checks remain additional requirements;
+these commands do not silently claim them.
 
-`npm run audit:numerics` runs the harness tests followed by both strict gates.
+`npm run audit:numerics` runs the harness tests followed by all three strict gates.
 Both publishing workflows require it after the full package checks. A remaining
 platform-math difference blocks publication, even when it is only one bit.
 

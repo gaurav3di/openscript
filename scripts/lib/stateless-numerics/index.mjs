@@ -2,8 +2,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assertDenominator, compareResults, parseDriverSummary, parseResults, validateCases, validateScope } from '../stateful-numerics/index.mjs';
 import { buildStatelessCorpus, indexedNumericalKeys } from './corpus.mjs';
 import { driveStateless, selectNumericalEntries } from './javascript.mjs';
@@ -12,13 +12,16 @@ export { buildStatelessCorpus, indexedNumericalKeys } from './corpus.mjs';
 export { driveStateless, selectNumericalEntries } from './javascript.mjs';
 
 export async function runStatelessAudit({ root, output }) {
+  if (resolve(root) !== resolve(fileURLToPath(new URL('../../../', import.meta.url)))) {
+    throw new Error('engine: audit root must contain this gate and its built runtime');
+  }
   const read = (file) => JSON.parse(readFileSync(join(root, file), 'utf8'));
   const scopePath = 'spec/vectors/numerical-audit/stateless-scope.json';
   const scope = validateScope(read(scopePath));
   const indexed = read('spec/vectors/library/index.json').functions;
   const declared = indexedNumericalKeys(indexed);
-  const library = await import(pathToFileURL(join(root, 'dist/core/engine/library/index.js')).href);
-  const { Heap } = await import(pathToFileURL(join(root, 'dist/core/engine/values/index.js')).href);
+  const library = await import('../../../dist/core/engine/library/index.js');
+  const { Heap } = await import('../../../dist/core/engine/values/index.js');
   const selected = selectNumericalEntries(library.manifestEntries(), scope.keys);
   const live = selected.map((entry) => `${entry.name}/${entry.arity}`).sort();
   assertDenominator(scope, declared, live, scope.keys, scope.keys);

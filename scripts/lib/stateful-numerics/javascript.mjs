@@ -1,13 +1,15 @@
 /** Exercise the built manifest with fresh call-site state for every case. */
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { decode, encode, fromBits } from './protocol.mjs';
 
 export async function loadEngine(root) {
-  const from = (file) => import(pathToFileURL(join(root, file)).href);
-  const library = await from('dist/core/engine/library/index.js');
-  const values = await from('dist/core/engine/values/index.js');
-  const stdlib = await from('dist/core/stdlib/index.js');
+  if (resolve(root) !== resolve(fileURLToPath(new URL('../../../', import.meta.url)))) {
+    throw new Error('engine: audit root must contain this gate and its built runtime');
+  }
+  const library = await import('../../../dist/core/engine/library/index.js');
+  const values = await import('../../../dist/core/engine/values/index.js');
+  const stdlib = await import('../../../dist/core/stdlib/index.js');
   return { ...library, Heap: values.Heap, isRef: values.isRef, newState: stdlib.newState };
 }
 

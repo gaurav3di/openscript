@@ -1,0 +1,544 @@
+[
+  {
+    "id": "oracle:varying:alma/4:minimal:computed-zero-divisor",
+    "key": "alma/4",
+    "name": "alma",
+    "arity": 4,
+    "bars": 1,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "4014000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "offset",
+        "kind": "number",
+        "values": [
+          "3fe0000000000000"
+        ]
+      },
+      {
+        "name": "sigma",
+        "kind": "number",
+        "values": [
+          "7fe1ccf385ebc8a0"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ]
+      ],
+      "reason": "With one observation, spread is 1e-308 and 2*spread*spread rounds to zero. The exponent 0/0 is undefined, so the finite-result contract requires absence without a host exception."
+    }
+  },
+  {
+    "id": "oracle:varying:history/2:minimal:largest-distance-warmup",
+    "key": "history/2",
+    "name": "history",
+    "arity": 2,
+    "bars": 4,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000",
+          "4010000000000000",
+          "4020000000000000"
+        ]
+      },
+      {
+        "name": "n",
+        "kind": "number",
+        "values": [
+          "4008000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          4
+        ]
+      ],
+      "reason": "The largest requested backward distance is 3, so four call contributions are required. On the fourth call the current distance 1 selects 4; current 8 minus 4 is 4 and that change is 100 percent."
+    }
+  },
+  {
+    "id": "oracle:varying:change/2:minimal:largest-distance-warmup",
+    "key": "change/2",
+    "name": "change",
+    "arity": 2,
+    "bars": 4,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000",
+          "4010000000000000",
+          "4020000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "4008000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          4
+        ]
+      ],
+      "reason": "The largest requested backward distance is 3, so four call contributions are required. On the fourth call the current distance 1 selects 4; current 8 minus 4 is 4 and that change is 100 percent."
+    }
+  },
+  {
+    "id": "oracle:varying:mom/2:minimal:largest-distance-warmup",
+    "key": "mom/2",
+    "name": "mom",
+    "arity": 2,
+    "bars": 4,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000",
+          "4010000000000000",
+          "4020000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "4008000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          4
+        ]
+      ],
+      "reason": "The largest requested backward distance is 3, so four call contributions are required. On the fourth call the current distance 1 selects 4; current 8 minus 4 is 4 and that change is 100 percent."
+    }
+  },
+  {
+    "id": "oracle:varying:roc/2:minimal:largest-distance-warmup",
+    "key": "roc/2",
+    "name": "roc",
+    "arity": 2,
+    "bars": 4,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000",
+          "4010000000000000",
+          "4020000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "4008000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          null
+        ],
+        [
+          100
+        ]
+      ],
+      "reason": "The largest requested backward distance is 3, so four call contributions are required. On the fourth call the current distance 1 selects 4; current 8 minus 4 is 4 and that change is 100 percent."
+    }
+  },
+  {
+    "id": "oracle:varying:hma/2:minimal:missing-length-contributes-source",
+    "key": "hma/2",
+    "name": "hma",
+    "arity": 2,
+    "bars": 2,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "0000000000000000",
+          "4008000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          null,
+          "4000000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          4
+        ]
+      ],
+      "reason": "An absent length still contributes0. On the next call, near WMA1 is 3 and far WMA2 is(0+2*3)/3=2. The outer length is round(sqrt(2))=1, so2*3-2=4."
+    }
+  },
+  {
+    "id": "oracle:varying:valueWhen/3:minimal:shrinking-occurrence",
+    "key": "valueWhen/3",
+    "name": "valueWhen",
+    "arity": 3,
+    "bars": 3,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "cond",
+        "kind": "bool",
+        "values": [
+          true,
+          true,
+          true
+        ]
+      },
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000",
+          "4008000000000000"
+        ]
+      },
+      {
+        "name": "occurrence",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000",
+          "0000000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          1
+        ],
+        [
+          3
+        ]
+      ],
+      "reason": "The second event satisfies occurrence 1 with the first value 1. Switching to occurrence 0 must select the current true value 3."
+    }
+  },
+  {
+    "id": "oracle:varying:valueWhen/3:minimal:growing-occurrence",
+    "key": "valueWhen/3",
+    "name": "valueWhen",
+    "arity": 3,
+    "bars": 3,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "cond",
+        "kind": "bool",
+        "values": [
+          true,
+          true,
+          false
+        ]
+      },
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "4000000000000000",
+          "4008000000000000"
+        ]
+      },
+      {
+        "name": "occurrence",
+        "kind": "number",
+        "values": [
+          "0000000000000000",
+          "0000000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          1
+        ]
+      ],
+      "reason": "Two true events have already occurred. Asking for occurrence 1 on the following false bar selects the first recorded value 1, independent of the earlier requested occurrence."
+    }
+  },
+  {
+    "id": "oracle:varying:alma/4:minimal:negative-sigma-domain",
+    "key": "alma/4",
+    "name": "alma",
+    "arity": 4,
+    "bars": 1,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "4014000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "offset",
+        "kind": "number",
+        "values": [
+          "3fe0000000000000"
+        ]
+      },
+      {
+        "name": "sigma",
+        "kind": "number",
+        "values": [
+          "bff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ]
+      ],
+      "reason": "Section 20.3 explicitly requires strictly positive sigma. A negative sigma produces absence despite its square being positive; the source contribution is retained."
+    }
+  },
+  {
+    "id": "oracle:varying:hv/3:minimal:negative-price-domain",
+    "key": "hv/3",
+    "name": "hv",
+    "arity": 3,
+    "bars": 2,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "bff0000000000000",
+          "bff0000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "periodsPerYear",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ]
+      ],
+      "reason": "Section 20.5 explicitly requires both source endpoints to be positive. Two negative inputs produce absent log returns even though their ratio is positive."
+    }
+  },
+  {
+    "id": "oracle:varying:hv/3:minimal:zero-annualization-domain",
+    "key": "hv/3",
+    "name": "hv",
+    "arity": 3,
+    "bars": 2,
+    "outputColumns": 1,
+    "args": [
+      {
+        "name": "src",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "len",
+        "kind": "number",
+        "values": [
+          "3ff0000000000000",
+          "3ff0000000000000"
+        ]
+      },
+      {
+        "name": "periodsPerYear",
+        "kind": "number",
+        "values": [
+          "0000000000000000",
+          "0000000000000000"
+        ]
+      }
+    ],
+    "bar": {},
+    "scenario": "independent-oracle",
+    "domainQuestion": false,
+    "oracle": {
+      "expected": [
+        [
+          null
+        ],
+        [
+          null
+        ]
+      ],
+      "reason": "The annualization count must be strictly positive. A zero count produces absence even when the population deviation itself is zero."
+    }
+  }
+]
