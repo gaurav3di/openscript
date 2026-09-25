@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"An overflowed volume total is absent and so is the average divided by it, until the next anchor starts both totals again.","id":"math/anchor-traded-overflow","languageVersion":1,"profile":"core"}

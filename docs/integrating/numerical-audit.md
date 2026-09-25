@@ -1,4 +1,4 @@
-# Numerical audit for releases 0.7.0 and 0.7.1
+# Numerical audit for releases 0.7.0 to 0.7.2
 
 Release 0.7.0 requires a complete inventory of shipped numerical functions,
 comparison of both engines on the same inputs, and correction of confirmed
@@ -75,7 +75,7 @@ all 1,512 proposed scalar vector cells were independently checked: 46 existing
 trigonometric cells changed and 189 power cells joined the vector inventory.
 The Python vector driver now requires exact bits for every scalar case.
 
-The three strict gates for the 0.7.1 candidate compare 1,504,918 accepted calls across 6,838
+The three strict gates for the 0.7.2 candidate compare 1,504,962 accepted calls across 6,847
 cases, with zero differing bits, absence differences, oracle failures or
 baseline failures. Five numeric array reducers and the three conversion signatures
 `text/1`, `text/2` and `toNumber/1` have separate compiled checks, completing the
@@ -172,10 +172,28 @@ average without first becoming absent, preventing recovery. The 0.7.1 correction
 normalizes that selected result while preserving raw comparisons and tie rules.
 Independent expected fixtures and compiled histories cover both directions,
 pre-seed and post-seed overflow, missing inputs and forming-bar replacement.
-The current constant-parameter gate has 2,958 cases and 21 independent oracles.
-The corrective source checks pass 2,209 JavaScript tests, 960 Python tests and
+The 0.7.1 constant-parameter gate had 2,958 cases and 21 independent oracles.
+Its corrective source checks passed 2,209 JavaScript tests, 960 Python tests and
 the same 102 conformance cases, with the 19 documented compiler-only skips.
 Installed artifact validation and registry publication remain separate gates.
+
+An independent cross-engine audit after 0.7.1 found that both engines added
+the `pvt` term to its running total without checking it. An overflowing price
+change stored an infinite total and made every later reading absent, where
+the specification makes that term absent and leaves the total unchanged.
+Because both engines were wrong in the same way, exact agreement could not
+show it, which is the limit the comparison contract above states: only the
+independent expected results could. The audit of every sibling running total
+found the same defect in the `vwap` and `vwapAnchor` price times volume, a false
+zero from an overflowed `vwap` volume total, and a false zero term from an
+overflowed `ad` and `cmf` span. `obv`, `cum` and the `ad` total itself add
+only finite terms and keep an overflowed total, which the corrected functions
+now match. The 0.7.2 correction adds independent rounded-operation fixtures,
+compiled histories with forming-bar updates, four conformance cases and nine
+stateful oracles. The current constant-parameter gate has 2,967 cases and 30
+independent oracles. The corrective source checks pass 2,293 JavaScript tests,
+965 Python tests and 106 shared conformance cases, with the same 19
+compiler-only skips, and the library vectors are unchanged.
 
 The companion chart release remains a separate 2.5.4 deliverable. Its deferred
 higher-timeframe input controls remain excluded. Testing existing requested

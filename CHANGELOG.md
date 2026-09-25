@@ -7,6 +7,44 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## 0.7.2
+
+Running totals in both engines now survive one overflowing bar. `pvt` added its
+per-bar term without checking it, so a price change, proportion or product that
+overflowed stored an infinite total and every later reading was absent. `vwap`
+and `vwapAnchor` did the same with an overflowing price times volume. Such a term
+is now absent: that bar reads `none` and the total carries on from the bar
+before it, as the specification's per-operation rule and its running-total rule
+require together. Closes of 1, 1e308, -1e308, 2 and 3 on a volume of 1 now give
+`pvt` readings of `none`, 1e308, `none`, 1e308 and 1e308, where 0.7.1 gave
+`none` from the third bar on.
+
+Two neighbouring readings change with it. `vwap` and `vwapAnchor` read `none`,
+not an exact zero, while their volume total has overflowed, until the next anchor
+or session starts it again. `ad`, `adOsc` and `cmf` treat a bar whose high to low
+span overflows as absent instead of adding a zero term for it, so `ad` reads
+`none` on that bar and `cmf` on the windows that hold it. A total that overflows
+although its term was finite is still kept, and its readings stay `none`, as
+before. Section 20.6 of the library specification now says both rules in so many
+words.
+
+Both engines were wrong in the same way, which is why exact agreement between
+them never showed it. Independent expected results now cover every case above,
+through compiled programs, forming-bar updates and restored checkpoints, and new
+conformance cases pin the specified values. The strict numerical gates
+compare 1,504,962 accepted calls with no differing bits or absent values, and
+the library vectors for ordinary inputs are unchanged.
+
+Separately, the TypeScript engine read `cmf` as `none` on any window whose volume sums
+below zero; the Python engine divided, as the rule that a ratio is absent only
+where its divisor is zero requires. Both now divide, and a fifth conformance case
+pins it.
+
+Upgrade both packages together. No source migration or compiled-format change
+is required. Recompute stored `pvt`, `vwap`, `vwapAnchor`, `ad`, `adOsc` or `cmf`
+results over data whose prices, volumes or their products come near the largest
+finite number.
+
 ## 0.7.1
 
 Python's ADX now normalizes a selected overflowing directional movement to

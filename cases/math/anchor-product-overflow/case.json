@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"An overflowing price times volume is an absent term: the bar is absent and both anchored totals are kept.","id":"math/anchor-product-overflow","languageVersion":1,"profile":"core"}

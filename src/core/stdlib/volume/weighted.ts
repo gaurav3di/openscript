@@ -30,6 +30,13 @@ export interface Anchored {
  * The bar the condition holds on is the first bar of the new average, not the
  * last bar of the old one. Absent before the condition has ever been true,
  * because there is no anchor to measure from and zero would read as a price.
+ *
+ * A price times volume that overflows is an absent term (`compiled-program.md`
+ * section 3.1): the bar is absent and neither total moves, so the bar costs its
+ * own reading and nothing after it. A total that overflows is kept as the
+ * arithmetic produced it and is absent, so the average divided by it is absent
+ * until the next anchor rather than the exact zero a finite flow over an
+ * infinite volume would give.
  */
 export function vwapAnchorStep(state: StateRecord, key: string, input: Anchored): Value {
   const flowKey = `${key}f`;
@@ -42,12 +49,16 @@ export function vwapAnchorStep(state: StateRecord, key: string, input: Anchored)
   }
   if (!flag(state, anchoredKey)) return NONE;
   if (!isPresent(input.src) || !isPresent(input.volume)) return NONE;
-  const flow = slot(state, flowKey, 0) + input.src * input.volume;
+  const term = result(input.src * input.volume);
+  if (!isPresent(term)) return NONE;
+  const flow = slot(state, flowKey, 0) + term;
   const traded = slot(state, tradedKey, 0) + input.volume;
   state[flowKey] = flow;
   state[tradedKey] = traded;
-  if (traded === 0) return NONE;
-  return result(flow / traded);
+  const numerator = result(flow);
+  const divisor = result(traded);
+  if (!isPresent(numerator) || !isPresent(divisor) || divisor === 0) return NONE;
+  return result(numerator / divisor);
 }
 
 /** `vwapAnchor(src, resetWhen)` as a tail. */

@@ -6,7 +6,8 @@
 **Goal:** Validate shipped numerical calculations, fix confirmed deviations
 between both engines and equivalent chart calculations, and release both engine
 packages as 0.7.0, followed by a corrective 0.7.1 release for the subsequently
-confirmed directional-overflow discrepancy.
+confirmed directional-overflow discrepancy and a corrective 0.7.2 release for
+overflowing running-total terms.
 
 **Architecture:** Extend manifest-driven vectors and real compiled-program
 comparisons. Keep independent expectations separate from generated observations.
@@ -142,3 +143,21 @@ Fresh local installations pass 379 compiled programs over all 116 numerical
 signatures and 57 independent expected-result cases. At this pre-publication
 checkpoint, source integration, release workflows and fresh public artifact
 verification are the remaining 0.7.1 release operations.
+
+## Corrective 0.7.2 release checkpoint
+
+An independent cross-engine audit of 0.7.1 found both engines adding an
+unchecked `pvt` term to the running total, so one overflowing price change
+ended the reading for good. The correction forms the term one checked
+operation at a time and leaves the total untouched when it is absent. The
+sibling audit corrected the `vwap` and `vwapAnchor` product and overflowed
+volume total, and the `ad` and `cmf` span, and confirmed `obv`, `cum` and the
+totals themselves already keep an overflowed total. Published 0.7.1 source and
+artifacts remain unchanged, and compiled format 1.1 is unchanged.
+
+Regressions failed before each correction and again when it was reverted.
+The candidate passes 2,293 JavaScript tests, 965 Python tests and 106 shared
+conformance cases, with the same 19 compiler-only skips. The strict gates
+compare 1,504,962 accepted calls across 6,847 cases, with no differing bits or
+absence results. Source integration, release workflows and fresh public
+artifact verification are the remaining 0.7.2 release operations.

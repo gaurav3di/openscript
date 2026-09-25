@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"cmf divides by a negative window volume like any other divisor and is absent only where the window volume is zero.","id":"math/cmf-negative-volume","languageVersion":1,"profile":"core"}
