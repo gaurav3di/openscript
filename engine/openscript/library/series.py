@@ -141,7 +141,7 @@ def mean(held: Sequence[float], length: int) -> float:
 def seeded(
     state: Region,
     key: str,
-    values: Sequence[Value],
+    value: Value,
     length: Optional[int],
     step: Step,
 ) -> Value:
@@ -152,36 +152,46 @@ def seeded(
     is what makes the warmups of `stdlib.md` compose rather than having to be
     asserted one call at a time.
 
+    Every invocation counts, even with absent source or length. A seed also
+    waits for the largest observed length's readiness. After seeding, readiness
+    can hide a reading without skipping its valid step. Seed history is then
+    released; only the count, maximum and running value remain.
+
     **A hole after the seed freezes the recurrence.** The bar is absent and the
     running value is left where it was, so the next present bar continues from
     the last present one. Consuming absence as zero drags the average toward
     nothing and re-seeding lets one missing bar restart a two hundred bar
-    average.
+    average. An absent length freezes the step in the same way.
 
     Seeding from bar 0 with the first value is the common and cheaper
     alternative. It is not this one: it draws a line where there should be a gap
     and stays materially wrong until the seed decays away.
     """
     held = region(state, key)
+    count = held.get("count", 0) + 1
+    maximum = max(held.get("maximum", 0), length or 0)
+    held["count"] = count
+    held["maximum"] = maximum
     running = held.get("running")
     if running is None:
-        # The recursive seed policy is separate from finite-window readiness.
-        # Materializing this bounded view retains the existing seed rule.
-        seed_values = values
-        if isinstance(values, ContributionView):
-            seed_values = values.history.view(min(len(values), values.history.seed_count))
-        full = window(list(seed_values), length)
-        if full is None or length is None:
+        before = held.get("history", ContributionHistory())
+        history = before.append(value, length)
+        held["history"] = history
+        if length is None or length < 1 or count < maximum:
+            return ABSENT
+        full = window(history.view(length), length)
+        if full is None:
             return ABSENT
         running = mean(full, length)
         held["running"] = running
+        # Old checkpoints keep their version; the live recurrence needs no seed history.
+        del held["history"]
         return _reported(running)
-    value = values[len(values) - 1] if values else ABSENT
-    if not isinstance(value, float):
+    if length is None or length < 1 or not isinstance(value, float):
         return ABSENT
     running = step(running, value)
     held["running"] = running
-    return _reported(running)
+    return _reported(running) if count >= maximum else ABSENT
 
 
 def running_total(state: Region, key: str, term: Value) -> Value:

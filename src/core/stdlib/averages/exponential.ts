@@ -27,8 +27,7 @@ export function emaStep(
   value: Value,
   len: number | null,
 ): Value {
-  if (len === null) return NONE;
-  const weight = 2 / (len + 1);
+  const weight = len === null ? 0 : 2 / (len + 1);
   const rest = 1 - weight;
   return smoothed(state, key, len, value, (previous, next) => next * weight + previous * rest);
 }
@@ -50,8 +49,8 @@ export function rmaStep(
   value: Value,
   len: number | null,
 ): Value {
-  if (len === null) return NONE;
-  return smoothed(state, key, len, value, (previous, next) => (previous * (len - 1) + next) / len);
+  const span = len ?? 1;
+  return smoothed(state, key, len, value, (previous, next) => (previous * (span - 1) + next) / span);
 }
 
 /** `rma(src, len)` as a tail. */

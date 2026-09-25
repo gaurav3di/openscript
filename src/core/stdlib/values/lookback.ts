@@ -30,8 +30,8 @@
  * the length the script asked for rather than by how much history is loaded,
  * and that is the property a live chart actually needs.
  */
-import type { StateField, StateRecord } from './region.js';
-import { newState } from './region.js';
+import type { StateRecord } from './region.js';
+import { newState, slot } from './region.js';
 import { ContributionHistory } from './history.js';
 import type { Value } from './value.js';
 import { NONE, isLength, isPresent, result } from './value.js';
@@ -78,45 +78,6 @@ export function ring(record: StateRecord, key: string, len: number | null): Look
     record[bars] = history;
     view = history.view(size);
   }, () => size > 0 && history.count >= maximum, (back) => view.at(back));
-}
-
-/** Recursive seeding retains its established length-change policy separately. */
-function seedRing(record: StateRecord, key: string, len: number | null): Lookback {
-  const size = len !== null && isLength(len) ? len : 0;
-  const bars = `${key}:q`;
-  const nextKey = `${key}:n`;
-  const seenKey = `${key}:s`;
-  const held = record[bars];
-  let items: StateField[];
-  if (Array.isArray(held) && held.length === size) {
-    items = held;
-  } else {
-    items = new Array<StateField>(size).fill(NONE);
-    record[bars] = items;
-    record[nextKey] = 0;
-    record[seenKey] = 0;
-  }
-
-  const count = (name: string): number => {
-    const value = record[name];
-    return typeof value === 'number' ? value : 0;
-  };
-  const index = (back: number): number => {
-    const from = count(nextKey) - 1 - back;
-    return ((from % size) + size) % size;
-  };
-
-  return lookback(size, (value) => {
-    if (size === 0) return;
-    items[count(nextKey)] = value;
-    const next = count(nextKey) + 1;
-    record[nextKey] = next === size ? 0 : next;
-    if (count(seenKey) < size) record[seenKey] = count(seenKey) + 1;
-  }, () => size > 0 && count(seenKey) === size, (back) => {
-    if (size === 0 || back < 0 || back >= size) return NONE;
-    const value = items[index(back)];
-    return typeof value === 'number' ? value : NONE;
-  });
 }
 
 /** The arithmetic is shared so fixed-length accumulation keeps its exact order. */
@@ -190,6 +151,9 @@ export type Recurrence = (previous: number, value: number) => number;
  * next present bar continues from where the last one left off. The alternatives
  * are worse: consuming absence as zero would drag the average toward nothing,
  * and re-seeding would let one missing bar restart a two hundred bar average.
+ * Missing lengths also freeze it. Readiness tracks all contributions and the
+ * largest observed length, independently from the running value. A valid step
+ * still advances that value while a later, larger length hides its output.
  */
 export function smoothed(
   record: StateRecord,
@@ -198,21 +162,41 @@ export function smoothed(
   value: Value,
   step: Recurrence,
 ): Value {
-  const seed = seedRing(record, `${key}~`, len);
+  const countKey = `${key}:n`;
+  const maximumKey = `${key}:m`;
+  const historyKey = `${key}~:h`;
   const runningKey = `${key}:r`;
   const startedKey = `${key}:o`;
+  const valid = len !== null && isLength(len);
+  const count = slot(record, countKey, 0) + 1;
+  const maximum = Math.max(slot(record, maximumKey, 0), valid ? len : 0);
+  record[countKey] = count;
+  record[maximumKey] = maximum;
   if (record[startedKey] !== true) {
-    seed.push(value);
-    const mean = seed.mean();
+    const held = record[historyKey];
+    const before = held instanceof ContributionHistory ? held : new ContributionHistory();
+    const history = before.append(value);
+    record[historyKey] = history;
+    if (!valid || count < maximum) return NONE;
+    const view = history.view(len);
+    let total = 0;
+    for (let back = len - 1; back >= 0; back -= 1) {
+      const next = view.at(back);
+      if (!isPresent(next)) return NONE;
+      total += next;
+    }
+    const mean = result(total / len);
     if (!isPresent(mean)) return NONE;
     record[startedKey] = true;
     record[runningKey] = mean;
+    // Checkpoints retain their immutable version; this live state needs only scalars.
+    delete record[historyKey];
     return result(mean);
   }
-  if (!isPresent(value)) return NONE;
+  if (!valid || !isPresent(value)) return NONE;
   const previous = record[runningKey];
   if (typeof previous !== 'number') return NONE;
   const next = step(previous, value);
   record[runningKey] = next;
-  return result(next);
+  return count >= maximum ? result(next) : NONE;
 }

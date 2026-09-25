@@ -70,11 +70,11 @@ class VaryingLookback(unittest.TestCase):
             self.assertIsNone(counting.windowed_sum(state, value, 3))
         self.assertEqual(counting.windowed_sum(state, 1.0, 3), 1)
 
-    def test_finite_history_does_not_choose_a_new_recursive_seed_rule(self):
+    def test_absent_length_contributions_are_available_to_recursive_seeds(self):
         state = {}
         self.assertEqual([averages.exponential(state, float(v), n) for v, n in
                           [(1, None), (2, None), (3, 3), (4, 3)]],
-                         [None, None, None, 3])
+                         [None, None, 2, 3])
 
     def test_growth_can_reach_before_any_previous_requested_window(self):
         state = {}

@@ -6,10 +6,9 @@ rather than one is the step and the weighting, and what makes each of them one
 function rather than a family is the arrangement, which is why every entry here
 names the arrangement it is not.
 
-A value arrives already read off this bar's arguments, and every one of these
-pushes it into a buffer of its own before it looks at the window, because a call
-that skipped a bar's contribution would have a window a bar out of step with the
-bars it is supposed to cover.
+A value arrives already read off this bar's arguments. Every invocation counts
+as a contribution, including one with an absent length. Finite windows retain
+their contributions; a seeded recurrence releases its history after seeding.
 """
 
 from .series import Region, contributed, mean, seeded, total, window
@@ -34,16 +33,13 @@ def exponential(state: Region, value: Value, length: int | None) -> Value:
     rather than two, and over the fixture the release gate compares bit for bit
     it differs on most of the values at every length.
     """
-    values = contributed(state, "src", number(value), length)
-    if length is None:
-        return ABSENT
-    weight = 2 / (length + 1)
+    weight = 0.0 if length is None else 2 / (length + 1)
     rest = 1 - weight
 
     def step(running: float, value: float) -> float:
         return value * weight + running * rest
 
-    return seeded(state, "run", values, length, step)
+    return seeded(state, "run", number(value), length, step)
 
 
 def smoothed(state: Region, value: Value, length: int | None) -> Value:
@@ -56,15 +52,12 @@ def smoothed(state: Region, value: Value, length: int | None) -> Value:
     most often asked to reproduce. Neither is
     ``running + (value - running) / len``, which is a third arrangement again.
     """
-    values = contributed(state, "src", number(value), length)
-    if length is None:
-        return ABSENT
-    span = float(length)
+    span = 1.0 if length is None else float(length)
 
     def step(running: float, value: float) -> float:
         return (running * (span - 1) + value) / span
 
-    return seeded(state, "run", values, length, step)
+    return seeded(state, "run", number(value), length, step)
 
 
 def linear(state: Region, value: Value, length: int | None) -> Value:

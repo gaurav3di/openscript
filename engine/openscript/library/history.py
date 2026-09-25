@@ -22,16 +22,13 @@ class ContributionHistory:
     tail: tuple[Value, ...] = ()
     count: int = 0
     maximum: int = 0
-    seed_count: int = 0
 
     def append(self, value: Value, length: Optional[int]) -> "ContributionHistory":
         full = len(self.tail) == _WIDTH
         head = _Chunk(self.tail, self.head) if full else self.head
         tail = (value,) if full else self.tail + (value,)
         maximum = max(self.maximum, length or 0)
-        # Recursive seeds retain their previous bounded-buffer availability.
-        seed_count = min(self.seed_count + 1, max(maximum, 1))
-        return ContributionHistory(head, tail, self.count + 1, maximum, seed_count)
+        return ContributionHistory(head, tail, self.count + 1, maximum)
 
     def __deepcopy__(self, memo):
         """All reachable state is immutable, so checkpoint copying shares it."""

@@ -27,6 +27,13 @@ and an absent length still contributes its source position. Immutable history
 chunks share checkpoints without copying the full prefix on each bar. Retained
 storage grows with contributions when no future length bound is known.
 
+Seeded recurrences now share the changing-length policy in both engines. They
+count pre-seed calls with absent lengths, use the current complete seed window
+after maximum-length readiness, and continue valid steps while a later larger
+length temporarily hides their output. Missing source or length freezes the
+running value. Changing length never restarts an already seeded recurrence, and
+seed history is released once it is no longer needed.
+
 In the Python engine, extreme ages keep each independently available output,
 stop initialization waits for two complete bars, and an overflowing trailing-band
 midpoint leaves band state and its last accepted close unchanged.
