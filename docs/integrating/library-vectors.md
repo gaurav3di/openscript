@@ -4,6 +4,9 @@ For anyone implementing the numeric library in another language, who wants to
 know their arithmetic is this engine's to the last bit before running a single
 conformance case.
 
+The [0.7.0 numerical audit](numerical-audit.md) tracks expanded cross-engine and
+chart comparisons beyond the current vector corpus. It is still in progress.
+
 By the end of this page you will know what a vector file holds, how to decode
 one, how to drive your function over it, what "matches" means, and which cases
 you are not held to.
