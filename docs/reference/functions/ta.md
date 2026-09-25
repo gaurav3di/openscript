@@ -760,6 +760,11 @@ compiler says so with warning OS8006.
 **Not raised yet.** OS8006 is in the catalogue and nothing raises it: the
 checker does not compare a session average's call with the chart's interval.
 
+A bar whose price times volume overflows reads `none` and leaves both running
+totals as they were, so the next bar carries on from the last one. If a total
+itself overflows, the average reads `none` until the next session starts both
+totals again.
+
 ### `vwapAnchor(src, resetWhen)`
 
 The same average, restarted on any bar the condition is true.
@@ -769,6 +774,10 @@ Returns `series number`. Warmup: the first bar `resetWhen` is true.
 ```
 plot(vwapAnchor(hlc3, session.isFirstBar and date.dayOfWeek(time) == 1), "Weekly VWAP", aqua)
 ```
+
+Overflow behaves as in `vwap`: a bar whose price times volume overflows reads
+`none` and changes neither total, and an overflowed total reads `none` until the
+next bar `resetWhen` is true.
 
 ### `obv()`
 
@@ -789,6 +798,11 @@ Returns `series number`. Warmup: bar 0.
 ```
 plot(ad(), "Accumulation", lime)
 ```
+
+A bar whose high to low span overflows reads `none` and adds nothing, and the
+total carries on from the bar before it. A bar whose span is zero adds an exact
+0 and keeps its reading. `adOsc` and `cmf` use the same per-bar term, so `cmf`
+reads `none` while such a bar is in its window.
 
 ### `adOsc(fast = 3, slow = 10)`
 
@@ -829,6 +843,10 @@ Returns `series number`. Warmup: bar 1, seeded 0.
 ```
 plot(pvt(), "Price volume trend", olive)
 ```
+
+A bar whose price change, proportion or product with the volume overflows reads
+`none` and leaves the total as it was, so the next bar carries on from it. A
+total that itself overflows reads `none` from then on.
 
 ### `eom(len = 14)`
 

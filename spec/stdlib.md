@@ -3291,6 +3291,25 @@ absent bar produces an absent bar out and leaves the total where it was. It is
 neither reset nor fed a zero in place of the missing term, so a gap costs the
 reading the bars it covers and nothing after them.
 
+**A term that overflows is an absent term, and an absent term leaves the total
+unchanged.** Each operation that forms a bar's term is checked where it rounds,
+as `compiled-program.md` section 3.1 requires, and a result there that is not
+finite makes the whole term absent: the change or the proportion of `pvt`, the
+product `src * volume` of `vwap`, the span of `ad` and `cmf`, as much as the
+product each term ends with. Such a bar is an absent bar in the sense of the
+paragraph above. Its reading is absent and every total its term would have fed
+stays exactly where it was, including a total that would have taken only the
+bar's volume, so the overflow costs that one bar and nothing after it. It is a
+missing input under 20.2.2, not an overflow inside the total.
+
+**A total that overflows is kept.** A finite term can still carry a total past
+the largest finite number. The total then holds what the arithmetic produced,
+its reading is absent, and so is any reading divided by it, rather than the zero
+a finite number over an infinite one would give. Later terms do not bring it
+back. Only what starts the total again does: the anchor of `vwapAnchor`, a new
+session for `vwap`, or a restored checkpoint. This is the rule 20.2.2 gives a
+seeded recurrence whose running value overflows, applied to a running total.
+
 **`vwap(src)`** and **`vwapAnchor(src, resetWhen)`** are one calculation. Both
 totals are reset to zero on an anchor bar, before that bar's own term is added,
 so the anchor bar is the first bar of the new average rather than the last bar of
@@ -3316,8 +3335,10 @@ term = (((close - low) - (high - close)) / span) * volume
 
 The two bracketed differences are formed first and subtracted, then divided by
 the span, then multiplied by the volume. A bar whose span is not above zero
-contributes an exact 0 rather than ending the total. `ad` is the running total of
-that term. `cmf` is the window sum of the term divided by the window sum of the
+contributes an exact 0 rather than ending the total. A span that overflows is not
+such a bar: it is absent, and the term with it, because dividing by the raw
+infinity would give an exact 0 for a bar whose position was never computed. `ad`
+is the running total of that term. `cmf` is the window sum of the term divided by the window sum of the
 volume, each the fresh sum of 20.2.1.
 
 **`adOsc(fast, slow)`** is the fast exponential mean of the running total less
@@ -3333,6 +3354,11 @@ total = total + ((close - previousClose) / previousClose) * volume
 The proportion is formed and rounded before it meets the volume. The first bar
 has no change behind it and is absent, and the second already carries its own
 term on top of the zero the total started at.
+
+Closes of 1, 1e308, -1e308, 2 and 3 on a volume of 1 read `none`, 1e308, `none`,
+1e308 and 1e308. The third bar's change overflows, so its term is absent and the
+total stays at 1e308; the fourth adds `((2 + 1e308) / -1e308) * 1`, which is -1,
+and the total rounds back to 1e308, as it does after the fifth adds 0.5.
 
 **`mfi(len)`** is the strength reading of 20.4 computed on money flow, with
 window sums in place of the smoothing:
