@@ -1,0 +1,1 @@
+{"asserts":["values"],"category":"numerics","description":"Event ordinals can grow or shrink without discarding earlier true events or imposing a previous ordinal as warmup.","id":"math/varying-event-occurrence","languageVersion":1,"profile":"core"}

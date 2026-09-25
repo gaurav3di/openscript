@@ -612,6 +612,7 @@ identifier rather than one diagnostic having two proofs.
 | Growing finite windows | Earlier contributions remain available after a larger length is requested | `implemented` | `stdlib.md` 2.5, `stdlib.md` 20.2.1 | `math/varying-window-growth` |
 | Changing window readiness | Largest observed length sets readiness and current length selects values | `implemented` | `stdlib.md` 2.5 | `math/varying-window-readiness` |
 | Changing distance readiness | Earlier longer distance requests still govern readiness after a shorter request | `implemented` | `stdlib.md` 2.5 | `math/varying-distance-readiness` |
+| Changing event occurrence | A current event ordinal selects retained true events without a previous-ordinal warmup | `implemented` | `stdlib.md` 9 | `math/varying-event-occurrence` |
 | Independent extreme ages | A hole in one source does not suppress the other source's known extreme age | `implemented` | `stdlib.md` 4, `stdlib.md` 20.3 | `math/independent-extreme-ages` |
 | Complete stop seed | Both extremes and close of both seed bars must be present | `implemented` | `stdlib.md` 20.3 | `math/complete-stop-seed` |
 | Skipped midpoint state | An absent midpoint preserves band state and its last accepted close | `implemented` | `stdlib.md` 20.3 | `math/skipped-band-midpoint` |
