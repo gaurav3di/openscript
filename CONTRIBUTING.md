@@ -1,7 +1,8 @@
 # Contributing
 
 Thanks for looking. This is early, so the most valuable contributions right now
-are to the specification rather than to code.
+are to the specification rather than to code. Everyone taking part follows the
+[code of conduct](CODE_OF_CONDUCT.md).
 
 ## The rules that are not negotiable
 
