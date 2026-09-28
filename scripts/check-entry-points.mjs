@@ -2,7 +2,7 @@
  * Entry point check: every door the package declares opens, from an install that
  * holds nothing but the manifest and the built output.
  *
- * `README.md` says of the export map that its entries resolve "from an install
+ * `docs/integrating/architecture.md` says of the export map that its entries resolve "from an install
  * holding nothing but the manifest and the built output". That was a sentence in
  * a document, which is worth the attention of whoever reads it next, and there
  * are three ways for it to stop being true without anybody noticing here:

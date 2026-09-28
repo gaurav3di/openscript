@@ -1,7 +1,8 @@
 # Contributing
 
-Thanks for looking. This is early, so the most valuable contributions right now
-are to the specification rather than to code. Everyone taking part follows the
+Thanks for looking. A bug report with the script and the bars that show the
+problem, a correction to a page, a new example, and a change to the specification
+or the code are all welcome. Everyone taking part follows the
 [code of conduct](CODE_OF_CONDUCT.md).
 
 ## The rules that are not negotiable

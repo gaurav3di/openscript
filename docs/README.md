@@ -421,7 +421,7 @@ first bar, stop guessing and open `stdlib.md`. Every entry states it.
 
 ## See also
 
-- [../README.md](../README.md) for what OpenScript is and why it exists
+- [../README.md](../README.md) for what OpenScript is, with a first indicator and a first strategy
 - [../ROADMAP.md](../ROADMAP.md) for what is built, what is being built, and in what order
 - [../spec/README.md](../spec/README.md) for how the specification documents fit together
 - [../examples/README.md](../examples/README.md) for twelve complete scripts and what each one proves
@@ -433,6 +433,7 @@ For a broker, an exchange or any platform that wants its traders writing scripts
 What you get, what you supply, and the three routes to adopting it.
 
 - [integrating/README.md](./integrating/README.md) - which route fits you
+- [integrating/architecture.md](./integrating/architecture.md) - how OpenScript is built, why it exists, and what is guaranteed and checked on every build
 - [integrating/running-the-engine.md](./integrating/running-the-engine.md) - install it and implement the host interface
 - [integrating/your-own-engine.md](./integrating/your-own-engine.md) - implement the format in your own language
 - [integrating/the-python-engine.md](./integrating/the-python-engine.md) - the second engine in this repository: what is in it, how to run it, what refuses bad code in it
