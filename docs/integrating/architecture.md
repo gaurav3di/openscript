@@ -71,7 +71,7 @@ first thing a stranger reads:
   writes the files a suite runs from straight out of a record, which is where the
   strategy cases under [`cases/`](../../cases) came from.
 
-  There are 126 cases now: 72 in the `core` profile, 46 in `chart` and 8 in
+  There are 127 cases now: 72 in the `core` profile, 47 in `chart` and 8 in
   `strategy`. They assert eight of the channels section 4 of
   [`spec/conformance.md`](../../spec/conformance.md) defines: diagnostics, a value
   per bar per plot, the log, drawing objects, grid cells, orders, trades and the
@@ -80,7 +80,7 @@ first thing a stranger reads:
   `numerics` categories, which are the reason the suite exists, now hold real
   cases, each with expected values computed independently of both engines.
 
-  `npm run suite:agree` reports 107 pass and 19 skipped of 126 between the two
+  `npm run suite:agree` reports 108 pass and 19 skipped of 127 between the two
   engines, exactly, the skips being the compiler-diagnostic cases the Python
   engine rightly has no compiler for. The two engines hold the same 251 library
   entries, which a check asks each of them for on every build. What that run

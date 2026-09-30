@@ -43,6 +43,41 @@ test('a developing read carries no warning of its own', () => {
   );
 });
 
+/**
+ * The mode written in its place rather than by its label.
+ *
+ * `language.md` 11.2 fills parameters from the left, and `stdlib.md` 15.1 puts
+ * `mode` third in `req.timeframe` and fifth in `req.symbol`, so a positional
+ * mode is the same argument as a labelled one. Catches a checker that looks for
+ * the label alone: it read `req.timeframe("1D", close, "lookahead")` as the
+ * default, so the study ran confirmed, carried no OS8005 and was not marked as
+ * repainting, while its source said lookahead on the line. The last read below
+ * catches the opposite mistake, a fix that took any argument after the
+ * expression as the mode: `req.symbol`'s fourth is the exchange.
+ */
+test('a mode written positionally is the mode the read runs in', () => {
+  const ahead = 'bias = req.timeframe("1D", close, "lookahead")\nplot(bias, "B")';
+  assert.deepEqual(codes(ahead), ['OS8005']);
+  assert.deepEqual(valuesFor(ahead, 'OS8005'), { mode: 'lookahead' });
+  const checked = checkBody(ahead).script;
+  assert.equal(checked.requests[0]?.mode, 'lookahead');
+  assert.equal(checked.repaints, true);
+
+  const forming = checkBody('bias = req.timeframe("1D", close, "developing")\nplot(bias, "B")');
+  assert.deepEqual(forming.diagnostics.map((one) => one.code), []);
+  assert.equal(forming.script.requests[0]?.mode, 'developing');
+  assert.equal(forming.script.repaints, false);
+
+  const other = 'o = req.symbol("AAA", "1D", close, "EXCHANGE", "lookahead")\nplot(o, "O")';
+  assert.deepEqual(codes(other), ['OS8005']);
+  assert.equal(checkBody(other).script.requests[0]?.mode, 'lookahead');
+  assert.equal(checkBody(other).script.repaints, true);
+
+  const venue = checkBody('o = req.symbol("AAA", "1D", close, "lookahead")\nplot(o, "O")');
+  assert.deepEqual(venue.diagnostics.map((one) => one.code), []);
+  assert.equal(venue.script.requests[0]?.mode, 'confirmed', 'the fourth is the exchange');
+});
+
 // Catches a checker that reads onUnconfirmed off nothing, which would let the
 // one combination that repaints the confirmed history through unmarked.
 test('a read in a file that acts on a moving bar is warned about', () => {
