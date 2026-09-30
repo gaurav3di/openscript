@@ -30,6 +30,17 @@
  * reads the run's own string channel there, at the one bar it is asked about,
  * and the alert a user receives carries the numbers the script put in it.
  *
+ * **The bar it is asked about is the run's, found through the table.** The
+ * index the chart hands the hook is a position in the table it holds, and that
+ * is not always a position in the run: a chart that transforms its series into
+ * elements that are not one per bar can run a study on the host's bars and read
+ * the table onto its elements, so element 7 may hold bar 12's values. The
+ * condition is a column and is read across with the rest; the message channel
+ * is not, so the table also carries each row's bar index (`columns.ts`), which
+ * the chart reads across like any other column, and the message is read at the
+ * bar that names. On a chart that draws the bars it computed on, which is every
+ * chart before that option existed, the column is the index itself.
+ *
  * A message the bar published nothing for falls back to the declared title,
  * which is what the chart itself does for an entry that states no message. That
  * is the honest answer for the one case that reaches it: `message` is a required
@@ -58,6 +69,9 @@ import type { ChartAlertContext, ChartAlertSpec } from './surfaces.js';
 export function alertKey(index: number): string {
   return `openscript:alert:${index}`;
 }
+
+/** The key each row's bar in the run travels under, for the message to be read at. */
+const BAR_KEY = 'openscript:bar';
 
 export interface AlertBuild {
   readonly alerts: readonly ChartAlertSpec[];
@@ -101,12 +115,25 @@ export function buildAlerts(program: CompiledProgram, lookup: InputLookup): Aler
         ? {}
         : {
             message: (ctx: ChartAlertContext): string =>
-              messageAt(producedFor(ctx.settings).messages[index], ctx.index) ?? title,
+              messageAt(producedFor(ctx.settings).messages[index], barOf(ctx)) ?? title,
           }),
       when: (ctx: ChartAlertContext): boolean => ctx.values[key]?.[ctx.index] === 1,
     });
   }
+  // One column for every message, and none for a study with no message to read.
+  if (alerts.some((one) => one.message !== undefined)) columns.push({ key: BAR_KEY, part: 'bar' });
   return { alerts, columns };
+}
+
+/**
+ * The bar of the run the chart's row came from.
+ *
+ * A table without the column is one a host built itself rather than one this
+ * descriptor returned, and its rows are the run's bars as they stand.
+ */
+function barOf(ctx: ChartAlertContext): number {
+  const at = ctx.values[BAR_KEY]?.[ctx.index];
+  return typeof at === 'number' ? at : ctx.index;
 }
 
 /** The message one bar published, or nothing where it published none. */
