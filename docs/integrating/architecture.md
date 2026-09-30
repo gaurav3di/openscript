@@ -17,7 +17,7 @@ execution; see [Phase 6](../../ROADMAP.md#phase-6-the-second-engine-and-live-run
 
 ## Where it stands
 
-**`0.8.0` runs studies, backtests strategies, draws a strategy on a chart,
+**`0.8.1` runs studies, backtests strategies, draws a strategy on a chart,
 imports scripts from another chart language, and ships the language
 intelligence an editor needs.** The Python engine is on PyPI
 as `openscript`, at the same version, and the two are released together.
@@ -92,7 +92,7 @@ first thing a stranger reads:
   corroborating implementation, not a result. That is why no conformance badge
   is shown here, though `npm run badge` will make one for an engine that passes.
 
-The version is `0.8.0` rather than `1.0` because of that list. The studies
+The version is `0.8.1` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The
