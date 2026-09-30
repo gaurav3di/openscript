@@ -42,7 +42,7 @@ formatted label.
 | The timeframe must be a form the language knows | OS6001 at compile time, naming the value |
 | It must not be finer than the chart's interval | OS6002, naming both intervals |
 | An intraday request must be a whole multiple of the chart's interval | OS6015, suggesting the nearest interval above that is |
-| Day, week and month requests are folded by the calendar and the session | Exempt from the multiple rule |
+| Day, week and month requests are folded by the calendar, keyed by the civil date in the instrument's timezone | Exempt from the multiple rule |
 | The symbol and timeframe of a request are fixed before bar 0 | OS6013 if they change mid-run |
 | The host must be able to serve the interval for this instrument | OS6014, listing the intervals it does serve |
 
@@ -383,6 +383,6 @@ read with `bar.isConfirmed`.
   interval, and converting a period in time into bars
 - [other-instruments.md](./other-instruments.md) for reading another
   instrument's bars, which uses the same modes and adds a fetch
-- [sessions-and-time.md](./sessions-and-time.md) for why a daily fold follows
-  the session rather than midnight
+- [sessions-and-time.md](./sessions-and-time.md) for when a daily fold, which
+  follows the civil date, is the session and when midnight splits one
 - [../README.md](../README.md) for the rest of the documentation
