@@ -7,6 +7,56 @@ nothing, fails the build before it can become permanent.
 
 ---
 
+## 0.8.1
+
+Two fixes and a documentation correction. No compiled-format change: the format
+stays 1.1, and every shipped example compiles to the same bytes as with 0.8.0.
+
+The chart adapter now reads an alert's message at the bar the chart judged. From
+its version 2.6.0 the chart library can run a study on a transformed chart over
+the bars the host feeds rather than over the elements it draws, and it reads the
+study's columns onto those elements, each at the bar the element was completed
+on. The alert's condition is a column and was read at the right bar. Its message
+was not: the adapter read it at the element's position in the underlying run,
+so on a transform that is not one element per bar (Renko, range bars, line
+break, point and figure, Kagi) a notification could carry another bar's text or
+fall back to the alert's title. The calculation now returns one more column,
+`openscript:bar`, holding each row's bar index in the run, and the message is
+read at the bar that column names. The column is written only for a study that
+declares an alert. On every other chart, including every chart library before
+2.6.0, a study left on the chart's own bars and a transform that keeps one
+element per bar, the column is the row's own index and nothing a study draws or
+announces changes. A host that lists the keys of the values table sees the new
+key beside the `openscript:alert:` ones.
+
+`req.timeframe` and `req.symbol` now read a mode written positionally. The mode
+is the third argument of `req.timeframe` and the fifth of `req.symbol`, and it
+was recognised only after `mode =`. A positional mode was accepted and ignored,
+so `req.timeframe("1D", close, "lookahead")` ran as `"confirmed"`, carried no
+OS8005 and was not marked as repainting, and a positional `"developing"` ran
+confirmed too. A script that wrote its mode positionally now runs in the mode it
+wrote, so its values change, and a positional `"lookahead"` now carries OS8005
+and the repaint mark. A positional mode that is not written out as one of the
+three words, one taken from an input for instance, is refused with OS3003, as a
+labelled one already was. The mode is settled by the compiler, so a program
+compiled by 0.8.0 and stored keeps the mode it was compiled with in either
+engine: recompile a stored program whose source writes a mode positionally. The
+new conformance case `req/positional-mode` pins it, and both engines agree on
+all 108 cases they run.
+
+The documentation said a `"1D"` higher timeframe read folds by the session. It
+folds by the civil date in the instrument's timezone, as `compiled-program.md`
+2.16.2 specifies and both engines have always done. For a session that stays
+inside one date the two are the same; an evening session that runs past
+midnight is split at midnight, and its bars after midnight join the next date's
+bucket. The pages on sessions, timeframes and higher timeframes, and the cause
+of OS6015, now say so. No behaviour changes.
+
+The Python engine's code is unchanged. The chart adapter ships only in the npm
+package, and the mode fix is in the compiler. The Python package moves to 0.8.1
+because the two packages carry one version and ship as one release. Upgrade both
+together.
+
 ## 0.8.0
 
 The chart adapter now draws two things it used to refuse, on a chart that can

@@ -71,10 +71,13 @@ instruments and they do not line up on many others.
 | A weekend | None | Two |
 
 Everything in the language that resets "per day" resets per **session**, for
-this reason. `vwap` restarts when the session opens, not at midnight, because
-the session is what the number means. A `"1D"` higher timeframe read folds by
-the session rather than by the clock. A strategy's `closeOnSessionEnd` flattens
-at the session close.
+this reason, with one exception. `vwap` restarts when the session opens, not at
+midnight, because the session is what the number means. A strategy's
+`closeOnSessionEnd` flattens at the session close. The exception is a `"1D"`
+higher timeframe read, which folds by the date: its buckets are keyed by the
+civil date in the instrument's timezone. For a session that stays inside one
+date that is the session. An evening session that runs past midnight is split
+at midnight, and its bars after midnight join the next date's bucket.
 
 Write your own state the same way:
 
@@ -318,7 +321,8 @@ That one sentence has consequences worth spelling out.
 - **Never count calendar days to find a previous session.** "Five days ago" is
   four sessions in a normal week with one holiday, and it is not a fixed number
   of bars either. Use a confirmed `"1D"` higher timeframe read with history taken
-  inside the expression, which counts daily bars and therefore counts sessions.
+  inside the expression, which counts daily bars and so counts trading dates: one
+  per session for a session that stays inside one date.
 - **Never assume `time - time[1]` is one interval.** It is one interval inside a
   session, an overnight gap at the open, a weekend on the first session of the
   week, and several days after a holiday.
@@ -407,7 +411,7 @@ as the one exception and why the conformance suite fixes its value.
 - [timeframes.md](./timeframes.md) for intervals, and for measuring a window in
   milliseconds rather than in bars
 - [higher-timeframes.md](./higher-timeframes.md) for daily and weekly reads,
-  which fold by the session rather than by the clock
+  which fold by the civil date rather than by the clock
 - [other-instruments.md](./other-instruments.md) for what happens when two
   instruments keep different hours or different holidays
 - [repainting.md](./repainting.md) for acting on the session's last bar without

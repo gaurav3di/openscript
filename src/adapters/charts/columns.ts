@@ -31,11 +31,21 @@ import type { Columns } from './run.js';
  */
 export type ColumnPart = 'value' | 'rgb' | 'alpha' | 'flag';
 
-export interface ColumnSpec {
-  readonly key: string;
-  readonly channel: number;
-  readonly part: ColumnPart;
-}
+/**
+ * One column of the table: a part of a channel, or the bar each row came from.
+ *
+ * The second kind reads no channel. It holds the index of the bar in the run
+ * the calculation was handed, and it exists because a chart may read the table
+ * onto bars other than those: a chart that transforms its series and runs a
+ * study on the bars the host fed it reads each column at the source bar every
+ * drawn element was completed on, and then hands each hook the element's index.
+ * A hook that reads a column is right by construction. A hook that reads
+ * something the run left elsewhere, indexed by the run's own bars, finds the
+ * bar through this column, which the chart reads across like any other.
+ */
+export type ColumnSpec =
+  | { readonly key: string; readonly channel: number; readonly part: ColumnPart }
+  | { readonly key: string; readonly part: 'bar' };
 
 /** The key a level's price column travels under. */
 export function levelKey(index: number): string {
@@ -86,10 +96,16 @@ export function valuesFrom(
 ): ChartValues {
   const out: Record<string, readonly (number | null)[]> = {};
   for (const spec of specs) {
-    const column = columns[spec.channel] ?? [];
     const built = new Array<number | null>(Math.max(0, to - from));
-    for (let bar = from; bar < to; bar += 1) {
-      built[bar - from] = partOf(column[bar] ?? null, spec.part);
+    if (spec.part === 'bar') {
+      // The bar's own index, never its offset into the tail: the chart splices
+      // a tail by position, so a row carries the same number either way.
+      for (let bar = from; bar < to; bar += 1) built[bar - from] = bar;
+    } else {
+      const column = columns[spec.channel] ?? [];
+      for (let bar = from; bar < to; bar += 1) {
+        built[bar - from] = partOf(column[bar] ?? null, spec.part);
+      }
     }
     out[spec.key] = built;
   }

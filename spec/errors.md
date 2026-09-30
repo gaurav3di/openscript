@@ -3519,7 +3519,7 @@ Severity error. Stage host. Since language version 1. Reference language.md 15.2
 - `{chart}` is the chart's interval.
 - `{suggestion}` is the nearest interval above the requested one that is a whole multiple of the chart's.
 
-**Cause.** An intraday request is folded by counting chart bars, so its interval must be a whole multiple of the chart's. Day, week and month requests are folded by the calendar and the session instead, so they are exempt from this rule.
+**Cause.** An intraday request is folded by counting chart bars, so its interval must be a whole multiple of the chart's. Day, week and month requests are folded by the calendar instead, keyed by the civil date in the instrument's timezone, so they are exempt from this rule.
 
 **Fix.** Request a multiple of {chart}, for example {suggestion}.
 

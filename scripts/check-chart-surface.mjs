@@ -49,9 +49,10 @@
  *    from it.
  *
  * The end of it is a handful of direct readings: the plot columns, the grid's
- * cells, the markers, the levels and the alert message a run computed. Those
- * are there because a field recorded as carried is still only a claim until
- * something reads the value out of a descriptor that was actually run.
+ * cells, the markers, the levels and the alert message a run computed, read at
+ * its own bar and through a table sampled onto other bars. Those are there
+ * because a field recorded as carried is still only a claim until something
+ * reads the value out of a descriptor that was actually run.
  *
  * Run: node scripts/check-chart-surface.mjs [--list]
  */
@@ -327,6 +328,12 @@ for (const spec of descriptor.alerts ?? []) {
         'computed on that bar.',
     );
   }
+  // A chart computing on bars it does not draw reads the table onto its elements,
+  // so the last bar that fired is read here as element 0 of a table sampled so.
+  const last = fired[fired.length - 1];
+  const across = Object.fromEntries(Object.entries(values).map(([key, column]) => [key, [column[last] ?? null]]));
+  const sampled = spec.message({ bars: [data[last]], values: across, settings, index: 0 });
+  reading(`alert ${spec.id} fired on bar ${last}, read from a table sampled onto one element`, sampled, spec.message({ ...surface, index: last }));
 }
 
 /**

@@ -17,7 +17,7 @@ execution; see [Phase 6](../../ROADMAP.md#phase-6-the-second-engine-and-live-run
 
 ## Where it stands
 
-**`0.8.0` runs studies, backtests strategies, draws a strategy on a chart,
+**`0.8.1` runs studies, backtests strategies, draws a strategy on a chart,
 imports scripts from another chart language, and ships the language
 intelligence an editor needs.** The Python engine is on PyPI
 as `openscript`, at the same version, and the two are released together.
@@ -71,7 +71,7 @@ first thing a stranger reads:
   writes the files a suite runs from straight out of a record, which is where the
   strategy cases under [`cases/`](../../cases) came from.
 
-  There are 126 cases now: 72 in the `core` profile, 46 in `chart` and 8 in
+  There are 127 cases now: 72 in the `core` profile, 47 in `chart` and 8 in
   `strategy`. They assert eight of the channels section 4 of
   [`spec/conformance.md`](../../spec/conformance.md) defines: diagnostics, a value
   per bar per plot, the log, drawing objects, grid cells, orders, trades and the
@@ -80,7 +80,7 @@ first thing a stranger reads:
   `numerics` categories, which are the reason the suite exists, now hold real
   cases, each with expected values computed independently of both engines.
 
-  `npm run suite:agree` reports 107 pass and 19 skipped of 126 between the two
+  `npm run suite:agree` reports 108 pass and 19 skipped of 127 between the two
   engines, exactly, the skips being the compiler-diagnostic cases the Python
   engine rightly has no compiler for. The two engines hold the same 251 library
   entries, which a check asks each of them for on every build. What that run
@@ -92,7 +92,7 @@ first thing a stranger reads:
   corroborating implementation, not a result. That is why no conformance badge
   is shown here, though `npm run badge` will make one for an engine that passes.
 
-The version is `0.8.0` rather than `1.0` because of that list. The studies
+The version is `0.8.1` rather than `1.0` because of that list. The studies
 surface is the part that is finished, and it is the part to build on.
 
 `ROADMAP.md` says what each phase owes before it is allowed to finish. The

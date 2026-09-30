@@ -28,19 +28,26 @@ not finished.
 ### Clock intervals and calendar intervals
 
 Minutes and hours are measured by the clock. Days, weeks and months are measured
-by the calendar and by the instrument's session.
+by the calendar, in the instrument's timezone.
 
 That difference is not a technicality. A daily bar is not 1440 minutes of
-trading: it is one session, which may be 375 minutes, or 390, or a half day
-before a holiday. A monthly bar is 28, 29, 30 or 31 days depending on which
-month it is. There is no constant you can multiply to turn one into the other,
-so the language does not pretend there is one: `chart.intervalMinutes` is a
-number on an intraday chart and is absent on a daily, weekly or monthly chart.
+trading: on an instrument whose session stays inside one date it is that
+session, which may be 375 minutes, or 390, or a half day before a holiday. A
+monthly bar is 28, 29, 30 or 31 days depending on which month it is. There is
+no constant you can multiply to turn one into the other, so the language does
+not pretend there is one: `chart.intervalMinutes` is a number on an intraday
+chart and is absent on a daily, weekly or monthly chart.
+
+When a script folds the chart's bars into days itself, with a `"1D"` higher
+timeframe read, a day is a civil date in the instrument's timezone. That is the
+session for a session that stays inside one date. An evening session that runs
+past midnight is split at midnight, and its bars after midnight are folded into
+the next date's day.
 
 | Interval kind | Measured by | `chart.intervalMinutes` | `chart.isIntraday` |
 |---|---|---|---|
 | `"1m"` to `"4h"` and any minute count | The clock | The count in minutes | `true` |
-| `"1D"` | The session | absent | `false` |
+| `"1D"` | The civil date | absent | `false` |
 | `"1W"`, `"1M"` | The calendar | absent | `false` |
 
 ## How a timeframe is written
